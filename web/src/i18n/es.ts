@@ -741,6 +741,8 @@ export const es: Record<string, string> = {
   "person": "persona",
   "done": "hecho",
   "Show older actions": "Mostrar acciones anteriores",
+  "Copied ✓": "Copiado ✓",
+  "Could not copy: select it and copy by hand": "No se pudo copiar: selecciónelo y cópielo a mano",
   "Waiting for your approval": "Esperan su aprobación",
   "{agent} asks to roll {app} back to release #{n}": "{agent} pide revertir {app} a la versión n.º {n}",
   "Approved: {result}": "Aprobado: {result}",
