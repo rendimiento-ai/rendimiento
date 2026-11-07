@@ -108,6 +108,11 @@ type Server struct {
 	Plataforma Plataforma
 	// Encargos adds the encargo tools: work asked of agents (nil: off).
 	Encargos Encargos
+	// Produccion adds produccion_pedir and produccion_esperar: an agent asks
+	// for a change to production, a person decides (nil: off).
+	Produccion Produccion
+	// PausaAprobacion is how often produccion_esperar looks (2s; tests shorten it).
+	PausaAprobacion time.Duration
 	// Lang is the language of the tools' descriptions and the instructions
 	// when the agent's /mcp address does not ask (?lang=en or ?lang=es):
 	// "en", or Spanish by default. Tool names and the answers' fields stay
@@ -399,6 +404,9 @@ func (s *Server) newServer(write, ingles bool) *mcp.Server {
 	}
 	if s.Encargos != nil {
 		s.addEncargoTools(srv, write)
+	}
+	if s.Produccion != nil && s.Plataforma != nil {
+		s.addProduccionTools(srv, write)
 	}
 	return m
 }

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -114,4 +115,44 @@ func (s *Server) verifyBitacora(w http.ResponseWriter, r *http.Request, _ string
 		return
 	}
 	writeJSON(w, v)
+}
+
+// listAprobaciones is the organization's requests from agents: those still
+// waiting with ?pendientes=1, else the last 50.
+func (s *Server) listAprobaciones(w http.ResponseWriter, r *http.Request, _ string) {
+	rows, err := s.Store.ListarAprobaciones(r.Context(), orgOf(r), r.URL.Query().Get("pendientes") == "1")
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, rows)
+}
+
+// decidirAprobacion is an administrator approving or rejecting an agent's
+// request ({"aprobar": true, "comentario": "…"}); approved, it is done at
+// once in their name.
+func (s *Server) decidirAprobacion(w http.ResponseWriter, r *http.Request, login string) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		httpError(w, http.StatusBadRequest, "bad request id")
+		return
+	}
+	var req struct {
+		Aprobar    bool   `json:"aprobar"`
+		Comentario string `json:"comentario"`
+	}
+	if !readJSON(w, r, &req) {
+		return
+	}
+	a, err := s.Platform.DecidirAprobacion(r.Context(), orgOf(r), id, req.Aprobar, login, req.Comentario)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		httpError(w, http.StatusNotFound, "no such request")
+	case errors.Is(err, store.ErrNoPendiente):
+		httpError(w, http.StatusConflict, err.Error())
+	case err != nil:
+		httpError(w, http.StatusInternalServerError, err.Error())
+	default:
+		writeJSON(w, a)
+	}
 }

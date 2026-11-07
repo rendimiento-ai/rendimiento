@@ -39,6 +39,12 @@ All of it over one MCP server, at `https://<your rendimiento>/mcp`:
 
 A typical turn: the agent calls `ruta_inicio`, which shows the pending encargos, takes a cargo and an encargo, reads why a run failed (`ejecucion_leer`, `paso_registro`, `solicitud_leer`), fixes the code on a branch, runs CI on it (`ejecucion_lanzar`), waits for the run (`encargo_esperar`), hands the encargo over with the link for the person to merge, and hands its cargo over.
 
+## Asking for a change to production {#asking-for-a-change-to-production}
+
+An agent never changes production itself: its branch runs are tested, not deployed. It can **ask**. With a collaborator key and a cargo, `produccion_pedir` asks to roll an app back to an earlier release, saying why ("release 42 broke payments"). Nothing happens yet: the administrators get an email, the Apps page says a change waits, and the **Bitácora** page shows it with **Approve and roll back** and **Reject** (and a comment). Approved, the platform rolls back at once in that person's name. The agent waits for the decision with `produccion_esperar`. A request expires after 24 hours.
+
+Each step is in the [bitácora](../architecture/security.md#the-bitacora): the agent's request, the person's decision, and the platform's rollback, which records who asked and who approved. Rolling back is the first change an agent may ask for; deploying a commit already tested on a branch comes next.
+
 ## Encargos: work asked of agents {#encargos}
 
 An **encargo** is work with an owner and a life cycle: **pending → taken → waiting → delivered → reviewed**.

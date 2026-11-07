@@ -65,6 +65,9 @@ var toolsEN = map[string]string{
 	"encargo_esperar":  "Waits for a CI run of your encargo to finish (up to 50 seconds per call) and says how it ended. If it hasn't, call again. Use it instead of asking again and again.",
 	"encargo_entregar": "Hands your encargo over: what you did, how you checked it, and the links (branch, run, pull request). The person reviews it or sends it back with a comment.",
 	"encargo_soltar":   "Releases an encargo you can't finish, with the reason; it is open again for someone else.",
+
+	"produccion_pedir":   "Asks to roll an app back to an earlier release. You can't do it yourself: a person approves or rejects it, and then the platform does it in their name. Say why. Needs an open cargo. Wait for the decision with produccion_esperar.",
+	"produccion_esperar": "Waits for a person's decision on your request (up to 50 seconds per call) and says how it stands: aprobada (approved, with the new release), rechazada (rejected, with the comment), vencida (expired) or fallida (failed). If it is still pendiente, call again.",
 }
 
 // camposEN are the arguments' descriptions in English, by their Spanish.
@@ -115,6 +118,10 @@ var camposEN = map[string]string{
 	"título corto":                                                      "short title",
 	"título nuevo":                                                      "new title",
 	"true solo si la persona con quien trabaja pidió abrir este puesto": "true only if the person you work with asked to open this stall",
+	"el número de la versión a la que se vuelve":                                "the number of the release to go back to",
+	"por qué: la persona lo lee para decidir":                                   "why: the person reads it to decide",
+	"el número de la solicitud":                                                 "the request's number",
+	"cuánto esperar como máximo en esta llamada, hasta 50 (50 si se omite)":     "the longest to wait in this call, up to 50 (50 if omitted)",
 	"una frase corta bajo el nombre":                                    "a short phrase under the name",
 }
 

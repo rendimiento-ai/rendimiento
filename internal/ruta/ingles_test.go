@@ -25,7 +25,8 @@ func TestIngles(t *testing.T) {
 	}
 	m.keys[h] = store.AgentKey{ID: 1, Name: "agent", Role: store.RoleCollaborator, ExpiresAt: time.Now().Add(time.Hour)}
 	s := &Server{Store: m, Plataforma: &fakePlataforma{runs: map[int64]*store.Run{}},
-		Encargos: &fakeEncargos{keys: map[int64]string{}}, Mercado: &fakeMercado{paginas: map[string]mercado.Pagina{}}}
+		Encargos: &fakeEncargos{keys: map[int64]string{}}, Mercado: &fakeMercado{paginas: map[string]mercado.Pagina{}},
+		Produccion: &fakeProduccion{todas: map[int64]store.Aprobacion{}}}
 	srv := httptest.NewServer(s.Handler())
 	defer srv.Close()
 	if len(s.faltan) > 0 {
@@ -43,7 +44,7 @@ func TestIngles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(tools.Tools) < 26 {
+		if len(tools.Tools) < 28 {
 			t.Fatalf("%s: %d tools", tc.lang, len(tools.Tools))
 		}
 		for _, tool := range tools.Tools {

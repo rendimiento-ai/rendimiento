@@ -32,6 +32,7 @@ import (
 
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
 	"github.com/rendimiento-ai/rendimiento/internal/analytics"
+	"github.com/rendimiento-ai/rendimiento/internal/destino"
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
 	"github.com/rendimiento-ai/rendimiento/internal/events"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
@@ -1340,5 +1341,115 @@ func TestEveryChangeIsInTheBitacora(t *testing.T) {
 	}
 	if r, body := e.do(t, "GET", "/api/bitacora/verificar", "", me, nil); r.StatusCode != 200 || strings.Contains(body, "rotaEn") || !strings.Contains(body, `"revisados"`) {
 		t.Fatalf("verify: %d %s", r.StatusCode, body)
+	}
+}
+
+// destinoDeAcuerdo runs every release it is given (and remembers it).
+type destinoDeAcuerdo struct {
+	destino.Ninguno
+	aplicadas []int64
+}
+
+func (d *destinoDeAcuerdo) Aplicar(_ context.Context, _ string, rel *store.Release) error {
+	d.aplicadas = append(d.aplicadas, rel.Number)
+	return nil
+}
+
+// An agent asks to roll back; nothing happens until an administrator
+// approves; then the platform rolls back in their name, the request says
+// what came of it, and the bitácora has the platform's action with who
+// asked and who approved. A decided request cannot be decided again, a
+// rejected one does nothing, and another organization finds neither.
+func TestAprobaciones(t *testing.T) {
+	e := newEnv(t, false)
+	ctx := context.Background()
+	d := &destinoDeAcuerdo{}
+	e.s.Platform.Destino = d
+	sp := spec.Spec{Services: []spec.Service{{Name: "web", Port: 8080}}}
+	sp.Default()
+	app := &store.App{Name: "propinas", Repo: "p0dxD/propinas", DefaultBranch: "main", Spec: sp, OrgID: store.DefaultOrg}
+	if err := e.store.CreateApp(ctx, app); err != nil {
+		t.Fatal(err)
+	}
+	for n := int64(1); n <= 2; n++ {
+		if err := e.store.CreateRelease(ctx, &store.Release{AppID: app.ID, Number: n, SHA: fmt.Sprintf("sha%d", n), Images: map[string]string{"web": fmt.Sprintf("web@sha256:%d", n)}, Spec: sp}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	key := store.AgentKey{ID: 7, Name: "diagnosticador", OrgID: store.DefaultOrg}
+	if _, err := e.s.Platform.PedirReversion(ctx, app, 2, "ya corre", key); err == nil {
+		t.Fatal("asking for the release that runs already")
+	}
+	if _, err := e.s.Platform.PedirReversion(ctx, app, 1, "  ", key); err == nil {
+		t.Fatal("asking without saying why")
+	}
+	pedida, err := e.s.Platform.PedirReversion(ctx, app, 1, "la versión 2 rompió el pago", key)
+	if err != nil || pedida.Estado != store.AprobacionPendiente {
+		t.Fatalf("ask: %+v %v", pedida, err)
+	}
+	if len(d.aplicadas) != 0 {
+		t.Fatal("asking changed production")
+	}
+
+	me := e.session(t, "p0dxD")
+	if err := e.store.SetMember(ctx, store.DefaultOrg, "colabora", store.MemberCollaborator, "p0dxD"); err != nil {
+		t.Fatal(err)
+	}
+	colabora := e.session(t, "colabora")
+	if _, body := e.do(t, "GET", "/api/aprobaciones?pendientes=1", "", colabora, nil); !strings.Contains(body, `"motivo":"la versión 2 rompió el pago"`) {
+		t.Fatalf("a collaborator sees it waiting: %s", body)
+	}
+	path := fmt.Sprintf("/api/aprobaciones/%d/decidir", pedida.ID)
+	if r, _ := e.do(t, "POST", path, `{"aprobar":true}`, colabora, nil); r.StatusCode != 403 {
+		t.Fatalf("a collaborator approving: %d", r.StatusCode)
+	}
+
+	// Another organization's administrator finds nothing.
+	if _, err := e.store.CreateOrg(ctx, "otra", "Otra", "ana"); err != nil {
+		t.Fatal(err)
+	}
+	ana := e.session(t, "ana")
+	if r, _ := e.do(t, "POST", path, `{"aprobar":true}`, ana, nil); r.StatusCode != 404 {
+		t.Fatalf("another organization approving: %d", r.StatusCode)
+	}
+	if _, body := e.do(t, "GET", "/api/aprobaciones", "", ana, nil); strings.Contains(body, "propinas") {
+		t.Fatalf("another organization's list: %s", body)
+	}
+
+	r, body := e.do(t, "POST", path, `{"aprobar":true,"comentario":"adelante"}`, me, nil)
+	var hecha store.Aprobacion
+	if r.StatusCode != 200 || json.Unmarshal([]byte(body), &hecha) != nil || hecha.Estado != store.AprobacionAprobada ||
+		hecha.DecididaPor != "p0dxD" || hecha.Resultado != "release #3" {
+		t.Fatalf("approve: %d %s", r.StatusCode, body)
+	}
+	if len(d.aplicadas) != 1 || d.aplicadas[0] != 3 {
+		t.Fatalf("what ran: %v", d.aplicadas)
+	}
+	if rel, _ := e.store.LatestRelease(ctx, app.ID); rel.RollbackOf == nil || *rel.RollbackOf != 1 {
+		t.Fatalf("the new release: %+v", rel)
+	}
+	if r, _ := e.do(t, "POST", path, `{"aprobar":false}`, me, nil); r.StatusCode != 409 {
+		t.Fatalf("deciding twice: %d", r.StatusCode)
+	}
+	rows, _ := e.store.ListarBitacora(ctx, store.DefaultOrg, store.FiltroBitacora{Quien: "rendimiento"})
+	if len(rows) != 1 || rows[0].QuienTipo != store.QuienPlataforma || rows[0].Accion != store.AccionRevertir ||
+		rows[0].Detalle["pedida_por"] != "diagnosticador" || rows[0].Detalle["aprobada_por"] != "p0dxD" {
+		t.Fatalf("the platform's row: %+v", rows)
+	}
+	if rows, _ := e.store.ListarBitacora(ctx, store.DefaultOrg, store.FiltroBitacora{Accion: "decidir"}); len(rows) != 2 {
+		t.Fatalf("the person's decisions in the bitácora: %+v", rows)
+	}
+
+	// A rejected request does nothing.
+	otra, err := e.s.Platform.PedirReversion(ctx, app, 2, "volver a la 2", key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r, body := e.do(t, "POST", fmt.Sprintf("/api/aprobaciones/%d/decidir", otra.ID), `{"aprobar":false,"comentario":"no, la 3 está bien"}`, me, nil); r.StatusCode != 200 ||
+		!strings.Contains(body, `"estado":"rechazada"`) {
+		t.Fatalf("reject: %d %s", r.StatusCode, body)
+	}
+	if len(d.aplicadas) != 1 {
+		t.Fatalf("a rejection ran something: %v", d.aplicadas)
 	}
 }

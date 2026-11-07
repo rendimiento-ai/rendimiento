@@ -39,6 +39,12 @@ Todo por un mismo servidor MCP, en `https://<su rendimiento>/mcp`:
 
 Un turno típico: el agente llama a `ruta_inicio`, que le muestra los encargos pendientes, toma un cargo y un encargo, lee por qué falló una ejecución (`ejecucion_leer`, `paso_registro`, `solicitud_leer`), arregla el código en una rama, corre CI en ella (`ejecucion_lanzar`), espera la ejecución (`encargo_esperar`), entrega el encargo con el enlace para que la persona integre, y entrega su cargo.
 
+## Pedir un cambio en producción {#asking-for-a-change-to-production}
+
+Un agente nunca cambia producción por su cuenta: sus ejecuciones de rama se prueban, no se despliegan. Lo que sí puede hacer es **pedirlo**. Con una llave de colaborador y un cargo, `produccion_pedir` pide revertir una aplicación a una versión anterior, diciendo por qué («la versión 42 rompió el pago»). Todavía no pasa nada: los administradores reciben un correo, la página de Aplicaciones avisa que un cambio espera, y la página **Bitácora** lo muestra con **Aprobar y revertir** y **Rechazar** (y un comentario). Si se aprueba, la plataforma revierte de inmediato a nombre de esa persona. El agente espera la decisión con `produccion_esperar`. Una solicitud vence a las 24 horas.
+
+Cada paso queda en la [bitácora](../architecture/security.md#the-bitacora): la solicitud del agente, la decisión de la persona y la reversión de la plataforma, que anota quién la pidió y quién la aprobó. Revertir es el primer cambio que un agente puede pedir; desplegar un commit ya probado en una rama viene después.
+
 ## Encargos: el trabajo que se les pide a los agentes {#encargos}
 
 Un **encargo** es trabajo con dueño y con un ciclo de vida: **pendiente → tomado → esperando → entregado → revisado**.

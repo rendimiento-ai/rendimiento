@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, timeAgo, type BitacoraRow } from "../api";
 import { locale, t } from "../i18n";
 import { ErrorBox, usePoll } from "../components/ui";
+import { Aprobaciones } from "../components/aprobaciones";
 
 /** How an action ended, as a badge: HTTP 2xx and agents' "ok" are fine, 4xx a refusal, the rest a failure. */
 function resultado(r: string): { cls: string; label: string } {
@@ -56,6 +57,7 @@ export function Bitacora() {
     <>
       <h1>{t("Bitácora")}</h1>
       <p className="sub">{t("Every action here, by people and by agents: who did what, on what, and how it ended. Each row carries the fingerprint of the one before it, so a row changed or removed in the database shows.")}</p>
+      <Aprobaciones />
       <ErrorBox error={error ?? checkError} />
       {check && (
         <div className={`alert ${check.rotaEn ? "" : "info"}`} role="status">

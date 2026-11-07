@@ -313,6 +313,23 @@ export interface BitacoraRow {
   huella: string;
 }
 
+/** A change to production an agent asked for, and what a person decided (internal/store/aprobaciones.go). */
+export interface Aprobacion {
+  id: number;
+  app: string;
+  accion: "revertir";
+  version: number;
+  motivo: string;
+  pedidaPor: string;
+  estado: "pendiente" | "aprobada" | "rechazada" | "vencida" | "fallida";
+  decididaPor?: string;
+  comentario?: string;
+  resultado?: string;
+  creada: string;
+  decidida?: string;
+  vence: string;
+}
+
 /** Whether an organization's bitácora chain holds, and where it broke if not. */
 export interface BitacoraCheck {
   revisados: number;
@@ -827,6 +844,9 @@ export const api = {
   bitacora: (f: { quien?: string; accion?: string; app?: string; antes?: number }) =>
     request<BitacoraRow[]>("GET", `/api/bitacora?${new URLSearchParams(Object.entries(f).filter(([, v]) => v).map(([k, v]) => [k, String(v)]))}`),
   verificarBitacora: () => request<BitacoraCheck>("GET", "/api/bitacora/verificar"),
+  aprobaciones: (pendientes = false) => request<Aprobacion[]>("GET", `/api/aprobaciones${pendientes ? "?pendientes=1" : ""}`),
+  decidirAprobacion: (id: number, aprobar: boolean, comentario = "") =>
+    request<Aprobacion>("POST", `/api/aprobaciones/${id}/decidir`, { aprobar, comentario }),
   agentKeys: () => request<AgentKey[]>("GET", "/api/agent-keys"),
   encargos: (all = false) => request<Encargo[]>("GET", `/api/encargos${all ? "?all=1" : ""}`),
   encargo: (id: number) => request<Encargo>("GET", `/api/encargos/${id}`),

@@ -221,6 +221,9 @@ func (s *Server) Handler() http.Handler {
 	// administrators: arguments can show more than guests should see).
 	auth(store.MemberCollaborator, "GET /api/bitacora", s.listBitacora)
 	auth(store.MemberCollaborator, "GET /api/bitacora/verificar", s.verifyBitacora)
+	// Changes to production agents ask for; an administrator decides.
+	auth(store.MemberCollaborator, "GET /api/aprobaciones", s.listAprobaciones)
+	auth(store.MemberAdmin, "POST /api/aprobaciones/{id}/decidir", s.decidirAprobacion)
 	auth(store.MemberGuest, "GET /api/activity/stream", s.activityStream)
 	auth(store.MemberGuest, "GET /api/encargos", s.listEncargos)
 	auth(store.MemberCollaborator, "POST /api/encargos", s.createEncargo)
