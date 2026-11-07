@@ -48,7 +48,7 @@ Cada acción se escribe en la **bitácora**, un renglón por acción, sea de una
 - **Agentes**: cada llamada a una herramienta MCP anota la llave, la herramienta, sus argumentos (ocultos cuando parecen un secreto) y cómo terminó.
 - **Una cadena por organización**: cada renglón lleva la huella del anterior. Un renglón cambiado o borrado en la base de datos rompe la cadena desde ahí, y `GET /api/bitacora/verificar` dice dónde.
 
-La leen los colaboradores y los administradores (`GET /api/bitacora`, por persona, acción o aplicación); los invitados y los enlaces de demostración no.
+La leen los colaboradores y los administradores en la página **Bitácora**: si la cadena está completa, filtros por persona, acción o aplicación, y la exportación en JSONL de los renglones que se ven (`GET /api/bitacora`). Los invitados y los enlaces de demostración no.
 
 ## Validación en las orillas {#validation-at-the-edges}
 
@@ -63,4 +63,4 @@ Estos son los puntos débiles, dichos con honestidad, más o menos en orden de i
 3. Demonios de BuildKit **privilegiados**.
 4. **Registro en HTTP simple** en la red local.
 5. **Los respaldos se quedan en el clúster.** Los volúmenes se respaldan cada noche en Garage, que corre en las mismas máquinas, así que los respaldos no sobrevivirían a perder todo el clúster. Una copia fuera de casa está en la hoja de ruta.
-6. **La bitácora todavía no tiene página**, ni exportación, ni envío a un SIEM; se lee por la API. Las acciones automáticas de la plataforma misma (una reversión tras una verificación fallida, Renovate) todavía no están en ella.
+6. **La bitácora todavía no se envía fuera** (a un SIEM, o una copia fuera de la base de datos). Las acciones automáticas de la plataforma misma (una reversión tras una verificación fallida, Renovate) todavía no están en ella.

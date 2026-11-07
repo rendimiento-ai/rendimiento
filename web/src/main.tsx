@@ -18,6 +18,7 @@ import { Addons } from "./pages/Addons";
 import { Problems, ProblemsNavLink } from "./pages/Problems";
 import { Mercado, PuestoEditor } from "./pages/Mercado";
 import { Ruta } from "./pages/Ruta";
+import { Bitacora } from "./pages/Bitacora";
 import { EnvironmentNavLink } from "./pages/Version";
 import { Cielo, Guardapolvo, MovimientoSwitch, TemaSwitch, Techo } from "./components/ambiente";
 import { LangSwitch, Logo } from "./components/marca";
@@ -73,6 +74,7 @@ function Shell() {
         {state.operator && state.cluster && <NavLink to="/addons" className="nav-link">{t("Add-ons")}</NavLink>}
         {state.operator && state.cluster && <EnvironmentNavLink />}
         <NavLink to="/ruta" className="nav-link">{t("Ruta")}</NavLink>
+        {state.role && state.role !== "guest" && <NavLink to="/bitacora" className="nav-link">{t("Bitácora")}</NavLink>}
         <NavLink to="/ia" className="nav-link">{t("AI")}</NavLink>
         {state.operator && <ProblemsNavLink />}
         <span className="spacer" />
@@ -100,6 +102,7 @@ function Shell() {
           <Route path="/addons" element={<Addons />} />
           <Route path="/problems" element={<Problems />} />
           <Route path="/ruta" element={<Ruta />} />
+          <Route path="/bitacora" element={<Bitacora />} />
           <Route path="/ia" element={<IA />} />
           <Route path="/members" element={<Members me={state.login ?? ""} role={state.role ?? "guest"} org={state.org} />} />
           <Route path="/addons/:name" element={<Addons />} />

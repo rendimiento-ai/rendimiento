@@ -48,7 +48,7 @@ Every action is written to the **bitácora**, one row each, by people and by age
 - **Agents**: every MCP tool call records the key, the tool, its arguments (hidden when they look like a secret) and how it ended.
 - **A chain per organization**: each row carries the hash of the one before it. A row changed or removed in the database breaks the chain from there, and `GET /api/bitacora/verificar` says where.
 
-Collaborators and administrators read it (`GET /api/bitacora`, by who, action or app); guests and demo links do not.
+Collaborators and administrators read it on the **Bitácora** page: whether the chain holds, filters by who, action or app, and an export of the rows shown as JSONL (`GET /api/bitacora`). Guests and demo links do not.
 
 ## Validation at the edges
 
@@ -63,4 +63,4 @@ These are the honest weak points, in rough order of importance for a multi-user 
 3. **Privileged BuildKit** daemons.
 4. **Plain-HTTP registry** on the LAN.
 5. **Backups stay in the cluster.** Volumes are backed up nightly to Garage, which runs on the same machines, so the backups would not survive losing the whole cluster. An off-site copy is on the roadmap.
-6. **The bitácora has no page yet**, nor an export or a stream to a SIEM; it is read through the API. Automatic actions of the platform itself (a rollback after a failed verification, Renovate) are not in it yet.
+6. **The bitácora is not streamed out yet** (to a SIEM, or a copy outside the database). Automatic actions of the platform itself (a rollback after a failed verification, Renovate) are not in it yet.
