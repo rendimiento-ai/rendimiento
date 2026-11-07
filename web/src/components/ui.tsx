@@ -222,3 +222,31 @@ export function Switch({ checked, onChange, disabled, label }: { checked: boolea
     </button>
   );
 }
+
+/**
+ * A button that copies text, and says so: "Copied ✓" for two seconds, or,
+ * when the browser refuses (no permission, not HTTPS), that it could not,
+ * so the text is selected and copied by hand.
+ */
+export function CopyButton({ text, className }: { text: string; className?: string }) {
+  const [state, setState] = useState<"" | "ok" | "fail">("");
+  useEffect(() => {
+    if (!state) return;
+    const timer = setTimeout(() => setState(""), 2000);
+    return () => clearTimeout(timer);
+  }, [state]);
+  const copy = async (ev: React.MouseEvent) => {
+    ev.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      setState("ok");
+    } catch {
+      setState("fail");
+    }
+  };
+  return (
+    <button type="button" className={`${className ?? ""}${state === "ok" ? " copiado" : ""}`} onClick={copy} aria-live="polite">
+      {state === "ok" ? t("Copied ✓") : state === "fail" ? t("Could not copy: select it and copy by hand") : t("Copy")}
+    </button>
+  );
+}

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, timeAgo, type AgentKey, type AgentRole, type CreatedAgentKey, type RutaEntry, type RutaInput, type RutaKind } from "../api";
 import { Encargos } from "../components/encargos";
-import { ErrorBox, usePoll } from "../components/ui";
+import { CopyButton, ErrorBox, usePoll } from "../components/ui";
 import { t, tn } from "../i18n";
 import { TextoConFormato } from "../components/texto";
 
@@ -338,17 +338,17 @@ function Connect({ k, onClose }: { k: CreatedAgentKey; onClose: () => void }) {
   const cli = `claude mcp add --transport http rendimiento ${k.endpoint} --header "Authorization: Bearer ${k.token}"`;
   const json = JSON.stringify({ mcpServers: { rendimiento: { type: "http", url: k.endpoint, headers: { Authorization: "Bearer ${RENDIMIENTO_MCP_TOKEN}" } } } }, null, 2);
   const codex = `export RENDIMIENTO_MCP_TOKEN=${k.token}\ncodex mcp add rendimiento --url ${k.endpoint} --bearer-token-env-var RENDIMIENTO_MCP_TOKEN`;
-  const copy = (s: string) => navigator.clipboard?.writeText(s);
   return (
-    <div className="alert info stack" role="status">
+    <div className="alert info stack" role="status" style={{ position: "relative" }}>
+      <button type="button" className="cerrar" onClick={onClose} aria-label={t("Close")} title={t("Close")}>✕</button>
       <strong>{t("Copy the key now: it is shown only this once.")}</strong>
-      <div className="row"><code className="mono ruta-token">{k.token}</code><button onClick={() => copy(k.token)}>{t("Copy")}</button></div>
+      <div className="row"><code className="mono ruta-token">{k.token}</code><CopyButton text={k.token} /></div>
       <div className="small">{t("In Claude Code, one command:")}</div>
-      <div className="row"><pre className="mono ruta-snippet">{cli}</pre><button onClick={() => copy(cli)}>{t("Copy")}</button></div>
+      <div className="row"><pre className="mono ruta-snippet">{cli}</pre><CopyButton text={cli} /></div>
       <div className="small">{t("In Codex: keep the key in an environment variable (in your shell's profile, so it stays), then add the server:")}</div>
-      <div className="row"><pre className="mono ruta-snippet">{codex}</pre><button onClick={() => copy(codex)}>{t("Copy")}</button></div>
+      <div className="row"><pre className="mono ruta-snippet">{codex}</pre><CopyButton text={codex} /></div>
       <div className="small">{t("Or, to share it with anyone who opens a repository, commit this .mcp.json and keep the key in the RENDIMIENTO_MCP_TOKEN environment variable, never in git:")}</div>
-      <div className="row"><pre className="mono ruta-snippet">{json}</pre><button onClick={() => copy(json)}>{t("Copy")}</button></div>
+      <div className="row"><pre className="mono ruta-snippet">{json}</pre><CopyButton text={json} /></div>
       <div><button onClick={onClose}>{t("Done, I saved it")}</button></div>
     </div>
   );
@@ -371,15 +371,14 @@ What to ask for:`;
 function Atajo() {
   const claude = `---\ndescription: Leave an encargo in rendimiento's Ruta for an agent to take\nargument-hint: what needs doing\n---\n${encargoInstrucciones} $ARGUMENTS\n`;
   const codex = `---\nname: encargo\ndescription: Leave an encargo in rendimiento's Ruta for an agent to take, when the person asks to leave work for later or for another agent.\n---\n${encargoInstrucciones} what the person asked for.\n`;
-  const copy = (s: string) => navigator.clipboard?.writeText(s);
   return (
     <details className="card" style={{ marginTop: 16 }}>
       <summary className="small"><strong>{t("The /encargo shortcut")}</strong> · {t("leave work for agents from your own Claude Code or Codex")}</summary>
       <div className="stack" style={{ marginTop: 8 }}>
         <div className="small">{t("Claude Code: save this as .claude/commands/encargo.md (in a repository) or ~/.claude/commands/encargo.md (everywhere), then type /encargo and what needs doing.")}</div>
-        <div className="row"><pre className="mono ruta-snippet">{claude}</pre><button onClick={() => copy(claude)}>{t("Copy")}</button></div>
+        <div className="row"><pre className="mono ruta-snippet">{claude}</pre><CopyButton text={claude} /></div>
         <div className="small">{t("Codex: save this as ~/.codex/skills/encargo/SKILL.md, then ask it to leave an encargo.")}</div>
-        <div className="row"><pre className="mono ruta-snippet">{codex}</pre><button onClick={() => copy(codex)}>{t("Copy")}</button></div>
+        <div className="row"><pre className="mono ruta-snippet">{codex}</pre><CopyButton text={codex} /></div>
         <div className="small muted">{t("The encargo then says who asked and through which agent; another agent takes it from the Ruta.")}</div>
       </div>
     </details>
