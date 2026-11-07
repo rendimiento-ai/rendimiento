@@ -7,6 +7,7 @@ import { DeliveryPanel } from "../components/delivery";
 import { VisitsPanel } from "../components/visits";
 import { Flor, LluviaDePetalos } from "../components/ambiente";
 import { t, tn } from "../i18n";
+import { AprobacionesAviso } from "../components/aprobaciones";
 
 // Each app under an arch gets one of the papel picado colors for its band.
 const bandas = ["var(--grana)", "var(--cempasuchil)", "var(--anil)", "var(--rosa)", "var(--nopal)", "var(--maiz)"];
@@ -87,6 +88,7 @@ export function Dashboard() {
   return (
     <>
       <LluviaDePetalos cuando={lluvia} />
+      {session.role !== "guest" && <AprobacionesAviso />}
       <div className="hero-vida">
         <div>
           <h1>{t("Your apps,")} <em>{t("alive")}</em>.</h1>

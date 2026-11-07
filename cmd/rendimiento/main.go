@@ -458,6 +458,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 	rutaSrv.Plataforma = plataformaMCP{Store: st, p: p, srv: srv}
 	// Encargos: work asked of agents, taken, waited on and handed over.
 	rutaSrv.Encargos = st
+	rutaSrv.Produccion = produccionMCP{Store: st, p: p}
 	if srv.Mercado != nil {
 		rutaSrv.Mercado = srv.Mercado
 	}
@@ -777,6 +778,17 @@ const ddnsTopic = "ddns/status"
 
 // plataformaMCP is what the agents' platform tools (ruta.Plataforma) read
 // and do: the store, plus logs (from the archive too) and the CI queue.
+// produccionMCP is what the production tools do: agents ask the platform
+// for a rollback, and read how their request stands.
+type produccionMCP struct {
+	*store.Store
+	p *platform.Platform
+}
+
+func (m produccionMCP) PedirReversion(ctx context.Context, app *store.App, version int64, motivo string, k store.AgentKey) (store.Aprobacion, error) {
+	return m.p.PedirReversion(ctx, app, version, motivo, k)
+}
+
 type plataformaMCP struct {
 	*store.Store
 	p   *platform.Platform
