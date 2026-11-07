@@ -826,6 +826,10 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 .ruta-cargos li.open::before { background: var(--maiz); }
 .ruta-actions { width: 100%; border-collapse: collapse; margin-top: 8px; }
 .ruta-actions th, .ruta-actions td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+/* The Bitácora: one row per action, newest first. */
+.bitacora { width: 100%; border-collapse: collapse; }
+.bitacora th, .bitacora td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.bitacora td.mono { word-break: break-all; }
 .ruta-bad { color: var(--bad); }
 .ruta-token { padding: 6px 10px; background: var(--code-bg); color: var(--code-text); border-radius: 6px; overflow-wrap: anywhere; flex: 1; }
 .ruta-snippet { flex: 1; margin: 0; padding: 10px 12px; background: var(--code-bg); color: var(--code-text); border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12.5px; }

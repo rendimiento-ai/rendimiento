@@ -18,3 +18,14 @@ test("every page in the menu opens", async ({ page, problemas }) => {
   }
   expect(problemas).toEqual([]);
 });
+
+// Creating apps (nueva-app.spec.ts) was written to the bitácora, as the
+// person who did it, and the chain holds.
+test("the bitácora shows what was done, and its chain holds", async ({ page, problemas }) => {
+  await page.goto("/bitacora");
+  await expect(page.locator("main h1").first()).toBeVisible();
+  await expect(page.locator("table.bitacora td.mono", { hasText: "POST /api/apps" }).first()).toBeVisible();
+  await expect(page.locator("table.bitacora").first()).toContainText("prueba");
+  await expect(page.locator(".badge.ok").first()).toBeVisible(); // intact
+  expect(problemas).toEqual([]);
+});

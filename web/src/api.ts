@@ -298,6 +298,28 @@ export interface DemoLink {
 // The signed-in person, set once when the app loads (switching organization
 // reloads the page). Pages read it to show what the person may use.
 /** Who is signed in, for the pages: operator, role, and whether rendimiento runs on a cluster (not on a computer). */
+/** One action in the bitácora (internal/store/bitacora.go): a person's call to a route, or an agent's tool call. */
+export interface BitacoraRow {
+  id: number;
+  cuando: string;
+  quienTipo: "persona" | "agente" | "plataforma";
+  quien: string;
+  por: string;
+  accion: string;
+  sobre: Record<string, string> | null;
+  resultado: string;
+  detalle: Record<string, unknown> | null;
+  huellaAnterior: string;
+  huella: string;
+}
+
+/** Whether an organization's bitácora chain holds, and where it broke if not. */
+export interface BitacoraCheck {
+  revisados: number;
+  rotaEn?: number;
+  motivo?: string;
+}
+
 export const session: { operator: boolean; role: MemberRole; cluster: boolean } = { operator: false, role: "guest", cluster: false };
 
 // The AI gateway (internal/ia, api.IAView).
@@ -802,6 +824,9 @@ export const api = {
   updateRuta: (id: number, e: RutaInput) => request<RutaEntry>("PUT", `/api/ruta/${id}`, e),
   archiveRuta: (id: number) => request<void>("POST", `/api/ruta/${id}/archive`),
   rutaActivity: () => request<{ cargos: Cargo[]; actions: AgentAction[] }>("GET", "/api/ruta/activity"),
+  bitacora: (f: { quien?: string; accion?: string; app?: string; antes?: number }) =>
+    request<BitacoraRow[]>("GET", `/api/bitacora?${new URLSearchParams(Object.entries(f).filter(([, v]) => v).map(([k, v]) => [k, String(v)]))}`),
+  verificarBitacora: () => request<BitacoraCheck>("GET", "/api/bitacora/verificar"),
   agentKeys: () => request<AgentKey[]>("GET", "/api/agent-keys"),
   encargos: (all = false) => request<Encargo[]>("GET", `/api/encargos${all ? "?all=1" : ""}`),
   encargo: (id: number) => request<Encargo>("GET", `/api/encargos/${id}`),
