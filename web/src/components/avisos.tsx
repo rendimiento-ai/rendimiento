@@ -62,6 +62,21 @@ function aviso(x: Actividad): Omit<Aviso, "id"> | undefined {
   return undefined;
 }
 
+/** What happened since the page opened, newest first (the bell shows it); ten at most. */
+const historial: (Aviso & { at: string })[] = [];
+const oyentes = new Set<() => void>();
+
+/** The notices of this page's life, for the bell; re-renders when one comes. */
+export function useHistorial() {
+  const [, setN] = useState(0);
+  useEffect(() => {
+    const f = () => setN((n) => n + 1);
+    oyentes.add(f);
+    return () => { oyentes.delete(f); };
+  }, []);
+  return historial;
+}
+
 /** How long a notice stays: failures longer, so they are not missed. */
 const dura: Record<Tono, number> = { ok: 6000, info: 5000, warn: 9000, bad: 12000 };
 
@@ -78,6 +93,9 @@ export function Avisos() {
       if (!v) return;
       const id = siguiente.current++;
       setLista((l) => [{ id, ...v }, ...l].slice(0, 4));
+      historial.unshift({ id, ...v, at: x.at });
+      historial.splice(10);
+      oyentes.forEach((f) => f());
       setTimeout(() => setLista((l) => l.filter((a) => a.id !== id)), dura[v.tono]);
     },
   }), []);

@@ -24,6 +24,7 @@ import { Cielo, Guardapolvo, MovimientoSwitch, TemaSwitch, Techo } from "./compo
 import { LangSwitch, Logo } from "./components/marca";
 import { Bienvenida, type BookLinks } from "./pages/Bienvenida";
 import { Avisos } from "./components/avisos";
+import { Campana } from "./components/campana";
 import "./styles.css";
 
 /**
@@ -78,6 +79,7 @@ function Shell() {
         <NavLink to="/ia" className="nav-link">{t("AI")}</NavLink>
         {state.operator && <ProblemsNavLink />}
         <span className="spacer" />
+        <Campana role={state.role} operator={state.operator} />
         {state.role === "admin" && <Link to="/new" className="btn primary">{t("New app")}</Link>}
         <OrgSwitch current={state.org} />
         {state.demo

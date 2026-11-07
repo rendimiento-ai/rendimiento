@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
+	"github.com/rendimiento-ai/rendimiento/internal/agentes"
 	"github.com/rendimiento-ai/rendimiento/internal/analytics"
 	"github.com/rendimiento-ai/rendimiento/internal/destino"
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
@@ -1436,8 +1437,13 @@ func TestAprobaciones(t *testing.T) {
 		rows[0].Detalle["pedida_por"] != "diagnosticador" || rows[0].Detalle["aprobada_por"] != "p0dxD" {
 		t.Fatalf("the platform's row: %+v", rows)
 	}
-	if rows, _ := e.store.ListarBitacora(ctx, store.DefaultOrg, store.FiltroBitacora{Accion: "decidir"}); len(rows) != 2 {
-		t.Fatalf("the person's decisions in the bitácora: %+v", rows)
+	decisiones, _ := e.store.ListarBitacora(ctx, store.DefaultOrg, store.FiltroBitacora{Accion: "decidir"})
+	if len(decisiones) != 2 {
+		t.Fatalf("the person's decisions in the bitácora: %+v", decisiones)
+	}
+	// The approval says what was decided, on what, and how it went.
+	if d := decisiones[1].Detalle; d["decision"] != "aprobada" || d["app"] != "propinas" || d["comentario"] != "adelante" || d["resultado"] != "release #3" {
+		t.Fatalf("what the approval's row says: %+v", d)
 	}
 
 	// A rejected request does nothing.
@@ -1451,5 +1457,51 @@ func TestAprobaciones(t *testing.T) {
 	}
 	if len(d.aplicadas) != 1 {
 		t.Fatalf("a rejection ran something: %v", d.aplicadas)
+	}
+}
+
+// traductorFalso answers every translation with the text in brackets and
+// counts the calls.
+type traductorFalso struct{ llamadas int }
+
+func (f *traductorFalso) Complete(_ context.Context, _ int64, _ string, req ia.Request) (ia.Response, error) {
+	f.llamadas++
+	return ia.Response{Text: "[en] " + req.Messages[0].Content}, nil
+}
+
+// An agent's reason reaches the reader in their language: translated the
+// first time, kept for the next reader (no second call), with the original
+// beside it.
+func TestMotivoEnElIdiomaDeQuienLee(t *testing.T) {
+	e := newEnv(t, false)
+	ctx := context.Background()
+	modelo := &traductorFalso{}
+	e.s.Translator = &agentes.Translator{Model: modelo}
+	sp := spec.Spec{Services: []spec.Service{{Name: "web", Port: 8080}}}
+	sp.Default()
+	app := &store.App{Name: "propinas", Repo: "p0dxD/propinas", DefaultBranch: "main", Spec: sp, OrgID: store.DefaultOrg}
+	if err := e.store.CreateApp(ctx, app); err != nil {
+		t.Fatal(err)
+	}
+	for n := int64(1); n <= 2; n++ {
+		if err := e.store.CreateRelease(ctx, &store.Release{AppID: app.ID, Number: n, SHA: "s", Images: map[string]string{"web": "w"}, Spec: sp}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := e.s.Platform.PedirReversion(ctx, app, 1, "la versión 2 rompió el pago", store.AgentKey{ID: 1, Name: "diagnosticador", OrgID: store.DefaultOrg}); err != nil {
+		t.Fatal(err)
+	}
+	me := e.session(t, "p0dxD")
+	for range 2 {
+		_, body := e.do(t, "GET", "/api/aprobaciones?pendientes=1&lang=en", "", me, nil)
+		if !strings.Contains(body, `"motivo":"[en] la versión 2 rompió el pago"`) || !strings.Contains(body, `"motivoOriginal":"la versión 2 rompió el pago"`) {
+			t.Fatalf("in English: %s", body)
+		}
+	}
+	if modelo.llamadas != 1 {
+		t.Fatalf("translated %d times, want once (then kept)", modelo.llamadas)
+	}
+	if _, body := e.do(t, "GET", "/api/aprobaciones?pendientes=1", "", me, nil); !strings.Contains(body, `"motivo":"la versión 2 rompió el pago"`) || strings.Contains(body, "motivoOriginal") {
+		t.Fatalf("without a language, as written: %s", body)
 	}
 }

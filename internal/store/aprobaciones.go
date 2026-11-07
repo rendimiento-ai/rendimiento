@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -43,16 +44,26 @@ type Aprobacion struct {
 	Creada      time.Time  `json:"creada"`
 	Decidida    *time.Time `json:"decidida,omitempty"`
 	Vence       time.Time  `json:"vence"`
+	// MotivoOriginal is Motivo as the agent wrote it, when Motivo was put
+	// in the reader's language (see Traducciones).
+	MotivoOriginal string `json:"motivoOriginal,omitempty"`
+	// Traducciones are Motivo in other languages, by language, kept once
+	// made.
+	Traducciones map[string]string `json:"-"`
 }
 
 const aprobacionCols = `id, org_id, app, accion, version, motivo, pedida_por, key_id,
 	CASE WHEN estado = 'pendiente' AND vence <= now() THEN 'vencida' ELSE estado END,
-	decidida_por, comentario, resultado, creada, decidida, vence`
+	decidida_por, comentario, resultado, creada, decidida, vence, traducciones`
 
 func scanAprobacion(row pgx.Row) (Aprobacion, error) {
 	var a Aprobacion
+	var traducciones []byte
 	err := row.Scan(&a.ID, &a.OrgID, &a.App, &a.Accion, &a.Version, &a.Motivo, &a.PedidaPor, &a.KeyID,
-		&a.Estado, &a.DecididaPor, &a.Comentario, &a.Resultado, &a.Creada, &a.Decidida, &a.Vence)
+		&a.Estado, &a.DecididaPor, &a.Comentario, &a.Resultado, &a.Creada, &a.Decidida, &a.Vence, &traducciones)
+	if err == nil {
+		_ = json.Unmarshal(traducciones, &a.Traducciones)
+	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return a, ErrNotFound
 	}
@@ -122,5 +133,11 @@ func (s *Store) TerminarAprobacion(ctx context.Context, id int64, fallo bool, re
 		estado = AprobacionFallida
 	}
 	_, err := s.pool.Exec(ctx, `UPDATE aprobaciones SET estado = $2, resultado = $3 WHERE id = $1`, id, estado, resultado)
+	return err
+}
+
+// GuardarTraduccion keeps a request's reason in another language.
+func (s *Store) GuardarTraduccion(ctx context.Context, id int64, lang, text string) error {
+	_, err := s.pool.Exec(ctx, `UPDATE aprobaciones SET traducciones = traducciones || jsonb_build_object($2::text, $3::text) WHERE id = $1`, id, lang, text)
 	return err
 }

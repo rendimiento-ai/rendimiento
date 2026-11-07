@@ -2,13 +2,56 @@ import { useEffect, useState } from "react";
 import { api, timeAgo, type BitacoraRow } from "../api";
 import { locale, t } from "../i18n";
 import { ErrorBox, usePoll } from "../components/ui";
-import { Aprobaciones } from "../components/aprobaciones";
+import { Aprobaciones, Decididas } from "../components/aprobaciones";
 
 /** How an action ended, as a badge: HTTP 2xx and agents' "ok" are fine, 4xx a refusal, the rest a failure. */
 function resultado(r: string): { cls: string; label: string } {
   if (r === "ok" || /^2\d\d$/.test(r)) return { cls: "ok", label: r === "ok" ? t("done") : r };
   if (/^4\d\d$/.test(r)) return { cls: "warn", label: r };
   return { cls: "bad", label: r.length > 40 ? r.slice(0, 40) + "…" : r };
+}
+
+/** Actions in words; the route or tool stays beside them, small. */
+const acciones: Record<string, string> = {
+  "POST /api/aprobaciones/{id}/decidir": "Decided an agent's request",
+  "POST /api/orgs/{id}/switch": "Switched organization",
+  "POST /api/apps": "Created an app",
+  "DELETE /api/apps/{app}": "Removed an app",
+  "POST /api/apps/{app}/rollback": "Rolled back",
+  "POST /api/apps/{app}/runs": "Started a run",
+  "POST /api/apps/{app}/disconnect": "Disconnected an app",
+  "PUT /api/apps/{app}/secrets/{secret}": "Changed a secret",
+  "POST /api/runs/{id}/cancel": "Cancelled a run",
+  "PUT /api/members/{login}": "Added or changed a member",
+  "DELETE /api/members/{login}": "Removed a member",
+  "POST /api/agent-keys": "Made an agent key",
+  "DELETE /api/agent-keys/{id}": "Revoked an agent key",
+  "POST /api/ruta": "Wrote in the Ruta",
+  "POST /api/encargos": "Asked for an encargo",
+  "POST /api/encargos/{id}/review": "Reviewed an encargo",
+  "produccion_pedir": "Asked for a change to production",
+  "produccion_esperar": "Waited for a decision",
+  "revertir": "Rolled back, approved by a person",
+  "cargo_tomar": "Took a cargo",
+  "cargo_entregar": "Handed a cargo over",
+  "ruta_anotar": "Wrote in the Ruta",
+  "ejecucion_lanzar": "Started a run",
+  "encargo_entregar": "Delivered an encargo",
+};
+
+/** What the row's detail says, in words: a decision, a comment, an outcome. */
+function detalle(row: BitacoraRow): string {
+  const d = row.detalle ?? {};
+  const partes: string[] = [];
+  if (d.decision === "aprobada") partes.push(t("approved"));
+  if (d.decision === "rechazada") partes.push(t("rejected"));
+  if (d.decision === "fallida") partes.push(t("approved, but it failed"));
+  if (typeof d.app === "string" && typeof d.version === "number") partes.push(t("{app} to release #{n}", { app: d.app, n: d.version }));
+  if (typeof d.pedida_por === "string") partes.push(t("asked by {who}", { who: d.pedida_por }));
+  if (typeof d.aprobada_por === "string") partes.push(t("approved by {who}", { who: d.aprobada_por }));
+  if (typeof d.comentario === "string") partes.push(`“${d.comentario}”`);
+  if (typeof d.resultado === "string") partes.push(d.resultado);
+  return partes.join(" · ");
 }
 
 /** What an action was on: "app tienda · id 3". */
@@ -58,6 +101,7 @@ export function Bitacora() {
       <h1>{t("Bitácora")}</h1>
       <p className="sub">{t("Every action here, by people and by agents: who did what, on what, and how it ended. Each row carries the fingerprint of the one before it, so a row changed or removed in the database shows.")}</p>
       <Aprobaciones />
+      <Decididas />
       <ErrorBox error={error ?? checkError} />
       {check && (
         <div className={`alert ${check.rotaEn ? "" : "info"}`} role="status">
@@ -89,7 +133,11 @@ export function Bitacora() {
                   <tr key={r.id} title={`#${r.id} · ${r.huella}`}>
                     <td title={new Date(r.cuando).toLocaleString(locale)}>{timeAgo(r.cuando)}</td>
                     <td>{r.quienTipo === "agente" ? t("agent") : r.quienTipo === "plataforma" ? t("platform") : t("person")} · <strong>{r.quien}</strong> <span className="muted">({r.por})</span></td>
-                    <td className="mono" title={args}>{r.accion}</td>
+                    <td title={args}>
+                      {acciones[r.accion] ? t(acciones[r.accion]) : <span className="mono">{r.accion}</span>}
+                      {acciones[r.accion] && <div className="mono small muted">{r.accion}</div>}
+                      {detalle(r) && <div className="small">{detalle(r)}</div>}
+                    </td>
                     <td className="mono">{sobre(r)}</td>
                     <td><span className={`badge ${res.cls}`} title={r.resultado}>{res.label}</span></td>
                   </tr>
