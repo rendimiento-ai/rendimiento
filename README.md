@@ -18,6 +18,7 @@ helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento --versi
   --set baseURL=https://rendimiento.example.com --set firstAdmins=your-github-login \
   --set registry.host=registry.example.com
 ```
+https://github.com/user-attachments/assets/cc33f1e6-b708-4b8e-8aca-6118f357d278
 
 Read the book in [English](https://learn.rendimiento.ai) or [Spanish](https://aprende.rendimiento.ai), and see [Built for agents](docs/content/guide/agents.md) and `/llms.txt`.
 
