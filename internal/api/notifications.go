@@ -12,6 +12,10 @@ import (
 // testNotification sends a sample email now, so the setup can be checked
 // from the Environment page. It reports the provider's error if any.
 func (s *Server) testNotification(w http.ResponseWriter, r *http.Request, login string) {
+	if s.Notify == nil {
+		httpError(w, http.StatusServiceUnavailable, "email notifications are not set up: set NOTIFY_EMAIL_TO and RESEND_API_KEY")
+		return
+	}
 	err := s.Notify.Send(r.Context(), notify.Message{
 		Tone: notify.Info, Subject: i18n.M("rendimiento: test email"),
 		Title:   i18n.M("Email notifications work"),

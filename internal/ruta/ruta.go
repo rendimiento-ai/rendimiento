@@ -43,6 +43,7 @@ type Backend interface {
 	UpdateRuta(ctx context.Context, e store.RutaEntry, changedBy string) (store.RutaEntry, error)
 	SearchRuta(ctx context.Context, orgID int64, kind, text string, limit int) ([]store.RutaEntry, error)
 	RecordAgentAction(ctx context.Context, a store.AgentAction) error
+	AnotarBitacora(ctx context.Context, b store.Bitacora) (store.Bitacora, error)
 }
 
 // TokenPrefix starts every agent key, so a leaked one is easy to recognise.
@@ -452,6 +453,24 @@ func (s *Server) audit(ctx context.Context, k store.AgentKey, tool string, in an
 	}
 	if err := s.Store.RecordAgentAction(context.WithoutCancel(ctx), a); err != nil {
 		s.Log.Warn("recording an agent action", "tool", tool, "err", err)
+	}
+	// And in the bitácora, beside people's actions: the arguments, unless
+	// they look like a secret (a refused call may carry one).
+	resultado := "ok"
+	if callErr != nil {
+		resultado = callErr.Error()
+	}
+	argumentos := string(args)
+	if LooksSecret(argumentos) {
+		argumentos = "[hidden: it looked like a secret]"
+	}
+	b := store.Bitacora{OrgID: k.OrgID, QuienTipo: store.QuienAgente, Quien: k.Name, Por: "mcp", Accion: tool,
+		Resultado: resultado, Detalle: map[string]any{"argumentos": argumentos}}
+	if a.CargoID != nil {
+		b.Detalle["cargo"] = *a.CargoID
+	}
+	if _, err := s.Store.AnotarBitacora(context.WithoutCancel(ctx), b); err != nil {
+		s.Log.Warn("bitácora", "tool", tool, "err", err)
 	}
 }
 

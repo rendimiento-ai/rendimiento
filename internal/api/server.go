@@ -169,7 +169,7 @@ func (s *Server) Handler() http.Handler {
 	s.routes = nil
 	auth := func(role, pattern string, h func(http.ResponseWriter, *http.Request, string)) {
 		s.routes = append(s.routes, route{pattern: pattern, role: role})
-		mux.Handle(pattern, s.requireRole(false, role, h))
+		mux.Handle(pattern, s.requireRole(false, role, s.anotando(pattern, false, h)))
 	}
 	// plat is a platform route: the cluster, add-ons, the platform itself.
 	// It takes the role in the platform's own (default) organization, so
@@ -181,7 +181,7 @@ func (s *Server) Handler() http.Handler {
 				httpError(w, http.StatusServiceUnavailable, "this computer has no cluster: this page is for rendimiento on Kubernetes")
 			}
 		}
-		mux.Handle(pattern, s.requireRole(true, role, h))
+		mux.Handle(pattern, s.requireRole(true, role, s.anotando(pattern, true, h)))
 	}
 	auth(store.MemberGuest, "GET /api/me", s.me)
 	auth(store.MemberGuest, "GET /api/orgs", s.listOrgs)
@@ -217,6 +217,10 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberCollaborator, "PUT /api/ruta/{id}", s.updateRuta)
 	auth(store.MemberCollaborator, "POST /api/ruta/{id}/archive", s.archiveRuta)
 	auth(store.MemberGuest, "GET /api/ruta/activity", s.rutaActivity)
+	// The bitácora: every action, by people and agents (collaborators and
+	// administrators: arguments can show more than guests should see).
+	auth(store.MemberCollaborator, "GET /api/bitacora", s.listBitacora)
+	auth(store.MemberCollaborator, "GET /api/bitacora/verificar", s.verifyBitacora)
 	auth(store.MemberGuest, "GET /api/activity/stream", s.activityStream)
 	auth(store.MemberGuest, "GET /api/encargos", s.listEncargos)
 	auth(store.MemberCollaborator, "POST /api/encargos", s.createEncargo)

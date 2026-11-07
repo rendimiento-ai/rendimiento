@@ -40,6 +40,16 @@ BuildKit daemons themselves run **privileged** (they create containers); build p
 - The GitHub App setup page needs a one-time setup token.
 - Security headers: no MIME sniffing, no framing, same-origin referrers.
 
+## The bitácora {#the-bitacora}
+
+Every action is written to the **bitácora**, one row each, by people and by agents alike:
+
+- **People**: every API route that changes something (all but `GET`) records who did it, the route (`POST /api/apps/{app}/rollback`), what it was on (its path values: the app, the run, a secret's *name*) and the HTTP status it ended with. Bodies are never kept, since they can hold secrets. A test walks every registered route, so a new one cannot escape it (`TestEveryChangeIsInTheBitacora`).
+- **Agents**: every MCP tool call records the key, the tool, its arguments (hidden when they look like a secret) and how it ended.
+- **A chain per organization**: each row carries the hash of the one before it. A row changed or removed in the database breaks the chain from there, and `GET /api/bitacora/verificar` says where.
+
+Collaborators and administrators read it (`GET /api/bitacora`, by who, action or app); guests and demo links do not.
+
 ## Validation at the edges
 
 `rendimiento.yaml` is validated before anything runs: names are DNS labels, paths cannot escape the repository, ingress annotations are limited to `nginx.ingress.kubernetes.io/*` and **snippets are refused** (they allow arbitrary nginx configuration), LAN addresses must be private, secret references are checked. The controller refuses namespaces and hostnames it does not own.
@@ -53,4 +63,4 @@ These are the honest weak points, in rough order of importance for a multi-user 
 3. **Privileged BuildKit** daemons.
 4. **Plain-HTTP registry** on the LAN.
 5. **Backups stay in the cluster.** Volumes are backed up nightly to Garage, which runs on the same machines, so the backups would not survive losing the whole cluster. An off-site copy is on the roadmap.
-6. **No audit trail in the app** of who changed what (the Kubernetes audit log and git history cover part of it).
+6. **The bitácora has no page yet**, nor an export or a stream to a SIEM; it is read through the API. Automatic actions of the platform itself (a rollback after a failed verification, Renovate) are not in it yet.

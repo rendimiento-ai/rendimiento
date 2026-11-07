@@ -40,6 +40,16 @@ Los demonios de BuildKit corren en modo **privilegiado** (crean contenedores); l
 - La página de configuración de la aplicación de GitHub requiere un token de configuración de un solo uso.
 - Encabezados de seguridad: sin adivinar el tipo MIME, sin marcos, referencias solo del mismo origen.
 
+## La bitácora {#the-bitacora}
+
+Cada acción se escribe en la **bitácora**, un renglón por acción, sea de una persona o de un agente:
+
+- **Personas**: cada ruta de la API que cambia algo (todas menos `GET`) anota quién la usó, la ruta (`POST /api/apps/{app}/rollback`), sobre qué fue (los valores de su ruta: la aplicación, la ejecución, el *nombre* de un secreto) y el estado HTTP con que terminó. Nunca se guarda el cuerpo de la petición, porque puede traer secretos. Una prueba recorre cada ruta registrada, así que una nueva no se escapa (`TestEveryChangeIsInTheBitacora`).
+- **Agentes**: cada llamada a una herramienta MCP anota la llave, la herramienta, sus argumentos (ocultos cuando parecen un secreto) y cómo terminó.
+- **Una cadena por organización**: cada renglón lleva la huella del anterior. Un renglón cambiado o borrado en la base de datos rompe la cadena desde ahí, y `GET /api/bitacora/verificar` dice dónde.
+
+La leen los colaboradores y los administradores (`GET /api/bitacora`, por persona, acción o aplicación); los invitados y los enlaces de demostración no.
+
 ## Validación en las orillas {#validation-at-the-edges}
 
 `rendimiento.yaml` se valida antes de ejecutar cualquier cosa: los nombres son etiquetas DNS, las rutas no pueden salirse del repositorio, las anotaciones de la entrada se limitan a `nginx.ingress.kubernetes.io/*` y **se rechazan los fragmentos de código** (permiten configuración arbitraria de nginx), las direcciones de la red local deben ser privadas y se comprueban las referencias a secretos. El controlador rechaza espacios de nombres y nombres de host que no le pertenecen.
@@ -53,4 +63,4 @@ Estos son los puntos débiles, dichos con honestidad, más o menos en orden de i
 3. Demonios de BuildKit **privilegiados**.
 4. **Registro en HTTP simple** en la red local.
 5. **Los respaldos se quedan en el clúster.** Los volúmenes se respaldan cada noche en Garage, que corre en las mismas máquinas, así que los respaldos no sobrevivirían a perder todo el clúster. Una copia fuera de casa está en la hoja de ruta.
-6. **Sin bitácora de auditoría en la aplicación** de quién cambió qué (la bitácora de auditoría de Kubernetes y el historial de git cubren una parte).
+6. **La bitácora todavía no tiene página**, ni exportación, ni envío a un SIEM; se lee por la API. Las acciones automáticas de la plataforma misma (una reversión tras una verificación fallida, Renovate) todavía no están en ella.
