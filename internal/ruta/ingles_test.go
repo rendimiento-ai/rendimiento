@@ -61,6 +61,19 @@ func TestIngles(t *testing.T) {
 		cs.Close()
 	}
 
+	// Every call is in the bitácora, as the agent's, with its arguments.
+	m.mu.Lock()
+	var llamadas int
+	for _, b := range m.bitacora {
+		if b.QuienTipo == store.QuienAgente && b.Quien == "agent" && b.Por == "mcp" && b.Accion == "ruta_inicio" && b.Resultado == "ok" {
+			llamadas++
+		}
+	}
+	m.mu.Unlock()
+	if llamadas != 2 {
+		t.Errorf("ruta_inicio in the bitácora %d times, want 2: %+v", llamadas, m.bitacora)
+	}
+
 	// The platform's language is the default.
 	en := httptest.NewServer((&Server{Store: m, Lang: "en"}).Handler())
 	defer en.Close()

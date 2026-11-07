@@ -18,11 +18,12 @@ import (
 
 // memory is an in-memory Backend.
 type memory struct {
-	mu      sync.Mutex
-	keys    map[string]store.AgentKey // by hash
-	cargos  []store.Cargo
-	entries []store.RutaEntry
-	actions []store.AgentAction
+	mu       sync.Mutex
+	keys     map[string]store.AgentKey // by hash
+	cargos   []store.Cargo
+	entries  []store.RutaEntry
+	actions  []store.AgentAction
+	bitacora []store.Bitacora
 }
 
 func (m *memory) AgentKeyByHash(_ context.Context, h string) (store.AgentKey, error) {
@@ -132,6 +133,13 @@ func (m *memory) RecordAgentAction(_ context.Context, a store.AgentAction) error
 	defer m.mu.Unlock()
 	m.actions = append(m.actions, a)
 	return nil
+}
+
+func (m *memory) AnotarBitacora(_ context.Context, b store.Bitacora) (store.Bitacora, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.bitacora = append(m.bitacora, b)
+	return b, nil
 }
 
 type bearer struct{ token string }

@@ -1275,3 +1275,70 @@ func TestEveryRouteStaysInItsOrg(t *testing.T) {
 		t.Fatalf("the principal's key after her calls: %+v %v", k, err)
 	}
 }
+
+// Every route that changes something writes the bitácora: who, the route,
+// what it was on and how it ended, whatever the answer. The routes are
+// walked as registered, so a new one cannot escape it. Reading it takes a
+// collaborator, and its chain holds.
+func TestEveryChangeIsInTheBitacora(t *testing.T) {
+	e := newEnv(t, false)
+	ctx := context.Background()
+	me := e.session(t, "p0dxD")
+	fill := strings.NewReplacer("{app}", "nada", "{id}", "1", "{name}", "nada", "{addon}", "nada", "{number}", "1",
+		"{task}", "nada", "{secret}", "nada", "{step}", "nada", "{login}", "nadie", "{site}", "1", "{session}", "1")
+	want := map[string]bool{}
+	for _, rt := range e.s.routes {
+		method, path, _ := strings.Cut(rt.pattern, " ")
+		if method == "GET" {
+			continue
+		}
+		want[rt.pattern] = true
+		cctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		req, _ := http.NewRequestWithContext(cctx, method, e.srv.URL+fill.Replace(path), strings.NewReader("{}"))
+		req.AddCookie(me)
+		if res, err := http.DefaultClient.Do(req); err == nil {
+			_, _ = io.ReadAll(res.Body)
+			res.Body.Close()
+		}
+		cancel()
+	}
+	if len(want) < 40 {
+		t.Fatalf("only %d routes change something: are they registered?", len(want))
+	}
+	got := map[string]bool{}
+	for _, org := range []int64{store.DefaultOrg} {
+		rows, err := e.store.ListarBitacora(ctx, org, store.FiltroBitacora{Limite: 500})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, b := range rows {
+			if b.Quien != "p0dxD" || b.QuienTipo != store.QuienPersona || b.Por != "interfaz" || b.Resultado == "" {
+				t.Errorf("row %+v", b)
+			}
+			got[b.Accion] = true
+		}
+	}
+	for p := range want {
+		if !got[p] {
+			t.Errorf("%s changed something without a row in the bitácora", p)
+		}
+	}
+	rows, _ := e.store.ListarBitacora(ctx, store.DefaultOrg, store.FiltroBitacora{Accion: "rollback"})
+	if len(rows) != 1 || rows[0].Sobre["app"] != "nada" {
+		t.Fatalf("what it was on: %+v", rows)
+	}
+
+	// A guest doesn't read it; a collaborator does, and the chain holds.
+	if err := e.store.SetMember(ctx, store.DefaultOrg, "invitada", store.MemberGuest, "p0dxD"); err != nil {
+		t.Fatal(err)
+	}
+	if r, _ := e.do(t, "GET", "/api/bitacora", "", e.session(t, "invitada"), nil); r.StatusCode != 403 {
+		t.Fatalf("a guest reading the bitácora: %d", r.StatusCode)
+	}
+	if r, body := e.do(t, "GET", "/api/bitacora?accion=rollback", "", me, nil); r.StatusCode != 200 || !strings.Contains(body, `"accion":"POST /api/apps/{app}/rollback"`) {
+		t.Fatalf("reading it: %d %s", r.StatusCode, body)
+	}
+	if r, body := e.do(t, "GET", "/api/bitacora/verificar", "", me, nil); r.StatusCode != 200 || strings.Contains(body, "rotaEn") || !strings.Contains(body, `"revisados"`) {
+		t.Fatalf("verify: %d %s", r.StatusCode, body)
+	}
+}
