@@ -1,6 +1,7 @@
 # Publishes the rendimiento program for Linux (amd64 and arm64) with each
 # v* tag, as a GitHub release with its SHA256SUMS: what the installer
-# (curl -fsSL https://rendimiento.ai/instalar | sh) downloads. The Helm
+# (curl -fsSL https://rendimiento.ai/instalar | sh) downloads. The WSL
+# distribution for Windows (instalar/wsl) goes with it. The Helm
 # chart goes with it, its version and appVersion set to the tag's (so it
 # installs that release's image), attached to the release and pushed to
 # oci://ghcr.io/rendimiento-ai/charts. rendimiento tested the change before
@@ -36,6 +37,13 @@ jobs:
             CGO_ENABLED=0 GOOS=linux GOARCH=$arch go build -trimpath -ldflags="-s -w -X main.version=${GITHUB_REF_NAME#v}" -o dist/rendimiento-linux-$arch ./cmd/rendimiento
           done
           cd dist && sha256sum rendimiento-linux-* > SHA256SUMS
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: The WSL distribution, for Windows
+        run: |
+          cp dist/rendimiento-linux-amd64 instalar/wsl/
+          docker buildx build --platform linux/amd64 --output type=tar,dest=dist/rendimiento-wsl-amd64.tar instalar/wsl
+          gzip -9 dist/rendimiento-wsl-amd64.tar
+          cd dist && sha256sum rendimiento-linux-* rendimiento-wsl-* > SHA256SUMS
       - name: The Helm chart, with this release's version
         if: startsWith(github.ref, 'refs/tags/')
         run: |
@@ -52,6 +60,7 @@ jobs:
             dist/rendimiento-linux-amd64
             dist/rendimiento-linux-arm64
             dist/SHA256SUMS
+            dist/rendimiento-wsl-amd64.tar.gz
             dist/rendimiento-*.tgz
           generate_release_notes: true
 

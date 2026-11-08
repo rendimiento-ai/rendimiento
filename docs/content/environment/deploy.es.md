@@ -233,6 +233,19 @@ GitHub no puede mandar avisos web a `localhost`, así que la aplicación de GitH
 
 Las versiones corren en la computadora con el **destino local**: cada servicio de una versión es un contenedor en la red propia de la aplicación, publicado en `127.0.0.1` y al que se llega por el proxy de rendimiento en **`http://<app>.localhost:8000`** (el primer servicio de la aplicación) o `http://<servicio>.<app>.localhost:8000` (`PROXY_LISTEN` lo cambia). Una versión nueva arranca junto a la que corre; cuando responde (su ruta `health`, o su puerto), el proxy pasa a ella y se quitan los contenedores viejos; una que nunca responde se quita y deja la que corría, como lo informa luego la verificación de la versión. Su puerto debe responder de verdad: una conexión que el puerto publicado acepta y cierra al instante (sin nada que escuche detrás) no cuenta. La falla dice por qué: dónde escucha el servicio dentro de su contenedor cuando no es su `port` (o solo en `127.0.0.1`), cuando busca Redis o Postgres en `localhost` (dentro de un contenedor, ese es el propio contenedor: use `REDIS_URL` o `DATABASE_URL`), y sus últimas líneas. Una aplicación que necesita Postgres o Redis recibe un contenedor de cada uno, con una contraseña creada una vez y sellada; sus secretos (Ajustes → Secretos) también se sellan. Los contenedores arrancan de nuevo con la computadora. Un servicio llega a otro servicio de su aplicación **por su nombre**, como en el clúster: cada contenedor responde en la red de la aplicación al nombre de su servicio (su *hostname* con containerd, un alias de red con Docker), así que `http://api:8000` o un `proxy_pass http://wellness-api` de nginx funcionan sin cambios, y una necesidad inyecta esa dirección (`API_URL`). Postgres y Redis responden a `postgres` y `redis`. Después de un despliegue con más de un servicio, los contenedores nuevos arrancan otra vez una sola vez, para que ninguno se quede con una dirección de la versión vieja. Los servicios de otra aplicación no se alcanzan ahí. Todavía falta: los certificados del dominio propio de una aplicación y el túnel que la pone en internet; luego una aplicación nativa.
 
+### En Windows (versión previa) {#on-windows}
+
+Cada versión publica también `rendimiento-wsl-amd64.tar.gz`: una distribución pequeña de WSL2 (Debian con systemd, containerd, BuildKit y rendimiento en `MODE=local`, construida desde `instalar/wsl`) que corre todo lo anterior en Windows 10 (versión 2004 o más nueva) o Windows 11, sin Docker Desktop. Una aplicación de Windows la importará y la cuidará por usted; mientras tanto, en PowerShell:
+
+```powershell
+wsl --install --no-distribution   # solo si WSL aún no está activo; puede pedir reiniciar
+curl.exe -LO https://github.com/rendimiento-ai/rendimiento/releases/latest/download/rendimiento-wsl-amd64.tar.gz
+wsl --import rendimiento $env:LOCALAPPDATA\rendimiento rendimiento-wsl-amd64.tar.gz
+wsl -d rendimiento -- sh -c "echo ALLOWED_USERS=su-usuario-de-github > /etc/rendimiento/env && systemctl restart rendimiento"
+```
+
+Luego abra `http://localhost:8080`; la ficha de configuración está en `/root/.config/rendimiento` (`wsl -d rendimiento -- ls /root/.config/rendimiento`). Sus aplicaciones responden en `http://<app>.localhost:8000`, como en Linux. No toca las otras distribuciones que tenga. WSL detiene una distribución cuando ningún `wsl.exe` está conectado a ella, así que deje abierta una ventana con `wsl -d rendimiento` mientras la usa (la aplicación lo hará por usted). `wsl --unregister rendimiento` la quita con todos sus datos.
+
 ## rendimiento se construye a sí mismo {#rendimiento-builds-itself}
 
 El repositorio de rendimiento está incorporado como cualquier aplicación. Su `rendimiento.yaml` tiene el libro (`docs`, un servicio) y la imagen de la plataforma (`builds: platform`), así que cada envío corre:

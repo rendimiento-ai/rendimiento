@@ -233,6 +233,19 @@ GitHub cannot send webhooks to `localhost`, so the GitHub App made by the setup 
 
 Releases run on the computer, through the **local destination**: each service of a release is a container on the app's own network, published on `127.0.0.1` and reached through rendimiento's proxy at **`http://<app>.localhost:8000`** (the app's first service) or `http://<service>.<app>.localhost:8000` (`PROXY_LISTEN` moves it). A new release starts beside the running one; once it answers (its `health` path, or its port), the proxy goes to it and the old containers are removed, and one that never answers is removed and leaves the running one in place, as release verification then reports. Its port must really answer: a connection that the published port accepts and closes at once (nothing listening behind it) does not count. The failure says why: where the service listens inside its container when that is not its `port` (or only on `127.0.0.1`), when it looks for Redis or Postgres on `localhost` (inside a container that is the container itself: use `REDIS_URL` or `DATABASE_URL`), and its last lines. An app that needs Postgres or Redis gets a container of each, with a password made once and sealed; its secrets (Settings → Secrets) are sealed too. The containers restart with the computer. A service reaches another service of its app **by its name**, as in the cluster: each container answers on the app's network to its service's name (its hostname under containerd, a network alias under Docker), so `http://api:8000` or an nginx `proxy_pass http://wellness-api` work unchanged, and a need injects that address (`API_URL`). Postgres and Redis answer to `postgres` and `redis`. After a rollout with more than one service, the new containers start again once, so none keeps an address of the old release. Another app's services are not reachable there. Not there yet: certificates for an app's own domain, and the tunnel that puts it on the internet; then a native app.
 
+### On Windows (preview) {#on-windows}
+
+Each release also publishes `rendimiento-wsl-amd64.tar.gz`: a small WSL2 distribution (Debian with systemd, containerd, BuildKit and rendimiento in `MODE=local`, built from `instalar/wsl`) that runs everything above on Windows 10 (version 2004 or newer) or Windows 11, without Docker Desktop. A Windows app will import and keep it for you; until then, in PowerShell:
+
+```powershell
+wsl --install --no-distribution   # only if WSL is not on yet; it may ask to restart
+curl.exe -LO https://github.com/rendimiento-ai/rendimiento/releases/latest/download/rendimiento-wsl-amd64.tar.gz
+wsl --import rendimiento $env:LOCALAPPDATA\rendimiento rendimiento-wsl-amd64.tar.gz
+wsl -d rendimiento -- sh -c "echo ALLOWED_USERS=your-github-login > /etc/rendimiento/env && systemctl restart rendimiento"
+```
+
+Then open `http://localhost:8080`; the setup token is in `/root/.config/rendimiento` (`wsl -d rendimiento -- ls /root/.config/rendimiento`). Your apps answer on `http://<app>.localhost:8000`, as on Linux. It does not touch other distributions you have. WSL stops a distribution when no `wsl.exe` is attached to it, so keep a `wsl -d rendimiento` window open while you use it (the app will do that for you). `wsl --unregister rendimiento` removes it with all its data.
+
 ## rendimiento builds itself {#rendimiento-builds-itself}
 
 rendimiento's repository is onboarded like any app. Its `rendimiento.yaml` has the book (`docs`, a service) and the platform's own image (`builds: platform`), so every push runs:
