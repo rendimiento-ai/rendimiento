@@ -219,6 +219,14 @@ Usa el motor que tiene la computadora (containerd, o Docker cuando su usuario pu
 MODE=local ALLOWED_USERS=su-usuario-de-github ./rendimiento
 ```
 
+Para quitarlo de la computadora:
+
+```bash
+curl -fsSL https://rendimiento.ai/instalar | sh -s -- --desinstalar
+```
+
+Detiene y quita el servicio, sus propios contenedores (`rendimiento-postgres`, `rendimiento-registro`, `rendimiento-buildkit`), los contenedores y redes de sus aplicaciones, y el programa. Luego muestra lo que queda de sus datos (sus volúmenes, el Postgres y el Redis de sus aplicaciones, las cachés y `DATA_DIR` con la llave de los secretos) y los borra solo si usted contesta que sí; `RENDIMIENTO_SI=1` nunca contesta esa pregunta, `RENDIMIENTO_BORRAR_DATOS=1` sí. Los datos que se quedan los retoma la siguiente instalación, y se anotan en `DATA_DIR/volumenes` para una desinstalación posterior. Solo toca lo que lleva los nombres o las etiquetas de rendimiento, y el motor de contenedores se queda.
+
 La primera vez crea, en `DATA_DIR` (por omisión `~/.config/rendimiento`, que solo usted puede leer), la llave que sella sus secretos en Postgres, la contraseña de la base de datos y la ficha de configuración inicial. Arranca y mantiene dos contenedores propios: `rendimiento-postgres` (en `127.0.0.1:55433`) y `rendimiento-registro` (un registro de imágenes en `localhost:5000`, o el que ya responda ahí). Las construcciones usan BuildKit: el que instalan las herramientas de containerd (`containerd-rootless-setuptool.sh install-buildkit`) o, con Docker, un contenedor propio.
 
 GitHub no puede mandar avisos web a `localhost`, así que la aplicación de GitHub que crea la página de configuración no tiene ninguno: cada `POLL_INTERVAL` (1 minuto) rendimiento le pregunta a GitHub por las ramas de cada aplicación y corre la rama cuya punta cambió, como lo haría un push.

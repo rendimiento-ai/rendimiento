@@ -4,6 +4,8 @@ What changed in each release, for people who run rendimiento. Every change is in
 
 ## Unreleased
 
+- **Uninstalling:** `curl -fsSL https://rendimiento.ai/instalar | sh -s -- --desinstalar` takes rendimiento off a computer (the service, its containers and your apps', their networks, the program), and deletes your data only if you say yes.
+
 ## v0.1.5 (2026-11-07)
 
 - **Señales de vida:** once a week, each installation sends rendimiento.ai a few anonymous counts (apps, runs, agents; its mode, engine and version), never a name or a secret. The operators see the next one exactly as it would go, under Members, and turn them off there or with `SENALES=off`. See [the book](docs/content/guide/senales.md). (#150)
