@@ -176,10 +176,10 @@ Every change that reaches `main`, and every `v1.2.3` tag, is also published for 
 
 ### Installing with Helm {#installing-with-helm}
 
-`chart/rendimiento` installs the platform on another cluster from the public image, without an overlay of your own. Each release from `v0.1.3` on publishes it with its version, and it installs that release's image:
+`chart/rendimiento` installs the platform on another cluster from the public image, without an overlay of your own. Each release from `v0.1.3` on publishes it with its version, and it installs that release's image; without `--version`, Helm takes the latest (add `--version 1.2.3` to pin one):
 
 ```bash
-helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento --version 0.1.3 \
+helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento \
   -n rendimiento-system --create-namespace \
   --set baseURL=https://rendimiento.example.com \
   --set firstAdmins=your-github-login \

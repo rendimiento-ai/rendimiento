@@ -13,7 +13,7 @@ Coding agents now write more apps than a platform team can check by hand. rendim
 curl -fsSL https://rendimiento.ai/instalar | sh
 
 # On a Kubernetes cluster:
-helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento --version 0.1.3 \
+helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento \
   -n rendimiento-system --create-namespace \
   --set baseURL=https://rendimiento.example.com --set firstAdmins=your-github-login \
   --set registry.host=registry.example.com
