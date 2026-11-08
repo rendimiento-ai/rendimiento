@@ -177,6 +177,11 @@ export function Dashboard() {
         })}
       </div>
       {apps && apps.length > 0 && <div style={{ marginTop: 28 }}><VisitsPanel />{session.operator && <DeliveryPanel />}</div>}
+      {session.operator && session.mercado && (
+        <p className="small muted" style={{ marginTop: 28 }}>
+          {t("Pages without code for people who don't program live in the")} <Link to="/mercado">{t("Mercado")}</Link>.
+        </p>
+      )}
     </>
   );
 }

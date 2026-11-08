@@ -42,6 +42,7 @@ function Shell() {
         session.operator = me.operator;
         session.role = me.role;
         session.cluster = !!me.cluster;
+        session.mercado = !!me.mercado;
         setState({ login: me.login, role: me.role, org: me.org, operator: me.operator, demo: me.demo, cluster: me.cluster, configured: true, loading: false });
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) setState({ configured: true, book: setup.book, activity: setup.activity, loading: false });
@@ -69,7 +70,6 @@ function Shell() {
       <header className="topbar">
         <Link to="/" className="brand"><Logo /> <span className="brand-name">rendimiento</span></Link>
         <NavLink to="/" end className="nav-link">{t("Apps")}</NavLink>
-        {state.operator && <NavLink to="/mercado" className="nav-link">{t("Mercado")}</NavLink>}
         <NavLink to="/universe" className="nav-link">{t("Universe")}</NavLink>
         {state.operator && state.cluster && <NavLink to="/services" className="nav-link">{t("Services")}</NavLink>}
         {state.operator && state.cluster && <NavLink to="/addons" className="nav-link">{t("Add-ons")}</NavLink>}

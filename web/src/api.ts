@@ -279,6 +279,7 @@ export interface Me {
   operator: boolean;
   demo?: boolean; // signed in by a demo link: read-only
   cluster: boolean; // false on a computer without Kubernetes: no Environment, Services or Add-ons
+  mercado?: boolean; // the Mercado is set up here (reached from the Apps page)
 }
 
 // A demo link (internal/store.DemoLink): a secret address that opens a
@@ -366,7 +367,7 @@ export interface BitacoraCheck {
   motivo?: string;
 }
 
-export const session: { operator: boolean; role: MemberRole; cluster: boolean } = { operator: false, role: "guest", cluster: false };
+export const session: { operator: boolean; role: MemberRole; cluster: boolean; mercado: boolean } = { operator: false, role: "guest", cluster: false, mercado: false };
 
 // The AI gateway (internal/ia, api.IAView).
 export type AIProvider = "local" | "own" | "platform";

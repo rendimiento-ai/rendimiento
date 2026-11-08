@@ -741,6 +741,7 @@ export const es: Record<string, string> = {
   "person": "persona",
   "done": "hecho",
   "Show older actions": "Mostrar acciones anteriores",
+  "Pages without code for people who don't program live in the": "Las páginas sin código para personas que no programan están en el",
   "What rendimiento sends": "Lo que rendimiento manda",
   "Once a week, this installation tells rendimiento.ai it is alive, with a few anonymous counts, so the project knows how many installations there are. Never a name, a repository, a person or a secret, and rendimiento.ai keeps no address.": "Una vez por semana, esta instalación le dice a rendimiento.ai que sigue viva, con unos cuantos conteos anónimos, para que el proyecto sepa cuántas instalaciones hay. Nunca un nombre, un repositorio, una persona ni un secreto, y rendimiento.ai no guarda direcciones.",
   "More in the book": "Más en el libro",
