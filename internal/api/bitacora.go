@@ -3,13 +3,27 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
+
+// detalleKey carries, in a request's context, what its handler adds to its
+// bitácora row (anotarDetalle).
+type detalleKey struct{}
+
+// anotarDetalle adds what a route did to its bitácora row, beyond what its
+// path says: a decision, what it was about. Never a secret's value.
+func anotarDetalle(r *http.Request, k string, v any) {
+	if d, ok := r.Context().Value(detalleKey{}).(map[string]any); ok {
+		d[k] = v
+	}
+}
 
 // pathParams are the {names} in a route pattern.
 var pathParams = regexp.MustCompile(`\{([a-z]+)\}`)
@@ -29,6 +43,8 @@ func (s *Server) anotando(pattern string, platform bool, h func(http.ResponseWri
 	}
 	return func(w http.ResponseWriter, r *http.Request, login string) {
 		rec := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+		detalle := map[string]any{}
+		r = r.WithContext(context.WithValue(r.Context(), detalleKey{}, detalle))
 		// Written even when the handler panics: what was tried is recorded
 		// too, and the panic goes on to the server.
 		defer func() {
@@ -46,7 +62,7 @@ func (s *Server) anotando(pattern string, platform bool, h func(http.ResponseWri
 				sobre[n] = r.PathValue(n)
 			}
 			s.anotar(r.Context(), store.Bitacora{OrgID: org, QuienTipo: store.QuienPersona, Quien: login, Por: "interfaz",
-				Accion: pattern, Sobre: sobre, Resultado: resultado})
+				Accion: pattern, Sobre: sobre, Resultado: resultado, Detalle: detalle})
 			if p != nil {
 				panic(p)
 			}
@@ -125,7 +141,38 @@ func (s *Server) listAprobaciones(w http.ResponseWriter, r *http.Request, _ stri
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if want := r.URL.Query().Get("lang"); want != "" {
+		for i := range rows {
+			s.traducirMotivo(r, &rows[i], want)
+		}
+	}
 	writeJSON(w, rows)
+}
+
+// traducirMotivo puts a request's reason in the reader's language (?lang=,
+// es or en): kept from an earlier reader, or translated now by the AI and
+// kept. The agent wrote it freely, in whatever language; the original
+// goes along. When it cannot be translated, the reader gets it as written.
+func (s *Server) traducirMotivo(r *http.Request, a *store.Aprobacion, want string) {
+	text, ok := a.Traducciones[want]
+	if !ok {
+		if s.Translator == nil {
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+		var err error
+		if text, err = s.Translator.TranslateTo(ctx, a.OrgID, fmt.Sprintf("aprobacion/%d", a.ID), a.Motivo, want); err != nil {
+			s.Log.Warn("could not translate a request's reason", "aprobacion", a.ID, "to", want, "err", err)
+			return
+		}
+		if err := s.Store.GuardarTraduccion(context.WithoutCancel(ctx), a.ID, want, text); err != nil {
+			s.Log.Warn("could not keep a request's translation", "aprobacion", a.ID, "err", err)
+		}
+	}
+	if text != a.Motivo {
+		a.MotivoOriginal, a.Motivo = a.Motivo, text
+	}
 }
 
 // decidirAprobacion is an administrator approving or rejecting an agent's
@@ -153,6 +200,16 @@ func (s *Server) decidirAprobacion(w http.ResponseWriter, r *http.Request, login
 	case err != nil:
 		httpError(w, http.StatusInternalServerError, err.Error())
 	default:
+		anotarDetalle(r, "decision", a.Estado)
+		anotarDetalle(r, "app", a.App)
+		anotarDetalle(r, "version", a.Version)
+		anotarDetalle(r, "pedida_por", a.PedidaPor)
+		if a.Comentario != "" {
+			anotarDetalle(r, "comentario", a.Comentario)
+		}
+		if a.Resultado != "" {
+			anotarDetalle(r, "resultado", a.Resultado)
+		}
 		writeJSON(w, a)
 	}
 }

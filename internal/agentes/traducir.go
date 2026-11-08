@@ -57,3 +57,34 @@ func (t *Translator) Translate(ctx context.Context, orgID int64, key, text, from
 	}
 	return v.(string), nil
 }
+
+// TranslateTo is a short text in any language, put in to (es or en); text
+// already in to comes back as it is. For what agents and people write
+// freely, such as an agent's reason for a request, whose language is not
+// known. key names what is translated, as in Translate.
+func (t *Translator) TranslateTo(ctx context.Context, orgID int64, key, text, to string) (string, error) {
+	if langName[to] == "" {
+		return "", fmt.Errorf("no translation to %q", to)
+	}
+	v, err, _ := t.group.Do(key+"→"+to, func() (any, error) {
+		res, err := t.Model.Complete(ctx, orgID, TranslateSource, ia.Request{
+			System: fmt.Sprintf("Put the user's text in %s. If it is already in %s, answer it exactly as it is. "+
+				"Keep names, numbers, code, paths and Markdown as they are. Answer with the text only, nothing before or after it.",
+				langName[to], langName[to]),
+			Messages:  []ia.Message{{Role: "user", Content: text}},
+			MaxTokens: 1000,
+		})
+		if err != nil {
+			return "", err
+		}
+		out := strings.TrimSpace(res.Text)
+		if out == "" {
+			return "", errors.New("the model answered with no translation")
+		}
+		return out, nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return v.(string), nil
+}

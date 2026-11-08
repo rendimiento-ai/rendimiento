@@ -320,6 +320,8 @@ export interface Aprobacion {
   accion: "revertir";
   version: number;
   motivo: string;
+  /** The reason as the agent wrote it, when motivo was put in the reader's language. */
+  motivoOriginal?: string;
   pedidaPor: string;
   estado: "pendiente" | "aprobada" | "rechazada" | "vencida" | "fallida";
   decididaPor?: string;
@@ -844,7 +846,8 @@ export const api = {
   bitacora: (f: { quien?: string; accion?: string; app?: string; antes?: number }) =>
     request<BitacoraRow[]>("GET", `/api/bitacora?${new URLSearchParams(Object.entries(f).filter(([, v]) => v).map(([k, v]) => [k, String(v)]))}`),
   verificarBitacora: () => request<BitacoraCheck>("GET", "/api/bitacora/verificar"),
-  aprobaciones: (pendientes = false) => request<Aprobacion[]>("GET", `/api/aprobaciones${pendientes ? "?pendientes=1" : ""}`),
+  aprobaciones: (pendientes = false, lang = "") =>
+    request<Aprobacion[]>("GET", `/api/aprobaciones?${pendientes ? "pendientes=1&" : ""}lang=${encodeURIComponent(lang)}`),
   decidirAprobacion: (id: number, aprobar: boolean, comentario = "") =>
     request<Aprobacion>("POST", `/api/aprobaciones/${id}/decidir`, { aprobar, comentario }),
   agentKeys: () => request<AgentKey[]>("GET", "/api/agent-keys"),

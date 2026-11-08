@@ -21,11 +21,26 @@ test("every page in the menu opens", async ({ page, problemas }) => {
 
 // Creating apps (nueva-app.spec.ts) was written to the bitácora, as the
 // person who did it, and the chain holds.
-test("the bitácora shows what was done, and its chain holds", async ({ page, problemas }) => {
+test("the bitácora shows what was done, and its chain holds", async ({ page, problemas }, info) => {
   await page.goto("/bitacora");
   await expect(page.locator("main h1").first()).toBeVisible();
-  await expect(page.locator("table.bitacora td.mono", { hasText: "POST /api/apps" }).first()).toBeVisible();
+  // The action in words, with its route beside it.
+  const fila = page.locator("table.bitacora tr", { hasText: "POST /api/apps" }).first();
+  await expect(fila).toBeVisible();
+  await expect(fila).toContainText(info.project.name === "es" ? "Creó una aplicación" : "Created an app");
   await expect(page.locator("table.bitacora").first()).toContainText("prueba");
   await expect(page.locator(".badge.ok").first()).toBeVisible(); // intact
+  expect(problemas).toEqual([]);
+});
+
+// The bell opens with what waits for the person and what happened.
+test("the bell opens", async ({ page, problemas }, info) => {
+  await page.goto("/");
+  await page.locator("button.campana-boton").click();
+  const panel = page.locator(".campana-panel");
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText(info.project.name === "es" ? "Esperan su atención" : "Waiting for you");
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
   expect(problemas).toEqual([]);
 });
