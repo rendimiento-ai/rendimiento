@@ -85,5 +85,11 @@ jobs:
           git switch -c "$branch"
           git commit -qam "CHANGELOG: $tag"
           git push -q origin "$branch"
-          gh pr create --base main --head "$branch" --title "CHANGELOG: $tag" \
-            --body "What was under Unreleased is now $tag, released today. Merge it so the changelog matches the release."
+          # Without the permission to open pull requests, the branch is
+          # there all the same: the run stays green and says where to open it.
+          if ! gh pr create --base main --head "$branch" --title "CHANGELOG: $tag" \
+            --body "What was under Unreleased is now $tag, released today. Merge it so the changelog matches the release."; then
+            url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$branch"
+            echo "::warning::Could not open the changelog's pull request (allow GitHub Actions to create pull requests in Settings → Actions → General). Open it by hand: $url"
+            printf '### The changelog for %s\n\nThe branch `%s` has it. Open its pull request by hand: %s\n' "$tag" "$branch" "$url" >>"$GITHUB_STEP_SUMMARY"
+          fi
