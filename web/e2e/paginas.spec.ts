@@ -44,3 +44,16 @@ test("the bell opens", async ({ page, problemas }, info) => {
   await expect(panel).toBeHidden();
   expect(problemas).toEqual([]);
 });
+
+// On a phone the bar wraps and the bell sits in the middle: its panel
+// still opens whole inside the screen.
+test("the bell's panel fits a phone's screen", async ({ page, problemas }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.locator("button.campana-boton").click();
+  const caja = await page.locator(".campana-panel").boundingBox();
+  expect(caja, "the panel is shown").not.toBeNull();
+  expect(caja!.x).toBeGreaterThanOrEqual(0);
+  expect(caja!.x + caja!.width).toBeLessThanOrEqual(390);
+  expect(problemas).toEqual([]);
+});
