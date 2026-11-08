@@ -4,6 +4,8 @@ What changed in each release, for people who run rendimiento. Every change is in
 
 ## Unreleased
 
+- **Señales de vida:** once a week, each installation sends rendimiento.ai a few anonymous counts (apps, runs, agents; its mode, engine and version), never a name or a secret. The operators see the next one exactly as it would go, under Members, and turn them off there or with `SENALES=off`. See [the book](docs/content/guide/senales.md).
+
 - **A release that doesn't answer fails, and says why.** On one computer, a published port accepted connections even when nothing listened behind it, so a broken release looked healthy. Now it fails, saying where the service listens inside its container, whether it looks for Redis or Postgres on `localhost`, and its last log lines. (#136)
 - **Build tasks can have a throwaway Postgres and a kept cache** (`postgres: true`, `cache: true`), as tests can, for a task such as a browser test that drives the app with its database. (#135)
 - **Browser tests of the UI on every push**, in English and Spanish, with every kind of app. They found two bugs, fixed here: the activity stream failed on every Spanish page, and without a cluster the UI asked for cluster-only data. (#137)

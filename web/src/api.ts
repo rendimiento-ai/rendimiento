@@ -332,6 +332,33 @@ export interface Aprobacion {
   vence: string;
 }
 
+/** One señal de vida, exactly as it is sent (internal/senales.Senal). */
+export interface Senal {
+  instalacion: string;
+  version: string;
+  modo: string;
+  motor: string;
+  so: string;
+  arquitectura: string;
+  semana: { apps: number; ejecuciones: number; versiones: number; agentes_con_llave: number; llamadas_de_agentes: number };
+  organizaciones: number;
+  personas: string;
+  equipo?: boolean;
+}
+
+/** What the operators see of the señales (api.SenalesView), and where they are received, what they say. */
+export interface SenalesView {
+  encendidas: boolean;
+  porque?: string;
+  avisoVisto: boolean;
+  ultimoEnvio?: string;
+  proxima: Senal;
+  resumen?: {
+    activas7: number; activas28: number; equipo28: number; total: number; appsEnFuera28: number;
+    porModo: Record<string, number>; porMotor: Record<string, number>; porVersion: Record<string, number>;
+  };
+}
+
 /** Whether an organization's bitácora chain holds, and where it broke if not. */
 export interface BitacoraCheck {
   revisados: number;
@@ -846,6 +873,8 @@ export const api = {
   bitacora: (f: { quien?: string; accion?: string; app?: string; antes?: number }) =>
     request<BitacoraRow[]>("GET", `/api/bitacora?${new URLSearchParams(Object.entries(f).filter(([, v]) => v).map(([k, v]) => [k, String(v)]))}`),
   verificarBitacora: () => request<BitacoraCheck>("GET", "/api/bitacora/verificar"),
+  senales: () => request<SenalesView>("GET", "/api/senales/estado"),
+  putSenales: (cambio: { encendidas?: boolean; avisoVisto?: boolean }) => request<SenalesView>("PUT", "/api/senales/estado", cambio),
   aprobaciones: (pendientes = false, lang = "") =>
     request<Aprobacion[]>("GET", `/api/aprobaciones?${pendientes ? "pendientes=1&" : ""}lang=${encodeURIComponent(lang)}`),
   decidirAprobacion: (id: number, aprobar: boolean, comentario = "") =>

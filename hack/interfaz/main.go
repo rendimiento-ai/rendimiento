@@ -37,6 +37,7 @@ import (
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
 	"github.com/rendimiento-ai/rendimiento/internal/platform"
+	"github.com/rendimiento-ai/rendimiento/internal/senales"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/spec/ejemplos"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
@@ -109,6 +110,10 @@ func run(addr, ui, estado string, log *slog.Logger) error {
 		Platform: p, Store: st, GitHub: holder, Credentials: &credenciales{c: &creds}, DNS: dns.Noop{}, Log: log,
 		BaseURL: base, AllowedUsers: []string{persona}, SetupToken: "pruebas", AppName: creds.Slug, UI: os.DirFS(ui),
 		IA: &ia.Gateway{Store: st, LocalModel: ia.DefaultLocalModel, PlatformModel: ia.DefaultAnthropicModel},
+		// Señales: shown and switched, never sent (its loop never starts),
+		// and received, so the operators' summary shows too.
+		Senales:        &senales.Enviador{Store: st, URL: "http://127.0.0.1:1/nadie", Version: "0.0.0-e2e", Modo: "local", Motor: "docker"},
+		SenalesRecibir: true,
 	}
 	cookie, err := srv.Session(ctx, persona, 24*time.Hour)
 	if err != nil {

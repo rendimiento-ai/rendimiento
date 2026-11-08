@@ -96,6 +96,7 @@ plugins:
             Built for agents (roles, tools, where it is going): Hecha para agentes (funciones, herramientas, hacia dónde va)
             La Ruta (memory for people and agents, over MCP): La Ruta (la memoria de personas y agentes, por MCP)
             Languages (English, Spanish): Idiomas (inglés y español)
+            "Señales de vida (anonymous counts, and turning them off)": "Señales de vida (conteos anónimos, y cómo apagarlos)"
             Needs and the services catalog: Necesidades y catálogo de servicios
             The Universe (every app from above): El universo (todas las aplicaciones desde arriba)
             Libraries (rendimiento for Node, Python and Java): Bibliotecas (rendimiento para Node, Python y Java)
@@ -187,6 +188,7 @@ nav:
       - Built for agents (roles, tools, where it is going): guide/agents.md
       - La Ruta (memory for people and agents, over MCP): guide/ruta.md
       - Languages (English, Spanish): guide/languages.md
+      - "Señales de vida (anonymous counts, and turning them off)": guide/senales.md
       - Needs and the services catalog: guide/needs.md
       - The Universe (every app from above): guide/universe.md
       - Libraries (rendimiento for Node, Python and Java): guide/observa.md

@@ -19,9 +19,11 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
 COPY --from=ui /web/dist ./web/dist
 ARG GIT_SHA=""
+# VERSION is a release's (the image workflow passes it for a tag); else the commit.
+ARG VERSION=""
 ARG TARGETOS TARGETARCH
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/rendimiento ./cmd/rendimiento
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X main.version=${VERSION:-${GIT_SHA:-dev}}" -o /out/rendimiento ./cmd/rendimiento
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/rendimiento /rendimiento

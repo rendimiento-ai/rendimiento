@@ -57,6 +57,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/ruta"
 	"github.com/rendimiento-ai/rendimiento/internal/secretos"
 	"github.com/rendimiento-ai/rendimiento/internal/selfupdate"
+	"github.com/rendimiento-ai/rendimiento/internal/senales"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 	"github.com/rendimiento-ai/rendimiento/internal/traces"
 	"github.com/rendimiento-ai/rendimiento/internal/universe"
@@ -532,6 +533,8 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 		prober.Notify, prober.BaseURL = notifier, baseURL
 	}
 	srv.Notify = notifier
+	srv.Senales = enviadorDeSenales(st, "kubernetes", "kubernetes", log)
+	srv.SenalesRecibir = env("SENALES_RECIBIR", "") == "1"
 	// REDIRECT_HOSTS: old addresses of the platform; people visiting them
 	// go to BASE_URL, while webhooks, MCP and the public stats still answer.
 	srv.RedirectHosts = splitList(os.Getenv("REDIRECT_HOSTS"))
@@ -675,6 +678,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 				p.Hub.Answer(ctx, ddnsTopic, func(context.Context, json.RawMessage) (any, error) { return d.DDNSStatus(), nil })
 			}
 			go p.ServeVerifications(ctx)
+			go srv.Senales.Run(ctx)
 			go renovateRunner.Loop(ctx)
 			go addonSyncer.Loop(ctx)
 			if prober != nil {
@@ -775,6 +779,19 @@ func tracesService(st *store.Store, log *slog.Logger) (*http.Server, *traces.Kee
 
 // ddnsTopic is where the control service answers for dynamic DNS's status.
 const ddnsTopic = "ddns/status"
+
+// version is the release this program was built from (-ldflags "-X
+// main.version=…": the tag in a release, the commit in the cluster's own
+// build), sent in the señales de vida.
+var version = "dev"
+
+// enviadorDeSenales sends this installation's señales de vida: on unless
+// SENALES=off; SENALES_EQUIPO=1 marks the team's own installations;
+// SENALES_URL changes where they go (tests).
+func enviadorDeSenales(st *store.Store, modo, motor string, log *slog.Logger) *senales.Enviador {
+	return &senales.Enviador{Store: st, URL: env("SENALES_URL", senales.URL), Version: version, Modo: modo, Motor: motor,
+		Equipo: env("SENALES_EQUIPO", "") == "1", Off: env("SENALES", "on") == "off", Log: log.With("component", "senales")}
+}
 
 // plataformaMCP is what the agents' platform tools (ruta.Plataforma) read
 // and do: the store, plus logs (from the archive too) and the CI queue.

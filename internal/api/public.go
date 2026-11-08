@@ -34,7 +34,15 @@ type PublicStats struct {
 	Sites       []publicSite         `json:"sites"`
 	Cluster     publicCluster        `json:"cluster"`
 	Recent      []store.ReleaseEvent `json:"recent"`
+	// Instalaciones is how many installations outside the team were alive
+	// in the last 28 days (their señales de vida), where señales are
+	// received and once there are more than PublicInstallsFrom.
+	Instalaciones int `json:"instalaciones,omitempty"`
 }
+
+// PublicInstallsFrom is how many installations it takes before the number
+// is public: fewer look like nothing yet.
+const PublicInstallsFrom = 25
 
 type publicSite struct {
 	store.SiteStats
@@ -111,6 +119,11 @@ func (s *Server) buildPublicStats(ctx context.Context) (*PublicStats, error) {
 	}
 	if out.Recent, err = s.Store.RecentReleases(ctx, 12); err != nil {
 		return nil, err
+	}
+	if s.SenalesRecibir {
+		if r, err := s.Store.Resumen(ctx); err == nil && r.Activas28 > PublicInstallsFrom {
+			out.Instalaciones = r.Activas28
+		}
 	}
 	sites, err := s.Store.PublicSites(ctx, 90, tz)
 	if err != nil {

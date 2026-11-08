@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Senales } from "../components/senales";
 import { useSearchParams } from "react-router-dom";
 import { api, session, timeAgo, type MemberRole, type Org } from "../api";
 import { ErrorBox, usePoll } from "../components/ui";
@@ -108,6 +109,7 @@ export function Members({ me, role, org }: { me: string; role: MemberRole; org?:
       </div>
       {admin && <DemoLinks org={org} />}
       <Orgs />
+      {session.operator && <Senales />}
     </>
   );
 }

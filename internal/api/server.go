@@ -44,6 +44,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/platform"
 	"github.com/rendimiento-ai/rendimiento/internal/renovate"
 	"github.com/rendimiento-ai/rendimiento/internal/selfupdate"
+	"github.com/rendimiento-ai/rendimiento/internal/senales"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 	"github.com/rendimiento-ai/rendimiento/internal/universe"
 )
@@ -66,6 +67,10 @@ type Server struct {
 	BaseURL     string // https://rendimiento.example.com
 	// RedirectHosts are old addresses: people visiting them go to BaseURL.
 	RedirectHosts []string
+	// Senales sends this installation's señales de vida (nil: not set up),
+	// and SenalesRecibir keeps those of other installations (rendimiento.ai).
+	Senales        *senales.Enviador
+	SenalesRecibir bool
 	// Notify sends notification emails (the test email; nil when off).
 	Notify *notify.Notifier
 	// PublicStats serves GET /api/public/stats without login, for a public
@@ -157,6 +162,7 @@ func (s *Server) Handler() http.Handler {
 		w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
 		_, _ = w.Write(instalar.Script)
 	})
+	mux.HandleFunc("POST /api/senales", s.recibirSenal)
 	mux.HandleFunc("GET /api/setup/status", s.setupStatus)
 	mux.HandleFunc("GET /api/setup/github", s.setupStart)
 	mux.HandleFunc("GET /api/setup/github/callback", s.setupCallback)
@@ -219,6 +225,9 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/ruta/activity", s.rutaActivity)
 	// The bitácora: every action, by people and agents (collaborators and
 	// administrators: arguments can show more than guests should see).
+	// The señales de vida: what this installation sends, for the operators.
+	plat(store.MemberAdmin, "GET /api/senales/estado", s.verSenales)
+	plat(store.MemberAdmin, "PUT /api/senales/estado", s.putSenales)
 	auth(store.MemberCollaborator, "GET /api/bitacora", s.listBitacora)
 	auth(store.MemberCollaborator, "GET /api/bitacora/verificar", s.verifyBitacora)
 	// Changes to production agents ask for; an administrator decides.
@@ -318,7 +327,7 @@ func clusterOnly(pattern string) bool {
 // machinePaths keep answering on a redirected host: what GitHub, agents
 // and websites call there is moved one by one, and machines do not all
 // follow redirects.
-var machinePaths = []string{"/api/webhooks/", "/mcp", "/api/public/", "/healthz", "/instalar"}
+var machinePaths = []string{"/api/webhooks/", "/mcp", "/api/public/", "/healthz", "/instalar", "/api/senales"}
 
 // redirectHosts sends people who visit one of RedirectHosts (an old
 // address) to BaseURL, same path and query (308). Machine paths answer

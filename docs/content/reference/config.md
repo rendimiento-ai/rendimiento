@@ -96,6 +96,10 @@ Taken from the optional Secret `rendimiento-dns`. Without a token, DNS automatio
 | `NOTIFY_EMAIL_TO` | *(empty: off)* | `you@example.com` | who gets [notification emails](../guide/notifications.md), comma-separated |
 | `NOTIFY_LANG` | `en` | `es` | the language of the emails, and of the instructions and tool descriptions agents get over MCP (an agent's address can ask for another: `/mcp?lang=en`): `en`, or `es` for Mexican Spanish |
 | `NOTIFY_OUTAGE_AFTER` | `5m` | `10m` | how long an outage must last before it is [emailed](../guide/notifications.md#noise-control); a shorter one sends nothing (`0`: at once) |
+| `SENALES` | `on` | `off` | `off` never sends the [señales de vida](../guide/senales.md), whatever the operators' switch says |
+| `SENALES_EQUIPO` | *(empty)* | `1` | marks an installation as the team's own: its señales are counted apart |
+| `SENALES_RECIBIR` | *(empty)* | `1` | receives other installations' señales at `POST /api/senales` (rendimiento.ai only) |
+| `SENALES_URL` | `https://rendimiento.ai/api/senales` | | where señales go |
 | `NOTIFY_GROUP_WAIT` | `2m` | `5m` | how long notices of one kind wait for others before going out [as one email](../guide/notifications.md#noise-control) (`0`: no grouping) |
 | `NOTIFY_EMAIL_FROM` | `rendimiento <alerts@example.com>` | | the sender; must be on a Resend-verified domain |
 | `RESEND_API_KEY` | — | from Secret `rendimiento-notify` | the Resend API key |
