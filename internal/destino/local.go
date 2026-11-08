@@ -441,6 +441,10 @@ func (l *Local) necesidades(ctx context.Context, app string, sp spec.Spec) (map[
 		}
 		db := strings.ReplaceAll(app, "-", "_")
 		name := app + "-postgres"
+		// Labeled with its app, so uninstalling finds it (instalar.sh).
+		if err := l.Motor.CrearVolumen(ctx, app+"-postgres-data", map[string]string{etApp: app}); err != nil {
+			return nil, err
+		}
 		if err := l.Motor.Asegurar(ctx, motor.Contenedor{Nombre: name, Imagen: "postgres:17-alpine", Red: red(app), Siempre: true, Alias: spec.NeedPostgres,
 			Env:       map[string]string{"POSTGRES_USER": "app", "POSTGRES_PASSWORD": pw, "POSTGRES_DB": db},
 			Montajes:  []motor.Montaje{{Volumen: app + "-postgres-data", Ruta: "/var/lib/postgresql/data"}},
@@ -455,6 +459,9 @@ func (l *Local) necesidades(ctx context.Context, app string, sp spec.Spec) (map[
 			return nil, err
 		}
 		name := app + "-redis"
+		if err := l.Motor.CrearVolumen(ctx, app+"-redis-data", map[string]string{etApp: app}); err != nil {
+			return nil, err
+		}
 		if err := l.Motor.Asegurar(ctx, motor.Contenedor{Nombre: name, Imagen: "redis:7-alpine", Red: red(app), Siempre: true, Alias: spec.NeedRedis,
 			Comando:   []string{"redis-server", "--requirepass", pw, "--appendonly", "yes"},
 			Montajes:  []motor.Montaje{{Volumen: app + "-redis-data", Ruta: "/data"}},
