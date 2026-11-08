@@ -41,6 +41,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/platform"
 	"github.com/rendimiento-ai/rendimiento/internal/render"
 	"github.com/rendimiento-ai/rendimiento/internal/ruta"
+	"github.com/rendimiento-ai/rendimiento/internal/senales"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -1503,5 +1504,62 @@ func TestMotivoEnElIdiomaDeQuienLee(t *testing.T) {
 	}
 	if _, body := e.do(t, "GET", "/api/aprobaciones?pendientes=1", "", me, nil); !strings.Contains(body, `"motivo":"la versión 2 rompió el pago"`) || strings.Contains(body, "motivoOriginal") {
 		t.Fatalf("without a language, as written: %s", body)
+	}
+}
+
+// Señales de vida: received only where the platform receives them, at
+// most one an hour per
+// installation, the team's own apart; the operators see what this
+// installation would send and turn it off; the public number waits for
+// more than 25 installations outside the team.
+func TestSenalesDeVida(t *testing.T) {
+	e := newEnv(t, false)
+	ctx := context.Background()
+	mandar := func(id string, equipo bool, extra string) int {
+		t.Helper()
+		body := fmt.Sprintf(`{"instalacion":%q,"version":"0.1.4","modo":"local","motor":"docker","semana":{"apps":2},"equipo":%v%s}`, id, equipo, extra)
+		r, _ := e.do(t, "POST", "/api/senales", body, nil, nil)
+		return r.StatusCode
+	}
+	if code := mandar("8f3c2a9e1d474b6a9e0c5a7d2f1b3c84", false, ""); code != 404 {
+		t.Fatalf("not receiving: %d", code)
+	}
+	e.s.SenalesRecibir = true
+	if code := mandar("no-es-un-id", false, ""); code != 400 {
+		t.Fatalf("a bad identity: %d", code)
+	}
+	if code := mandar("8f3c2a9e1d474b6a9e0c5a7d2f1b3c84", false, `,"correo":"alguien@example.com"`); code != 204 {
+		t.Fatalf("a señal: %d", code)
+	}
+	mandar("8f3c2a9e1d474b6a9e0c5a7d2f1b3c84", false, "") // within the hour: not counted twice
+	mandar("00000000000000000000000000000001", true, "")   // the team's own
+	r, err := e.store.Resumen(ctx)
+	if err != nil || r.Activas7 != 1 || r.Activas28 != 1 || r.Equipo28 != 1 || r.PorMotor["docker"] != 1 || r.AppsEnFuera28 != 2 {
+		t.Fatalf("summary: %+v %v", r, err)
+	}
+	// The operators' view, and turning them off.
+	e.s.Senales = &senales.Enviador{Store: e.store, URL: "http://127.0.0.1:1/nadie", Version: "0.1.4", Modo: "kubernetes", Motor: "kubernetes"}
+	me := e.session(t, "p0dxD")
+	_, body := e.do(t, "GET", "/api/senales/estado", "", me, nil)
+	if !strings.Contains(body, `"encendidas":true`) || !strings.Contains(body, `"modo":"kubernetes"`) || !strings.Contains(body, `"activas28":1`) {
+		t.Fatalf("view: %s", body)
+	}
+	if _, body := e.do(t, "PUT", "/api/senales/estado", `{"encendidas":false,"avisoVisto":true}`, me, nil); !strings.Contains(body, `"encendidas":false`) || !strings.Contains(body, `"avisoVisto":true`) {
+		t.Fatalf("turned off: %s", body)
+	}
+	if on, porque, _ := e.s.Senales.Encendidas(ctx); on || !strings.Contains(porque, "p0dxD") {
+		t.Fatalf("the sender after turning off: %v %q", on, porque)
+	}
+
+	// The public number waits for more than 25 outside the team.
+	st, err := e.s.buildPublicStats(ctx)
+	if err != nil || st.Instalaciones != 0 {
+		t.Fatalf("public with one: %+v %v", st.Instalaciones, err)
+	}
+	for i := 2; i <= 27; i++ {
+		mandar(fmt.Sprintf("%032x", i), false, "")
+	}
+	if st, _ := e.s.buildPublicStats(ctx); st.Instalaciones != 27 {
+		t.Fatalf("public with 27: %d", st.Instalaciones)
 	}
 }

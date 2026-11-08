@@ -96,6 +96,10 @@ Se toman del Secret opcional `rendimiento-dns`. Sin token, la automatización de
 | `NOTIFY_EMAIL_TO` | *(vacío: apagado)* | `you@example.com` | quién recibe los [correos de aviso](../guide/notifications.md), separados por comas |
 | `NOTIFY_LANG` | `en` | `es` | el idioma de los correos, y de las instrucciones y descripciones de herramientas que los agentes reciben por MCP (la dirección de un agente puede pedir otro: `/mcp?lang=en`): `en`, o `es` para español de México |
 | `NOTIFY_OUTAGE_AFTER` | `5m` | `10m` | cuánto tiene que durar una interrupción para que se [avise por correo](../guide/notifications.md#noise-control); una más corta no envía nada (`0`: de inmediato) |
+| `SENALES` | `on` | `off` | `off` nunca manda las [señales de vida](../guide/senales.md), diga lo que diga el interruptor de los operadores |
+| `SENALES_EQUIPO` | *(vacío)* | `1` | marca una instalación como del propio equipo: sus señales se cuentan aparte |
+| `SENALES_RECIBIR` | *(vacío)* | `1` | recibe las señales de otras instalaciones en `POST /api/senales` (solo rendimiento.ai) |
+| `SENALES_URL` | `https://rendimiento.ai/api/senales` | | a dónde van las señales |
 | `NOTIFY_GROUP_WAIT` | `2m` | `5m` | cuánto esperan los avisos de un tipo a otros antes de salir [en un solo correo](../guide/notifications.md#noise-control) (`0`: sin agrupar) |
 | `NOTIFY_EMAIL_FROM` | `rendimiento <alerts@example.com>` | | el remitente; debe estar en un dominio verificado en Resend |
 | `RESEND_API_KEY` | — | del Secret `rendimiento-notify` | la llave de la API de Resend |

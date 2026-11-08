@@ -225,6 +225,12 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 		notifier.Sender = &notify.Resend{APIKey: key, From: env("NOTIFY_EMAIL_FROM", "rendimiento <alerts@example.com>")}
 	}
 	p.Notify, srv.Notify = notifier, notifier
+	motorSenal := "containerd"
+	if m.Bin == "docker" {
+		motorSenal = "docker"
+	}
+	srv.Senales = enviadorDeSenales(st, "local", motorSenal, log)
+	go srv.Senales.Run(ctx)
 
 	// GitHub cannot send webhooks to this computer: ask it for new commits.
 	every, err := time.ParseDuration(env("POLL_INTERVAL", "1m"))

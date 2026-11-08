@@ -57,3 +57,18 @@ test("the bell's panel fits a phone's screen", async ({ page, problemas }) => {
   expect(caja!.x + caja!.width).toBeLessThanOrEqual(390);
   expect(problemas).toEqual([]);
 });
+
+// The operators see what the señales would send, exactly, and turn them
+// off; the notice on the Apps page goes once seen.
+test("the señales: what goes, and the switch", async ({ page, problemas }, info) => {
+  await page.goto("/members");
+  const seccion = page.locator("#senales");
+  await expect(seccion.locator("pre")).toContainText('"modo": "local"');
+  await expect(seccion.locator("pre")).not.toContainText("prueba"); // no person's name
+  const es = info.project.name === "es";
+  await seccion.getByRole("button", { name: es ? "Apagar" : "Turn off" }).click();
+  await expect(seccion).toContainText(es ? "Apagadas aquí" : "Turned off here");
+  await seccion.getByRole("button", { name: es ? "Encender" : "Turn on" }).click();
+  await expect(seccion.getByRole("button", { name: es ? "Apagar" : "Turn off" })).toBeVisible();
+  expect(problemas).toEqual([]);
+});
