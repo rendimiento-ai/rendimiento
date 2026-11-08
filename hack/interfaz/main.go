@@ -112,7 +112,7 @@ func run(addr, ui, estado string, log *slog.Logger) error {
 		IA: &ia.Gateway{Store: st, LocalModel: ia.DefaultLocalModel, PlatformModel: ia.DefaultAnthropicModel},
 		// Señales: shown and switched, never sent (its loop never starts),
 		// and received, so the operators' summary shows too.
-		Senales:        &senales.Enviador{Store: st, URL: "http://127.0.0.1:1/nadie", Version: "pruebas", Modo: "local", Motor: "docker"},
+		Senales:        &senales.Enviador{Store: st, URL: "http://127.0.0.1:1/nadie", Version: "0.0.0-e2e", Modo: "local", Motor: "docker"},
 		SenalesRecibir: true,
 	}
 	cookie, err := srv.Session(ctx, persona, 24*time.Hour)
