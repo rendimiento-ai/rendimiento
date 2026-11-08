@@ -4,6 +4,8 @@ What changed in each release, for people who run rendimiento. Every change is in
 
 ## Unreleased
 
+## v0.1.6 (2026-11-08)
+
 - **Uninstalling:** `curl -fsSL https://rendimiento.ai/instalar | sh -s -- --desinstalar` takes rendimiento off a computer (the service, its containers and your apps', their networks, the program), and deletes your data only if you say yes.
 
 ## v0.1.5 (2026-11-07)
