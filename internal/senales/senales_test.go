@@ -60,8 +60,16 @@ func TestSenal(t *testing.T) {
 	if len(semana) != 5 {
 		t.Errorf("the week's counts: %v", semana)
 	}
-	if m.a.UltimoEnvio == nil {
-		t.Fatal("the send was not recorded")
+	if m.a.UltimoEnvio == nil || len(m.a.Enviadas) != 1 || string(m.a.Enviadas[0].Senal) != string(recibido) {
+		t.Fatalf("the send was not recorded as it went: %+v", m.a)
+	}
+	for range store.MaxEnviadas + 3 {
+		if err := e.Enviar(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(m.a.Enviadas) != store.MaxEnviadas {
+		t.Fatalf("kept %d sent señales, want %d", len(m.a.Enviadas), store.MaxEnviadas)
 	}
 
 	m.a.Apagadas = true

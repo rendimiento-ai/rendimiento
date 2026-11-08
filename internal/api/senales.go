@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"regexp"
@@ -50,6 +51,8 @@ type SenalesView struct {
 	AvisoVisto  bool                  `json:"avisoVisto"`
 	UltimoEnvio *string               `json:"ultimoEnvio,omitempty"`
 	Proxima     senales.Senal         `json:"proxima"`
+	// Enviadas are the last señales sent from here, as they went.
+	Enviadas []store.SenalEnviada `json:"enviadas"`
 	Resumen     *store.ResumenSenales `json:"resumen,omitempty"` // where señales are received
 }
 
@@ -76,7 +79,10 @@ func (s *Server) verSenales(w http.ResponseWriter, r *http.Request, _ string) {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	v := SenalesView{Encendidas: on, Porque: porque, AvisoVisto: a.AvisoVisto, Proxima: prox}
+	v := SenalesView{Encendidas: on, Porque: porque, AvisoVisto: a.AvisoVisto, Proxima: prox, Enviadas: a.Enviadas}
+	if v.Enviadas == nil {
+		v.Enviadas = []store.SenalEnviada{}
+	}
 	if a.UltimoEnvio != nil {
 		t := a.UltimoEnvio.UTC().Format("2006-01-02T15:04:05Z")
 		v.UltimoEnvio = &t
@@ -119,4 +125,44 @@ func (s *Server) putSenales(w http.ResponseWriter, r *http.Request, login string
 		return
 	}
 	s.verSenales(w, r, login)
+}
+
+// listarInstalaciones are the installations whose señales came here (where
+// SenalesRecibir is on), the most recent first.
+func (s *Server) listarInstalaciones(w http.ResponseWriter, r *http.Request, _ string) {
+	if !s.SenalesRecibir {
+		httpError(w, http.StatusNotFound, "this platform does not receive señales")
+		return
+	}
+	rows, err := s.Store.ListarInstalaciones(r.Context(), 500)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, rows)
+}
+
+// marcarEquipo marks an installation as the team's own, or not
+// ({"equipo": true}): counted apart, never in the numbers given out.
+func (s *Server) marcarEquipo(w http.ResponseWriter, r *http.Request, _ string) {
+	if !s.SenalesRecibir {
+		httpError(w, http.StatusNotFound, "this platform does not receive señales")
+		return
+	}
+	var req struct {
+		Equipo bool `json:"equipo"`
+	}
+	if !readJSON(w, r, &req) {
+		return
+	}
+	id := r.PathValue("id")
+	switch err := s.Store.MarcarEquipo(r.Context(), id, req.Equipo); {
+	case errors.Is(err, store.ErrNotFound):
+		httpError(w, http.StatusNotFound, "no señal came from that installation")
+	case err != nil:
+		httpError(w, http.StatusInternalServerError, err.Error())
+	default:
+		anotarDetalle(r, "equipo", req.Equipo)
+		w.WriteHeader(http.StatusNoContent)
+	}
 }

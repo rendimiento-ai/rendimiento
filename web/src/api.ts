@@ -353,10 +353,22 @@ export interface SenalesView {
   avisoVisto: boolean;
   ultimoEnvio?: string;
   proxima: Senal;
+  /** The last señales sent from here, newest first, exactly as they went. */
+  enviadas: { cuando: string; senal: Senal }[];
   resumen?: {
     activas7: number; activas28: number; equipo28: number; total: number; appsEnFuera28: number;
     porModo: Record<string, number>; porMotor: Record<string, number>; porVersion: Record<string, number>;
   };
+}
+
+/** An installation whose señales came here (rendimiento.ai): when it was first and last heard of, and its last señal. */
+export interface Instalacion {
+  instalacion: string;
+  primera: string;
+  ultima: string;
+  equipo: boolean;
+  envios: number;
+  ultimo: Senal;
 }
 
 /** Whether an organization's bitácora chain holds, and where it broke if not. */
@@ -875,6 +887,8 @@ export const api = {
   verificarBitacora: () => request<BitacoraCheck>("GET", "/api/bitacora/verificar"),
   senales: () => request<SenalesView>("GET", "/api/senales/estado"),
   putSenales: (cambio: { encendidas?: boolean; avisoVisto?: boolean }) => request<SenalesView>("PUT", "/api/senales/estado", cambio),
+  instalaciones: () => request<Instalacion[]>("GET", "/api/senales/instalaciones"),
+  marcarEquipo: (id: string, equipo: boolean) => request<void>("PUT", `/api/senales/instalaciones/${id}/equipo`, { equipo }),
   aprobaciones: (pendientes = false, lang = "") =>
     request<Aprobacion[]>("GET", `/api/aprobaciones?${pendientes ? "pendientes=1&" : ""}lang=${encodeURIComponent(lang)}`),
   decidirAprobacion: (id: number, aprobar: boolean, comentario = "") =>

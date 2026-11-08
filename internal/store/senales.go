@@ -21,7 +21,19 @@ type SenalesAjustes struct {
 	AvisoVisto  bool       `json:"avisoVisto"`
 	UltimoEnvio *time.Time `json:"ultimoEnvio,omitempty"`
 	UpdatedBy   string     `json:"updatedBy,omitempty"`
+	// Enviadas are the last señales this installation sent, newest first
+	// (MaxEnviadas at most): what left the computer, to look at.
+	Enviadas []SenalEnviada `json:"enviadas,omitempty"`
 }
+
+// SenalEnviada is a señal as it went, and when.
+type SenalEnviada struct {
+	Cuando time.Time       `json:"cuando"`
+	Senal  json.RawMessage `json:"senal"`
+}
+
+// MaxEnviadas is how many sent señales are kept to look at.
+const MaxEnviadas = 10
 
 // GetSenales reads the settings, making the identity the first time: 16
 // random bytes, from nothing about the computer, the account or the domain.
@@ -151,4 +163,45 @@ func (s *Store) Resumen(ctx context.Context) (ResumenSenales, error) {
 		r.PorVersion[version]++
 	}
 	return r, rows.Err()
+}
+
+// Instalacion is one installation that sent señales, as received.
+type Instalacion struct {
+	Instalacion string          `json:"instalacion"`
+	Primera     time.Time       `json:"primera"`
+	Ultima      time.Time       `json:"ultima"`
+	Equipo      bool            `json:"equipo"`
+	Envios      int             `json:"envios"`
+	Ultimo      json.RawMessage `json:"ultimo"`
+}
+
+// ListarInstalaciones are the installations heard of, the most recent first.
+func (s *Store) ListarInstalaciones(ctx context.Context, limite int) ([]Instalacion, error) {
+	rows, err := s.pool.Query(ctx, `SELECT instalacion, primera, ultima, equipo, envios, ultimo FROM senales ORDER BY ultima DESC LIMIT $1`, limite)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Instalacion{}
+	for rows.Next() {
+		var i Instalacion
+		if err := rows.Scan(&i.Instalacion, &i.Primera, &i.Ultima, &i.Equipo, &i.Envios, &i.Ultimo); err != nil {
+			return nil, err
+		}
+		out = append(out, i)
+	}
+	return out, rows.Err()
+}
+
+// MarcarEquipo says whether an installation is the team's own, counted
+// apart (ErrNotFound when no señal came from it).
+func (s *Store) MarcarEquipo(ctx context.Context, instalacion string, equipo bool) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE senales SET equipo = $2 WHERE instalacion = $1`, instalacion, equipo)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

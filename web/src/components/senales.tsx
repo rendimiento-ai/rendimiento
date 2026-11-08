@@ -27,7 +27,7 @@ export function Senales() {
     <section id="senales" style={{ marginTop: 28 }}>
       <h2>{t("What rendimiento sends")}</h2>
       <p className="sub">{t("Once a week, this installation tells rendimiento.ai it is alive, with a few anonymous counts, so the project knows how many installations there are. Never a name, a repository, a person or a secret, and rendimiento.ai keeps no address.")}{" "}
-        <a href={LIBRO} target="_blank" rel="noreferrer">{t("More in the book")}</a></p>
+        <a href={LIBRO} target="_blank" rel="noreferrer">{t("More in the book")}</a>{" · "}<Link to="/senales">{t("Every señal sent and received")}</Link></p>
       <ErrorBox error={err} />
       <div className="card stack">
         <div className="row between" style={{ flexWrap: "wrap", gap: 8 }}>
@@ -76,7 +76,7 @@ export function SenalesAviso() {
     <div className="alert info" role="status">
       <strong>{t("rendimiento sends a señal de vida once a week.")}</strong>{" "}
       {t("A few anonymous counts (how many apps, runs and agents), so the project knows how many installations are alive. Never a name, a repository or a secret.")}{" "}
-      <Link to="/members#senales">{t("See exactly what")}</Link>
+      <Link to="/senales">{t("See exactly what")}</Link>
       <div className="row" style={{ gap: 8, marginTop: 8 }}>
         <button className="primary" disabled={busy} onClick={() => marcar({ avisoVisto: true })}>{t("Fine")}</button>
         <button disabled={busy} onClick={() => marcar({ encendidas: false, avisoVisto: true })}>{t("Turn it off")}</button>

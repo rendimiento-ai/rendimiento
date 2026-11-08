@@ -228,6 +228,8 @@ func (s *Server) Handler() http.Handler {
 	// The señales de vida: what this installation sends, for the operators.
 	plat(store.MemberAdmin, "GET /api/senales/estado", s.verSenales)
 	plat(store.MemberAdmin, "PUT /api/senales/estado", s.putSenales)
+	plat(store.MemberAdmin, "GET /api/senales/instalaciones", s.listarInstalaciones)
+	plat(store.MemberAdmin, "PUT /api/senales/instalaciones/{id}/equipo", s.marcarEquipo)
 	auth(store.MemberCollaborator, "GET /api/bitacora", s.listBitacora)
 	auth(store.MemberCollaborator, "GET /api/bitacora/verificar", s.verifyBitacora)
 	// Changes to production agents ask for; an administrator decides.
