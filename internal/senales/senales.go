@@ -148,6 +148,11 @@ func (e *Enviador) Enviar(ctx context.Context) error {
 	}
 	now := time.Now()
 	a.UltimoEnvio = &now
+	// Kept as it went, so anyone can see what left the computer.
+	a.Enviadas = append([]store.SenalEnviada{{Cuando: now, Senal: body}}, a.Enviadas...)
+	if len(a.Enviadas) > store.MaxEnviadas {
+		a.Enviadas = a.Enviadas[:store.MaxEnviadas]
+	}
 	return e.Store.SaveSenales(context.WithoutCancel(ctx), a, a.UpdatedBy)
 }
 

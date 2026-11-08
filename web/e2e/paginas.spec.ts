@@ -72,3 +72,13 @@ test("the señales: what goes, and the switch", async ({ page, problemas }, info
   await expect(seccion.getByRole("button", { name: es ? "Apagar" : "Turn off" })).toBeVisible();
   expect(problemas).toEqual([]);
 });
+
+// The señales page: this installation's, and those received here.
+test("the señales page", async ({ page, problemas }, info) => {
+  await page.goto("/senales");
+  const es = info.project.name === "es";
+  await expect(page.locator("main h1").first()).toContainText("Señales de vida");
+  await expect(page.locator("main")).toContainText(es ? "Mandadas desde aquí" : "Sent from here");
+  await expect(page.locator("main")).toContainText(es ? "Recibidas de todas las instalaciones" : "Received from every installation");
+  expect(problemas).toEqual([]);
+});
