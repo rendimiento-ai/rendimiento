@@ -1328,7 +1328,7 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 .campana { position: relative; }
 .campana-boton { display: inline-flex; align-items: center; gap: 4px; background: none; border: 1px solid transparent; }
 .campana-boton.con { color: var(--warn); }
-.campana-panel { position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; width: min(360px, calc(100vw - 32px));
+.campana-panel { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; width: min(360px, calc(100vw - 32px));
   max-height: 70vh; overflow-y: auto; background: var(--card, var(--bg)); border: 1px solid var(--border); border-radius: 10px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, .18); padding: 10px; display: flex; flex-direction: column; gap: 4px; }
 .campana-titulo { text-transform: uppercase; letter-spacing: .06em; margin-top: 6px; }
