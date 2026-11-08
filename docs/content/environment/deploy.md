@@ -219,6 +219,14 @@ It uses the engine the computer has (containerd, or Docker when your user can us
 MODE=local ALLOWED_USERS=your-github-login ./rendimiento
 ```
 
+To take it off the computer again:
+
+```bash
+curl -fsSL https://rendimiento.ai/instalar | sh -s -- --desinstalar
+```
+
+It stops and removes the service, its own containers (`rendimiento-postgres`, `rendimiento-registro`, `rendimiento-buildkit`), your apps' containers and networks, and the program. Then it lists what is left of your data (its volumes, your apps' Postgres and Redis, the caches, and `DATA_DIR` with the secrets' key) and deletes it only if you answer yes; `RENDIMIENTO_SI=1` never answers that one, `RENDIMIENTO_BORRAR_DATOS=1` does. Kept data is picked up again by the next install, and remembered in `DATA_DIR/volumenes` for a later uninstall. It only touches what carries rendimiento's names or labels, and the container engine stays.
+
 On its first start it makes, in `DATA_DIR` (by default `~/.config/rendimiento`, readable only by you), the key that seals its secrets in Postgres, the database's password and the setup token. It starts and keeps two containers of its own: `rendimiento-postgres` (on `127.0.0.1:55433`) and `rendimiento-registro` (an image registry on `localhost:5000`, or the one already answering there). Builds use BuildKit: the one containerd's tools set up (`containerd-rootless-setuptool.sh install-buildkit`), or, under Docker, a container of its own.
 
 GitHub cannot send webhooks to `localhost`, so the GitHub App made by the setup page has none: every `POLL_INTERVAL` (1 minute) rendimiento asks GitHub for each app's branches and runs a branch whose head moved, as a push would.
