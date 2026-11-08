@@ -54,3 +54,36 @@ jobs:
             dist/SHA256SUMS
             dist/rendimiento-*.tgz
           generate_release_notes: true
+
+  # After a release: the changelog's "Unreleased" becomes that release, with
+  # its date, in a pull request to main that a person merges (nothing is
+  # pushed to main). It needs "Allow GitHub Actions to create and approve
+  # pull requests" in the organization's or repository's Actions settings.
+  changelog:
+    needs: publicar
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+      - name: The changelog, for this release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag=$GITHUB_REF_NAME
+          grep -q "^## $tag " CHANGELOG.md && { echo "already there"; exit 0; }
+          grep -q '^## Unreleased' CHANGELOG.md || { echo "no Unreleased section"; exit 0; }
+          awk -v t="$tag" -v d="$(date -u +%F)" '!done && /^## Unreleased/ { print; print ""; print "## " t " (" d ")"; done = 1; next } { print }' CHANGELOG.md >CHANGELOG.new
+          mv CHANGELOG.new CHANGELOG.md
+          branch="changelog-$tag"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit -qam "CHANGELOG: $tag"
+          git push -q origin "$branch"
+          gh pr create --base main --head "$branch" --title "CHANGELOG: $tag" \
+            --body "What was under Unreleased is now $tag, released today. Merge it so the changelog matches the release."

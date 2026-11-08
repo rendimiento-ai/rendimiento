@@ -22,6 +22,7 @@ Every change is tested by rendimiento itself before it reaches `main` ([on every
 
 - **Images** (`.github/workflows/imagen.yml`): `ghcr.io/rendimiento-ai/rendimiento` for **amd64 and arm64**, as `:main` and `:sha-<commit>` for each change to `main`, and `:1.2.3`, `:1.2` and `:latest` for a `v1.2.3` tag. The Dockerfile cross-compiles, so there is no emulation.
 - **Programs and the chart** (`.github/workflows/binarios.yml`), on each `v*` tag: a GitHub release with `rendimiento-linux-amd64`, `rendimiento-linux-arm64` and their `SHA256SUMS` (what the installer downloads), and the Helm chart (from `v0.1.3` on) with that version as both its `version` and its `appVersion`, attached to the release and pushed to `oci://ghcr.io/rendimiento-ai/charts/rendimiento`. In the repository, `chart/rendimiento` keeps `appVersion: main`, the image of the code it sits beside.
+- **The changelog**: after each release, the same workflow opens a pull request that turns `CHANGELOG.md`'s *Unreleased* into that release with its date; a person merges it. Install commands never pin a release (the installer and Helm take the latest), and a test keeps it so (`instalar/vigente_test.go`).
 - The first releases, `v0.1.0` to `v0.1.2`, came out on 2026-11-05.
 
 Still to do:

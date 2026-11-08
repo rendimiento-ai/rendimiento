@@ -176,10 +176,10 @@ Cada cambio que llega a `main`, y cada etiqueta `v1.2.3`, también se publica pa
 
 ### Instalar con Helm {#installing-with-helm}
 
-`chart/rendimiento` instala la plataforma en otro clúster con la imagen pública, sin una configuración privada propia. Desde `v0.1.3`, cada versión lo publica con su número, e instala la imagen de esa versión:
+`chart/rendimiento` instala la plataforma en otro clúster con la imagen pública, sin una configuración privada propia. Desde `v0.1.3`, cada versión lo publica con su número, e instala la imagen de esa versión; sin `--version`, Helm toma la más reciente (agregue `--version 1.2.3` para fijar una):
 
 ```bash
-helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento --version 0.1.3 \
+helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento \
   -n rendimiento-system --create-namespace \
   --set baseURL=https://rendimiento.example.com \
   --set firstAdmins=your-github-login \
