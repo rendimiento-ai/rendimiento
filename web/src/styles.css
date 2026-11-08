@@ -1336,3 +1336,6 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 .campana-item:hover, .campana-item:focus-visible { background: var(--hover, rgba(127, 127, 127, .12)); }
 .campana-item.bad { border-left: 3px solid var(--bad); }
 .campana-item.warn { border-left: 3px solid var(--warn); }
+/* A copy button that just copied, and the ✕ that closes a panel. */
+button.copiado { color: var(--ok); border-color: var(--ok); }
+.cerrar { position: absolute; top: 8px; right: 8px; background: none; border: none; font-size: 1.1rem; line-height: 1; cursor: pointer; color: inherit; padding: 4px 8px; }
