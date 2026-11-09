@@ -4,6 +4,8 @@ What changed in each release, for people who run rendimiento. Every change is in
 
 ## Unreleased
 
+- **On one computer:** right after the computer (or the WSL distribution) starts, rendimiento no longer fails once while containerd brings its Postgres back up; it tries the start again, and a start that keeps failing says what nerdctl or Docker said.
+
 ## v0.1.7 (2026-11-09)
 
 - **Windows (preview):** each release publishes `rendimiento-wsl-amd64.tar.gz`, a WSL2 distribution with rendimiento and its container engine ready, to import with `wsl --import`. See [the book](docs/content/environment/deploy.md#on-windows).
