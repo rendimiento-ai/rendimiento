@@ -246,6 +246,10 @@ wsl -d rendimiento -- sh -c "echo ALLOWED_USERS=su-usuario-de-github > /etc/rend
 
 Luego abra `http://localhost:8080`; la ficha de configuración está en `/root/.config/rendimiento` (`wsl -d rendimiento -- ls /root/.config/rendimiento`). Sus aplicaciones responden en `http://<app>.localhost:8000`, como en Linux. No toca las otras distribuciones que tenga. WSL detiene una distribución cuando ningún `wsl.exe` está conectado a ella, así que deje abierta una ventana con `wsl -d rendimiento` mientras la usa (la aplicación lo hará por usted). `wsl --unregister rendimiento` la quita con todos sus datos.
 
+Si `wsl --import` falla con `HCS_E_HYPERV_NOT_INSTALLED` o `ERROR_NOT_SUPPORTED`, WSL2 todavía no puede arrancar su máquina virtual: reinicie Windows después de `wsl --install --no-distribution` (sus componentes solo funcionan después de reiniciar) y revise que la virtualización esté encendida (Administrador de tareas → Rendimiento → CPU dice «Virtualización: Habilitado»; si no, encienda SVM Mode en AMD o Intel Virtualization Technology en Intel, en el BIOS/UEFI de la computadora).
+
+Si GitHub contesta «Bad credentials» al configurar o al agregar una aplicación, revise el reloj: GitHub rechaza la firma de la aplicación cuando el reloj de la computadora está mal por más de un minuto, y rendimiento dice por cuánto. En Windows, active «Establecer la hora automáticamente» con su zona horaria (Configuración → Hora e idioma), presione «Sincronizar ahora» y luego `wsl --shutdown`. En una computadora que también arranca Linux, los dos pueden guardar el reloj de la tarjeta madre de forma distinta (Linux en UTC, Windows en hora local); `timedatectl set-local-rtc 1` en Linux los pone de acuerdo.
+
 ## rendimiento se construye a sí mismo {#rendimiento-builds-itself}
 
 El repositorio de rendimiento está incorporado como cualquier aplicación. Su `rendimiento.yaml` tiene el libro (`docs`, un servicio) y la imagen de la plataforma (`builds: platform`), así que cada envío corre:

@@ -239,7 +239,11 @@ func (a *App) do(ctx context.Context, auth, method, path string, body, out any) 
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return &APIError{Status: resp.StatusCode, Method: method, Path: path, Body: string(msg)}
+		e := &APIError{Status: resp.StatusCode, Method: method, Path: path, Body: string(msg)}
+		if resp.StatusCode == http.StatusUnauthorized {
+			e.Reloj = desfase(resp.Header.Get("Date"), time.Now())
+		}
+		return e
 	}
 	if out == nil {
 		return nil
@@ -252,11 +256,50 @@ type APIError struct {
 	Status       int
 	Method, Path string
 	Body         string
+	// Reloj is how far this computer's clock is ahead of GitHub's (behind
+	// when negative), on a 401 when it is over a minute: GitHub then
+	// refuses the app's signature as "Bad credentials".
+	Reloj time.Duration
 }
 
 // Error implements error.
 func (e *APIError) Error() string {
-	return fmt.Sprintf("github %s %s: %d %s", e.Method, e.Path, e.Status, e.Body)
+	msg := fmt.Sprintf("github %s %s: %d %s", e.Method, e.Path, e.Status, strings.TrimSpace(e.Body))
+	if e.Reloj != 0 {
+		cuanto, hacia := e.Reloj, "ahead of"
+		if cuanto < 0 {
+			cuanto, hacia = -cuanto, "behind"
+		}
+		msg += fmt.Sprintf("; this computer's clock is %s %s GitHub's, so GitHub refuses its signature: set the clock right (on Windows: Settings → Time → Sync now, then wsl --shutdown) and try again", duracion(cuanto), hacia)
+	}
+	return msg
+}
+
+// desfase is how far now is from a response's Date header, when over a
+// minute (the signature allows for one); 0 otherwise or without a date.
+func desfase(date string, now time.Time) time.Duration {
+	t, err := http.ParseTime(date)
+	if err != nil {
+		return 0
+	}
+	d := now.Sub(t)
+	if d < time.Minute && d > -time.Minute {
+		return 0
+	}
+	return d
+}
+
+// duracion says a clock difference in hours and minutes ("10 h", "5 h 3 min", "4 min").
+func duracion(d time.Duration) string {
+	d = d.Round(time.Minute)
+	h, m := int(d.Hours()), int(d.Minutes())%60
+	switch {
+	case h == 0:
+		return fmt.Sprintf("%d min", m)
+	case m == 0:
+		return fmt.Sprintf("%d h", h)
+	}
+	return fmt.Sprintf("%d h %d min", h, m)
 }
 
 // IsNotFound reports whether err is a GitHub 404.

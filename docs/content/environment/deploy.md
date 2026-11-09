@@ -246,6 +246,10 @@ wsl -d rendimiento -- sh -c "echo ALLOWED_USERS=your-github-login > /etc/rendimi
 
 Then open `http://localhost:8080`; the setup token is in `/root/.config/rendimiento` (`wsl -d rendimiento -- ls /root/.config/rendimiento`). Your apps answer on `http://<app>.localhost:8000`, as on Linux. It does not touch other distributions you have. WSL stops a distribution when no `wsl.exe` is attached to it, so keep a `wsl -d rendimiento` window open while you use it (the app will do that for you). `wsl --unregister rendimiento` removes it with all its data.
 
+If `wsl --import` fails with `HCS_E_HYPERV_NOT_INSTALLED` or `ERROR_NOT_SUPPORTED`, WSL2 cannot start its virtual machine yet: restart Windows after `wsl --install --no-distribution` (its components only work after a restart), and check that virtualization is on (Task Manager → Performance → CPU says "Virtualization: Enabled"; if not, turn on SVM Mode on AMD or Intel Virtualization Technology on Intel in the computer's BIOS/UEFI).
+
+If GitHub answers "Bad credentials" while setting up or adding an app, look at the clock: GitHub refuses the app's signature when the computer's clock is off by more than a minute, and rendimiento says by how much. Turn on "Set the time automatically" with your time zone in Windows (Settings → Time & language), press "Sync now", then `wsl --shutdown`. On a computer that also starts Linux, the two may keep the hardware clock differently (Linux in UTC, Windows in local time); `timedatectl set-local-rtc 1` in Linux makes them agree.
+
 ## rendimiento builds itself {#rendimiento-builds-itself}
 
 rendimiento's repository is onboarded like any app. Its `rendimiento.yaml` has the book (`docs`, a service) and the platform's own image (`builds: platform`), so every push runs:
