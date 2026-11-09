@@ -19,6 +19,7 @@ import { Problems, ProblemsNavLink } from "./pages/Problems";
 import { Mercado, PuestoEditor } from "./pages/Mercado";
 import { Ruta } from "./pages/Ruta";
 import { Bitacora } from "./pages/Bitacora";
+import { SenalesPage } from "./pages/SenalesPage";
 import { EnvironmentNavLink } from "./pages/Version";
 import { Cielo, Guardapolvo, MovimientoSwitch, TemaSwitch, Techo } from "./components/ambiente";
 import { LangSwitch, Logo } from "./components/marca";
@@ -105,6 +106,7 @@ function Shell() {
           <Route path="/problems" element={<Problems />} />
           <Route path="/ruta" element={<Ruta />} />
           <Route path="/bitacora" element={<Bitacora />} />
+          <Route path="/senales" element={<SenalesPage />} />
           <Route path="/ia" element={<IA />} />
           <Route path="/members" element={<Members me={state.login ?? ""} role={state.role ?? "guest"} org={state.org} />} />
           <Route path="/addons/:name" element={<Addons />} />

@@ -1537,6 +1537,24 @@ func TestSenalesDeVida(t *testing.T) {
 	if err != nil || r.Activas7 != 1 || r.Activas28 != 1 || r.Equipo28 != 1 || r.PorMotor["docker"] != 1 || r.AppsEnFuera28 != 2 {
 		t.Fatalf("summary: %+v %v", r, err)
 	}
+	// The installations heard of, and marking one as the team's own.
+	me0 := e.session(t, "p0dxD")
+	if _, body := e.do(t, "GET", "/api/senales/instalaciones", "", me0, nil); !strings.Contains(body, `"instalacion":"8f3c2a9e1d474b6a9e0c5a7d2f1b3c84"`) || !strings.Contains(body, `"equipo":true`) {
+		t.Fatalf("installations: %s", body)
+	}
+	if r, _ := e.do(t, "PUT", "/api/senales/instalaciones/8f3c2a9e1d474b6a9e0c5a7d2f1b3c84/equipo", `{"equipo":true}`, me0, nil); r.StatusCode != 204 {
+		t.Fatalf("marking: %d", r.StatusCode)
+	}
+	if r, _ := e.do(t, "PUT", "/api/senales/instalaciones/ffffffffffffffffffffffffffffffff/equipo", `{"equipo":true}`, me0, nil); r.StatusCode != 404 {
+		t.Fatalf("marking an unknown one: %d", r.StatusCode)
+	}
+	if r, _ := e.store.Resumen(ctx); r.Activas28 != 0 || r.Equipo28 != 2 {
+		t.Fatalf("after marking: %+v", r)
+	}
+	if err := e.store.MarcarEquipo(ctx, "8f3c2a9e1d474b6a9e0c5a7d2f1b3c84", false); err != nil {
+		t.Fatal(err)
+	}
+
 	// The operators' view, and turning them off.
 	e.s.Senales = &senales.Enviador{Store: e.store, URL: "http://127.0.0.1:1/nadie", Version: "0.1.4", Modo: "kubernetes", Motor: "kubernetes"}
 	me := e.session(t, "p0dxD")
