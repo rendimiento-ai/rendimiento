@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Motor runs containers with one command-line tool.
@@ -205,13 +206,36 @@ func (m *Motor) Iniciar(ctx context.Context, c Contenedor) error {
 }
 
 // Asegurar starts the container unless one by that name is already there
-// (running, or stopped and started again).
+// (running, or stopped and started again). Right after the machine starts,
+// containerd may be starting a --restart always container itself, and a
+// start then fails for a moment (in WSL, every time): it is tried again.
 func (m *Motor) Asegurar(ctx context.Context, c Contenedor) error {
-	if m.run(ctx, []string{"inspect", "--type", "container", c.Nombre}, io.Discard) == nil {
-		return m.run(ctx, []string{"start", c.Nombre}, io.Discard)
+	if m.run(ctx, []string{"inspect", "--type", "container", c.Nombre}, io.Discard) != nil {
+		return m.Iniciar(ctx, c)
 	}
-	return m.Iniciar(ctx, c)
+	var out bytes.Buffer
+	for intento := 1; ; intento++ {
+		out.Reset()
+		err := m.run(ctx, []string{"start", c.Nombre}, &out)
+		if err == nil {
+			return nil
+		}
+		if intento == intentosArranque {
+			return fmt.Errorf("%s start %s: %v: %s", m.Bin, c.Nombre, err, strings.TrimSpace(out.String()))
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(esperaArranque):
+		}
+	}
 }
+
+// How many times, and how far apart, Asegurar starts a container that is there.
+var (
+	intentosArranque = 5
+	esperaArranque   = 2 * time.Second
+)
 
 // Ejecutar runs a command in a running container, and fails when it does.
 func (m *Motor) Ejecutar(ctx context.Context, nombre string, comando ...string) error {
