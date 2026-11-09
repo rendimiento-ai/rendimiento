@@ -4,6 +4,8 @@ What changed in each release, for people who run rendimiento. Every change is in
 
 ## Unreleased
 
+## v0.1.7 (2026-11-09)
+
 - **Windows (preview):** each release publishes `rendimiento-wsl-amd64.tar.gz`, a WSL2 distribution with rendimiento and its container engine ready, to import with `wsl --import`. See [the book](docs/content/environment/deploy.md#on-windows).
 
 ## v0.1.6 (2026-11-08)
