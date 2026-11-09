@@ -23,11 +23,14 @@ type Me struct {
 	Operator bool      `json:"operator"`
 	Cluster  bool      `json:"cluster"`        // false on a computer without Kubernetes: no Environment, Services or Add-ons
 	Demo     bool      `json:"demo,omitempty"` // signed in by a demo link: read-only
+	// Mercado is whether the Mercado (pages without code) is set up here
+	// (PAGES_ORG): it is reached from the Apps page, not the menu.
+	Mercado bool `json:"mercado,omitempty"`
 }
 
 // me is the signed-in person, for the top bar.
 func (s *Server) me(w http.ResponseWriter, r *http.Request, login string) {
-	out := Me{Login: login, Role: roleOf(r), Demo: store.IsDemoLogin(login), Cluster: s.Kube != nil}
+	out := Me{Login: login, Role: roleOf(r), Demo: store.IsDemoLogin(login), Cluster: s.Kube != nil, Mercado: s.Mercado != nil}
 	o, err := s.Store.GetOrg(r.Context(), orgOf(r))
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())

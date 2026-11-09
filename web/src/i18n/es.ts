@@ -741,6 +741,7 @@ export const es: Record<string, string> = {
   "person": "persona",
   "done": "hecho",
   "Show older actions": "Mostrar acciones anteriores",
+  "Pages without code for people who don't program live in the": "Las páginas sin código para personas que no programan están en el",
   "Señales de vida": "Señales de vida",
   "Sent from here": "Mandadas desde aquí",
   "None sent yet.": "Todavía no se ha mandado ninguna.",

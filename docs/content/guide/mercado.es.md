@@ -1,6 +1,6 @@
 # El Mercado (páginas sin código)
 
-El **Mercado** hace páginas web para quien no escribe código. Usted llena un formulario y rendimiento hace la página, la publica en su propia dirección y la cuida. Cada página es un **puesto**, y la sección Mercado de la barra superior los enlista todos: escoja uno para ver su página en un teléfono, tal como la ven sus visitas, con su estado, su dirección, su dueño y su último cambio.
+El **Mercado** hace páginas web para quien no escribe código. Usted llena un formulario y rendimiento hace la página, la publica en su propia dirección y la cuida. Cada página es un **puesto**, y la página del Mercado los enlista todos (se llega desde el final de la página de Aplicaciones, donde el Mercado está configurado con `PAGES_ORG`; no está en el menú, porque queda aparte de lo que hace rendimiento): escoja uno para ver su página en un teléfono, tal como la ven sus visitas, con su estado, su dirección, su dueño y su último cambio.
 
 ## Poner un puesto {#opening-a-stall}
 
