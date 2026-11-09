@@ -59,6 +59,30 @@ func TestAsegurar(t *testing.T) {
 	}
 }
 
+// A start that fails while containerd is starting the container itself
+// is tried again; one that keeps failing says what the tool said.
+func TestAsegurarOtraVez(t *testing.T) {
+	esperaArranque = 0
+	fallas := 2
+	m := &Motor{Bin: "nerdctl", Exec: func(_ context.Context, _ string, args []string, out io.Writer) error {
+		if args[0] == "start" && fallas > 0 {
+			fallas--
+			_, _ = io.WriteString(out, "task is being started\n")
+			return errors.New("exit status 1")
+		}
+		return nil
+	}}
+	c := Contenedor{Nombre: "rendimiento-postgres", Imagen: "postgres:17-alpine"}
+	if err := m.Asegurar(context.Background(), c); err != nil {
+		t.Fatalf("after two failures: %v", err)
+	}
+	fallas = 99
+	err := m.Asegurar(context.Background(), c)
+	if err == nil || !strings.Contains(err.Error(), "nerdctl start rendimiento-postgres: exit status 1: task is being started") {
+		t.Fatalf("always failing: %v", err)
+	}
+}
+
 // A container's alias: its hostname, which nerdctl puts in the hosts of its
 // network; Docker also gets it as a network alias.
 func TestAlias(t *testing.T) {
