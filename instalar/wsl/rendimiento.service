@@ -1,0 +1,20 @@
+# rendimiento in its WSL distribution. Who signs in first (ALLOWED_USERS)
+# goes in /etc/rendimiento/env, written by the Windows app the first time
+# (or by hand: echo ALLOWED_USERS=your-login > /etc/rendimiento/env). Until
+# then it stops at once, and systemd tries again every 10 seconds.
+[Unit]
+Description=rendimiento: deploy any app; AI agents fix what breaks
+After=containerd.service buildkit.service network-online.target
+Wants=containerd.service buildkit.service network-online.target
+
+[Service]
+Environment=MODE=local
+Environment=HOME=/root
+Environment=PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
+EnvironmentFile=-/etc/rendimiento/env
+ExecStart=/usr/local/bin/rendimiento
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
