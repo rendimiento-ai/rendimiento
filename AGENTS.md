@@ -22,6 +22,7 @@ The person you work with merges and deploys; you prepare.
 - **Hand over the link** `https://github.com/<owner>/<repo>/pull/new/<branch>`. The person opens the pull request and merges it.
 - **A merge makes a release**; the person updates the platform from **Entorno → Actualizar**, or with `make deploy` when `deploy/` changed (the page says so).
 - **Changes that depend on each other** (in this repo or across apps): say the order to merge them, and why. The same rules apply in the apps' repositories.
+- **What changed, for whoever runs rendimiento**, goes in a file of the change's own: `cambios/<branch>.md`, with one or more lines like `- **Capacity:** what is different now.` Never add lines to `CHANGELOG.md`: every branch would write the same line and each merge would make the others conflict. A release gathers the files there (`hack/registro-cambios.sh`).
 - **Commits** end with the attribution line your tool adds, without links to your session.
 
 ## Working in this repository

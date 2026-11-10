@@ -2,6 +2,8 @@
 
 What changed in each release, for people who run rendimiento. Every change is in the [merged pull requests](https://github.com/rendimiento-ai/rendimiento/pulls?q=is%3Apr+is%3Amerged); a release's notes on GitHub list them all.
 
+What is not released yet is in `cambios/`, one file per change; each release gathers them here.
+
 ## Unreleased
 
 - **Libraries:** an app with only tasks (a library) no longer shows as Pending: it says Library, and its page says there is nothing to deploy or check.

@@ -76,8 +76,9 @@ jobs:
             dist/rendimiento-*.tgz
           generate_release_notes: true
 
-  # After a release: the changelog's "Unreleased" becomes that release, with
-  # its date, in a pull request to main that a person merges (nothing is
+  # After a release: the notes in cambios/ and the changelog's "Unreleased"
+  # become that release, with its date (hack/registro-cambios.sh), in a pull
+  # request to main that a person merges (nothing is
   # pushed to main). It needs "Allow GitHub Actions to create and approve
   # pull requests" in the organization's or repository's Actions settings.
   changelog:
@@ -91,25 +92,26 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
+          # The whole history: the notes go the newest first.
+          fetch-depth: 0
       - name: The changelog, for this release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           tag=$GITHUB_REF_NAME
-          grep -q "^## $tag " CHANGELOG.md && { echo "already there"; exit 0; }
-          grep -q '^## Unreleased' CHANGELOG.md || { echo "no Unreleased section"; exit 0; }
-          awk -v t="$tag" -v d="$(date -u +%F)" '!done && /^## Unreleased/ { print; print ""; print "## " t " (" d ")"; done = 1; next } { print }' CHANGELOG.md >CHANGELOG.new
-          mv CHANGELOG.new CHANGELOG.md
+          hack/registro-cambios.sh "$tag"
+          git add -A CHANGELOG.md cambios 2>/dev/null || git add CHANGELOG.md
+          git diff --cached --quiet && { echo "nothing to change"; exit 0; }
           branch="changelog-$tag"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "$branch"
-          git commit -qam "CHANGELOG: $tag"
+          git commit -qm "CHANGELOG: $tag"
           git push -q origin "$branch"
           # Without the permission to open pull requests, the branch is
           # there all the same: the run stays green and says where to open it.
           if ! gh pr create --base main --head "$branch" --title "CHANGELOG: $tag" \
-            --body "What was under Unreleased is now $tag, released today. Merge it so the changelog matches the release."; then
+            --body "The notes in cambios/ and what was under Unreleased are now $tag, released today. Merge it so the changelog matches the release."; then
             url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/compare/main...$branch"
             echo "::warning::Could not open the changelog's pull request (allow GitHub Actions to create pull requests in Settings → Actions → General). Open it by hand: $url"
             printf '### The changelog for %s\n\nThe branch `%s` has it. Open its pull request by hand: %s\n' "$tag" "$branch" "$url" >>"$GITHUB_STEP_SUMMARY"
