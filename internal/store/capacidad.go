@@ -21,6 +21,9 @@ type Capacity struct {
 	StepCPUMillis int64 `json:"stepCpuMillis"`
 	// NodesOff are nodes that take no runs (as BUILD_EXCLUDE_NODES).
 	NodesOff []string `json:"nodesOff"`
+	// TestCaches is how many caches each test keeps, so that many runs of
+	// it go at once without waiting for one (0: 2).
+	TestCaches int `json:"testCaches"`
 	// BusyPercent: a node whose CPU is reserved or in use at this percent
 	// or more takes no new steps or builds until it eases (0: 85; 100: never).
 	BusyPercent int       `json:"busyPercent"`
@@ -52,7 +55,7 @@ func (s *Store) SaveCapacity(ctx context.Context, c Capacity, by string) error {
 	if c.NodesOff == nil {
 		c.NodesOff = []string{}
 	}
-	raw, err := json.Marshal(Capacity{ParallelRuns: c.ParallelRuns, RunsPerApp: c.RunsPerApp, StepCPUMillis: c.StepCPUMillis, NodesOff: c.NodesOff, BusyPercent: c.BusyPercent})
+	raw, err := json.Marshal(Capacity{ParallelRuns: c.ParallelRuns, RunsPerApp: c.RunsPerApp, StepCPUMillis: c.StepCPUMillis, NodesOff: c.NodesOff, BusyPercent: c.BusyPercent, TestCaches: c.TestCaches})
 	if err != nil {
 		return err
 	}

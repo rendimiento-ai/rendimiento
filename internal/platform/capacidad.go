@@ -75,6 +75,9 @@ func (h *CapacityHolder) Runs() (workers, perApp int) {
 	return c.ParallelRuns, c.RunsPerApp
 }
 
+// Caches is how many caches each test keeps (zero: the default).
+func (h *CapacityHolder) Caches() int { return h.Get().TestCaches }
+
 // Limits are the nodes that take nothing new (turned off, or busy now) and
 // the most CPU a step asks for.
 func (h *CapacityHolder) Limits() ([]string, int64) {

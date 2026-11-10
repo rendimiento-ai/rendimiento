@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,11 +36,53 @@ func TestWaitCacheFree(t *testing.T) {
 		Status: corev1.PodStatus{Phase: corev1.PodRunning}}
 	cs := fake.NewSimpleClientset(other)
 	k := &KubeExecutor{Client: cs, Namespace: "b"}
-	if k.waitCacheFree(ctx, "esta", step, 0) {
+	if _, free := k.waitCacheFree(ctx, "esta", step, 1, 0); free {
 		t.Fatal("free while another test has it")
 	}
+	// With a second cache, the test takes that one instead of waiting.
+	if slot, free := k.waitCacheFree(ctx, "esta", step, 2, 0); !free || slot != 1 {
+		t.Fatalf("second cache: slot %d, free %v", slot, free)
+	}
 	_ = cs.CoreV1().Pods("b").Delete(ctx, "otra", metav1.DeleteOptions{})
-	if !k.waitCacheFree(ctx, "esta", step, 0) {
+	if slot, free := k.waitCacheFree(ctx, "esta", step, 1, 0); !free || slot != 0 {
 		t.Fatal("still in use once the other test is gone")
+	}
+}
+
+// The first cache keeps the name it always had; the others add their number.
+func TestCacheNameOfSlot(t *testing.T) {
+	step := Step{ID: "platform:test", App: "ai"}
+	if n := cacheName(step); n != "cache-ai-platform" {
+		t.Fatalf("first: %s", n)
+	}
+	step.CacheSlot = 1
+	if n := cacheName(step); n != "cache-ai-platform-2" {
+		t.Fatalf("second: %s", n)
+	}
+	step.App = strings.Repeat("a", 80)
+	if n := cacheName(step); len(n) > 63 || !strings.HasSuffix(n, "-2") {
+		t.Fatalf("long: %s", n)
+	}
+}
+
+// Without a number from the Environment page a test keeps DefaultCaches,
+// and never more than MaxCaches.
+func TestCachesCount(t *testing.T) {
+	k := &KubeExecutor{}
+	if k.caches() != DefaultCaches {
+		t.Fatalf("default: %d", k.caches())
+	}
+	n := 0
+	k.Caches = func() int { return n }
+	if k.caches() != DefaultCaches {
+		t.Fatalf("zero: %d", k.caches())
+	}
+	n = 1
+	if k.caches() != 1 {
+		t.Fatalf("one: %d", k.caches())
+	}
+	n = 99
+	if k.caches() != MaxCaches {
+		t.Fatalf("too many: %d", k.caches())
 	}
 }
