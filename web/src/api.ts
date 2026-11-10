@@ -55,6 +55,12 @@ export interface Spec {
   services?: Service[]; // none in a library (only tasks)
   jobs?: Job[];
   tasks?: Task[];
+  builds?: unknown[];
+}
+
+/** A library: nothing of it runs or is built to keep, so a run tests it and there is nothing to deploy. */
+export function isLibrary(s: Spec): boolean {
+  return !s.services?.length && !s.builds?.length;
 }
 
 /** A command run as a CI step (mobile builds, smoke tests, release scripts). */
