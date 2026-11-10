@@ -131,6 +131,17 @@ code, pre, .mono { font-family: var(--mono); font-size: 0.9em; }
 }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text); }
 .brand:hover { text-decoration: none; }
+/* The mark's beat: a stretch of the line runs from left to right over a fainter trace, and the
+   tile swells a little as it passes the peak. Without movement the line is whole, as before. */
+.logo-fondo { opacity: .4; }
+.logo-latido { animation: logo-latido 2.6s linear infinite; }
+.logo { animation: logo-pulso 2.6s ease-in-out infinite; }
+.brand:hover .logo-latido, .brand:hover .logo { animation-duration: 1.1s; }
+@keyframes logo-latido {
+  from { stroke-dasharray: 34 66; stroke-dashoffset: 34; }
+  to { stroke-dasharray: 34 66; stroke-dashoffset: -100; }
+}
+@keyframes logo-pulso { 0%, 34%, 62%, 100% { transform: scale(1); } 46% { transform: scale(1.09); } }
 .brand .logo { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: grid; place-items: center; }
 .topbar .spacer { flex: 1; }
 

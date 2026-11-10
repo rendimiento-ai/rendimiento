@@ -1,12 +1,13 @@
 // The brand mark and the language switch, shared by the top bar and the welcome page.
 import { lang, setLang } from "../i18n";
 
-/** rendimiento's mark: a pulse line. */
+/** rendimiento's mark: a pulse line, with a beat that runs along it (still when movement is off). */
 export function Logo() {
   return (
     <span className="logo" aria-hidden>
       <svg width="20" height="20" viewBox="0 0 32 32">
-        <path d="M3 17 L10 17 L13 9 L18 25 L21 17 L29 17" stroke="var(--accent-text)" strokeWidth="3.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <path className="logo-fondo" d="M3 17 L10 17 L13 9 L18 25 L21 17 L29 17" stroke="var(--accent-text)" strokeWidth="3.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <path className="logo-latido" pathLength={100} d="M3 17 L10 17 L13 9 L18 25 L21 17 L29 17" stroke="var(--accent-text)" strokeWidth="3.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </span>
   );
