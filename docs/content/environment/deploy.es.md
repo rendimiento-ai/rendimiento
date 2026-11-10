@@ -253,6 +253,7 @@ Cuando un paso no puede seguir, el asistente dice por qué y qué hacer: la virt
 Desde entonces la aplicación es una ventana propia que muestra rendimiento (`http://localhost:8080`) y un icono junto al reloj. Sus aplicaciones responden en `http://<app>.localhost:8000`, como en Linux. Al cerrar la ventana el icono se queda ahí, con este menú:
 
 - **Abrir**: la ventana otra vez.
+- **Volver al inicio**: saca la ventana del sitio donde se haya quedado (el inicio de sesión de GitHub, por ejemplo) y la regresa al asistente, o a rendimiento cuando ya todo está listo.
 - **Abrir en el navegador**: rendimiento en su navegador.
 - **Dormir**: detiene la distribución, y con ella sus aplicaciones, las construcciones y la memoria que ocupaba. Los datos se quedan. **Despertar** la arranca de nuevo.
 - **Salir**: cierra la aplicación; sin nada que la mantenga despierta, WSL detiene la distribución poco después.

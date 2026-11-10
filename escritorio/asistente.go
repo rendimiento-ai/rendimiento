@@ -194,6 +194,23 @@ func (a *Asistente) abrir() {
 	}
 }
 
+// inicio is the icon's "Back to the start": it shows the window and takes
+// it off whatever site it was left on (GitHub's sign-in, another
+// account's). The assistant's page loads again, and sends the window on to
+// rendimiento's own pages when nothing is left to ask.
+func (a *Asistente) inicio() {
+	a.mu.Lock()
+	v, fuera := a.v, a.fuera
+	a.mu.Unlock()
+	if v == nil {
+		return
+	}
+	v.Mostrar()
+	if fuera {
+		v.Volver()
+	}
+}
+
 // alternar is the icon's "Sleep" or "Wake up".
 func (a *Asistente) alternar() {
 	switch a.ahora().estado {
