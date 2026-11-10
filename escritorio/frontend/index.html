@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rendimiento</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+<main>
+  <header>
+    <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
+      <rect width="32" height="32" rx="9" fill="#8E1B2C"/>
+      <path d="M4 17 L10 17 L13 9 L18 24 L21 17 L28 17" fill="none" stroke="#F2C14E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>rendimiento</span>
+  </header>
+  <ol id="pasos"></ol>
+  <section>
+    <h1 id="titulo"></h1>
+    <p id="texto"></p>
+    <progress id="avance" max="100" hidden></progress>
+    <div id="problema" class="mal" hidden><p id="explicacion"></p><small id="detalle"></small></div>
+    <p id="reloj" class="aviso" hidden></p>
+    <form id="forma">
+      <label id="campo" hidden><span id="rotulo"></span><input id="valor" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <button id="boton" class="primario" hidden></button>
+    </form>
+    <button id="revisar" class="enlace" type="button" hidden></button>
+  </section>
+  <footer id="version"></footer>
+</main>
+<script src="asistente.js"></script>
+</body>
+</html>

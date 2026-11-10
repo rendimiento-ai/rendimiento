@@ -18,6 +18,7 @@ flowchart LR
 | **envtest** | `internal/controller`, `internal/platform` | un servidor de la API y un etcd de prueba (los descarga `setup-envtest`) | los controladores contra una API de Kubernetes real: aplicar, adoptar, podar, ganchos, necesidades, finalizadores |
 | **Del almacén** | `internal/store`, `internal/api`, `internal/platform` | Postgres (`TEST_DATABASE_URL`) | el SQL, las migraciones, la cola de ejecuciones, las sesiones |
 | **De integración** | `internal/pipeline` (etiqueta de construcción `integration`) | el grupo de BuildKit del clúster | una construcción real con Dockerfile y una real con Railpack, enviadas con huella |
+| **De la aplicación de Windows** | `escritorio` (un módulo aparte) | nada | el paquete `wsl` contra un `wsl.exe` falso, y que la aplicación compila para Windows ([Preparación](setup.md#the-windows-app)) |
 | **De la interfaz** | `web` | Node | que el TypeScript compila (`npm run typecheck`) |
 | **En el navegador** | `web/e2e` | Playwright, Postgres, Go | la interfaz y la API de verdad en un navegador, en inglés y en español: «Nueva app» con cada ejemplo de `internal/spec/ejemplos`, luego cada página del menú, sin errores en el navegador ni respuestas 500 de la API ([abajo](#browser-tests)) |
 
@@ -41,7 +42,7 @@ make itest                                       # construcciones reales en el g
 1. Se crea un pod con tres contenedores en `rendimiento-builds`, lejos del plano de control y de cualquier nodo en `TEST_EXCLUDE_NODES`: **go** (las herramientas), **node** (la revisión de tipos) y **postgres** (un acompañante que las pruebas del almacén usan en `localhost`).
 2. Un volumen de **caché local del nodo** (`rendimiento-test-cache`, local-path) guarda entre ejecuciones los módulos de Go, la caché de construcción, los programas de envtest y la caché de npm; la primera ejecución lo llena (unos 20 minutos), las siguientes lo reutilizan.
 3. El árbol de trabajo, **incluidos los cambios sin confirmar**, se manda como un archivo tar.
-4. `hack/ci-test.sh` corre `controller-gen`, `go vet` y `go test -p 1 ./...`; luego corre `npm run typecheck`, y su salida llega aquí en vivo:
+4. `hack/ci-test.sh` corre `controller-gen`, `go vet` y `go test -p 1 ./...`, y después el módulo de la aplicación de Windows (`escritorio/`); luego corre `npm run typecheck`, y su salida llega aquí en vivo:
 
     ```bash
     --8<-- "hack/ci-test.sh:25:37"

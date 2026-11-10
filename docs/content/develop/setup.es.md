@@ -45,6 +45,7 @@ rendimiento.ai/
 │   ├── events/             concentrador de actualizaciones en vivo (SSE)
 │   └── api/                API HTTP, autenticación, avisos web, configuración, servidor de la interfaz
 ├── web/                    la interfaz de React (src/) y su incrustación (embed.go)
+├── escritorio/             rendimiento para Windows, un módulo de Go aparte (abajo)
 ├── templates/dockerfiles/  plantillas de Dockerfile para las tecnologías detectadas
 ├── deploy/                 manifiestos de la propia plataforma (kubectl apply -k)
 ├── docs/                   este libro (MkDocs Material)
@@ -112,6 +113,21 @@ npm run build        # web/dist, que incrusta la construcción de Go
 ```
 
 El servidor de desarrollo necesita una API de rendimiento en `localhost:8080`, la local de arriba. La galleta de sesión la pone el inicio de sesión de ese servidor, así que primero inicie sesión en `http://localhost:8080`.
+
+## La aplicación de Windows {#the-windows-app}
+
+`escritorio/` es rendimiento para Windows ([qué hace](../environment/deploy.md#on-windows)): una aplicación de [Wails](https://wails.io) v2, es decir, una ventana de WebView2 y un icono junto al reloj alrededor de código de Go. Su paquete `wsl` cuida la distribución de WSL2 (activar WSL, descargar, revisar e importar la distribución, despertarla y dormirla), siempre por medio de `wsl.exe` detrás de una interfaz pequeña, así que sus pruebas corren en cualquier sistema con uno falso. El asistente de la primera vez es HTML, CSS y JavaScript sin más en `escritorio/frontend`, incrustado con `go:embed`: sin npm.
+
+Es un **módulo de Go aparte** (`escritorio/go.mod`), así que Wails y la biblioteca del icono nunca llegan a las dependencias de la plataforma, ni a su imagen, ni a su `go vet ./...`, y las de la plataforma nunca llegan a la aplicación. Go deja fuera de `./...` una carpeta con su propio `go.mod`, así que sus comandos se corren desde adentro:
+
+```bash
+cd escritorio
+gofmt -l . && go vet ./... && go test ./...
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -tags desktop,production -trimpath \
+  -ldflags "-s -w -H windowsgui" -o /tmp/rendimiento-windows-amd64.exe .
+```
+
+Los archivos que importan Wails llevan `//go:build windows`, así que en Linux el módulo también pasa por vet y por sus pruebas. Se construye para Windows desde Linux con `go build` y nada más, sin el programa `wails`: `desktop,production` son las etiquetas que Wails le pone a una construcción de versión, y `-H windowsgui` evita que se abra una ventana de consola junto con la aplicación. `hack/ci-test.sh` corre todo esto en cada envío, después de las pruebas de la plataforma (formato, vet y pruebas en Linux; vet y construcción para `windows/amd64`), y `.github/workflows/binarios.yml` construye el mismo programa para cada versión, con su número (`-X main.version`), y lo anota en las `SHA256SUMS`.
 
 ## Generar código {#generating-code}
 

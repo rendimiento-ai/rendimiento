@@ -4,6 +4,7 @@ What changed in each release, for people who run rendimiento. Every change is in
 
 ## Unreleased
 
+- **rendimiento for Windows (preview):** each release publishes `rendimiento-windows-amd64.exe`, an app that turns WSL2 on, downloads, checks and imports the distribution, asks who signs in first, and shows rendimiento in a window of its own, with an icon next to the clock to put it to sleep and wake it up. It is not signed yet (SmartScreen asks before running it). See [the book](docs/content/environment/deploy.md#on-windows).
 - **A clock that is off:** when GitHub answers "Bad credentials" and the computer's clock is more than a minute away from GitHub's, the error says by how much and how to fix it.
 - **Redis on localhost:** a service whose Redis client (ioredis) is refused without saying where now gets the same hint: use `REDIS_URL`.
 - **Windows:** the book says what to do when WSL2 cannot start (restart, virtualization in the BIOS) or GitHub refuses the clock.
