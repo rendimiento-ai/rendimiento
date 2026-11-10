@@ -1,0 +1,61 @@
+/* rendimiento's colours (web/src/styles.css): Cotija by day, by night. */
+:root {
+  --bg: #FBF5EA; --surface: #FFFDF8; --border: #E9DCC8;
+  --text: #2B1B12; --muted: #6B5444;
+  --accent: #8E1B2C; --accent-text: #fff; --band: #8E1B2C;
+  --warn: #8A5300; --warn-bg: #FBEBC7;
+  --bad: #B3261E; --bad-bg: #FBE3DF;
+  --ok: #2F6B2C;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #120F2A; --surface: #211531; --border: #3A2A52;
+    --text: #F6EBDD; --muted: #B8A9C9;
+    --accent: #F2A93B; --accent-text: #2A0A12; --band: #4A0E18;
+    --warn: #F2C14E; --warn-bg: #3A2E10;
+    --bad: #FF8A9A; --bad-bg: #45121E;
+    --ok: #9EDB8A;
+  }
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  border-top: 6px solid var(--band);
+  font: 16px/1.5 "Segoe UI", system-ui, sans-serif;
+  display: flex; justify-content: center;
+  user-select: none; cursor: default;
+}
+main { width: 100%; max-width: 620px; padding: 28px 24px; display: flex; flex-direction: column; }
+header { display: flex; align-items: center; gap: 10px; font: 600 20px Georgia, serif; }
+#pasos { list-style: none; display: flex; gap: 6px; padding: 0; margin: 28px 0 20px; font-size: 13px; color: var(--muted); }
+#pasos li { flex: 1; padding-top: 8px; border-top: 3px solid var(--border); }
+#pasos li.hecho { border-color: var(--ok); }
+#pasos li.actual { border-color: var(--accent); color: var(--text); font-weight: 600; }
+section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px; }
+h1 { font: 600 26px/1.2 Georgia, serif; margin: 0 0 12px; }
+p { margin: 0 0 16px; white-space: pre-line; }
+#texto { color: var(--muted); }
+progress { width: 100%; height: 8px; margin-bottom: 16px; accent-color: var(--accent); }
+.aviso, .mal { border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; font-size: 14px; }
+.aviso { background: var(--warn-bg); color: var(--warn); }
+.mal { background: var(--bad-bg); color: var(--bad); }
+.mal p { margin: 0; }
+.mal small { display: block; margin-top: 8px; font: 12px/1.4 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; cursor: text; }
+.mal small:empty { display: none; }
+form { margin: 0; }
+label { display: block; margin-bottom: 16px; font-size: 14px; color: var(--muted); }
+input {
+  display: block; width: 100%; margin-top: 6px; padding: 9px 12px;
+  font: inherit; color: var(--text); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px;
+}
+input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button { font: inherit; cursor: pointer; }
+.primario {
+  background: var(--accent); color: var(--accent-text);
+  border: 0; border-radius: 8px; padding: 11px 22px; font-weight: 600;
+}
+.enlace { background: none; border: 0; padding: 0; margin-top: 16px; color: var(--muted); font-size: 14px; text-decoration: underline; }
+[hidden] { display: none !important; }
+footer { margin-top: auto; padding-top: 16px; font-size: 12px; color: var(--muted); text-align: right; }

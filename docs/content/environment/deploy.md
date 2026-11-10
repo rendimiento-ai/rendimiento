@@ -232,11 +232,47 @@ On its first start it makes, in `DATA_DIR` (by default `~/.config/rendimiento`, 
 
 GitHub cannot send webhooks to `localhost`, so the GitHub App made by the setup page has none: every `POLL_INTERVAL` (1 minute) rendimiento asks GitHub for each app's branches and runs a branch whose head moved, as a push would.
 
-Releases run on the computer, through the **local destination**: each service of a release is a container on the app's own network, published on `127.0.0.1` and reached through rendimiento's proxy at **`http://<app>.localhost:8000`** (the app's first service) or `http://<service>.<app>.localhost:8000` (`PROXY_LISTEN` moves it). A new release starts beside the running one; once it answers (its `health` path, or its port), the proxy goes to it and the old containers are removed, and one that never answers is removed and leaves the running one in place, as release verification then reports. Its port must really answer: a connection that the published port accepts and closes at once (nothing listening behind it) does not count. The failure says why: where the service listens inside its container when that is not its `port` (or only on `127.0.0.1`), when it looks for Redis or Postgres on `localhost` (inside a container that is the container itself: use `REDIS_URL` or `DATABASE_URL`), and its last lines. An app that needs Postgres or Redis gets a container of each, with a password made once and sealed; its secrets (Settings → Secrets) are sealed too. The containers restart with the computer. A service reaches another service of its app **by its name**, as in the cluster: each container answers on the app's network to its service's name (its hostname under containerd, a network alias under Docker), so `http://api:8000` or an nginx `proxy_pass http://wellness-api` work unchanged, and a need injects that address (`API_URL`). Postgres and Redis answer to `postgres` and `redis`. After a rollout with more than one service, the new containers start again once, so none keeps an address of the old release. Another app's services are not reachable there. Not there yet: certificates for an app's own domain, and the tunnel that puts it on the internet; then a native app.
+Releases run on the computer, through the **local destination**: each service of a release is a container on the app's own network, published on `127.0.0.1` and reached through rendimiento's proxy at **`http://<app>.localhost:8000`** (the app's first service) or `http://<service>.<app>.localhost:8000` (`PROXY_LISTEN` moves it). A new release starts beside the running one; once it answers (its `health` path, or its port), the proxy goes to it and the old containers are removed, and one that never answers is removed and leaves the running one in place, as release verification then reports. Its port must really answer: a connection that the published port accepts and closes at once (nothing listening behind it) does not count. The failure says why: where the service listens inside its container when that is not its `port` (or only on `127.0.0.1`), when it looks for Redis or Postgres on `localhost` (inside a container that is the container itself: use `REDIS_URL` or `DATABASE_URL`), and its last lines. An app that needs Postgres or Redis gets a container of each, with a password made once and sealed; its secrets (Settings → Secrets) are sealed too. The containers restart with the computer. A service reaches another service of its app **by its name**, as in the cluster: each container answers on the app's network to its service's name (its hostname under containerd, a network alias under Docker), so `http://api:8000` or an nginx `proxy_pass http://wellness-api` work unchanged, and a need injects that address (`API_URL`). Postgres and Redis answer to `postgres` and `redis`. After a rollout with more than one service, the new containers start again once, so none keeps an address of the old release. Another app's services are not reachable there. Not there yet: certificates for an app's own domain, and the tunnel that puts it on the internet; then a native app for each system (the one for Windows is [a preview](#on-windows)).
 
 ### On Windows (preview) {#on-windows}
 
-Each release also publishes `rendimiento-wsl-amd64.tar.gz`: a small WSL2 distribution (Debian with systemd, containerd, BuildKit and rendimiento in `MODE=local`, built from `instalar/wsl`) that runs everything above on Windows 10 (version 2004 or newer) or Windows 11, without Docker Desktop. A Windows app will import and keep it for you; until then, in PowerShell:
+**rendimiento for Windows** is an app that sets up and keeps everything above on Windows 10 (version 2004 or newer) or Windows 11, on a computer with a 64-bit Intel or AMD processor, without Docker Desktop: rendimiento runs in a small WSL2 distribution of its own, and the app is its window. Download `rendimiento-windows-amd64.exe` from the [latest release](https://github.com/rendimiento-ai/rendimiento/releases/latest) and open it. It is one program, with no installer yet: keep it where you like, and open it again to come back.
+
+!!! note "It is not signed yet"
+    The first time, Windows SmartScreen stops it with "Windows protected your PC": choose **More info**, then **Run anyway**. To check the download before that, compare `Get-FileHash rendimiento-windows-amd64.exe` with its line in the release's `SHA256SUMS`. A signature and an installer come next.
+
+The first time, an assistant does what is missing, one step at a time:
+
+1. **WSL2.** If Windows does not have it on, the assistant turns it on: Windows asks for an administrator's permission, and then to restart. Open the app again after that.
+2. **The distribution.** It downloads the latest release's `rendimiento-wsl-amd64.tar.gz` (about 174 MB), checks it against that release's `SHA256SUMS`, and imports it as the WSL distribution `rendimiento`. It does not touch other distributions you have.
+3. **Who signs in first.** It asks for your GitHub login (`ALLOWED_USERS`).
+4. **Start.** It starts rendimiento, keeps the distribution awake (WSL stops one that nothing is attached to), and opens the setup page, which makes the GitHub App, with the setup token already in hand.
+
+When a step cannot go on, the assistant says why and what to do: virtualization that is off in the computer's BIOS/UEFI (`HCS_E_HYPERV_NOT_INSTALLED`, `ERROR_NOT_SUPPORTED`), a download that does not match its checksum, or a clock that is off, which makes GitHub refuse rendimiento's signature. The first and the last are explained [below](#on-windows-by-hand).
+
+From then on the app is a window of its own showing rendimiento (`http://localhost:8080`), and an icon next to the clock. Your apps answer on `http://<app>.localhost:8000`, as on Linux. Closing the window leaves the icon there, with this menu:
+
+- **Open**: the window again.
+- **Open in the browser**: rendimiento in your browser.
+- **Sleep**: stops the distribution, and with it your apps, the builds and the memory it held. The data stays. **Wake up** starts it again.
+- **Quit**: closes the app; with nothing keeping it awake, WSL stops the distribution soon after.
+
+Where things live:
+
+- the program, wherever you saved it;
+- `%LOCALAPPDATA%\rendimiento`: the distribution's disk (rendimiento, your apps and their data) and what the app downloaded;
+- inside the distribution (`wsl -d rendimiento`): its settings in `/etc/rendimiento/env`, and the secrets' key and the setup token in `/root/.config/rendimiento`.
+
+Not there yet: an installer, a signature, updating itself, uninstalling, starting with Windows, and computers with an ARM processor. To remove it today, choose **Quit**, delete the program, and in PowerShell:
+
+```powershell
+wsl --unregister rendimiento                          # the distribution, with all its data
+Remove-Item -Recurse $env:LOCALAPPDATA\rendimiento    # what the app downloaded
+```
+
+### On Windows, by hand {#on-windows-by-hand}
+
+The same steps, for those who prefer to run them. The distribution is the `rendimiento-wsl-amd64.tar.gz` of each release: Debian with systemd, containerd, BuildKit and rendimiento in `MODE=local`, built from `instalar/wsl`. In PowerShell:
 
 ```powershell
 wsl --install --no-distribution   # only if WSL is not on yet; it may ask to restart
@@ -245,7 +281,7 @@ wsl --import rendimiento $env:LOCALAPPDATA\rendimiento rendimiento-wsl-amd64.tar
 wsl -d rendimiento -- sh -c "echo ALLOWED_USERS=your-github-login > /etc/rendimiento/env && systemctl restart rendimiento"
 ```
 
-Then open `http://localhost:8080`; the setup token is in `/root/.config/rendimiento` (`wsl -d rendimiento -- ls /root/.config/rendimiento`). Your apps answer on `http://<app>.localhost:8000`, as on Linux. It does not touch other distributions you have. WSL stops a distribution when no `wsl.exe` is attached to it, so keep a `wsl -d rendimiento` window open while you use it (the app will do that for you). `wsl --unregister rendimiento` removes it with all its data.
+Then open `http://localhost:8080`; the setup token is in `/root/.config/rendimiento` (`wsl -d rendimiento -- ls /root/.config/rendimiento`). Your apps answer on `http://<app>.localhost:8000`, as on Linux. It does not touch other distributions you have. WSL stops a distribution when no `wsl.exe` is attached to it, so keep a `wsl -d rendimiento` window open while you use it (the app does that for you). `wsl --unregister rendimiento` removes it with all its data.
 
 If `wsl --import` fails with `HCS_E_HYPERV_NOT_INSTALLED` or `ERROR_NOT_SUPPORTED`, WSL2 cannot start its virtual machine yet: restart Windows after `wsl --install --no-distribution` (its components only work after a restart), and check that virtualization is on (Task Manager → Performance → CPU says "Virtualization: Enabled"; if not, turn on SVM Mode on AMD or Intel Virtualization Technology on Intel in the computer's BIOS/UEFI).
 
@@ -255,7 +291,7 @@ If GitHub answers "Bad credentials" while setting up or adding an app, look at t
 
 rendimiento's repository is onboarded like any app. Its `rendimiento.yaml` has the book (`docs`, a service) and the platform's own image (`builds: platform`), so every push runs:
 
-- `platform:test`: `hack/ci-test.sh` (generate, vet and the Go tests, with envtest and a throwaway Postgres) in `golang`, with a kept cache;
+- `platform:test`: `hack/ci-test.sh` (generate, vet and the Go tests, with envtest and a throwaway Postgres; then the Windows app's module, `escritorio/`) in `golang`, with a kept cache;
 - `platform:build`: the Dockerfile, which also checks the UI's types and translations, pushed as `<registry>/rendimiento-ai-platform:<commit>`.
 
 Pull requests get the same check without a release. On the default branch the image's digest is kept with the release, next to the book's.

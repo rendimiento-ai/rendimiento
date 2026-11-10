@@ -18,6 +18,7 @@ flowchart LR
 | **envtest** | `internal/controller`, `internal/platform` | a test API server and etcd (downloaded by `setup-envtest`) | controllers against a real Kubernetes API: apply, adoption, pruning, hooks, needs, finalizers |
 | **Store** | `internal/store`, `internal/api`, `internal/platform` | Postgres (`TEST_DATABASE_URL`) | SQL, migrations, the run queue, sessions |
 | **Integration** | `internal/pipeline` (build tag `integration`) | the cluster's BuildKit pool | a real Dockerfile build and a real Railpack build, pushed with a digest |
+| **Windows app** | `escritorio` (a module of its own) | nothing | the `wsl` package against a fake `wsl.exe`, and that the app compiles for Windows ([Setting up](setup.md#the-windows-app)) |
 | **UI** | `web` | Node | the TypeScript compiles (`npm run typecheck`) |
 | **Browser** | `web/e2e` | Playwright, Postgres, Go | the real UI and API in a browser, in English and Spanish: "New app" with every example of `internal/spec/ejemplos`, then every page in the menu, with no error in the browser and no 500 from the API ([below](#browser-tests)) |
 
@@ -41,7 +42,7 @@ make itest                                       # real builds on the BuildKit p
 1. A pod with three containers is created in `rendimiento-builds`, avoiding the control plane and any `TEST_EXCLUDE_NODES`: **go** (the toolchain), **node** (the typecheck) and **postgres** (a sidecar the store tests use on `localhost`).
 2. A **node-local cache** volume (`rendimiento-test-cache`, local-path) keeps Go modules, the build cache, envtest binaries and npm's cache between runs; the first run fills it (about 20 minutes), later runs reuse it.
 3. The working tree, **including uncommitted changes**, is streamed in as a tarball.
-4. `hack/ci-test.sh` runs `controller-gen`, `go vet` and `go test -p 1 ./...`, then `npm run typecheck` runs, their output streamed here:
+4. `hack/ci-test.sh` runs `controller-gen`, `go vet` and `go test -p 1 ./...`, then the Windows app's module (`escritorio/`); then `npm run typecheck` runs, their output streamed here:
 
     ```bash
     --8<-- "hack/ci-test.sh:25:37"
