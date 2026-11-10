@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { addonsApi, api, appSecretNames, duration, session, subscribe, timeAgo, type App, type AutoEncargo, type Release, type ReleaseTask } from "../api";
+import { addonsApi, api, appSecretNames, duration, isLibrary, session, subscribe, timeAgo, type App, type AutoEncargo, type Release, type ReleaseTask } from "../api";
 import { autoEncargoName } from "./IA";
 import { ErrorBox, PhaseBadge, ResourceTree, RunBadge, Switch, usePoll } from "../components/ui";
 import { fmtPct, ReliabilityTab } from "../components/reliability";
@@ -42,17 +42,18 @@ export function AppPage() {
   if (!app) return <p className="muted">{t("Loading…")}</p>;
 
   const caida = (app.down?.length ?? 0) > 0 || app.status.phase === "Error" || app.status.phase === "Degraded";
+  const lib = isLibrary(app.spec);
   const site = (app.status.services ?? []).map((x) => x.url ?? x.lanURL).find((u): u is string => !!u);
   return (
     <>
       <LluviaDePetalos cuando={lluvia} />
       <div className="app-cabeza">
-        <Flor estado={!app.status.release ? "brote" : caida ? "marchita" : "viva"} size={64}
-          label={!app.status.release ? t("A bud: not live yet") : (app.down?.length ?? 0) > 0 ? t("Withered: {checks}", { checks: app.down!.join(", ") }) : caida ? t("Withered flower") : t("Blooming flower")} />
+        <Flor estado={lib ? (app.lastRun?.status === "failed" ? "marchita" : app.lastRun?.status === "succeeded" ? "viva" : "brote") : !app.status.release ? "brote" : caida ? "marchita" : "viva"} size={64}
+          label={lib ? t("A library: tested on every push") : !app.status.release ? t("A bud: not live yet") : (app.down?.length ?? 0) > 0 ? t("Withered: {checks}", { checks: app.down!.join(", ") }) : caida ? t("Withered flower") : t("Blooming flower")} />
         <div className="app-titulo">
           <h1>{app.name}</h1>
           <div className="row small muted">
-            <PhaseBadge status={app.status} />
+            <PhaseBadge status={app.status} library={lib} />
             <a href={`https://github.com/${app.repo}`} target="_blank" rel="noreferrer">{app.repo}</a>
             {app.status.release ? <span>· {t("release #{n}", { n: app.status.release })}</span> : null}
           </div>
@@ -142,6 +143,7 @@ function Datos({ app }: { app: App }) {
   const { data: rels } = usePoll(() => api.releases(app.name), [app.name], 30000);
   const { data: vis } = usePoll(() => api.visits(app.name, "24h"), [app.name], 300000);
   const live = rels?.find((r) => r.number === app.status.release);
+  const lib = isLibrary(app.spec);
   const run = app.lastRun;
   const runTone = run?.status === "succeeded" ? "var(--ok)" : run?.status === "failed" ? "var(--bad)" : "var(--warn)";
   const visitors = vis?.configured && vis.reports.length > 0 ? vis.reports.reduce((n, r) => n + r.current.visitors, 0) : undefined;
@@ -158,12 +160,12 @@ function Datos({ app }: { app: App }) {
       <Link className="dato" to={`${base}/releases`}>
         <span>{t("Live")}</span>
         <b>{app.status.release ? `#${app.status.release}` : "—"}</b>
-        <small>{live ? `${live.verifyStatus && verifyBadge[live.verifyStatus] ? t(verifyBadge[live.verifyStatus][1]) : ""} · ${timeAgo(live.createdAt)}` : t("No release yet")}</small>
+        <small>{live ? `${live.verifyStatus && verifyBadge[live.verifyStatus] ? t(verifyBadge[live.verifyStatus][1]) : ""} · ${timeAgo(live.createdAt)}` : lib ? t("A library: nothing to deploy") : t("No release yet")}</small>
       </Link>
       <Link className="dato" to={`${base}/reliability`}>
         <span>{t("Available, 24 h")}</span>
         <b>{app.uptime24h !== undefined ? fmtPct(Math.round(app.uptime24h * 100000), 100000) : "—"}</b>
-        <small>{(app.down?.length ?? 0) > 0 ? t("Down: {checks}", { checks: app.down!.join(", ") }) : app.uptime24h !== undefined ? t("Its checks answer") : t("No checks yet")}</small>
+        <small>{(app.down?.length ?? 0) > 0 ? t("Down: {checks}", { checks: app.down!.join(", ") }) : app.uptime24h !== undefined ? t("Its checks answer") : lib ? t("Nothing runs, nothing to check") : t("No checks yet")}</small>
       </Link>
       <Link className="dato" to={`${base}/visits`}>
         <span>{t("Visitors, 24 h")}</span>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { api, envApi, timeAgo, type App, session } from "../api";
+import { api, envApi, isLibrary, timeAgo, type App, session } from "../api";
 import { ErrorBox, PhaseBadge, RunBadge, usePoll } from "../components/ui";
 import { fmtPct } from "../components/reliability";
 import { DeliveryPanel } from "../components/delivery";
@@ -148,7 +148,8 @@ export function Dashboard() {
           const url = (a.status.services ?? []).map((s) => s.url ?? s.lanURL).find((u): u is string => !!u);
           const caida = marchita(a);
           const banda = bandas[i % bandas.length];
-          const estado = caida
+          const lib = isLibrary(a.spec);
+          const estado = lib ? t("A library: tested on every push") : caida
             ? (a.down?.length ? t("Withered: {checks}", { checks: a.down.join(", ") }) : t("Withered: its workloads are failing"))
             : a.uptime24h !== undefined
               ? t("Blooming · {pct} available", { pct: fmtPct(Math.round(a.uptime24h * 100000), 100000) })
@@ -170,7 +171,7 @@ export function Dashboard() {
                     <span>{timeAgo(a.lastRun.createdAt)}</span>
                   </div>
                 )}
-                {a.status.phase !== "Healthy" && !caida && <PhaseBadge status={a.status} />}
+                {a.status.phase !== "Healthy" && !caida && !lib && <PhaseBadge status={a.status} />}
               </div>
             </article>
           );

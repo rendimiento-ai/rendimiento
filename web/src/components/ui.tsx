@@ -19,8 +19,9 @@ export function statusText(s: string): string {
   return t(phaseLabel[s] ?? s);
 }
 
-/** An app's state as a colored label (its message as the tooltip). */
-export function PhaseBadge({ status }: { status: AppStatus }) {
+/** An app's state as a colored label (its message as the tooltip). A library has no state: it says what it is. */
+export function PhaseBadge({ status, library }: { status: AppStatus; library?: boolean }) {
+  if (library) return <span className="badge idle" title={t("It is tested on every push. Nothing of it runs, so there is nothing to deploy.")}>{t("Library")}</span>;
   const phase = status.phase ?? "Pending";
   const tone = phaseTone[phase] ?? "idle";
   return (
