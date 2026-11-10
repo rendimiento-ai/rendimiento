@@ -130,6 +130,7 @@ sequenceDiagram
     R->>G: exchange the code for the App's credentials
     R->>R: store them in the rendimiento-github secret
     You->>G: install the App on your account (all or chosen repos)
+    G->>You: back to rendimiento (the App's Setup URL)
 ```
 
 The manifest asks for these repository permissions: **Contents** read & write (read code, push onboarding branches), **Pull requests** read & write (open onboarding PRs), **Checks** read & write (report CI status), **Metadata** read, **Issues** read & write and **Commit statuses** read (both for the Renovate add-on). It subscribes to **push** events. Login to the dashboard uses the same App's OAuth, and only [members](../guide/members.md) get a session (`ALLOWED_USERS` names the first administrators).

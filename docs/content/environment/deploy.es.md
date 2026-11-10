@@ -130,6 +130,7 @@ sequenceDiagram
     R->>G: cambia el código por las credenciales de la aplicación
     R->>R: las guarda en el secreto rendimiento-github
     You->>G: instala la aplicación en su cuenta (todos o algunos repositorios)
+    G->>You: de regreso a rendimiento (la Setup URL de la aplicación)
 ```
 
 El manifiesto pide estos permisos de repositorio: **Contents** de lectura y escritura (leer el código, enviar las ramas de incorporación), **Pull requests** de lectura y escritura (abrir las solicitudes de incorporación), **Checks** de lectura y escritura (reportar el estado de la integración continua), **Metadata** de lectura, **Issues** de lectura y escritura y **Commit statuses** de lectura (estos dos para el complemento de Renovate). Se suscribe a los eventos de **envío** (*push*). El inicio de sesión en el panel usa el OAuth de la misma aplicación, y solo los [miembros](../guide/members.md) reciben una sesión (`ALLOWED_USERS` nombra a los primeros administradores).
