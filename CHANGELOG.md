@@ -5,6 +5,7 @@ What changed in each release, for people who run rendimiento. Every change is in
 ## Unreleased
 
 - **rendimiento for Windows:** the icon's menu has **Back to the start**, for a window left on a page with no way back (GitHub's sign-in, for example).
+- **The README and the welcome page** now say what agents cannot do (deploy, roll back: they ask and a person decides), that every action is in the bitácora, and how to get rendimiento for Windows.
 - **The welcome page:** installing has its own place, for Windows (a download button) and for Linux (the command to copy), each with its three steps and a small animation of what happens. It opens on the visitor's system.
 - **Connecting GitHub:** after you choose the repositories, GitHub brings you back to rendimiento instead of leaving you on its page. It applies to a GitHub App created from now on; one that already exists can get it in its settings on GitHub (Setup URL).
 - **rendimiento for Windows (preview):** each release publishes `rendimiento-windows-amd64.exe`, an app that turns WSL2 on, downloads, checks and imports the distribution, asks who signs in first, and shows rendimiento in a window of its own, with an icon next to the clock to put it to sleep and wake it up. It is not signed yet (SmartScreen asks before running it). See [the book](docs/content/environment/deploy.md#on-windows).
