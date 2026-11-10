@@ -4,6 +4,7 @@ What changed in each release, for people who run rendimiento. Every change is in
 
 ## Unreleased
 
+- **The welcome page:** changing between Windows and Linux in "On your own computer" no longer leaves a copy of the previous system's block behind each time.
 - **Libraries:** an app with only tasks (a library) no longer shows as Pending: it says Library, and its page says there is nothing to deploy or check.
 - **rendimiento for Windows:** the icon's menu has **Back to the start**, for a window left on a page with no way back (GitHub's sign-in, for example).
 - **The README and the welcome page** now say what agents cannot do (deploy, roll back: they ask and a person decides), that every action is in the bitácora, and how to get rendimiento for Windows.
