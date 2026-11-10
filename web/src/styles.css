@@ -930,6 +930,57 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 .bienv-instalar { display: flex; flex-direction: column; gap: 10px; }
 .bienv-comando { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 12px 14px; border-radius: var(--radius); background: var(--surface-2); border: 1px solid var(--border); }
 .bienv-comando code { flex: 1; min-width: 0; overflow-wrap: anywhere; font: 15px var(--mono); }
+/* Install, by system: the text on one side and a small scene of what happens on the other. */
+.inst { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px; align-items: center; }
+.inst-texto { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.inst-sistemas { display: inline-flex; align-self: flex-start; padding: 4px; gap: 4px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); }
+.inst-sistemas button { border: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 700; padding: 8px 20px; border-radius: 999px; cursor: pointer; transition: background .25s, color .25s; }
+.inst-sistemas button.on { background: var(--accent); color: var(--accent-text); }
+.inst-accion { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; animation: vista-entra .35s ease both; }
+.inst-accion .bienv-comando { align-self: stretch; }
+.inst-accion p { margin: 0; }
+.inst-pasos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.inst-pasos li { display: flex; gap: 12px; align-items: flex-start; animation: vista-entra .4s ease both; animation-delay: var(--d); }
+.inst-pasos .paso-num { flex: none; width: 30px; height: 30px; font-size: 16px; }
+.inst-escena { border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; box-shadow: 0 18px 40px -22px color-mix(in srgb, var(--text) 55%, transparent); animation: ilus-entra .5s ease both; font-size: 14px; }
+.inst-titulo { display: flex; align-items: center; gap: 8px; padding: 8px 12px; font-weight: 700; background: var(--surface-2); border-bottom: 1px solid var(--border); }
+.inst-escena .logo { flex: none; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; background: var(--accent); }
+.inst-escena .logo svg { width: 14px; height: 14px; }
+.inst-titulo > span:last-child { margin-left: auto; color: var(--muted); font-weight: 400; letter-spacing: .3em; }
+.inst-cuerpo { display: flex; flex-direction: column; gap: 12px; padding: 18px; }
+.inst-ventana { background: var(--surface); }
+.inst-fila { position: relative; display: flex; align-items: center; gap: 10px; }
+.inst-palomita { position: relative; z-index: 1; flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: var(--ok); color: var(--surface); font-style: normal; font-size: 13px; font-weight: 800; }
+.inst-fila::before { content: ""; position: absolute; left: 0; width: 22px; height: 22px; border-radius: 999px; box-shadow: inset 0 0 0 2px var(--border); }
+.inst-barra { flex: 1; height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.inst-barra b { display: block; height: 100%; border-radius: 999px; background: var(--cempasuchil); transform-origin: left; animation: inst-llena 10s ease-in-out infinite; }
+.inst-reloj { display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding: 6px 12px; background: var(--wall-band, var(--accent)); color: #fff; font-variant-numeric: tabular-nums; font-size: 12px; }
+.inst-icono { display: grid; place-items: center; animation: inst-asoma 10s ease infinite; }
+.inst-terminal { background: #1B1420; color: #F6EBDD; font-family: var(--mono); font-size: 13px; }
+.inst-terminal .inst-titulo { background: #2A1F31; border-color: #3A2A45; }
+.inst-luces { display: inline-flex; gap: 6px; }
+.inst-luces i { width: 10px; height: 10px; border-radius: 999px; background: #D6246E; }
+.inst-luces i:nth-child(2) { background: #E9B824; }
+.inst-luces i:nth-child(3) { background: #3E7B3A; }
+.inst-terminal .inst-cuerpo { gap: 8px; min-height: 150px; }
+.inst-terminal i { font-style: normal; color: #9EDB8A; }
+.inst-terminal b { color: #F2A93B; }
+.inst-orden { display: flex; gap: 8px; }
+.inst-orden span { display: inline-block; overflow: hidden; white-space: nowrap; max-width: 100%; animation: inst-teclea 10s steps(40, end) infinite; }
+.inst-t1 { animation: inst-1 10s ease infinite; }
+.inst-t2 { animation: inst-2 10s ease infinite; }
+.inst-t3 { animation: inst-3 10s ease infinite; }
+.inst-t4 { animation: inst-4 10s ease infinite; }
+/* One loop of ten seconds: each line arrives in its turn, all stay, and it starts again. */
+@keyframes inst-1 { 0%, 8% { opacity: 0; transform: scale(.4); } 13%, 94% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes inst-2 { 0%, 34% { opacity: 0; transform: scale(.4); } 39%, 94% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes inst-3 { 0%, 46% { opacity: 0; transform: scale(.4); } 51%, 94% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes inst-4 { 0%, 58% { opacity: 0; transform: scale(.4); } 63%, 94% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes inst-llena { 0%, 13% { transform: scaleX(0); } 34%, 94% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+@keyframes inst-asoma { 0%, 66% { opacity: 0; transform: translateY(8px); } 72% { opacity: 1; transform: translateY(-3px); } 76%, 94% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes inst-teclea { 0%, 4% { width: 0; } 28%, 94% { width: calc(var(--n) * 1ch); } 100% { width: 0; } }
+.inst-terminal .inst-t2, .inst-terminal .inst-t3, .inst-terminal .inst-t4 { transform-origin: left; }
+@media (max-width: 760px) { .inst { grid-template-columns: minmax(0, 1fr); } }
 .bienv-cierre h2 { font-size: clamp(28px, 5vw, 44px); }
 @media (max-width: 640px) {
   .bienv-barra { padding: 10px 16px; gap: 6px; }
