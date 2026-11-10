@@ -403,11 +403,19 @@ func puertoEquivocado(port int, socks []escucha) string {
 // localhostRechazado finds a refused connection to localhost in a log.
 var localhostRechazado = regexp.MustCompile(`(?i)(?:ECONNREFUSED|connection refused|connect: refused)[^\n]*?(?:localhost|127\.0\.0\.1|\[?::1\]?):(\d+)|(?:localhost|127\.0\.0\.1|\[?::1\]?):(\d+)[^\n]*?(?:ECONNREFUSED|connection refused)`)
 
+// redisRechazado finds a Redis client's refused connection that does not
+// say where (ioredis: "[ioredis] Unhandled error event: AggregateError [ECONNREFUSED]").
+var redisRechazado = regexp.MustCompile(`(?i)redis[^\n]*ECONNREFUSED`)
+
 // pistaLocalhost explains a service that looks for what it needs on
 // localhost: inside a container that is the container itself.
 func pistaLocalhost(logs string) string {
 	m := localhostRechazado.FindStringSubmatch(logs)
 	if m == nil {
+		if redisRechazado.MatchString(logs) {
+			// ioredis says ECONNREFUSED without the address it tried.
+			return "; it cannot reach Redis: if it looks for it on localhost, inside a container that is the container itself: use REDIS_URL (needs: [redis])"
+		}
 		return ""
 	}
 	port := m[1] + m[2]

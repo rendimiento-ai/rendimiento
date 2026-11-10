@@ -284,3 +284,34 @@ func TestCreateBranchFromTheRightCommit(t *testing.T) {
 		t.Fatalf("containing it: moved %v (%v)", moved, err)
 	}
 }
+
+// A 401 from a computer whose clock is off says so: GitHub refuses the
+// app's signature as "Bad credentials", which does not say why.
+func TestRelojAdelantado(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Date", time.Now().Add(-10*time.Hour).UTC().Format(http.TimeFormat))
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = io.WriteString(w, `{"message":"Bad credentials"}`)
+	}))
+	defer srv.Close()
+	err := (&App{}).do(context.Background(), "", http.MethodGet, srv.URL+"/app/installations", nil, nil)
+	if err == nil || !strings.Contains(err.Error(), "clock is 10 h ahead of GitHub's") {
+		t.Fatalf("got %v", err)
+	}
+	now := time.Now()
+	for _, tc := range []struct {
+		date string
+		want time.Duration
+	}{
+		{now.Add(-30 * time.Second).UTC().Format(http.TimeFormat), 0},
+		{now.Add(5 * time.Minute).UTC().Format(http.TimeFormat), -5 * time.Minute},
+		{"", 0},
+	} {
+		if got := desfase(tc.date, now).Round(time.Minute); got != tc.want {
+			t.Errorf("%q: %v, want %v", tc.date, got, tc.want)
+		}
+	}
+	if got := duracion(5*time.Hour + 3*time.Minute); got != "5 h 3 min" {
+		t.Errorf("duracion: %q", got)
+	}
+}

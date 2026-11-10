@@ -4,6 +4,9 @@ What changed in each release, for people who run rendimiento. Every change is in
 
 ## Unreleased
 
+- **A clock that is off:** when GitHub answers "Bad credentials" and the computer's clock is more than a minute away from GitHub's, the error says by how much and how to fix it.
+- **Redis on localhost:** a service whose Redis client (ioredis) is refused without saying where now gets the same hint: use `REDIS_URL`.
+- **Windows:** the book says what to do when WSL2 cannot start (restart, virtualization in the BIOS) or GitHub refuses the clock.
 - **On one computer:** right after the computer (or the WSL distribution) starts, rendimiento no longer fails once while containerd brings its Postgres back up; it tries the start again, and a start that keeps failing says what nerdctl or Docker said.
 
 ## v0.1.7 (2026-11-09)
