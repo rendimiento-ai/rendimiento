@@ -253,6 +253,7 @@ When a step cannot go on, the assistant says why and what to do: virtualization 
 From then on the app is a window of its own showing rendimiento (`http://localhost:8080`), and an icon next to the clock. Your apps answer on `http://<app>.localhost:8000`, as on Linux. Closing the window leaves the icon there, with this menu:
 
 - **Open**: the window again.
+- **Back to the start**: takes the window off whatever site it was left on (GitHub's sign-in, say) and back to the assistant, or to rendimiento when everything is ready.
 - **Open in the browser**: rendimiento in your browser.
 - **Sleep**: stops the distribution, and with it your apps, the builds and the memory it held. The data stays. **Wake up** starts it again.
 - **Quit**: closes the app; with nothing keeping it awake, WSL stops the distribution soon after.

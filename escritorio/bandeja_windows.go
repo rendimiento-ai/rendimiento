@@ -27,6 +27,7 @@ func atender(a *Asistente, idioma string) {
 	systray.SetTooltip("rendimiento")
 	systray.SetOnTapped(func() { go a.abrir() })
 	abrir := systray.AddMenuItem(T(idioma, "bandeja.abrir"), "")
+	inicio := systray.AddMenuItem(T(idioma, "bandeja.inicio"), "")
 	navegador := systray.AddMenuItem(T(idioma, "bandeja.navegador"), "")
 	alternar := systray.AddMenuItem(T(idioma, "bandeja.despertar"), "")
 	systray.AddSeparator()
@@ -45,6 +46,8 @@ func atender(a *Asistente, idioma string) {
 		select {
 		case <-abrir.ClickedCh:
 			go a.abrir()
+		case <-inicio.ClickedCh:
+			go a.inicio()
 		case <-navegador.ClickedCh:
 			go a.navegador()
 		case <-alternar.ClickedCh:

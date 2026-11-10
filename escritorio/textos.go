@@ -51,7 +51,7 @@ var textos = map[string]texto{
 	"dormir.ocupado": {"Stopping rendimiento: its apps, its builds and the memory it held. Its data stays.", "Deteniendo rendimiento: sus aplicaciones, sus compilaciones y la memoria que ocupaba. Sus datos se quedan."},
 
 	"github.titulo":  {"Connect GitHub", "Conecte GitHub"},
-	"github.texto":   {"rendimiento builds what you push to GitHub. GitHub will ask you to create rendimiento's app in your account, and then to choose the repositories it may see.\n\nWhen GitHub is done, click rendimiento's icon next to the clock to come back.", "rendimiento compila lo que usted sube a GitHub. GitHub le pedirá crear la aplicación de rendimiento en su cuenta, y después elegir los repositorios que puede ver.\n\nCuando GitHub termine, haga clic en el ícono de rendimiento junto al reloj para volver."},
+	"github.texto":   {"rendimiento builds what you push to GitHub. GitHub will ask you to create rendimiento's app in your account, and then to choose the repositories it may see.\n\nWhen GitHub is done, it brings you back. To come back before that, choose Back to the start in the menu of rendimiento's icon, next to the clock.", "rendimiento compila lo que usted sube a GitHub. GitHub le pedirá crear la aplicación de rendimiento en su cuenta, y después elegir los repositorios que puede ver.\n\nCuando GitHub termine, lo trae de regreso. Para volver antes, elija Volver al inicio en el menú del icono de rendimiento, junto al reloj."},
 	"github.boton":   {"Connect GitHub", "Conectar GitHub"},
 	"github.ocupado": {"Opening GitHub…", "Abriendo GitHub…"},
 
@@ -74,6 +74,7 @@ var textos = map[string]texto{
 	"reloj.h":          {"%d h", "%d h"},
 
 	"bandeja.abrir":     {"Open", "Abrir"},
+	"bandeja.inicio":    {"Back to the start", "Volver al inicio"},
 	"bandeja.navegador": {"Open in the browser", "Abrir en el navegador"},
 	"bandeja.dormir":    {"Sleep", "Dormir"},
 	"bandeja.despertar": {"Wake up", "Despertar"},
