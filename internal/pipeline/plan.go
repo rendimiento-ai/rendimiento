@@ -66,10 +66,14 @@ type Step struct {
 	Optional bool `json:"optional,omitempty"`
 
 	// Test and task steps: a throwaway Postgres next to the step
-	// (DATABASE_URL), and a /cache kept between runs (one volume per app
-	// and step).
+	// (DATABASE_URL), and a /cache kept between runs (a volume per app
+	// and step, or a few: see KubeExecutor.Caches).
 	Postgres bool `json:"postgres,omitempty"`
 	Cache    bool `json:"cache,omitempty"`
+
+	// CacheSlot is which of the step's caches this run got (0: the first);
+	// the executor chooses it when the step starts.
+	CacheSlot int `json:"-"`
 }
 
 // TaskStepID is the ID of a task's step.

@@ -66,6 +66,30 @@ type KubeExecutor struct {
 	// such as local-path is fastest; the tests then run on that node.
 	CacheStorageClass string
 	CacheSize         string
+
+	// Caches is how many caches each test keeps now, set on the Environment
+	// page: that many runs of it go at once, each with one (nil or under 1:
+	// DefaultCaches).
+	Caches func() int
+}
+
+// DefaultCaches is how many caches a test keeps unless the Environment page
+// says otherwise, and MaxCaches the most it can say.
+const (
+	DefaultCaches = 2
+	MaxCaches     = 6
+)
+
+// caches is how many caches each test keeps now.
+func (k *KubeExecutor) caches() int {
+	n := 0
+	if k.Caches != nil {
+		n = k.Caches()
+	}
+	if n < 1 {
+		n = DefaultCaches
+	}
+	return min(n, MaxCaches)
 }
 
 // defaults fills the images and timeout left unset.
@@ -198,26 +222,36 @@ func (k *KubeExecutor) Execute(ctx context.Context, runID string, src Source, st
 			fmt.Fprintf(w, "rendimiento: building on %s\n", daemon)
 		}
 	}
+	noCache := false
 	if step.Cache {
-		if err := k.ensureCache(ctx, step); err != nil {
-			return fail("cache volume: %v", err)
+		// The test takes the first of its caches that no other run's test has.
+		slots := k.caches()
+		slot, free := k.freeCache(ctx, name, step, slots)
+		if !free {
+			// Other runs' tests have them all (each a volume one node at a time,
+			// like Longhorn's ReadWriteOnce). With a cache, a test takes minutes;
+			// without, everything compiles again, many times longer: wait for one
+			// a while.
+			fmt.Fprintf(w, "rendimiento: other runs are using this test's caches (%d); waiting up to %s for one\n", slots, cacheInUseWait)
+			if slot, free = k.waitCacheFree(ctx, name, step, slots, cacheInUseWait); free {
+				fmt.Fprintf(w, "rendimiento: a cache is free\n")
+			} else {
+				fmt.Fprintf(w, "rendimiento: the caches are still in use; this test runs without one\n")
+			}
+		}
+		step.CacheSlot, noCache = slot, !free
+		if free {
+			if err := k.ensureCache(ctx, step); err != nil {
+				return fail("cache volume: %v", err)
+			}
 		}
 	}
 	pod, err := k.pod(name, labels, src, step, buildkit, taskEnv...)
 	if err != nil {
 		return fail("%v", err)
 	}
-	if step.Cache && k.cacheInUse(ctx, name, step) {
-		// Another run's test has the cache (a volume one node at a time, like
-		// Longhorn's ReadWriteOnce). With it, a test takes minutes; without it,
-		// everything compiles again, many times longer: wait for it a while.
-		fmt.Fprintf(w, "rendimiento: another run is using this test's cache; waiting up to %s for it\n", cacheInUseWait)
-		if k.waitCacheFree(ctx, name, step, cacheInUseWait) {
-			fmt.Fprintf(w, "rendimiento: the cache is free\n")
-		} else {
-			fmt.Fprintf(w, "rendimiento: the cache is still in use; this test runs without it\n")
-			withoutCache(pod)
-		}
+	if noCache {
+		withoutCache(pod)
 	}
 	cleanup := func() {
 		bg := context.Background()
@@ -667,14 +701,18 @@ var cacheEnv = []corev1.EnvVar{
 // app deletes them.
 const CacheAppLabel = "rendimiento.ai/cache-of"
 
-// cacheName is the volume kept between runs of a test step: one per app
-// and step, e.g. cache-shop-web.
+// cacheName is the volume kept between runs of a test step: one per app,
+// step and slot, e.g. cache-shop-web, and cache-shop-web-2 for the second.
 func cacheName(step Step) string {
-	n := nonName.ReplaceAllString(strings.ToLower("cache-"+step.App+"-"+strings.TrimSuffix(step.ID, ":test")), "-")
-	if len(n) > 63 {
-		n = n[:63]
+	suffix := ""
+	if step.CacheSlot > 0 {
+		suffix = fmt.Sprintf("-%d", step.CacheSlot+1)
 	}
-	return strings.TrimRight(n, "-")
+	n := nonName.ReplaceAllString(strings.ToLower("cache-"+step.App+"-"+strings.TrimSuffix(step.ID, ":test")), "-")
+	if len(n) > 63-len(suffix) {
+		n = n[:63-len(suffix)]
+	}
+	return strings.TrimRight(n, "-") + suffix
 }
 
 // ensureCache creates the step's cache volume the first time it runs.
@@ -765,21 +803,35 @@ func (k *KubeExecutor) stuckOnCache(ctx context.Context, pod string, wait time.D
 // its cache go, before it runs without one.
 var cacheInUseWait = 10 * time.Minute
 
-// waitCacheFree waits up to wait for no other test to have the step's
-// cache; false when one still has it.
-func (k *KubeExecutor) waitCacheFree(ctx context.Context, pod string, step Step, wait time.Duration) bool {
+// freeCache is the first of the step's caches (it keeps slots of them) that
+// no other test has; false when every one is taken.
+func (k *KubeExecutor) freeCache(ctx context.Context, pod string, step Step, slots int) (int, bool) {
+	for i := 0; i < slots; i++ {
+		step.CacheSlot = i
+		if !k.cacheInUse(ctx, pod, step) {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+// waitCacheFree waits up to wait for one of the step's caches that no
+// other test has, and says which; false when they are all still taken.
+func (k *KubeExecutor) waitCacheFree(ctx context.Context, pod string, step Step, slots int, wait time.Duration) (int, bool) {
 	deadline := time.Now().Add(wait)
-	for k.cacheInUse(ctx, pod, step) {
+	for {
+		if slot, free := k.freeCache(ctx, pod, step, slots); free {
+			return slot, true
+		}
 		if !time.Now().Before(deadline) {
-			return false
+			return 0, false
 		}
 		select {
 		case <-ctx.Done():
-			return false
+			return 0, false
 		case <-time.After(5 * time.Second):
 		}
 	}
-	return true
 }
 
 // withoutCache gives a test's pod an empty folder at /cache instead of the
@@ -793,7 +845,7 @@ func withoutCache(pod *corev1.Pod) {
 }
 
 // cacheInUse says whether a pod other than pod (another run's test) has
-// the step's cache volume mounted on a node.
+// the step's cache volume (the one of its slot) mounted on a node.
 func (k *KubeExecutor) cacheInUse(ctx context.Context, pod string, step Step) bool {
 	l, err := k.Client.CoreV1().Pods(k.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {

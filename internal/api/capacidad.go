@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/platform"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -16,9 +17,12 @@ type CapacityView struct {
 	Defaults struct {
 		ParallelRuns int      `json:"parallelRuns"`
 		RunsPerApp   int      `json:"runsPerApp"`
+		TestCaches   int      `json:"testCaches"`
 		NodesOff     []string `json:"nodesOff"` // BUILD_EXCLUDE_NODES, always off
 	} `json:"defaults"`
 	MaxWorkers int `json:"maxWorkers"`
+	// MaxTestCaches is the most caches a test can keep.
+	MaxTestCaches int `json:"maxTestCaches"`
 	// Busy are the nodes too full right now to take new steps or builds.
 	Busy               []string `json:"busy"`
 	DefaultBusyPercent int      `json:"defaultBusyPercent"`
@@ -32,6 +36,7 @@ func (s *Server) capacityView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v.MaxWorkers, v.DefaultBusyPercent, v.Busy = platform.MaxWorkers, platform.DefaultBusyPercent, []string{}
+	v.MaxTestCaches, v.Defaults.TestCaches = pipeline.MaxCaches, pipeline.DefaultCaches
 	if s.Capacity != nil {
 		v.Busy = s.Capacity.Busy()
 	}
@@ -57,8 +62,9 @@ func (s *Server) putCapacity(w http.ResponseWriter, r *http.Request, login strin
 	}
 	if in.ParallelRuns < 0 || in.ParallelRuns > platform.MaxWorkers || in.RunsPerApp < 0 || in.RunsPerApp > platform.MaxWorkers ||
 		in.StepCPUMillis < 0 || (in.StepCPUMillis > 0 && in.StepCPUMillis < 250) || in.StepCPUMillis > 64_000 || len(in.NodesOff) > 100 ||
-		in.BusyPercent < 0 || (in.BusyPercent > 0 && in.BusyPercent < 50) || in.BusyPercent > 100 {
-		httpError(w, http.StatusBadRequest, "runs at once and per app go from 1 to 8, a step's CPU from 0.25 cores, and a busy node from 50% to 100%")
+		in.BusyPercent < 0 || (in.BusyPercent > 0 && in.BusyPercent < 50) || in.BusyPercent > 100 ||
+		in.TestCaches < 0 || in.TestCaches > pipeline.MaxCaches {
+		httpError(w, http.StatusBadRequest, "runs at once and per app go from 1 to 8, a step's CPU from 0.25 cores, a busy node from 50% to 100%, and the caches of a test from 1 to 6")
 		return
 	}
 	nodes := []string{}
@@ -77,6 +83,6 @@ func (s *Server) putCapacity(w http.ResponseWriter, r *http.Request, login strin
 			s.Capacity.Set(c)
 		}
 	}
-	s.Log.Info("capacity saved", "parallel", in.ParallelRuns, "perApp", in.RunsPerApp, "stepCPU", in.StepCPUMillis, "nodesOff", in.NodesOff, "busy", in.BusyPercent, "by", login)
+	s.Log.Info("capacity saved", "parallel", in.ParallelRuns, "perApp", in.RunsPerApp, "stepCPU", in.StepCPUMillis, "nodesOff", in.NodesOff, "busy", in.BusyPercent, "testCaches", in.TestCaches, "by", login)
 	s.capacityView(w, r)
 }
