@@ -252,24 +252,104 @@ export function Bienvenida({ book, activity }: { book: BookLinks; activity: bool
   );
 }
 
+/** Where each release publishes the Windows app. */
+const descargaWindows = "https://github.com/rendimiento-ai/rendimiento/releases/latest/download/rendimiento-windows-amd64.exe";
+
+/** What the Windows app's assistant does, step by step, until its icon sits next to the clock. */
+function EscenaWindows() {
+  const filas = ["WSL 2", t("Download"), t("Who signs in"), t("Start")];
+  return (
+    <div className="inst-escena inst-ventana" aria-hidden="true">
+      <div className="inst-titulo"><Logo /> rendimiento <span>— ▢ ✕</span></div>
+      <div className="inst-cuerpo">
+        {filas.map((f, i) => (
+          <div key={f} className="inst-fila">
+            <i className={`inst-palomita inst-t${i + 1}`}>✓</i>
+            <span>{f}</span>
+            {i === 1 && <span className="inst-barra"><b /></span>}
+          </div>
+        ))}
+      </div>
+      <div className="inst-reloj"><span className="inst-icono"><Logo /></span> 10:42</div>
+    </div>
+  );
+}
+
+/** The one command in a terminal, and what it leaves running. */
+function EscenaLinux({ command }: { command: string }) {
+  return (
+    <div className="inst-escena inst-terminal" aria-hidden="true">
+      <div className="inst-titulo"><span className="inst-luces"><i /><i /><i /></span></div>
+      <div className="inst-cuerpo">
+        <div className="inst-orden"><b>$</b> <span style={{ ["--n" as string]: command.length }}>{command}</span></div>
+        <div className="inst-t2"><i>✓</i> containerd</div>
+        <div className="inst-t3"><i>✓</i> rendimiento</div>
+        <div className="inst-t4"><b>→</b> http://localhost:8080</div>
+      </div>
+    </div>
+  );
+}
+
 /**
- * Install it on your own computer: the one command, from this same address, with a copy button. Linux for now;
- * it uses containerd or Docker, and asks before it installs anything.
+ * Install it on your own computer, by system: the app to download on Windows, the one command (from this same
+ * address) on Linux, each with its three steps and a small scene of what happens. It starts on the visitor's system.
  */
 function Instalar() {
   const command = `curl -fsSL ${location.origin}/instalar | sh`;
+  const [sistema, setSistema] = useState<"windows" | "linux">(() => (/Windows/i.test(navigator.userAgent) ? "windows" : "linux"));
   const [copiado, setCopiado] = useState(false);
+  const github = { titulo: t("Connect GitHub"), texto: t("Choose the repositories rendimiento may see, and deploy the first one.") };
+  const pasos = sistema === "windows"
+    ? [
+      { titulo: t("Open it"), texto: t("An assistant turns WSL 2 on, downloads rendimiento (about 174 MB) and starts it.") },
+      github,
+      { titulo: t("It lives next to the clock"), texto: t("Sleep stops everything and frees the memory; Wake up brings it back.") },
+    ]
+    : [
+      { titulo: t("Run the command"), texto: t("It uses containerd or Docker, or installs containerd for you, and it asks before it does.") },
+      github,
+      { titulo: t("It starts with the computer"), texto: t("A service of your own user, without root. One command removes it.") },
+    ];
   return (
     <section className="bienv-seccion bienv-instalar" aria-labelledby="instalar">
       <h2 id="instalar">{t("On your own computer")}</h2>
-      <p className="bienv-entrada">{t("One command installs rendimiento on Linux: it uses containerd or Docker, or installs containerd for you, and it asks before it does. Your apps then run on your computer, at <app>.localhost.")}</p>
-      <div className="bienv-comando">
-        <code>{command}</code>
-        <button onClick={() => navigator.clipboard?.writeText(command).then(() => setCopiado(true), () => setCopiado(false))}>
-          {copiado ? t("Copied") : t("Copy")}
-        </button>
+      <p className="bienv-entrada">{t("One program on Windows, one command on Linux. Your apps then run on your computer, at <app>.localhost.")}</p>
+      <div className="inst">
+        <div className="inst-texto">
+          <div className="inst-sistemas" role="group" aria-label={t("Operating system")}>
+            {(["windows", "linux"] as const).map((s) => (
+              <button key={s} className={sistema === s ? "on" : undefined} aria-pressed={sistema === s} onClick={() => setSistema(s)}>
+                {s === "windows" ? "Windows" : "Linux"}
+              </button>
+            ))}
+          </div>
+          {sistema === "windows" ? (
+            <div key="windows" className="inst-accion">
+              <a className="btn primary big" href={descargaWindows}>{t("Download for Windows")}</a>
+              <p className="small muted">{t("Windows 10 or 11, on a 64-bit Intel or AMD processor. A preview, not signed yet: Windows asks before it opens it.")}</p>
+            </div>
+          ) : (
+            <div key="linux" className="inst-accion">
+              <div className="bienv-comando">
+                <code>{command}</code>
+                <button onClick={() => navigator.clipboard?.writeText(command).then(() => setCopiado(true), () => setCopiado(false))}>
+                  {copiado ? t("Copied") : t("Copy")}
+                </button>
+              </div>
+            </div>
+          )}
+          <ol key={sistema} className="inst-pasos">
+            {pasos.map((p, i) => (
+              <li key={p.titulo} style={{ ["--d" as string]: `${i * 120}ms` }}>
+                <span className="paso-num" aria-hidden="true">{i + 1}</span>
+                <span><b>{p.titulo}</b> <span className="muted">{p.texto}</span></span>
+              </li>
+            ))}
+          </ol>
+          <p className="small muted">{t("Mac comes later.")}</p>
+        </div>
+        {sistema === "windows" ? <EscenaWindows key="w" /> : <EscenaLinux key="l" command={command} />}
       </div>
-      <p className="small muted">{t("A preview: Windows and Mac come later.")}</p>
     </section>
   );
 }
