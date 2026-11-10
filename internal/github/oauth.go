@@ -43,6 +43,9 @@ func manifest(name, baseURL string) map[string]any {
 		"name":         name,
 		"url":          baseURL,
 		"redirect_url": baseURL + "/api/setup/github/callback",
+		// Where GitHub sends the person once they have chosen the
+		// repositories: back here, instead of leaving them on GitHub.
+		"setup_url": baseURL,
 		"callback_urls": []string{
 			baseURL + "/api/auth/callback",
 		},

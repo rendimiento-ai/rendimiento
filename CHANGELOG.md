@@ -4,6 +4,7 @@ What changed in each release, for people who run rendimiento. Every change is in
 
 ## Unreleased
 
+- **Connecting GitHub:** after you choose the repositories, GitHub brings you back to rendimiento instead of leaving you on its page. It applies to a GitHub App created from now on; one that already exists can get it in its settings on GitHub (Setup URL).
 - **A clock that is off:** when GitHub answers "Bad credentials" and the computer's clock is more than a minute away from GitHub's, the error says by how much and how to fix it.
 - **Redis on localhost:** a service whose Redis client (ioredis) is refused without saying where now gets the same hint: use `REDIS_URL`.
 - **Windows:** the book says what to do when WSL2 cannot start (restart, virtualization in the BIOS) or GitHub refuses the clock.
