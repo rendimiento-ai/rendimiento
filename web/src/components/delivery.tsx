@@ -1,7 +1,8 @@
 // Delivery health on the dashboard: the four DORA numbers for the last 30
 // days as stat tiles. Each has its trend against the 30 days before, in
 // words, and a twelve-week sparkline (one series, so no legend) with a
-// tooltip per week. A table below holds the same weeks as numbers.
+// tooltip per week. Below, the deploys of each of the 30 days as bars, and
+// a table that holds the same weeks as numbers.
 import { useState } from "react";
 import { api, type DeliveryReport, type DeliveryWeek } from "../api";
 import { usePoll } from "./ui";
@@ -19,29 +20,36 @@ export function fmtSec(sec: number): string {
 
 /** "Week of Oct 6" for a week's first day. */
 function fmtWeek(start: string): string {
-  const [y, m, d] = start.split("-").map(Number);
-  return t("Week of {date}", { date: new Date(y, m - 1, d).toLocaleDateString(locale, { month: "short", day: "numeric" }) });
+  return t("Week of {date}", { date: fmtDay(start) });
 }
+
+/** "Oct 6" for a day. */
+function fmtDay(day: string, weekday = false): string {
+  const [y, m, d] = day.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(locale, { weekday: weekday ? "short" : undefined, month: "short", day: "numeric" });
+}
+
+/** A tile's change against the previous period: what moved, and whether that is good. */
+type Trend = { change?: string; good?: boolean; rest: string };
 
 type Tile = {
   label: string;
   value: string;
   note: string;
-  trend: string;
+  trend: Trend;
   title: string;
   points: (number | undefined)[]; // one per week, undefined = no data
   fmt: (v: number) => string;
 };
 
-/** "↓ 40% vs the previous 30 days, better": direction in words, never color alone. */
-function trend(cur: number | undefined, prev: number | undefined, higherIsBetter: boolean): string {
-  if (cur === undefined || prev === undefined) return t("No earlier data to compare");
-  if (cur === prev) return t("Same as the previous 30 days");
-  if (prev === 0) return higherIsBetter ? t("↑ from none in the previous 30 days, better") : t("↑ from none in the previous 30 days, worse");
-  const pct = Math.round((Math.abs(cur - prev) / prev) * 100);
+/** "↓ 40%, better, vs the previous 30 days": direction in words, never color alone. */
+function trend(cur: number | undefined, prev: number | undefined, higherIsBetter: boolean): Trend {
+  if (cur === undefined || prev === undefined) return { rest: t("No earlier data to compare") };
+  if (cur === prev) return { rest: t("Same as the previous 30 days") };
   const up = cur > prev;
-  const better = up === higherIsBetter;
-  return t(better ? "{arrow} {pct}% vs the previous 30 days, better" : "{arrow} {pct}% vs the previous 30 days, worse", { arrow: up ? "↑" : "↓", pct });
+  const good = up === higherIsBetter;
+  const change = prev === 0 ? "↑ " + t("from none") : `${up ? "↑" : "↓"} ${Math.round((Math.abs(cur - prev) / prev) * 100)}%`;
+  return { change: change + " · " + (good ? t("better") : t("worse")), good, rest: t("vs the previous 30 days") };
 }
 
 /**
@@ -114,6 +122,11 @@ function Spark({ points, weeks, fmt, label }: { points: (number | undefined)[]; 
     cur += `${cur ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`;
   });
   if (cur) segs.push(cur);
+  // The same runs closed down to the baseline, as a soft wash under the line.
+  const washes = segs.filter((d) => d.includes("L")).map((d) => {
+    const pts = d.slice(1).split("L");
+    return `${d}L${pts[pts.length - 1].split(",")[0]},${H - PAD}L${pts[0].split(",")[0]},${H - PAD}Z`;
+  });
   if (vals.length < 2) {
     return <div className="dlv-spark dlv-spark-empty small muted">{t("A trend line appears after two weeks with data.")}</div>;
   }
@@ -123,6 +136,7 @@ function Spark({ points, weeks, fmt, label }: { points: (number | undefined)[]; 
     <div className="rel-chart dlv-spark" onMouseLeave={() => setHover(null)}>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={t("{label}, last 12 weeks", { label })} style={{ height: H }}>
         <line x1={PAD} x2={W - PAD} y1={H - PAD} y2={H - PAD} stroke="var(--viz-axis)" strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        {washes.map((d) => <path key={d} d={d} className="dlv-wash" />)}
         {segs.map((d) => (
           <path key={d} d={d} fill="none" stroke="var(--viz-series-1)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
         ))}
@@ -145,6 +159,35 @@ function Spark({ points, weeks, fmt, label }: { points: (number | undefined)[]; 
   );
 }
 
+/** The deploys of each day of the period as bars, oldest first; a day without any keeps a mark on the baseline. */
+function Days({ days }: { days: { day: string; n: number }[] }) {
+  const [hover, setHover] = useState<number | null>(null);
+  if (!days.length) return null;
+  const max = Math.max(...days.map((d) => d.n), 1);
+  return (
+    <div className="dlv-days">
+      <div className="row between">
+        <span className="label">{t("Deploys, day by day")}</span>
+        {days.some((d) => d.n > 0) && <span className="small muted">{t("busiest day: {n}", { n: max })}</span>}
+      </div>
+      <div className="rel-chart dlv-bars" role="img" aria-label={t("Deploys, day by day")} onMouseLeave={() => setHover(null)}>
+        {days.map((d, i) => (
+          <span key={d.day} className={hover === i ? "sel" : undefined} onMouseEnter={() => setHover(i)}>
+            <i style={{ height: d.n > 0 ? `${Math.max((d.n / max) * 100, 14)}%` : 2, animationDelay: `${i * 18}ms` }} className={d.n > 0 ? undefined : "cero"} />
+          </span>
+        ))}
+        {hover !== null && (
+          <div className="rel-tip" style={{ left: `min(${(hover / days.length) * 100}%, calc(100% - 150px))`, top: "calc(100% + 6px)" }}>
+            <div className="when">{fmtDay(days[hover].day, true)}</div>
+            <strong>{tn(days[hover].n, "{n} deploy", "{n} deploys")}</strong>
+          </div>
+        )}
+      </div>
+      <div className="rel-axis"><span>{fmtDay(days[0].day)}</span><span>{t("today")}</span></div>
+    </div>
+  );
+}
+
 /** The dashboard's delivery health: the numbers of the last 30 days and a chart of twelve weeks. */
 export function DeliveryPanel() {
   const { data } = usePoll(api.delivery, [], 60000);
@@ -153,7 +196,7 @@ export function DeliveryPanel() {
   return (
     <section className="card dlv" aria-labelledby="dlv-h">
       <div className="row between">
-        <h2 id="dlv-h" style={{ margin: 0, fontSize: 16 }}>{t("Delivery, last {n} days", { n: data.days })}</h2>
+        <h2 id="dlv-h">{t("Delivery, last {n} days", { n: data.days })}</h2>
         <span className="small muted">{t("trend lines: the last 12 weeks")}</span>
       </div>
       <div className="rel-tiles dlv-tiles">
@@ -163,10 +206,14 @@ export function DeliveryPanel() {
             <div className="value">{t.value}</div>
             <div className="note">{t.note}</div>
             <Spark points={t.points} weeks={data.weekly} fmt={t.fmt} label={t.label} />
-            <div className="note">{t.trend}</div>
+            <div className="note dlv-trend">
+              {t.trend.change && <span className={t.trend.good ? "ok" : "bad"}>{t.trend.change}</span>}
+              {t.trend.rest}
+            </div>
           </div>
         ))}
       </div>
+      <Days days={data.current.deploysPerDay} />
       <details>
         <summary className="small muted">{t("Weekly numbers")}</summary>
         <table className="dlv-table">

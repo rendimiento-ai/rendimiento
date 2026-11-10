@@ -579,18 +579,53 @@ textarea.code { width: 100%; min-height: 280px; font-family: var(--mono); font-s
 @media (max-width:700px){.vis-visita{grid-template-columns:50px minmax(0,1fr) auto}.vis-cc,.vis-equipo,.vis-visita>span:last-child{display:none}.vis-recorrido{padding-left:8px}}
 @media (prefers-reduced-motion: reduce){.vis-ahora i,.vis-sesion,.vis-recorrido{animation:none}}
 
-/* Delivery panel (dashboard): DORA tiles with twelve-week sparklines. */
+/* Delivery panel (dashboard): DORA tiles with twelve-week sparklines, and
+   the deploys of each day as bars. Each tile wears one color of the palette
+   on its edge; the numbers stay in ink. */
 .dlv { margin-bottom: 16px; }
-.dlv-tiles { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin-bottom: 6px; }
-.dlv-tiles .rel-tile { display: flex; flex-direction: column; }
+.dlv h2 { margin: 0; font-family: var(--display); font-size: 19px; font-weight: 600; }
+.dlv-tiles { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 14px; }
+.dlv-tiles .rel-tile {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 12px 14px 10px;
+  background: color-mix(in srgb, var(--surface-2) 45%, var(--surface)); border: 1px solid var(--border);
+  border-top: 3px solid var(--dlv-c, var(--border)); border-radius: 12px;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.dlv-tiles .rel-tile:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08); }
+.dlv-tiles .rel-tile:nth-child(1) { --dlv-c: var(--grana); }
+.dlv-tiles .rel-tile:nth-child(2) { --dlv-c: var(--anil); }
+.dlv-tiles .rel-tile:nth-child(3) { --dlv-c: var(--cempasuchil); }
+.dlv-tiles .rel-tile:nth-child(4) { --dlv-c: var(--nopal); }
+.dlv-tiles .rel-tile .label, .dlv-days .label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.dlv-tiles .rel-tile .value { font-family: var(--display); font-size: 32px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
+/* Better or worse: said in words, with the state's color behind them. */
+.dlv-trend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.dlv-trend span { padding: 1px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dlv-trend .ok { background: var(--ok-bg); color: var(--ok); }
+.dlv-trend .bad { background: var(--bad-bg); color: var(--bad); }
 /* Trend lines sit at the bottom of every tile, so they line up across the row. */
-.dlv-spark { margin: auto 0 4px; padding-top: 8px; }
+.dlv-spark { margin: auto 0 4px; padding-top: 10px; }
 .dlv-spark-empty { min-height: 40px; box-sizing: border-box; display: flex; align-items: flex-end; border-bottom: 1px solid var(--viz-axis); padding-bottom: 4px; }
 .dlv-spark svg { height: 40px; }
+.dlv-wash { fill: var(--viz-series-1); opacity: .12; stroke: none; }
+/* The line is uncovered from left to right when the panel appears. */
+.dlv-spark svg { animation: dlv-trazo .9s ease-out both; }
+@keyframes dlv-trazo { from { clip-path: inset(-4px 100% -4px -4px); } to { clip-path: inset(-4px); } }
 .dlv-dot {
   position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%;
   background: var(--viz-series-1); box-shadow: 0 0 0 2px var(--surface); pointer-events: none;
 }
+/* One bar per day; each grows from the baseline when the panel appears. */
+.dlv-days { margin-bottom: 8px; }
+.dlv-bars { display: flex; align-items: flex-end; gap: 2px; height: 56px; margin-top: 6px; border-bottom: 1px solid var(--viz-axis); }
+.dlv-bars > span { flex: 1; min-width: 0; height: 100%; display: flex; align-items: flex-end; }
+.dlv-bars i {
+  display: block; width: 100%; max-width: 24px; margin: 0 auto; border-radius: 4px 4px 0 0; background: var(--viz-series-1);
+  transform-origin: bottom; animation: dlv-crece .5s ease-out both;
+}
+.dlv-bars i.cero { background: var(--viz-axis); border-radius: 0; animation: none; }
+.dlv-bars > span.sel { background: color-mix(in srgb, var(--viz-series-1) 10%, transparent); }
+@keyframes dlv-crece { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 .dlv details { margin-top: 6px; }
 .dlv-table { margin-top: 8px; }
 .dlv-table td, .dlv-table th { padding: 4px 10px; font-size: 12px; font-variant-numeric: tabular-nums; text-align: left; }
