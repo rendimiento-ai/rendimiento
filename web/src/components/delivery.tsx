@@ -30,7 +30,17 @@ function fmtDay(day: string, weekday = false): string {
 }
 
 /** A tile's change against the previous period: what moved, and whether that is good. */
-type Trend = { change?: string; good?: boolean; rest: string };
+export type Trend = { change?: string; good?: boolean; rest: string };
+
+/** A trend as a note: what moved in a label with the state's color, then against what. */
+export function TrendNote({ trend, className = "note" }: { trend: Trend; className?: string }) {
+  return (
+    <div className={`${className} dlv-trend`}>
+      {trend.change && <span className={trend.good ? "ok" : "bad"}>{trend.change}</span>}
+      {trend.rest}
+    </div>
+  );
+}
 
 type Tile = {
   label: string;
@@ -206,10 +216,7 @@ export function DeliveryPanel() {
             <div className="value">{t.value}</div>
             <div className="note">{t.note}</div>
             <Spark points={t.points} weeks={data.weekly} fmt={t.fmt} label={t.label} />
-            <div className="note dlv-trend">
-              {t.trend.change && <span className={t.trend.good ? "ok" : "bad"}>{t.trend.change}</span>}
-              {t.trend.rest}
-            </div>
+            <TrendNote trend={t.trend} />
           </div>
         ))}
       </div>

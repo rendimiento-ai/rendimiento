@@ -551,8 +551,15 @@ textarea.code { width: 100%; min-height: 280px; font-family: var(--mono); font-s
 .vis-top td, .vis-apps td { padding: 4px 6px; font-size: 13px; vertical-align: middle; border: 0; }
 .vis-top td:first-child, .vis-cell { position: relative; overflow: hidden; }
 .vis-top td.num { width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
-.vis-bar { position: absolute; inset: 3px auto 3px 0; border-radius: 4px; background: var(--viz-series-1); opacity: 0.16; }
+.vis-bar {
+  position: absolute; inset: 3px auto 3px 0; border-radius: 4px; opacity: 0.22;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--viz-series-1) 45%, transparent), var(--viz-series-1));
+  transform-origin: left; animation: vis-crece .6s ease-out both;
+}
+@keyframes vis-crece { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.vis-top tr:hover .vis-bar, .vis-apps tr:hover .vis-bar { opacity: 0.34; }
 .vis-label { position: relative; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vis-apps td { padding-block: 7px; }
 .vis-apps td:first-child { width: 30%; font-weight: 600; }
 .vis-apps td:last-child { width: 38%; }
 .vis-top pre, .card pre.mono { white-space: pre-wrap; word-break: break-all; }
@@ -579,7 +586,7 @@ textarea.code { width: 100%; min-height: 280px; font-family: var(--mono); font-s
 @media (max-width:700px){.vis-visita{grid-template-columns:50px minmax(0,1fr) auto}.vis-cc,.vis-equipo,.vis-visita>span:last-child{display:none}.vis-recorrido{padding-left:8px}}
 @media (prefers-reduced-motion: reduce){.vis-ahora i,.vis-sesion,.vis-recorrido{animation:none}}
 
-/* Delivery panel (dashboard): DORA tiles with twelve-week sparklines, and
+/* Delivery and visitors panels (dashboard, and the Visits tab): DORA tiles with twelve-week sparklines, and
    the deploys of each day as bars. Each tile wears one color of the palette
    on its edge; the numbers stay in ink. */
 .dlv { margin-bottom: 16px; }
@@ -596,6 +603,8 @@ textarea.code { width: 100%; min-height: 280px; font-family: var(--mono); font-s
 .dlv-tiles .rel-tile:nth-child(2) { --dlv-c: var(--anil); }
 .dlv-tiles .rel-tile:nth-child(3) { --dlv-c: var(--cempasuchil); }
 .dlv-tiles .rel-tile:nth-child(4) { --dlv-c: var(--nopal); }
+.dlv-tiles .rel-tile:nth-child(5) { --dlv-c: var(--rosa); }
+.dlv-tiles .rel-tile:nth-child(6) { --dlv-c: var(--ok); }
 .dlv-tiles .rel-tile .label, .dlv-days .label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .dlv-tiles .rel-tile .value { font-family: var(--display); font-size: 32px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
 /* Better or worse: said in words, with the state's color behind them. */

@@ -1,12 +1,13 @@
 // Visitors, from Umami: the Visits tab of an app and the dashboard summary.
 // Stat tiles with the change against the period before (in words, never
-// color alone), a two-line chart of visitors and page views with a
+// color alone; the look is the delivery panel's), a two-line chart of visitors and page views with a
 // crosshair tooltip, and the top pages, referrers and countries as tables
 // with in-row bars. Plain SVG and HTML, like the Reliability tab.
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, type App, type VisitMetric, type VisitRange, type VisitReport, type VisitSession, type VisitStats, type VisitStep, type Visits } from "../api";
 import { ErrorBox, usePoll } from "./ui";
+import { TrendNote, type Trend } from "./delivery";
 import { locale, t, tn } from "../i18n";
 
 const ranges: { id: VisitRange; label: string }[] = [
@@ -38,23 +39,23 @@ function fmtVisitTime(sec: number): string {
   return t("{m} min {s} s", { m: Math.floor(s / 60), s: s % 60 });
 }
 
-/** "↑ 40% vs the previous period, better": direction in words. */
-function change(cur: number | undefined, prev: number | undefined, higherIsBetter = true): string {
-  if (cur === undefined || prev === undefined) return t("No earlier data to compare");
-  if (Math.round(cur) === Math.round(prev)) return t("Same as the period before");
-  if (prev === 0) return t("↑ from none in the period before");
-  const pct = Math.round((Math.abs(cur - prev) / prev) * 100);
+/** "↑ 40%, better, vs the period before": direction in words. */
+function change(cur: number | undefined, prev: number | undefined, higherIsBetter = true): Trend {
+  if (cur === undefined || prev === undefined) return { rest: t("No earlier data to compare") };
+  if (Math.round(cur) === Math.round(prev)) return { rest: t("Same as the period before") };
   const up = cur > prev;
-  return t(up === higherIsBetter ? "{arrow} {pct}% vs the period before, better" : "{arrow} {pct}% vs the period before, worse", { arrow: up ? "↑" : "↓", pct });
+  const good = up === higherIsBetter;
+  const moved = prev === 0 ? "↑ " + t("from none") : `${up ? "↑" : "↓"} ${Math.round((Math.abs(cur - prev) / prev) * 100)}%`;
+  return { change: moved + " · " + (good ? t("better") : t("worse")), good, rest: t("vs the period before") };
 }
 
-/** A number with its label and a note under it (and a tooltip). */
-function Tile({ label, value, note, title }: { label: string; value: string; note: string; title?: string }) {
+/** A number with its label and a note under it (and a tooltip); the note can be a trend. */
+function Tile({ label, value, note, title }: { label: string; value: string; note: string | Trend; title?: string }) {
   return (
     <div className="rel-tile" title={title}>
       <div className="label">{label}</div>
       <div className="value">{value}</div>
-      <div className="note">{note}</div>
+      {typeof note === "string" ? <div className="note">{note}</div> : <TrendNote trend={note} />}
     </div>
   );
 }
@@ -162,10 +163,10 @@ function Top({ title, rows, label, empty }: { title: string; rows: VisitMetric[]
       {rows.length === 0 ? <p className="small muted">{empty}</p> : (
         <table>
           <tbody>
-            {rows.map((r) => (
+            {rows.map((r, i) => (
               <tr key={r.value}>
                 <td>
-                  <span className="vis-bar" style={{ width: `${(r.n / max) * 100}%` }} aria-hidden="true" />
+                  <span className="vis-bar" style={{ width: `${(r.n / max) * 100}%`, animationDelay: `${Math.min(i, 12) * 40}ms` }} aria-hidden="true" />
                   <span className="vis-label">{label(r.value)}</span>
                 </td>
                 <td className="num">{fmtN(r.n)}</td>
@@ -194,7 +195,7 @@ function ReportView({ app, report, data, multi }: { app: string; report: VisitRe
         </div>
       )}
       <section className="card">
-        <div className="rel-tiles">
+        <div className="rel-tiles dlv-tiles">
           <Tile label={t("Visitors")} value={fmtN(c.visitors)} note={change(c.visitors, p.visitors)} title={t("Different people (browsers) who visited")} />
           <Tile label={t("Page views")} value={fmtN(c.pageviews)} note={change(c.pageviews, p.pageviews)} />
           <Tile label={t("Visits")} value={fmtN(c.visits)} note={change(c.visits, p.visits)} title={t("A visit ends after 30 minutes without activity")} />
@@ -352,7 +353,7 @@ export function VisitsPanel() {
   return (
     <section className="card dlv vis-panel" aria-labelledby="vis-h">
       <div className="row between">
-        <h2 id="vis-h" style={{ margin: 0, fontSize: 16 }}>{t("Visitors, last {n} days", { n: data.days })}</h2>
+        <h2 id="vis-h">{t("Visitors, last {n} days", { n: data.days })}</h2>
         <span className="small muted">{t("from Umami")}</span>
       </div>
       <div className="rel-tiles dlv-tiles">
@@ -362,14 +363,14 @@ export function VisitsPanel() {
       </div>
       <table className="vis-apps">
         <tbody>
-          {data.apps.map((a) => (
+          {data.apps.map((a, i) => (
             <tr key={a.app}>
               <td><Link to={`/apps/${a.app}/visits`}>{a.app}</Link></td>
               <td className="vis-cell">
-                <span className="vis-bar" style={{ width: `${(a.current.visitors / max) * 100}%` }} aria-hidden="true" />
+                <span className="vis-bar" style={{ width: `${(a.current.visitors / max) * 100}%`, animationDelay: `${Math.min(i, 12) * 40}ms` }} aria-hidden="true" />
                 <span className="vis-label">{tn(a.current.visitors, "{n} visitor", "{n} visitors", { n: fmtN(a.current.visitors) })}</span>
               </td>
-              <td className="small muted">{change(a.current.visitors, a.previous.visitors)}</td>
+              <td><TrendNote trend={change(a.current.visitors, a.previous.visitors)} className="small muted" /></td>
             </tr>
           ))}
         </tbody>
