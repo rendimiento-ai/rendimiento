@@ -231,11 +231,47 @@ La primera vez crea, en `DATA_DIR` (por omisión `~/.config/rendimiento`, que so
 
 GitHub no puede mandar avisos web a `localhost`, así que la aplicación de GitHub que crea la página de configuración no tiene ninguno: cada `POLL_INTERVAL` (1 minuto) rendimiento le pregunta a GitHub por las ramas de cada aplicación y corre la rama cuya punta cambió, como lo haría un push.
 
-Las versiones corren en la computadora con el **destino local**: cada servicio de una versión es un contenedor en la red propia de la aplicación, publicado en `127.0.0.1` y al que se llega por el proxy de rendimiento en **`http://<app>.localhost:8000`** (el primer servicio de la aplicación) o `http://<servicio>.<app>.localhost:8000` (`PROXY_LISTEN` lo cambia). Una versión nueva arranca junto a la que corre; cuando responde (su ruta `health`, o su puerto), el proxy pasa a ella y se quitan los contenedores viejos; una que nunca responde se quita y deja la que corría, como lo informa luego la verificación de la versión. Su puerto debe responder de verdad: una conexión que el puerto publicado acepta y cierra al instante (sin nada que escuche detrás) no cuenta. La falla dice por qué: dónde escucha el servicio dentro de su contenedor cuando no es su `port` (o solo en `127.0.0.1`), cuando busca Redis o Postgres en `localhost` (dentro de un contenedor, ese es el propio contenedor: use `REDIS_URL` o `DATABASE_URL`), y sus últimas líneas. Una aplicación que necesita Postgres o Redis recibe un contenedor de cada uno, con una contraseña creada una vez y sellada; sus secretos (Ajustes → Secretos) también se sellan. Los contenedores arrancan de nuevo con la computadora. Un servicio llega a otro servicio de su aplicación **por su nombre**, como en el clúster: cada contenedor responde en la red de la aplicación al nombre de su servicio (su *hostname* con containerd, un alias de red con Docker), así que `http://api:8000` o un `proxy_pass http://wellness-api` de nginx funcionan sin cambios, y una necesidad inyecta esa dirección (`API_URL`). Postgres y Redis responden a `postgres` y `redis`. Después de un despliegue con más de un servicio, los contenedores nuevos arrancan otra vez una sola vez, para que ninguno se quede con una dirección de la versión vieja. Los servicios de otra aplicación no se alcanzan ahí. Todavía falta: los certificados del dominio propio de una aplicación y el túnel que la pone en internet; luego una aplicación nativa.
+Las versiones corren en la computadora con el **destino local**: cada servicio de una versión es un contenedor en la red propia de la aplicación, publicado en `127.0.0.1` y al que se llega por el proxy de rendimiento en **`http://<app>.localhost:8000`** (el primer servicio de la aplicación) o `http://<servicio>.<app>.localhost:8000` (`PROXY_LISTEN` lo cambia). Una versión nueva arranca junto a la que corre; cuando responde (su ruta `health`, o su puerto), el proxy pasa a ella y se quitan los contenedores viejos; una que nunca responde se quita y deja la que corría, como lo informa luego la verificación de la versión. Su puerto debe responder de verdad: una conexión que el puerto publicado acepta y cierra al instante (sin nada que escuche detrás) no cuenta. La falla dice por qué: dónde escucha el servicio dentro de su contenedor cuando no es su `port` (o solo en `127.0.0.1`), cuando busca Redis o Postgres en `localhost` (dentro de un contenedor, ese es el propio contenedor: use `REDIS_URL` o `DATABASE_URL`), y sus últimas líneas. Una aplicación que necesita Postgres o Redis recibe un contenedor de cada uno, con una contraseña creada una vez y sellada; sus secretos (Ajustes → Secretos) también se sellan. Los contenedores arrancan de nuevo con la computadora. Un servicio llega a otro servicio de su aplicación **por su nombre**, como en el clúster: cada contenedor responde en la red de la aplicación al nombre de su servicio (su *hostname* con containerd, un alias de red con Docker), así que `http://api:8000` o un `proxy_pass http://wellness-api` de nginx funcionan sin cambios, y una necesidad inyecta esa dirección (`API_URL`). Postgres y Redis responden a `postgres` y `redis`. Después de un despliegue con más de un servicio, los contenedores nuevos arrancan otra vez una sola vez, para que ninguno se quede con una dirección de la versión vieja. Los servicios de otra aplicación no se alcanzan ahí. Todavía falta: los certificados del dominio propio de una aplicación y el túnel que la pone en internet; luego una aplicación nativa para cada sistema (la de Windows es [una versión previa](#on-windows)).
 
 ### En Windows (versión previa) {#on-windows}
 
-Cada versión publica también `rendimiento-wsl-amd64.tar.gz`: una distribución pequeña de WSL2 (Debian con systemd, containerd, BuildKit y rendimiento en `MODE=local`, construida desde `instalar/wsl`) que corre todo lo anterior en Windows 10 (versión 2004 o más nueva) o Windows 11, sin Docker Desktop. Una aplicación de Windows la importará y la cuidará por usted; mientras tanto, en PowerShell:
+**rendimiento para Windows** es una aplicación que prepara y cuida todo lo anterior en Windows 10 (versión 2004 o más nueva) o Windows 11, en una computadora con procesador Intel o AMD de 64 bits, sin Docker Desktop: rendimiento corre en una distribución pequeña de WSL2, solo para él, y la aplicación es su ventana. Descargue `rendimiento-windows-amd64.exe` de la [última versión](https://github.com/rendimiento-ai/rendimiento/releases/latest) y ábralo. Es un solo programa, todavía sin instalador: guárdelo donde quiera y ábralo de nuevo para volver.
+
+!!! note "Todavía no está firmada"
+    La primera vez, Windows SmartScreen la detiene con «Windows protegió su PC»: elija **Más información** y luego **Ejecutar de todas formas**. Para revisar antes la descarga, compare `Get-FileHash rendimiento-windows-amd64.exe` con su línea en las `SHA256SUMS` de la versión. La firma y un instalador vienen después.
+
+La primera vez, un asistente hace lo que falta, paso por paso:
+
+1. **WSL2.** Si Windows no lo tiene activo, el asistente lo activa: Windows pide el permiso de un administrador y luego reiniciar. Después abra la aplicación otra vez.
+2. **La distribución.** Descarga el `rendimiento-wsl-amd64.tar.gz` de la última versión (unos 174 MB), lo revisa contra las `SHA256SUMS` de esa versión y lo importa como la distribución de WSL `rendimiento`. No toca las otras distribuciones que tenga.
+3. **Quién entra primero.** Pregunta su usuario de GitHub (`ALLOWED_USERS`).
+4. **Arranque.** Arranca rendimiento, mantiene despierta la distribución (WSL detiene la que no tiene nada conectado) y abre la página de configuración, que crea la aplicación de GitHub, con la ficha de configuración ya en la mano.
+
+Cuando un paso no puede seguir, el asistente dice por qué y qué hacer: la virtualización apagada en el BIOS/UEFI de la computadora (`HCS_E_HYPERV_NOT_INSTALLED`, `ERROR_NOT_SUPPORTED`), una descarga que no coincide con su suma de verificación, o un reloj mal puesto, que hace que GitHub rechace la firma de rendimiento. El primero y el último se explican [abajo](#on-windows-by-hand).
+
+Desde entonces la aplicación es una ventana propia que muestra rendimiento (`http://localhost:8080`) y un icono junto al reloj. Sus aplicaciones responden en `http://<app>.localhost:8000`, como en Linux. Al cerrar la ventana el icono se queda ahí, con este menú:
+
+- **Abrir**: la ventana otra vez.
+- **Abrir en el navegador**: rendimiento en su navegador.
+- **Dormir**: detiene la distribución, y con ella sus aplicaciones, las construcciones y la memoria que ocupaba. Los datos se quedan. **Despertar** la arranca de nuevo.
+- **Salir**: cierra la aplicación; sin nada que la mantenga despierta, WSL detiene la distribución poco después.
+
+Dónde queda cada cosa:
+
+- el programa, donde usted lo guardó;
+- `%LOCALAPPDATA%\rendimiento`: el disco de la distribución (rendimiento, sus aplicaciones y sus datos) y lo que descargó la aplicación;
+- dentro de la distribución (`wsl -d rendimiento`): sus ajustes en `/etc/rendimiento/env`, y la llave de los secretos y la ficha de configuración en `/root/.config/rendimiento`.
+
+Todavía falta: un instalador, la firma, que se actualice sola, desinstalarla, que arranque con Windows y las computadoras con procesador ARM. Para quitarla hoy, elija **Salir**, borre el programa y, en PowerShell:
+
+```powershell
+wsl --unregister rendimiento                          # la distribución, con todos sus datos
+Remove-Item -Recurse $env:LOCALAPPDATA\rendimiento    # lo que descargó la aplicación
+```
+
+### En Windows, a mano {#on-windows-by-hand}
+
+Los mismos pasos, para quien prefiera darlos. La distribución es el `rendimiento-wsl-amd64.tar.gz` de cada versión: Debian con systemd, containerd, BuildKit y rendimiento en `MODE=local`, construida desde `instalar/wsl`. En PowerShell:
 
 ```powershell
 wsl --install --no-distribution   # solo si WSL aún no está activo; puede pedir reiniciar
@@ -244,7 +280,7 @@ wsl --import rendimiento $env:LOCALAPPDATA\rendimiento rendimiento-wsl-amd64.tar
 wsl -d rendimiento -- sh -c "echo ALLOWED_USERS=su-usuario-de-github > /etc/rendimiento/env && systemctl restart rendimiento"
 ```
 
-Luego abra `http://localhost:8080`; la ficha de configuración está en `/root/.config/rendimiento` (`wsl -d rendimiento -- ls /root/.config/rendimiento`). Sus aplicaciones responden en `http://<app>.localhost:8000`, como en Linux. No toca las otras distribuciones que tenga. WSL detiene una distribución cuando ningún `wsl.exe` está conectado a ella, así que deje abierta una ventana con `wsl -d rendimiento` mientras la usa (la aplicación lo hará por usted). `wsl --unregister rendimiento` la quita con todos sus datos.
+Luego abra `http://localhost:8080`; la ficha de configuración está en `/root/.config/rendimiento` (`wsl -d rendimiento -- ls /root/.config/rendimiento`). Sus aplicaciones responden en `http://<app>.localhost:8000`, como en Linux. No toca las otras distribuciones que tenga. WSL detiene una distribución cuando ningún `wsl.exe` está conectado a ella, así que deje abierta una ventana con `wsl -d rendimiento` mientras la usa (la aplicación lo hace por usted). `wsl --unregister rendimiento` la quita con todos sus datos.
 
 Si `wsl --import` falla con `HCS_E_HYPERV_NOT_INSTALLED` o `ERROR_NOT_SUPPORTED`, WSL2 todavía no puede arrancar su máquina virtual: reinicie Windows después de `wsl --install --no-distribution` (sus componentes solo funcionan después de reiniciar) y revise que la virtualización esté encendida (Administrador de tareas → Rendimiento → CPU dice «Virtualización: Habilitado»; si no, encienda SVM Mode en AMD o Intel Virtualization Technology en Intel, en el BIOS/UEFI de la computadora).
 
@@ -254,7 +290,7 @@ Si GitHub contesta «Bad credentials» al configurar o al agregar una aplicació
 
 El repositorio de rendimiento está incorporado como cualquier aplicación. Su `rendimiento.yaml` tiene el libro (`docs`, un servicio) y la imagen de la plataforma (`builds: platform`), así que cada envío corre:
 
-- `platform:test`: `hack/ci-test.sh` (generar, vet y las pruebas de Go, con envtest y un Postgres desechable) en `golang`, con una caché que se conserva;
+- `platform:test`: `hack/ci-test.sh` (generar, vet y las pruebas de Go, con envtest y un Postgres desechable; luego el módulo de la aplicación de Windows, `escritorio/`) en `golang`, con una caché que se conserva;
 - `platform:build`: el Dockerfile, que además revisa los tipos y las traducciones de la interfaz, publicado como `<registro>/rendimiento-ai-platform:<confirmación>`.
 
 Las solicitudes de incorporación reciben la misma comprobación, sin versión. En la rama principal, el resumen (digest) de la imagen se guarda con la versión, junto al del libro.

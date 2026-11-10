@@ -45,6 +45,7 @@ rendimiento.ai/
 │   ├── events/             live-update hub (SSE)
 │   └── api/                HTTP API, auth, webhooks, setup, the UI server
 ├── web/                    the React UI (src/) and its embed (embed.go)
+├── escritorio/             rendimiento for Windows, a Go module of its own (below)
 ├── templates/dockerfiles/  Dockerfile templates for detected stacks
 ├── deploy/                 manifests for the platform itself (kubectl apply -k)
 ├── docs/                   this book (MkDocs Material)
@@ -112,6 +113,21 @@ npm run build        # web/dist, embedded by the Go build
 ```
 
 The dev server needs a rendimiento API on `localhost:8080`, the local one above. The session cookie is set by that server's login, so sign in through `http://localhost:8080` first.
+
+## The Windows app {#the-windows-app}
+
+`escritorio/` is rendimiento for Windows ([what it does](../environment/deploy.md#on-windows)): a [Wails](https://wails.io) v2 app, which is a WebView2 window and an icon next to the clock around Go code. Its package `wsl` keeps the WSL2 distribution (turn WSL on, download, check and import the distribution, wake it and put it to sleep), always through `wsl.exe` behind a small interface, so its tests run on any system with a fake one. The first-time assistant is plain HTML, CSS and JavaScript in `escritorio/frontend`, embedded with `go:embed`: no npm.
+
+It is a **Go module of its own** (`escritorio/go.mod`), so Wails and the icon's library never reach the platform's dependencies, its image or its `go vet ./...`, and the platform's never reach the app. Go leaves a folder with its own `go.mod` out of `./...`, so its commands run from inside it:
+
+```bash
+cd escritorio
+gofmt -l . && go vet ./... && go test ./...
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -tags desktop,production -trimpath \
+  -ldflags "-s -w -H windowsgui" -o /tmp/rendimiento-windows-amd64.exe .
+```
+
+The files that import Wails are `//go:build windows`, so on Linux the module still vets and tests. It is built for Windows from Linux with plain `go build`, without the `wails` program: `desktop,production` are the tags Wails gives a release build, and `-H windowsgui` keeps a console window from opening with the app. `hack/ci-test.sh` runs all of this on every push, after the platform's tests (format, vet and tests on Linux; vet and build for `windows/amd64`), and `.github/workflows/binarios.yml` builds the same program for each release with its version (`-X main.version`) and lists it in `SHA256SUMS`.
 
 ## Generating code
 

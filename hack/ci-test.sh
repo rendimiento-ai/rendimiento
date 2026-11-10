@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # The Go side of `make test`, in a golang image: what rendimiento runs on
 # every push to its own repository (rendimiento.yaml, builds: platform) and
-# what hack/test-remote.sh runs in its pod. The UI is checked by the
-# image's build (npm run typecheck in the Dockerfile).
+# what hack/test-remote.sh runs in its pod; then the Windows app's module
+# (escritorio/). The UI is checked by the image's build (npm run typecheck).
 #
 # It needs TEST_DATABASE_URL (or DATABASE_URL), an empty Postgres database,
 # and keeps its tools under $TOOLS (default /cache/bin, the test's cache).
@@ -68,6 +68,38 @@ failed=()
 wait $a || failed+=("$out/shared.log")
 wait $b || failed+=("$out/rest.log")
 sleep 2 # the last packages' lines, before the summary
+
+# rendimiento for Windows (escritorio/) is a module of its own, so the
+# ./... above never see it. It goes after the tests, not beside them: the
+# two envtest API servers need both cores, and a compile next to them makes
+# etcd time out. Its log joins the tests', so the summary lists its
+# packages and, when it fails, ends with the step that stopped it.
+section 'escritorio (the Windows app: on Linux, then for windows/amd64)'
+(
+  step() { echo "   $1" >&3; echo "== escritorio: $1"; }
+  cd escritorio
+  step gofmt
+  unformatted=$(gofmt -l .)
+  [ -z "$unformatted" ] || { echo "not formatted (gofmt -w fixes them):"; echo "$unformatted"; exit 1; }
+  # On Linux the files that open the window are left out (//go:build
+  # windows); the wsl package's tests run with a fake wsl.exe.
+  step 'vet and test (linux)'
+  go vet ./...
+  tests=0
+  go test -v ./... || tests=$?
+  grep -E '^(ok|FAIL)[[:space:]]' "$out/escritorio.log" | sed 's/^/   finished: /' >&3 || true
+  [ "$tests" -eq 0 ]
+  # What .github/workflows/binarios.yml publishes with each release, built
+  # the same way: Wails' tags, no console window. go build -o, never go
+  # install: with GOBIN set (above) it refuses to cross-compile.
+  step 'vet and build (windows/amd64)'
+  export GOOS=windows GOARCH=amd64 CGO_ENABLED=0
+  go vet -tags desktop,production ./...
+  go build -tags desktop,production -trimpath -ldflags '-s -w -H windowsgui' -o "$out/rendimiento-windows-amd64.exe" .
+  echo "   rendimiento-windows-amd64.exe: $(($(stat -c %s "$out/rendimiento-windows-amd64.exe") / 1024)) KiB" >&3
+) 3>&1 >"$out/escritorio.log" 2>&1 &
+c=$!
+wait $c || { failed+=("$out/escritorio.log"); echo '   failed: the summary ends with its output'; }
 section summary
 
 # What `go test` prints without -v: one line per package.

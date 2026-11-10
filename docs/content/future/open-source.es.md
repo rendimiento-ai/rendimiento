@@ -21,7 +21,7 @@ Falta:
 rendimiento prueba cada cambio antes de que llegue a `main` ([en cada envío](../develop/testing.md#on-every-push)). GitHub Actions solo construye y publica, sin secretos propios:
 
 - **Imágenes** (`.github/workflows/imagen.yml`): `ghcr.io/rendimiento-ai/rendimiento` para **amd64 y arm64**, como `:main` y `:sha-<commit>` en cada cambio a `main`, y `:1.2.3`, `:1.2` y `:latest` con una etiqueta `v1.2.3`. El Dockerfile compila de forma cruzada, así que no hay emulación.
-- **Programas y paquete de Helm** (`.github/workflows/binarios.yml`), con cada etiqueta `v*`: una versión de GitHub con `rendimiento-linux-amd64`, `rendimiento-linux-arm64` y sus `SHA256SUMS` (lo que descarga el instalador), y el paquete de Helm (desde `v0.1.3`) con ese número como `version` y como `appVersion`, adjunto a la versión y publicado en `oci://ghcr.io/rendimiento-ai/charts/rendimiento`. En el repositorio, `chart/rendimiento` conserva `appVersion: main`, la imagen del código que tiene al lado.
+- **Programas y paquete de Helm** (`.github/workflows/binarios.yml`), con cada etiqueta `v*`: una versión de GitHub con `rendimiento-linux-amd64` y `rendimiento-linux-arm64` (lo que descarga el instalador), `rendimiento-wsl-amd64.tar.gz` y `rendimiento-windows-amd64.exe` (la distribución y la aplicación para [Windows](../environment/deploy.md#on-windows)), sus `SHA256SUMS`, y el paquete de Helm (desde `v0.1.3`) con ese número como `version` y como `appVersion`, adjunto a la versión y publicado en `oci://ghcr.io/rendimiento-ai/charts/rendimiento`. En el repositorio, `chart/rendimiento` conserva `appVersion: main`, la imagen del código que tiene al lado.
 - **El registro de cambios**: después de cada versión, el mismo flujo abre una solicitud de cambios que convierte el *Unreleased* de `CHANGELOG.md` en esa versión, con su fecha; una persona la junta. Los comandos de instalación nunca fijan una versión (el instalador y Helm toman la más reciente), y una prueba lo cuida (`instalar/vigente_test.go`).
 - Las primeras versiones, de `v0.1.0` a `v0.1.2`, salieron el 2026-11-05.
 
@@ -29,6 +29,7 @@ Falta:
 
 - **Versionado semántico.** Subir la versión de la CRD (`v1alpha1` → `v1beta1`) solo con un plan de conversión.
 - **Imágenes firmadas** (cosign sin llave) y un SBOM (`buildx --sbom`), las dos fáciles de agregar en Actions.
+- **La aplicación de Windows firmada** (Azure Trusted Signing), y su instalador: mientras tanto, SmartScreen pregunta antes de ejecutarla.
 - La imagen de Railpack de la misma forma (`make railpack-image` → una tarea de Actions).
 
 ## Cómo contribuir {#contribution-flow}
