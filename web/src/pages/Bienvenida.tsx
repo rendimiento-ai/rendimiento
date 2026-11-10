@@ -215,6 +215,8 @@ export function Bienvenida({ book, activity }: { book: BookLinks; activity: bool
           </p>
           <ul className="ruta-lista">
             <li><b>{t("Agents connect over MCP")}</b> {t("with a key you create, read-only or read-write, that expires.")}</li>
+            <li><b>{t("Agents ask, people decide:")}</b> {t("an agent cannot deploy, and it cannot roll an app back: it asks, with its reason, and a person approves or rejects.")}</li>
+            <li><b>{t("The bitácora:")}</b> {t("every action, by people and by agents, in a chained record where a row changed or removed shows.")}</li>
             <li><b>{t("Each agent takes a cargo:")}</b> {t("a turn of work with a purpose. It hands it over with what it did and what is left.")}</li>
             <li><b>{t("Decisions, manuals and to-dos")}</b> {t("stay with the platform, not inside one chat.")}</li>
             <li><b>{t("Lo vivido:")}</b> {t("stories only people can write. Agents read them with respect and never change them.")}</li>
