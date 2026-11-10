@@ -261,6 +261,26 @@ func TestListaEntraYDuerme(t *testing.T) {
 	}
 }
 
+// A window left on GitHub's pages (a sign-in that leads nowhere) has a way
+// back from the icon, connected or not.
+func TestInicio(t *testing.T) {
+	f := &falsa{estado: wsl.Despierta}
+	a, c := armar(t, f)
+	a.inicio()
+	if c.muestras != 1 || c.vueltas != 0 {
+		t.Fatalf("on the assistant's page: shown %d, back %d", c.muestras, c.vueltas)
+	}
+	a.Conectar()
+	a.inicio()
+	if c.vueltas != 1 {
+		t.Fatalf("away on GitHub: back %d", c.vueltas)
+	}
+	// The assistant's page loads again and asks.
+	if v := a.Vista(); v.Accion != "Conectar" {
+		t.Fatalf("back at the start: %+v", v)
+	}
+}
+
 func TestProblemas(t *testing.T) {
 	// A look that fails is not "WSL is missing".
 	f := &falsa{fallos: map[string]error{"estado": errors.New("wsl.exe did not answer")}}
