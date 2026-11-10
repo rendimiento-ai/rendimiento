@@ -1009,14 +1009,17 @@ export interface Capacity {
   runsPerApp: number;
   stepCpuMillis: number;
   nodesOff: string[];
+  /** How many caches each test keeps (0: the default). */
+  testCaches: number;
   busyPercent: number;
   updatedBy?: string;
   updatedAt?: string;
 }
 export interface CapacityView {
   saved: Capacity;
-  defaults: { parallelRuns: number; runsPerApp: number; nodesOff: string[] };
+  defaults: { parallelRuns: number; runsPerApp: number; testCaches: number; nodesOff: string[] };
   maxWorkers: number;
+  maxTestCaches: number;
   busy: string[];
   defaultBusyPercent: number;
 }

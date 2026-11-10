@@ -391,6 +391,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 	capacity := &platform.CapacityHolder{Store: st, Kube: clientset, Exclude: executor.ExcludeNodes}
 	go capacity.Run(ctx)
 	executor.Limits, p.Capacity = capacity.Limits, capacity.Runs
+	executor.Caches = capacity.Caches
 	p.Runner = pipeline.NewRunner(executor, p, parallel)
 	// Runs of different apps go side by side (one per app, so an app's
 	// releases keep their order); MAX_PARALLEL_STEPS still bounds the load.

@@ -185,6 +185,8 @@ export const es: Record<string, string> = {
   "empty: {n}, from PARALLEL_RUNS": "vacío: {n}, de PARALLEL_RUNS",
   "Runs of one app at once": "Ejecuciones de una aplicación a la vez",
   "its deploys still go one at a time; empty: {n}": "sus despliegues siguen de uno en uno; vacío: {n}",
+  "Caches of each test": "Cachés de cada prueba",
+  "that many runs test at once without waiting for a cache; each one is a volume; empty: {n}": "esa cantidad de ejecuciones prueban a la vez sin esperar una caché; cada una es un volumen; vacío: {n}",
   "Most CPU a step reserves (cores)": "CPU máxima que reserva un paso (núcleos)",
   "what each app asks": "lo que pida cada aplicación",
   "lower it so steps fit on busy nodes; they still use free cores": "bájela para que los pasos quepan en nodos ocupados; aun así usan los núcleos libres",

@@ -443,6 +443,11 @@ function Capacidad({ nodes }: { nodes: EnvNode[] }) {
             onChange={(e) => set({ runsPerApp: Number(e.target.value) })} />
           <span className="small muted">{t("its deploys still go one at a time; empty: {n}", { n: v.defaults.runsPerApp })}</span>
         </label>
+        <label className="field"><span>{t("Caches of each test")}</span>
+          <input type="number" min={0} max={v.maxTestCaches} disabled={!admin} value={c.testCaches || ""} placeholder={String(v.defaults.testCaches)}
+            onChange={(e) => set({ testCaches: Number(e.target.value) })} />
+          <span className="small muted">{t("that many runs test at once without waiting for a cache; each one is a volume; empty: {n}", { n: v.defaults.testCaches })}</span>
+        </label>
         <label className="field"><span>{t("A node is busy from (%)")}</span>
           <input type="number" min={50} max={100} step={5} disabled={!admin} value={c.busyPercent || ""} placeholder={String(v.defaultBusyPercent)}
             onChange={(e) => set({ busyPercent: Number(e.target.value) })} />
