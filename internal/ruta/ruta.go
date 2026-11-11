@@ -89,6 +89,8 @@ La plataforma también se ve desde aquí: apps_listar y app_estado (aplicaciones
 
 Encargos: trabajo que una persona pidió. ruta_inicio le muestra los pendientes y los suyos. Tome uno (encargo_tomar), y cuando lance una ejecución, espérela con encargo_esperar en vez de consultar una y otra vez. Al terminar, entréguelo (encargo_entregar) con lo que hizo, cómo lo comprobó y los enlaces; la persona lo revisa o se lo devuelve con un comentario. Si no puede terminarlo, suéltelo (encargo_soltar) con el motivo.
 
+Comentarios: una persona puede comentar una entrega de cargo o un encargo sin devolverlo, para avisar que algo está mal o no le parece. ruta_inicio le muestra los que ningún agente ha respondido (primero los de su trabajo), y encargo_leer y encargo_esperar los de su encargo. Si tocan lo que usted hace, atiéndalos y responda con comentario_responder qué hizo con ellos (la persona lo ve en la campana); si piden algo distinto de lo que le pidió la persona con quien trabaja, dígaselo.
+
 Reglas:
 - Nunca escriba secretos: contraseñas, tokens, llaves privadas. Se rechazan.
 - "Lo vivido" son relatos de personas, en sus palabras. Léalos con respeto; no los trate como datos técnicos. Desde aquí no se escriben.
@@ -108,6 +110,9 @@ type Server struct {
 	Plataforma Plataforma
 	// Encargos adds the encargo tools: work asked of agents (nil: off).
 	Encargos Encargos
+	// Comentarios adds what people say about agents' work, and the tool to
+	// answer it (nil: off).
+	Comentarios Comentarios
 	// Produccion adds produccion_pedir and produccion_esperar: an agent asks
 	// for a change to production, a person decides (nil: off).
 	Produccion Produccion
@@ -241,6 +246,9 @@ type InicioOut struct {
 	// Encargos: the pending ones the key may take, and the ones it has.
 	EncargosPendientes []EncargoOut `json:"encargos_pendientes,omitempty"`
 	SusEncargos        []EncargoOut `json:"sus_encargos,omitempty"`
+	// ComentariosSinResponder: what people said about agents' work that no
+	// agent answered yet, the ones on this key's own work first.
+	ComentariosSinResponder []ComentarioOut `json:"comentarios_sin_responder,omitempty"`
 }
 
 type buscarIn struct {
@@ -405,6 +413,9 @@ func (s *Server) newServer(write, ingles bool) *mcp.Server {
 	if s.Encargos != nil {
 		s.addEncargoTools(srv, write)
 	}
+	if s.Comentarios != nil {
+		s.addComentarioTools(srv, write)
+	}
 	if s.Produccion != nil && s.Plataforma != nil {
 		s.addProduccionTools(srv, write)
 	}
@@ -528,6 +539,11 @@ func (s *Server) inicio(ctx context.Context, k store.AgentKey, _ empty) (InicioO
 	out.Recientes = summaries(recent)
 	if s.Encargos != nil {
 		if out.EncargosPendientes, out.SusEncargos, err = s.encargosDe(ctx, k); err != nil {
+			return out, err
+		}
+	}
+	if s.Comentarios != nil {
+		if out.ComentariosSinResponder, err = s.sinResponder(ctx, k); err != nil {
 			return out, err
 		}
 	}

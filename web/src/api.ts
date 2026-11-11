@@ -494,6 +494,27 @@ export type AutoEncargo = "off" | "branches" | "all";
 export type CodeAgent = "off" | "asked" | "auto";
 
 // Work asked of agents (internal/store.Encargo).
+/**
+ * What a person says about an agent's work (a cargo, an encargo) without
+ * sending it back, or an agent's answer to it (internal/store.Comentario).
+ */
+export interface Comentario {
+  id: number;
+  cargoId?: number;
+  encargoId?: number;
+  answersTo?: number;
+  author: string;
+  byAgent: boolean;
+  body: string;
+  createdAt: string;
+  answeredAt?: string;
+  seenAt?: string;
+  about: string;
+  app?: string;
+  /** An agent's answer to one of this person's comments, not seen yet. */
+  new?: boolean;
+}
+
 export interface Encargo {
   id: number;
   title: string;
@@ -915,6 +936,10 @@ export const api = {
   setAppAutoEncargo: (app: string, mode: AutoEncargo | "") => request<void>("PUT", `/api/apps/${app}/auto-encargo`, { mode }),
   setAppAutoMerge: (app: string, on: boolean) => request<void>("PUT", `/api/apps/${app}/auto-merge`, { on }),
   reestimateEncargo: (id: number) => request<Encargo>("POST", `/api/encargos/${id}/estimate`),
+  comentarios: () => request<Comentario[]>("GET", "/api/comentarios"),
+  comentar: (c: { cargoId?: number; encargoId?: number; body: string }) => request<Comentario>("POST", "/api/comentarios", c),
+  respuestas: () => request<Comentario[]>("GET", "/api/comentarios/respuestas"),
+  verRespuestas: (ids: number[]) => request<void>("POST", "/api/comentarios/vistos", { ids }),
   createAgentKey: (k: { name: string; role: AgentRole; apps: string[]; days: number }) => request<CreatedAgentKey>("POST", "/api/agent-keys", k),
   revokeAgentKey: (id: number) => request<void>("DELETE", `/api/agent-keys/${id}`),
   reliability: (app: string, range: ReliabilityRange) => request<Reliability>("GET", `/api/apps/${app}/reliability?range=${range}`),

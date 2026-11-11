@@ -69,6 +69,10 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | GET | `/api/encargos/{id}` | one encargo with its history |
 | POST | `/api/encargos/{id}/review` | accept a delivered encargo (`accept: true`) or send it back with a `comment` |
 | POST | `/api/encargos/{id}/cancel` | drop an encargo |
+| GET | `/api/comentarios` | comments on agents' work, oldest first: a cargo's (`?cargo=`), an encargo's (`?encargo=`), or the organization's latest; `new` marks an agent's answer to one of yours not seen yet |
+| POST | `/api/comentarios` | comment on a cargo (`cargoId`) or an encargo (`encargoId`) without sending it back (`body`); collaborators |
+| GET | `/api/comentarios/respuestas` | agents' answers to your comments you have not seen yet (the bell) |
+| POST | `/api/comentarios/vistos` | mark answers to your comments as seen (`ids`) |
 | PUT | `/api/apps/{app}/auto-encargo` | when an encargo opens by itself for the app's explained failures (`mode`: `off`, `branches`, `all`, or empty to follow the organization); administrators |
 | POST | `/api/encargos/do` | send pending encargos to the coding agent (`ids`); it must be on |
 | POST | `/api/encargos/{id}/estimate` | rate an encargo again (the estimator does it within 30 seconds) |

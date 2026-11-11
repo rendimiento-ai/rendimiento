@@ -14,14 +14,16 @@ interface Pendiente {
 
 /**
  * The bell in the top bar: how many things wait for this person (changes to
- * production agents ask for, encargos delivered for review, open problems
- * for the platform's operators), and, opened, those things and what
- * happened since the page opened. Nothing that waits goes unseen.
+ * production agents ask for, encargos delivered for review, agents'
+ * answers to their comments, open problems for the platform's operators),
+ * and, opened, those things and what happened since the page opened.
+ * Nothing that waits goes unseen.
  */
 export function Campana({ role, operator }: { role?: string; operator?: boolean }) {
   const actua = !!role && role !== "guest";
   const { data: aprobaciones } = usePoll(() => (actua ? api.aprobaciones(true, lang) : Promise.resolve([])), [actua], 20000);
   const { data: encargos } = usePoll(() => (actua ? api.encargos() : Promise.resolve([])), [actua], 30000);
+  const { data: respuestas } = usePoll(() => (actua ? api.respuestas() : Promise.resolve([])), [actua], 30000);
   const { data: problemas } = usePoll(() => (operator ? api.problemCount() : Promise.resolve({ open: 0 })), [operator], 30000);
   const historial = useHistorial();
   const [abierta, setAbierta] = useState(false);
@@ -67,6 +69,13 @@ export function Campana({ role, operator }: { role?: string; operator?: boolean 
       clave: `encargo-${e.id}`,
       texto: t("Encargo #{n} was delivered: review it", { n: e.id }),
       a: "/ruta?tab=encargos",
+    })),
+    ...(respuestas ?? []).map((c) => ({
+      clave: `respuesta-${c.id}`,
+      texto: c.encargoId
+        ? t("{agent} answered your comment on encargo #{n}", { agent: c.author, n: c.encargoId })
+        : t("{agent} answered your comment on cargo #{n}", { agent: c.author, n: c.cargoId ?? 0 }),
+      a: c.encargoId ? "/ruta?tab=encargos" : "/ruta?tab=cargos",
     })),
     ...((problemas?.open ?? 0) > 0 ? [{
       clave: "problemas",

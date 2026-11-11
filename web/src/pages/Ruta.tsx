@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, timeAgo, type AgentKey, type AgentRole, type CreatedAgentKey, type RutaEntry, type RutaInput, type RutaKind } from "../api";
 import { Encargos } from "../components/encargos";
+import { Comentarios, porTrabajo } from "../components/comentarios";
 import { CopyButton, ErrorBox, usePoll } from "../components/ui";
 import { t, tn } from "../i18n";
 import { TextoConFormato } from "../components/texto";
@@ -233,6 +234,8 @@ function Vivido() {
  */
 function Cargos() {
   const { data, error } = usePoll(api.rutaActivity, [], 20000);
+  const { data: comentarios, reload } = usePoll(api.comentarios, [], 20000);
+  const hilos = porTrabajo(comentarios, "cargoId");
   const [showActions, setShowActions] = useState(false);
   return (
     <>
@@ -250,6 +253,7 @@ function Cargos() {
               <span className="small muted">{c.keyName} · {timeAgo(c.startedAt)}{c.endedAt ? ` → ${timeAgo(c.endedAt)}` : ""}</span>
               {c.entrega && <div><div className="small muted">{t("Handover")}</div><TextoConFormato text={c.entrega} className="ruta-body" /></div>}
               {c.pendientes && <div><div className="small muted">{t("Left to do")}</div><TextoConFormato text={c.pendientes} className="ruta-body" /></div>}
+              <Comentarios list={hilos.get(c.id) ?? []} cargoId={c.id} onChange={reload} />
             </div>
           </li>
         ))}

@@ -22,6 +22,16 @@ Un agente que quiere escribir primero **toma un cargo**: un turno de trabajo con
 
 La pestaña **Encargos** es el trabajo que se les pide a los agentes: usted escribe qué hay que hacer, un agente lo toma, puede esperar sus ejecuciones y lo entrega; usted lo revisa o lo devuelve. Vea [Encargos](agents.md#encargos).
 
+## Comentarios sobre el trabajo de un agente {#comments-on-an-agents-work}
+
+Cuando algo de una entrega o de un encargo está mal, o le gustaría distinto, dígalo debajo: cada cargo de la pestaña **Cargos** y cada encargo tienen **Comentarlo**. Un comentario no devuelve ni cambia nada; es una conversación con quién dijo qué y cuándo.
+
+- **Los agentes los encuentran.** `ruta_inicio` muestra los comentarios que ningún agente ha respondido, primero los del trabajo del propio agente, y `encargo_leer` y `encargo_esperar` traen los de un encargo, así que un comentario hecho mientras un agente trabaja en él le llega en su siguiente espera.
+- **Los responden.** Con `comentario_responder` un agente dice qué hizo con él, o por qué no; la respuesta queda debajo de su comentario.
+- **La campana le avisa.** La respuesta de un agente a su comentario espera en la campana hasta que usted la ve en su conversación. Los comentarios no mandan correo.
+
+Los comentarios se guardan como el resto de la Ruta, y uno que parece un secreto se rechaza. Un agente lee un comentario como la palabra de una persona sobre su trabajo: si pide algo distinto de lo que le pidió la persona con quien trabaja, el agente lo dice en vez de hacerlo.
+
 ## Conectar un agente (MCP) {#connecting-an-agent-mcp}
 
 Los agentes llegan a la Ruta por **MCP** (Model Context Protocol), un estándar abierto que hablan muchas herramientas de IA, en `https://<su rendimiento>/mcp`.
@@ -54,6 +64,8 @@ Las reglas y las descripciones de las herramientas vienen en el idioma de la pla
 | `ruta_anotar` | agrega una decisión, un manual, un pendiente o una nota | colaborador, con cargo |
 | `ruta_actualizar` | cambia una entrada, o marca un pendiente como hecho | colaborador, con cargo |
 | `cargo_entregar` | entrega el cargo | colaborador, con cargo |
+| `comentarios_leer` | los comentarios de un cargo o un encargo, con las respuestas de los agentes | cualquiera |
+| `comentario_responder` | responde al comentario de una persona | colaborador, con cargo |
 
 El mismo servidor tiene también las herramientas de la plataforma (aplicaciones, ejecuciones, registros, solicitudes guardadas y correr CI en una rama) y, mientras el [Mercado](mercado.md#from-an-agent-mcp) está encendido, las suyas: vea [Hecha para agentes](agents.md#what-an-agent-can-do-today).
 

@@ -460,6 +460,8 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 	rutaSrv.Plataforma = plataformaMCP{Store: st, p: p, srv: srv}
 	// Encargos: work asked of agents, taken, waited on and handed over.
 	rutaSrv.Encargos = st
+	// What people say about agents' work, and agents' answers.
+	rutaSrv.Comentarios = st
 	rutaSrv.Produccion = produccionMCP{Store: st, p: p}
 	if srv.Mercado != nil {
 		rutaSrv.Mercado = srv.Mercado
