@@ -29,7 +29,7 @@ Abra <http://localhost:8080>. La página de configuración hace esto una sola ve
 1. Pegue el **token de configuración**.
 2. Oprima **Crear la aplicación de GitHub**. GitHub se abre con el nombre y los permisos ya llenos; confirme.
 3. GitHub pregunta qué repositorios puede ver la aplicación: elija su copia de `hola` (o todos; se puede cambiar después).
-4. De vuelta en rendimiento, **Iniciar sesión con GitHub**.
+4. GitHub lo trae de vuelta a rendimiento, que inicia su sesión con su cuenta de GitHub (GitHub puede pedirle que lo autorice).
 
 La aplicación de GitHub es suya, en su cuenta: el código de rendimiento nunca pasa por servidores de alguien más.
 

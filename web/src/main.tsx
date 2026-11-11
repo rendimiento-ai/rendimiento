@@ -46,8 +46,11 @@ function Shell() {
         session.mercado = !!me.mercado;
         setState({ login: me.login, role: me.role, org: me.org, operator: me.operator, demo: me.demo, cluster: me.cluster, configured: true, loading: false });
       } catch (e) {
-        if (e instanceof ApiError && e.status === 401) setState({ configured: true, book: setup.book, activity: setup.activity, loading: false });
-        else throw e;
+        if (!(e instanceof ApiError && e.status === 401)) throw e;
+        // GitHub brings the person back here once they chose the repositories (the GitHub App's setup URL, with
+        // setup_action): signing in is what follows, so it starts without asking.
+        if (new URLSearchParams(location.search).has("setup_action")) return location.replace("/api/auth/login");
+        setState({ configured: true, book: setup.book, activity: setup.activity, loading: false });
       }
     })();
   }, []);
