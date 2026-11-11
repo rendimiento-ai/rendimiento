@@ -50,7 +50,14 @@ falla() {
 	detalle
 	aviso error "inicio rápido (k3d)" "$1
 the run: $(c -fsS -m 5 -b "$tmp/galletas" "$api/api/apps/$app/runs" 2>/dev/null | jq -c '.[0] | {id, status, message}' 2>/dev/null || true)
-$(kubectl get pods -A --no-headers 2>/dev/null | grep -v -e Running -e Completed | cut -c1-150 | head -n 8 || true)"
+$(kubectl get pods -A --no-headers 2>/dev/null | grep -v -e Running -e Completed | cut -c1-150 | head -n 8 || true)
+$(for d in rendimiento rendimiento-worker; do
+	echo "-- $d"
+	kubectl -n "$ns" logs "deploy/$d" --tail 6 2>&1 | cut -c1-400 || true
+	kubectl -n "$ns" logs "deploy/$d" --previous --tail 4 2>/dev/null | cut -c1-400 || true
+done)
+-- the stand-in for GitHub
+$(tail -n 4 "$tmp/github.log" 2>/dev/null | cut -c1-200 || true)"
 	exit 1
 }
 
@@ -91,8 +98,8 @@ aviso notice "inicio rápido (k3d)" "the cluster took ${cluster}s and rendimient
 # The setup page's return from GitHub, and the sign-in's.
 ficha=$(kubectl -n "$ns" get secret rendimiento-setup -o jsonpath='{.data.token}' | base64 -d)
 [ -n "$ficha" ] || falla "the setup token the chart's notes point at is not there"
-codigo=$(c -sS -m 30 -o /dev/null -w '%{http_code}' -G --data-urlencode "token=$ficha" --data-urlencode code=prueba "$api/api/setup/github/callback")
-[ "$codigo" = 302 ] || falla "the setup did not take the GitHub App (HTTP $codigo)"
+codigo=$(c -sS -m 30 -o "$tmp/respuesta" -w '%{http_code}' -G --data-urlencode "token=$ficha" --data-urlencode code=prueba "$api/api/setup/github/callback")
+[ "$codigo" = 302 ] || falla "the setup did not take the GitHub App (HTTP $codigo): $(cut -c1-300 "$tmp/respuesta")"
 c -sS -m 10 -o /dev/null -c "$tmp/galletas" "$api/api/auth/login"
 estado=$(awk '$6 == "oauth_state" { print $7 }' "$tmp/galletas")
 codigo=$(c -sS -m 30 -o /dev/null -w '%{http_code}' -b "$tmp/galletas" -c "$tmp/galletas" -G --data-urlencode "state=$estado" --data-urlencode code=prueba "$api/api/auth/callback")
