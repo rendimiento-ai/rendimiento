@@ -200,13 +200,30 @@ EOF
 	ENGINE=nerdctl
 fi
 
-if [ "$ENGINE" = nerdctl ]; then
-	# containerd and BuildKit for this user, started with the computer.
-	if ! loginctl show-user "$(id -un)" 2>/dev/null | grep -q '^Linger=yes'; then
+# Services of this user run while nobody is signed in, and start with the
+# computer: without it, rendimiento would stop when the terminal that
+# installed it closes (a server reached over SSH).
+if ! loginctl show-user "$(id -un)" 2>/dev/null | grep -q '^Linger=yes'; then
+	if ! loginctl enable-linger "$(id -un)" 2>/dev/null; then
 		say "sudo may ask for your password, to let your services run while you are not signed in." \
 			"sudo puede pedir su contraseña, para que sus servicios corran aunque usted no haya entrado."
-		sudo loginctl enable-linger "$(id -un)"
+		if ! { need sudo && sudo loginctl enable-linger "$(id -un)"; }; then
+			[ "$ENGINE" != nerdctl ] || fail "could not let your services run while you are signed out (loginctl enable-linger)" "no se pudo dejar que sus servicios corran sin que usted haya entrado (loginctl enable-linger)"
+			say "Could not do it: rendimiento will stop when you sign out. Later: sudo loginctl enable-linger $(id -un)" \
+				"No se pudo: rendimiento se detendrá cuando usted salga. Después: sudo loginctl enable-linger $(id -un)"
+		fi
 	fi
+fi
+# The user's systemd may take a moment to come up the first time.
+i=0
+until systemctl --user show-environment >/dev/null 2>&1; do
+	i=$((i + 1))
+	[ "$i" -lt 30 ] || fail "your user's systemd does not answer (systemctl --user)" "el systemd de su usuario no responde (systemctl --user)"
+	sleep 1
+done
+
+if [ "$ENGINE" = nerdctl ]; then
+	# containerd and BuildKit for this user, started with the computer.
 	nerdctl info >/dev/null 2>&1 || containerd-rootless-setuptool.sh install
 	[ -S "$XDG_RUNTIME_DIR/buildkit/buildkitd.sock" ] || containerd-rootless-setuptool.sh install-buildkit
 fi
