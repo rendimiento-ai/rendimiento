@@ -1,0 +1,1 @@
+- **An example to deploy:** with no apps yet, the Apps page and New app link to [rendimiento-ai/hola](https://github.com/rendimiento-ai/hola), a one-page app GitHub copies to your account, so a first deploy does not need a repository of your own.

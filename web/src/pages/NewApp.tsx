@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, catalogApi, session, timeAgo, type CatalogEntry, type Installation, type Need, type Proposal, type Repo, type Service, type Size } from "../api";
+import { api, catalogApi, EXAMPLE_URL, session, timeAgo, type CatalogEntry, type Installation, type Need, type Proposal, type Repo, type Service, type Size } from "../api";
 import { ErrorBox } from "../components/ui";
 import { t } from "../i18n";
 
@@ -164,6 +164,7 @@ export function NewApp() {
         {step === 1 && (
           <main className="ld-detalle">
             <p className="muted" style={{ margin: 0 }}>{t("Pick a repo. rendimiento works out how to build it and where to run it.")}</p>
+            <p className="small muted" style={{ margin: "12px 0 0" }}>{t("Nothing of your own to deploy yet?")} <a href={EXAMPLE_URL} target="_blank" rel="noreferrer">{t("Copy the example to your GitHub account")}</a>{t(", give the GitHub App access to your copy, and reload this page.")}</p>
           </main>
         )}
 
