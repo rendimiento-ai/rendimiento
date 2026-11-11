@@ -61,7 +61,8 @@ $(tail -n 4 "$tmp/github.log" 2>/dev/null | cut -c1-200 || true)"
 	exit 1
 }
 
-# The stand-in listens where the cluster's pods reach this machine (host.k3d.internal).
+# The stand-in listens where the cluster's pods reach this machine: the
+# gateway of the cluster's Docker network.
 REPO="$EJEMPLO" LOGIN=octocat python3 hack/github-de-prueba.py 0.0.0.0:8099 2>"$tmp/github.log" &
 trap 'kill %1 2>/dev/null || true' EXIT
 
@@ -69,6 +70,8 @@ trap 'kill %1 2>/dev/null || true' EXIT
 t0=$(date +%s)
 k3d cluster create rendimiento -p "8080:80@loadbalancer" --registry-create rendimiento-registro || falla "k3d could not make the cluster"
 cluster=$(($(date +%s) - t0))
+maquina=$(docker network inspect k3d-rendimiento -f '{{range .IPAM.Config}}{{.Gateway}} {{end}}' | awk '{print $1}')
+[ -n "$maquina" ] || falla "the cluster's Docker network has no gateway to reach this machine at"
 # Not in the page: the image of this commit, in place of the published one.
 k3d image import "$IMAGEN" -c rendimiento || falla "the image could not be put in the cluster"
 importar=$(($(date +%s) - t0 - cluster))
@@ -80,8 +83,8 @@ helm install rendimiento ./chart/rendimiento -n "$ns" --create-namespace \
 	--set registry.host=rendimiento-registro:5000 \
 	--set ingress.className=traefik \
 	--set image.repository="${IMAGEN%:*}" --set image.tag="${IMAGEN##*:}" \
-	--set config.GITHUB_API_URL=http://host.k3d.internal:8099 \
-	--set config.GITHUB_URL=http://host.k3d.internal:8099 >"$tmp/helm.log" 2>&1 || falla "helm could not install the chart:
+	--set config.GITHUB_API_URL="http://$maquina:8099" \
+	--set config.GITHUB_URL="http://$maquina:8099" >"$tmp/helm.log" 2>&1 || falla "helm could not install the chart:
 $(tail -n 12 "$tmp/helm.log" | cut -c1-400)"
 cat "$tmp/helm.log"
 i=0
