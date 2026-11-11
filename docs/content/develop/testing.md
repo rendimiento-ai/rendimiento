@@ -19,6 +19,7 @@ flowchart LR
 | **Store** | `internal/store`, `internal/api`, `internal/platform` | Postgres (`TEST_DATABASE_URL`) | SQL, migrations, the run queue, sessions |
 | **Integration** | `internal/pipeline` (build tag `integration`) | the cluster's BuildKit pool | a real Dockerfile build and a real Railpack build, pushed with a digest |
 | **Windows app** | `escritorio` (a module of its own) | nothing | the `wsl` package against a fake `wsl.exe`, and that the app compiles for Windows ([Setting up](setup.md#the-windows-app)) |
+| **Quickstart** | `hack/ci-inicio-rapido.sh`, in GitHub Actions (`inicio-rapido.yml`) | a new amd64 machine with systemd and sudo | the installer for one computer, with no container engine and with Docker: rendimiento answers, how long it took (a notice on the run), and the uninstaller. It runs when the installer changes and after each release |
 | **UI** | `web` | Node | the TypeScript compiles (`npm run typecheck`) |
 | **Browser** | `web/e2e` | Playwright, Postgres, Go | the real UI and API in a browser, in English and Spanish: "New app" with every example of `internal/spec/ejemplos`, then every page in the menu, with no error in the browser and no 500 from the API ([below](#browser-tests)) |
 

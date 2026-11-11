@@ -214,7 +214,7 @@ What the cluster still needs:
 curl -fsSL https://rendimiento.ai/instalar | sh
 ```
 
-It uses the engine the computer has (containerd, or Docker when your user can use it), or installs containerd for your user, without root (it asks before, and uses `sudo` once: `/usr/local`, `uidmap`, an AppArmor profile for `rootlesskit` on recent Ubuntu, and lingering so your services run while you are signed out). It downloads the program of the latest release (published for amd64 and arm64 with its `SHA256SUMS`, which it checks) to `~/.local/bin`, asks for your GitHub login, and leaves it as a service of your user (`systemctl --user status rendimiento`) that starts with the computer. `RENDIMIENTO_GITHUB`, `RENDIMIENTO_VERSION` and `RENDIMIENTO_SI=1` answer its questions ahead. By hand, it is:
+It uses the engine the computer has (containerd, or Docker when your user can use it), or installs containerd for your user, without root (it asks before, and uses `sudo` once: `/usr/local`, `uidmap`, and an AppArmor profile for `rootlesskit` on recent Ubuntu). With either engine it turns on lingering for your user, so rendimiento keeps running while you are signed out (a server reached over SSH) and starts with the computer; when it cannot, it says so and how to do it later. It downloads the program of the latest release (published for amd64 and arm64 with its `SHA256SUMS`, which it checks) to `~/.local/bin`, asks for your GitHub login, and leaves it as a service of your user (`systemctl --user status rendimiento`) that starts with the computer. `RENDIMIENTO_GITHUB`, `RENDIMIENTO_VERSION` and `RENDIMIENTO_SI=1` answer its questions ahead. By hand, it is:
 
 ```bash
 MODE=local ALLOWED_USERS=your-github-login ./rendimiento

@@ -19,6 +19,7 @@ flowchart LR
 | **Del almacén** | `internal/store`, `internal/api`, `internal/platform` | Postgres (`TEST_DATABASE_URL`) | el SQL, las migraciones, la cola de ejecuciones, las sesiones |
 | **De integración** | `internal/pipeline` (etiqueta de construcción `integration`) | el grupo de BuildKit del clúster | una construcción real con Dockerfile y una real con Railpack, enviadas con huella |
 | **De la aplicación de Windows** | `escritorio` (un módulo aparte) | nada | el paquete `wsl` contra un `wsl.exe` falso, y que la aplicación compila para Windows ([Preparación](setup.md#the-windows-app)) |
+| **Del inicio rápido** | `hack/ci-inicio-rapido.sh`, en GitHub Actions (`inicio-rapido.yml`) | una máquina amd64 nueva con systemd y sudo | el instalador para una computadora, sin motor de contenedores y con Docker: rendimiento responde, cuánto tardó (un aviso en la ejecución) y el desinstalador. Corre cuando cambia el instalador y después de cada versión |
 | **De la interfaz** | `web` | Node | que el TypeScript compila (`npm run typecheck`) |
 | **En el navegador** | `web/e2e` | Playwright, Postgres, Go | la interfaz y la API de verdad en un navegador, en inglés y en español: «Nueva app» con cada ejemplo de `internal/spec/ejemplos`, luego cada página del menú, sin errores en el navegador ni respuestas 500 de la API ([abajo](#browser-tests)) |
 

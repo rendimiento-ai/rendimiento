@@ -1,0 +1,43 @@
+# The quickstart, on a clean machine: runs the installer for one computer
+# (instalar/instalar.sh) on a new amd64 Ubuntu, once with no container
+# engine (the installer brings containerd) and once with Docker, and says
+# how long it took (hack/ci-inicio-rapido.sh). rendimiento tests everything
+# else itself; this one runs here because it needs a machine nobody has
+# used, with systemd and sudo, and an amd64 one.
+# It runs when the installer changes, after each release is published
+# (the installer downloads the latest), and by hand.
+name: inicio-rapido
+
+on:
+  push:
+    paths:
+      - instalar/instalar.sh
+      - hack/ci-inicio-rapido.sh
+      - .github/workflows/inicio-rapido.yml
+  workflow_run:
+    workflows: [binarios]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: inicio-rapido-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  instalar:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        motor: [containerd, docker]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install, time it, uninstall
+        env:
+          MOTOR: ${{ matrix.motor }}
+        run: hack/ci-inicio-rapido.sh
