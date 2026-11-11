@@ -12,7 +12,7 @@ On an app's **Visits** tab, for **today**, **yesterday**, the last **7** or **30
 - **The visitors** of that time, newest first: when, the country and city, the device and browser, how many pages and for how long. Open one to see **the pages they saw, in order**, where they came from, and any event. Each line is an anonymous visit: Umami doesn't keep who the person is, and neither does rendimiento.
 - **Open in Umami →**, for everything else (when `UMAMI_PUBLIC_URL` is set).
 
-On the dashboard, **Visitors, last 7 days** adds up every app Umami counts, with one row per app (most visited first) and its change against the 7 days before.
+On the dashboard, **Visitors, last 7 days** adds up every app Umami counts, with one row per app (most visited first) and its change against the 7 days before. When rendimiento's own pages are counted too ([`UMAMI_WEBSITE_ID`](../reference/config.md)), an administrator of the platform's organization sees them in a last row of their own, outside the totals; nobody else does.
 
 The numbers are kept for two minutes, so the pages stay fast and Umami is not asked the same thing again and again. Days and hours are counted in `PUBLIC_STATS_TZ` (default UTC).
 

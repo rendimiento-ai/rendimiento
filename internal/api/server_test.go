@@ -643,6 +643,21 @@ func TestVisitsAPI(t *testing.T) {
 	if r.StatusCode != 200 || json.Unmarshal([]byte(body), &sum) != nil || len(sum.Apps) != 1 || sum.Current.Visitors != 7 || sum.Previous.Visitors != 5 {
 		t.Fatalf("summary: %d %s", r.StatusCode, body)
 	}
+	// rendimiento's own visits: a line apart, for the platform's
+	// administrators only.
+	e.s.TrackerSite, e.s.AnalyticsURL = "w2", "https://umami.example.com"
+	r, body = e.do(t, "GET", "/api/stats/visits", "", me, nil)
+	sum = VisitsSummary{}
+	if r.StatusCode != 200 || json.Unmarshal([]byte(body), &sum) != nil || sum.Platform == nil || sum.Platform.Domain != "other.example.com" ||
+		sum.Platform.URL != "https://umami.example.com/websites/w2" || sum.Platform.Current.Visitors != 7 || sum.Current.Visitors != 7 || len(sum.Apps) != 1 {
+		t.Fatalf("the platform's visits: %d %s", r.StatusCode, body)
+	}
+	if err := e.store.SetMember(ctx, store.DefaultOrg, "colabora-visitas", store.MemberCollaborator, "p0dxD"); err != nil {
+		t.Fatal(err)
+	}
+	if r, body := e.do(t, "GET", "/api/stats/visits", "", e.session(t, "colabora-visitas"), nil); r.StatusCode != 200 || strings.Contains(body, `"platform"`) || !strings.Contains(body, `"apps":[{`) {
+		t.Fatalf("a collaborator sees the platform's visits: %d %s", r.StatusCode, body)
+	}
 }
 
 // The welcome page's activity is off unless asked for, and names only the app.

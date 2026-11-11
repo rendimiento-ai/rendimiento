@@ -699,6 +699,8 @@ export interface VisitsSummary {
   current: VisitStats;
   previous: VisitStats;
   apps: { app: string; current: VisitStats; previous: VisitStats }[];
+  /** rendimiento's own pages: only for an administrator of the platform's organization. */
+  platform?: { domain: string; url?: string; current: VisitStats; previous: VisitStats };
 }
 
 // ---- reliability (uptime checks) ----

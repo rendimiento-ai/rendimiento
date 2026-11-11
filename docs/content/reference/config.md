@@ -120,7 +120,7 @@ Taken from the optional Secret `rendimiento-dns`. Without a token, DNS automatio
 |---|---|---|---|
 | `UMAMI_URL` | *(empty: off)* | `http://umami.umami.svc.cluster.local:3000` | Umami inside the cluster, read for the [Visits](../guide/visits.md) tab and the dashboard's visitors panel |
 | `UMAMI_PUBLIC_URL` | *(empty: no links)* | `https://umami.example.com` | Umami's public address, for "Open in Umami" links |
-| `UMAMI_WEBSITE_ID` | *(empty: not counted)* | `00000000-1111-2222-3333-444444444444` | the id Umami gives a website made for rendimiento's own address: with it and `UMAMI_PUBLIC_URL`, every page of rendimiento loads Umami's script (`<UMAMI_PUBLIC_URL>/script.js`), so its visits are counted like any app's |
+| `UMAMI_WEBSITE_ID` | *(empty: not counted)* | `00000000-1111-2222-3333-444444444444` | the id Umami gives a website made for rendimiento's own address: with it and `UMAMI_PUBLIC_URL`, every page of rendimiento loads Umami's script (`<UMAMI_PUBLIC_URL>/script.js`), so its visits are counted like any app's. The dashboard's visitors panel shows them in a line of their own, only to administrators of the platform's organization (the view-only user must be able to read that website) |
 | `UMAMI_USERNAME`, `UMAMI_PASSWORD` | — | from the `rendimiento-umami` Secret | a **view-only** Umami user in the team that owns the websites |
 
 Days and hours are counted in `PUBLIC_STATS_TZ`.

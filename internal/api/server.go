@@ -121,6 +121,9 @@ type Server struct {
 	// Tracker is Umami's script tag for rendimiento's own pages (TrackerTag;
 	// empty: its visits are not counted).
 	Tracker string
+	// TrackerSite is the Umami website that counts them (UMAMI_WEBSITE_ID),
+	// for the dashboard's line of the platform's own visits.
+	TrackerSite string
 	// Mercado opens and keeps pages made from a form (nil: off).
 	Mercado *mercado.Mercado
 	// Update moves rendimiento to an image it built itself (nil: off).

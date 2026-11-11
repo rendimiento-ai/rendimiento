@@ -12,7 +12,7 @@ En la pestaña **Visitas** de una aplicación, para **hoy**, **ayer**, los últi
 - **Las visitas** de ese tiempo, la más reciente primero: cuándo, el país y la ciudad, el equipo y el navegador, cuántas páginas y por cuánto tiempo. Al abrir una se ven **las páginas que vio, en orden**, de dónde llegó y cualquier evento. Cada renglón es una visita anónima: Umami no guarda quién es la persona, y rendimiento tampoco.
 - **Abrir en Umami →**, para todo lo demás (cuando `UMAMI_PUBLIC_URL` está definida).
 
-En el inicio, **Visitantes, últimos 7 días** suma todas las aplicaciones que Umami cuenta. Tiene una fila por aplicación, la más visitada primero, con su cambio frente a los 7 días anteriores.
+En el inicio, **Visitantes, últimos 7 días** suma todas las aplicaciones que Umami cuenta. Tiene una fila por aplicación, la más visitada primero, con su cambio frente a los 7 días anteriores. Cuando también se cuentan las páginas de rendimiento ([`UMAMI_WEBSITE_ID`](../reference/config.md)), un administrador de la organización de la plataforma las ve en una última fila aparte, fuera de los totales; nadie más las ve.
 
 Los números se guardan dos minutos: así las páginas cargan rápido y a Umami no se le pregunta lo mismo una y otra vez. Los días y las horas se cuentan en `PUBLIC_STATS_TZ` (UTC si no se define).
 
