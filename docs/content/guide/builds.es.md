@@ -12,10 +12,15 @@
 
 ## Integrar por sí sola {#merging-by-itself}
 
-Una app puede integrar sus propias solicitudes de incorporación: **Configuración → Integración → rendimiento las integra cuando la rama pasa** (lo elige un administrador; viene apagado). Con eso encendido:
+Una app puede integrar sus propias solicitudes de incorporación: **Configuración → Integración** (lo elige un administrador; hasta entonces las integra una persona). Hay dos maneras de dar el sí:
 
-- Una rama con una solicitud de incorporación abierta hacia la rama principal se integra cuando su ejecución pasa, con la confirmación que se probó: si alguien envía otra entretanto, la nueva espera su propia ejecución. Integrar es un envío a la rama principal, así que el despliegue sigue como siempre. Después rendimiento borra la rama integrada (nunca la de una bifurcación).
-- **Abrir la solicitud es el sí.** Una rama sin solicitud solo se prueba, y un borrador espera hasta que se marque como listo. Una solicitud que se abre después de que la rama pasó se integra en menos de un minuto.
+- **rendimiento integra lo que una persona aprueba aquí** (la manera para empezar). El sí se da en rendimiento, y lo da un colaborador o un administrador: con **Integrar esta rama** en la página de la ejecución, o al aceptar el [encargo](agents.md) cuyos enlaces nombran la rama (`…/pull/new/<rama>`). rendimiento abre la solicitud si la rama no tiene una, con la primera línea de la confirmación como título y `cambios/<rama>.md` como texto. Una ejecución que todavía corre se puede aprobar: se integra cuando pasa. Una solicitud que alguien abrió en GitHub se prueba y espera ese sí.
+- **rendimiento integra cualquier solicitud abierta.** Abrirla es el sí, la abra quien la abra: cualquiera que pueda enviar una rama al repositorio puede lograr que se integre. Un borrador espera hasta que se marque como listo, y una actualización de dependencias que Renovate o Dependabot dejó abierta sigue esperando el sí de una persona (ellos integran por su cuenta lo que sus reglas permiten).
+
+En los dos casos:
+
+- Se integra la confirmación que se probó y se aprobó: si alguien envía otra entretanto, la nueva espera su propia ejecución, y su propio sí. Integrar es un envío a la rama principal, así que el despliegue sigue como siempre. Después rendimiento borra la rama integrada.
+- Una solicitud desde una bifurcación nunca la integra rendimiento.
 - En un repositorio con varias apps, la confirmación tiene que pasar en todas las que la corrieron.
 - Lo que GitHub pide de la solicitud se respeta: cuando una regla de la rama quiere una revisión o una comprobación, la ejecución dice que espera eso, y se integra cuando lo tiene.
 - **Un conflicto nunca se integra.** La ejecución lo dice, y su página ofrece **Pedírselo a un agente**: eso crea un [encargo](agents.md), que dice qué tan difícil es y cuánto costaría más o menos con la IA de la plataforma antes de que alguien lo haga. Un agente de usted, que trabaja en una copia con git, lo resuelve bien; el agente de la plataforma edita a través de GitHub sin juntar los dos lados, así que solo sirve para conflictos pequeños. La nueva confirmación corre, y se integra si pasa.

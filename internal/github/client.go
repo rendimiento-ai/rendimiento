@@ -488,6 +488,40 @@ func (c *Client) MergePull(ctx context.Context, repo string, number int, sha str
 	return c.do(ctx, http.MethodPut, fmt.Sprintf("/repos/%s/pulls/%d/merge", repo, number), map[string]string{"sha": sha}, nil)
 }
 
+// CreatePull opens a pull request from a branch of the repository into
+// base and returns its number; when the branch already has one open, that
+// one's.
+func (c *Client) CreatePull(ctx context.Context, repo, base, branch, title, body string) (int, error) {
+	var pr PullInfo
+	err := c.do(ctx, http.MethodPost, "/repos/"+repo+"/pulls", map[string]any{"title": title, "head": branch, "base": base, "body": body}, &pr)
+	var ae *APIError
+	if errorsAs(err, &ae) && ae.Status == http.StatusUnprocessableEntity {
+		var prs []PullInfo
+		owner := strings.Split(repo, "/")[0]
+		if err := c.do(ctx, http.MethodGet, "/repos/"+repo+"/pulls?state=open&head="+url.QueryEscape(owner+":"+branch), nil, &prs); err != nil {
+			return 0, err
+		}
+		if len(prs) > 0 {
+			return prs[0].Number, nil
+		}
+	}
+	return pr.Number, err
+}
+
+// CommitSubject is the first line of a commit's message.
+func (c *Client) CommitSubject(ctx context.Context, repo, sha string) (string, error) {
+	var out struct {
+		Commit struct {
+			Message string `json:"message"`
+		} `json:"commit"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/repos/"+repo+"/commits/"+url.PathEscape(sha), nil, &out); err != nil {
+		return "", err
+	}
+	subject, _, _ := strings.Cut(out.Commit.Message, "\n")
+	return strings.TrimSpace(subject), nil
+}
+
 // DeleteBranch deletes a branch. One that is already gone (GitHub deletes
 // merged branches itself where the repository says so) is not an error.
 func (c *Client) DeleteBranch(ctx context.Context, repo, branch string) error {

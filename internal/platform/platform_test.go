@@ -3,6 +3,7 @@ package platform
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"fmt"
 	"github.com/go-logr/logr"
@@ -56,7 +57,9 @@ type fakeGitHub struct {
 	changed map[string][]string // "base...head" → changed files
 	pulls   []gh.PullInfo       // the open pull requests, with whether each can be merged
 	merged  []int
-	deleted []string // the branches deleted after their merge
+	deleted []string          // the branches deleted after their merge
+	heads   map[string]string // branch → its commit, for a pull request opened on approval
+	opened  []string          // "branch: title" of each pull request opened on approval
 }
 
 func (f *fakeGitHub) tree(ref string) fstest.MapFS {
@@ -124,6 +127,24 @@ func (f *fakeGitHub) MergePull(_ context.Context, _ int64, _ string, number int,
 	defer f.mu.Unlock()
 	f.merged = append(f.merged, number)
 	return nil
+}
+func (f *fakeGitHub) CreatePull(_ context.Context, _ int64, _, base, branch, title, _ string) (int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, pr := range f.pulls {
+		if pr.Head.Ref == branch {
+			return pr.Number, nil
+		}
+	}
+	yes := true
+	pr := gh.PullInfo{Number: 100 + len(f.opened), State: "open", Mergeable: &yes, MergeableState: "clean"}
+	pr.Head.Ref, pr.Head.SHA, pr.Base.Ref = branch, f.heads[branch], base
+	f.pulls = append(f.pulls, pr)
+	f.opened = append(f.opened, branch+": "+title)
+	return pr.Number, nil
+}
+func (f *fakeGitHub) CommitSubject(context.Context, int64, string, string) (string, error) {
+	return "What the commit says", nil
 }
 func (f *fakeGitHub) DeleteBranch(_ context.Context, _ int64, _, branch string) error {
 	f.mu.Lock()
@@ -934,6 +955,10 @@ func TestFusionAutomatica(t *testing.T) {
 		t.Helper()
 		fake.mu.Lock()
 		fake.files[sha] = fake.files["main"]
+		if fake.heads == nil {
+			fake.heads = map[string]string{}
+		}
+		fake.heads[branch] = sha
 		fake.mu.Unlock()
 		runs, err := p.HandlePush(ctx, PushEvent{Installation: 7, Repo: "p0dxD/fusion", Branch: branch, SHA: sha})
 		if err != nil || len(runs) != 1 {
@@ -960,19 +985,29 @@ func TestFusionAutomatica(t *testing.T) {
 
 	// Off: a branch that passes is only tested.
 	fake.pulls = []gh.PullInfo{pull(4, "apagada", strings.Repeat("1", 40), &yes)}
-	push("apagada", strings.Repeat("1", 40), "")
+	off := push("apagada", strings.Repeat("1", 40), "")
 	if got := merged(); len(got) != 0 {
 		t.Fatalf("merged with the option off: %v", got)
 	}
 
-	if err := p.Store.SetAppAutoMerge(ctx, app.ID, true); err != nil {
+	if _, err := p.ApproveMerge(ctx, off.ID, "ana"); !errors.As(err, new(*NotApprovable)) {
+		t.Fatalf("approving with the option off: %v", err)
+	}
+
+	// Any open pull request is the yes, except a fork's and a dependency
+	// update's.
+	if err := p.Store.SetAppAutoMerge(ctx, app.ID, true, true); err != nil {
 		t.Fatal(err)
 	}
+	fork := pull(8, "bifurcada", strings.Repeat("6", 40), &yes)
+	fork.Head.Repo.FullName = "otra/fusion"
 	fake.mu.Lock()
 	fake.pulls = []gh.PullInfo{
 		pull(5, "lista", strings.Repeat("2", 40), &yes),
 		pull(6, "choca", strings.Repeat("3", 40), &no),
 		pull(7, "otra-vez", strings.Repeat("f", 40), &yes), // its head is not the commit that ran
+		fork,
+		pull(11, "renovate/react-19.x", strings.Repeat("d", 40), &yes), // Renovate left it for a person
 	}
 	fake.mu.Unlock()
 	if r := push("lista", strings.Repeat("2", 40), store.MergeMerged); r.Pull != 5 || !strings.Contains(r.Message, "merged pull request #5") {
@@ -983,6 +1018,8 @@ func TestFusionAutomatica(t *testing.T) {
 	}
 	push("otra-vez", strings.Repeat("4", 40), "")
 	push("sin-solicitud", strings.Repeat("5", 40), "")
+	push("bifurcada", strings.Repeat("6", 40), "")
+	push("renovate/react-19.x", strings.Repeat("d", 40), "")
 	if got := merged(); len(got) != 1 || got[0] != 5 {
 		t.Fatalf("merged %v, want only #5", got)
 	}
@@ -992,5 +1029,66 @@ func TestFusionAutomatica(t *testing.T) {
 	fake.mu.Unlock()
 	if len(deleted) != 1 || deleted[0] != "lista" {
 		t.Fatalf("deleted %v, want only lista", deleted)
+	}
+
+	// Only what a person approved: an open pull request waits for the yes,
+	// and the yes opens the pull request of a branch that has none.
+	if err := p.Store.SetAppAutoMerge(ctx, app.ID, true, false); err != nil {
+		t.Fatal(err)
+	}
+	// approved waits for the run to be merged, as the person asked.
+	approved := func(r *store.Run, who string) *store.Run {
+		t.Helper()
+		if _, err := p.ApproveMerge(ctx, r.ID, who); err != nil {
+			t.Fatalf("approving %s: %v", r.Branch, err)
+		}
+		for deadline := time.Now().Add(15 * time.Second); r.Merge != store.MergeMerged && time.Now().Before(deadline); {
+			time.Sleep(50 * time.Millisecond)
+			r, _ = p.Store.GetRun(ctx, r.ID)
+		}
+		if r.Merge != store.MergeMerged || r.ApprovedBy != who {
+			t.Fatalf("the approved run of %s: merge %q, approved by %q (%s)", r.Branch, r.Merge, r.ApprovedBy, r.Message)
+		}
+		return r
+	}
+	fake.mu.Lock()
+	fake.pulls = []gh.PullInfo{pull(9, "espera", strings.Repeat("7", 40), &yes)}
+	fake.mu.Unlock()
+	waits := push("espera", strings.Repeat("7", 40), "")
+	if app, err = p.Store.GetApp(ctx, "fusion"); err != nil {
+		t.Fatal(err)
+	}
+	p.MergeReady(ctx, app)
+	if got := merged(); len(got) != 1 {
+		t.Fatalf("merged without anyone's yes: %v", got)
+	}
+	if r := approved(waits, "ana"); r.Pull != 9 {
+		t.Fatalf("the approved run: %+v", r)
+	}
+	approved(push("sin-abrir", strings.Repeat("8", 40), ""), "beto")
+	fake.mu.Lock()
+	opened := append([]string(nil), fake.opened...)
+	fake.mu.Unlock()
+	if len(opened) != 1 || opened[0] != "sin-abrir: What the commit says" {
+		t.Fatalf("opened %v, want the pull request of sin-abrir", opened)
+	}
+	if got := merged(); len(got) != 3 || got[1] != 9 || got[2] != 100 {
+		t.Fatalf("merged %v, want #5, #9 and #100", got)
+	}
+	// An older commit of the branch is not what gets merged.
+	old := push("avanza", strings.Repeat("a", 40), "")
+	push("avanza", strings.Repeat("b", 40), "")
+	if _, err := p.ApproveMerge(ctx, old.ID, "ana"); !errors.As(err, new(*NotApprovable)) {
+		t.Fatalf("approving an older commit: %v", err)
+	}
+	// An accepted encargo approves the branch its links name.
+	enc := push("del-encargo", strings.Repeat("c", 40), "")
+	p.ApproveLinks(ctx, []string{"https://example.com/x", "https://github.com/p0dxD/fusion/pull/new/del-encargo"}, "ana")
+	for deadline := time.Now().Add(15 * time.Second); enc.Merge != store.MergeMerged && time.Now().Before(deadline); {
+		time.Sleep(50 * time.Millisecond)
+		enc, _ = p.Store.GetRun(ctx, enc.ID)
+	}
+	if enc.Merge != store.MergeMerged || enc.ApprovedBy != "ana" {
+		t.Fatalf("the encargo's branch: merge %q, approved by %q", enc.Merge, enc.ApprovedBy)
 	}
 }
