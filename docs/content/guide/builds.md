@@ -12,10 +12,15 @@
 
 ## Merging by itself {#merging-by-itself}
 
-An app can merge its own pull requests: **Settings → Merging → rendimiento merges them when the branch passes** (an administrator sets it; it is off until then). With it on:
+An app can merge its own pull requests: **Settings → Merging** (an administrator sets it; a person merges them until then). It has two ways of taking your yes:
 
-- A branch with an open pull request into the default branch is merged once its run passes, with the commit that was tested: if someone pushes in between, the new commit waits for its own run. The merge is a push to the default branch, so the deploy follows as always. rendimiento then deletes the merged branch (never a fork's).
-- **Opening the pull request is the yes.** A branch without one is only tested, and a draft waits until it is marked ready. A pull request opened after the branch passed is merged within a minute.
+- **rendimiento merges what a person approves here** (the one to start with). The yes is given in rendimiento, by a collaborator or an administrator: **Merge this branch** on the run's page, or accepting the [encargo](agents.md) whose links name the branch (`…/pull/new/<branch>`). rendimiento opens the pull request if the branch has none, with the commit's first line as its title and `cambios/<branch>.md` as its text. A run still going can be approved: it is merged when it passes. A pull request someone opened in GitHub is tested and waits for that yes.
+- **rendimiento merges any open pull request.** Opening it is the yes, whoever opens it: anyone who can push a branch to the repository can have it merged. A draft waits until it is marked ready, and a dependency update that Renovate or Dependabot left open still waits for a person's yes (they merge by themselves what their rules allow).
+
+Either way:
+
+- What is merged is the commit that was tested and approved: if someone pushes in between, the new commit waits for its own run, and its own yes. The merge is a push to the default branch, so the deploy follows as always. rendimiento then deletes the merged branch.
+- A pull request from a fork is never merged by rendimiento.
 - In a repository with several apps, the commit must pass in every one that ran it.
 - What GitHub asks of the pull request still holds: when a rule of the branch wants a review or a check, the run says it waits for that, and merges when it is given.
 - **A conflict is never merged.** The run says so, and its page offers **Ask an agent to resolve it**: that makes an [encargo](agents.md), which says how hard it is and about what it would cost with the platform's AI before anyone does it. An agent of yours, working in a clone with git, resolves it well; the platform's own agent edits through GitHub without merging the two sides, so it suits small conflicts only. The new commit runs, and is merged if it passes.

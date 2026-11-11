@@ -164,6 +164,25 @@ func (h *Holder) MergePull(ctx context.Context, installation int64, repo string,
 	return c.MergePull(ctx, repo, number, sha)
 }
 
+// CreatePull opens a pull request from a branch into base, or finds the
+// one already open, and returns its number.
+func (h *Holder) CreatePull(ctx context.Context, installation int64, repo, base, branch, title, body string) (int, error) {
+	c, err := h.client(installation)
+	if err != nil {
+		return 0, err
+	}
+	return c.CreatePull(ctx, repo, base, branch, title, body)
+}
+
+// CommitSubject is the first line of a commit's message.
+func (h *Holder) CommitSubject(ctx context.Context, installation int64, repo, sha string) (string, error) {
+	c, err := h.client(installation)
+	if err != nil {
+		return "", err
+	}
+	return c.CommitSubject(ctx, repo, sha)
+}
+
 // DeleteBranch deletes a branch; one already gone is not an error.
 func (h *Holder) DeleteBranch(ctx context.Context, installation int64, repo, branch string) error {
 	c, err := h.client(installation)

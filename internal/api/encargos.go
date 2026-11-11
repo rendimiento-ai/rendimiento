@@ -122,6 +122,10 @@ func (s *Server) reviewEncargo(w http.ResponseWriter, r *http.Request, login str
 		return
 	}
 	e, err := s.Store.ReviewEncargo(r.Context(), id, login, in.Accept, in.Comment)
+	if err == nil && in.Accept && s.Platform != nil {
+		// Accepting the work is the yes to merging the branch it delivered.
+		s.Platform.ApproveLinks(r.Context(), e.Links, login)
+	}
 	s.encargoAnswer(w, e, err)
 }
 

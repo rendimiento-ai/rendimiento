@@ -308,6 +308,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/apps/{app}/events", s.appEvents)
 	auth(store.MemberGuest, "GET /api/runs/{id}", s.getRun)
 	auth(store.MemberCollaborator, "POST /api/runs/{id}/cancel", s.cancelRun)
+	auth(store.MemberCollaborator, "POST /api/runs/{id}/merge", s.approveMerge)
 	auth(store.MemberGuest, "GET /api/runs/{id}/steps/{step}/log", s.stepLog)
 	auth(store.MemberGuest, "GET /api/runs/{id}/events", s.runEvents)
 	auth(store.MemberGuest, "GET /api/runs/{id}/diagnosis", s.getDiagnosis)
@@ -1543,6 +1544,28 @@ func (s *Server) cancelRun(w http.ResponseWriter, r *http.Request, _ string) {
 		return
 	}
 	w.WriteHeader(http.StatusAccepted)
+}
+
+// approveMerge is a person's yes to merging a run's commit: rendimiento
+// opens the branch's pull request when it has none and merges it once the
+// run has passed.
+func (s *Server) approveMerge(w http.ResponseWriter, r *http.Request, login string) {
+	id, ok := s.runID(w, r)
+	if !ok {
+		return
+	}
+	run, err := s.Platform.ApproveMerge(r.Context(), id, login)
+	var no *platform.NotApprovable
+	switch {
+	case errors.As(err, &no):
+		httpError(w, http.StatusConflict, no.Why)
+	case errors.Is(err, store.ErrNotFound):
+		httpError(w, http.StatusNotFound, "no such run")
+	case err != nil:
+		httpError(w, http.StatusInternalServerError, err.Error())
+	default:
+		writeJSON(w, run)
+	}
 }
 
 // stepLog is one step's log as plain text, from the database or, once

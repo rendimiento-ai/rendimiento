@@ -598,25 +598,28 @@ function AutoEncargoSetting({ app }: { app: App }) {
 
 /**
  * Who merges the app's pull requests: the person, or rendimiento once the
- * branch passes its run.
+ * branch passes its run; and then whose yes it takes: a person's in
+ * rendimiento, or any open pull request.
  */
 function AutoMergeSetting({ app }: { app: App }) {
-  const [on, setOn] = useState(!!app.autoMerge);
+  const [mode, setMode] = useState(!app.autoMerge ? "off" : app.mergeAny ? "any" : "approved");
   const [busy, setBusy] = useState(false);
   const admin = session.role === "admin";
   return (
     <div className="card stack">
       <label className="field" style={{ maxWidth: 420 }}><span>{t("This app's pull requests")}</span>
-        <select id="auto-merge" value={on ? "on" : "off"} disabled={!admin || busy} onChange={(e) => {
-          const v = e.target.value === "on";
+        <select id="auto-merge" value={mode} disabled={!admin || busy} onChange={(e) => {
+          const v = e.target.value;
           setBusy(true);
-          api.setAppAutoMerge(app.name, v).then(() => { setBusy(false); setOn(v); }, (err: Error) => { setBusy(false); alert(err.message); });
+          api.setAppAutoMerge(app.name, v !== "off", v === "any").then(() => { setBusy(false); setMode(v); }, (err: Error) => { setBusy(false); alert(err.message); });
         }}>
           <option value="off">{t("A person merges them")}</option>
-          <option value="on">{t("rendimiento merges them when the branch passes")}</option>
+          <option value="approved">{t("rendimiento merges what a person approves here")}</option>
+          <option value="any">{t("rendimiento merges any open pull request")}</option>
         </select>
       </label>
-      <span className="small muted">{t("Opening the pull request into {branch} is your yes: once the branch's run passes, rendimiento merges it, and the merge deploys as always. A branch without a pull request is only tested. If it conflicts, or GitHub asks for a review first, it is not merged and the run says so.", { branch: app.defaultBranch })}</span>
+      {mode === "approved" && <span className="small muted">{t("Your yes is given in rendimiento: Merge this branch on the run's page, or accepting the encargo that delivered the branch. rendimiento opens the pull request into {branch} if there is none, merges it once the run passes and deletes the branch; the merge deploys as always. A pull request opened in GitHub waits for that yes. If it conflicts, or GitHub asks for a review first, it is not merged and the run says so.", { branch: app.defaultBranch })}</span>}
+      {mode === "any" && <span className="small muted">{t("Opening the pull request into {branch} is the yes, whoever opens it: anyone who can push a branch to the repository can have it merged once its run passes. A fork's pull request is never merged, a dependency update that Renovate left open waits for a person's yes, and a branch without a pull request is only tested. If it conflicts, or GitHub asks for a review first, it is not merged and the run says so.", { branch: app.defaultBranch })}</span>}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, dollars, duration, session, subscribe, timeAgo, type Diagnosis, type Run, type Step } from "../api";
+import { api, dollars, duration, session, subscribe, timeAgo, type App, type Diagnosis, type Run, type Step } from "../api";
 import { ErrorBox, RunBadge } from "../components/ui";
 import { lang, t } from "../i18n";
 import { TextoConFormato } from "../components/texto";
@@ -14,6 +14,7 @@ export function RunPage() {
   const [selected, setSelected] = useState<string>();
   const [logs, setLogs] = useState<Record<string, string>>({});
   const [diagnosis, setDiagnosis] = useState<Diagnosis | null>();
+  const [app, setApp] = useState<App>();
   const logRef = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
 
@@ -31,6 +32,11 @@ export function RunPage() {
       log: (l: { step: string; text: string }) => setLogs((cur) => ({ ...cur, [l.step]: (cur[l.step] ?? "") + l.text })),
     });
   }, [runId]);
+
+  // The app says whether rendimiento merges, and with whose yes.
+  useEffect(() => {
+    api.app(name).then(setApp, () => {});
+  }, [name]);
 
   // Stored log for the selected step (covers finished steps and reconnects).
   useEffect(() => {
@@ -69,6 +75,7 @@ export function RunPage() {
 
       {run.status === "failed" && <WhyFailed run={run} d={diagnosis} setD={setDiagnosis} />}
       {run.merge === "conflict" && <Conflict run={run} app={name} />}
+      {app && <Approve run={run} app={app} onApproved={setRun} />}
 
       {run.steps?.length ? (
         <div className="ejecucion">
@@ -179,6 +186,42 @@ function Registro({ text, empty, innerRef, onScroll }: { text?: string; empty: s
 function formatLog(s?: string) {
   if (!s) return "";
   return s.replace(/^::group::(.*)$/gm, "── $1 ──").replace(/^::endgroup::$\n?/gm, "");
+}
+
+/**
+ * On a branch's run, in an app that merges by itself: the person's yes to
+ * merging this commit, and who gave it. rendimiento opens the pull request
+ * when the branch has none, and merges once the run has passed.
+ */
+function Approve({ run, app, onApproved }: { run: Run; app: App; onApproved: (r: Run) => void }) {
+  const [busy, setBusy] = useState(false);
+  const alive = run.status === "queued" || run.status === "running" || run.status === "succeeded";
+  if (!app.autoMerge || run.deploy || run.branch === app.defaultBranch || !alive || run.merge === "merged" || run.merge === "conflict") return null;
+  if (run.approvedBy) {
+    return (
+      <div className="card">
+        <span className="small" id="merge-approved">
+          {run.status === "succeeded"
+            ? t("{who} approved merging it: rendimiento merges it into {branch} in a moment, or says here what GitHub asks for first.", { who: run.approvedBy, branch: app.defaultBranch })
+            : t("{who} approved merging it: rendimiento merges it into {branch} when this run passes.", { who: run.approvedBy, branch: app.defaultBranch })}
+        </span>
+      </div>
+    );
+  }
+  if (session.role === "guest") return null;
+  return (
+    <div className="card row">
+      <button id="merge-approve" disabled={busy} onClick={() => {
+        setBusy(true);
+        api.approveMerge(run.id).then((r) => { setBusy(false); onApproved({ ...run, ...r, steps: run.steps }); }, (e) => { setBusy(false); alert(e.message); });
+      }}>{t("Merge this branch")}</button>
+      <span className="small muted">
+        {run.status === "succeeded"
+          ? t("Your yes to this commit: rendimiento opens the pull request into {branch} if there is none, merges it and deletes the branch.", { branch: app.defaultBranch })
+          : t("Your yes to this commit: rendimiento opens the pull request into {branch} if there is none, and merges it when this run passes.", { branch: app.defaultBranch })}
+      </span>
+    </div>
+  );
 }
 
 /**

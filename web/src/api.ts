@@ -150,6 +150,8 @@ export interface Run {
   /** The pull request rendimiento tried to merge when this run passed, and what became of it. */
   pull?: number;
   merge?: "merged" | "conflict" | "blocked";
+  /** Who said in rendimiento that this commit is to be merged. */
+  approvedBy?: string;
 }
 
 export interface ServiceStatus {
@@ -176,6 +178,7 @@ export interface App {
   name: string;
   autoEncargo: AutoEncargo | ""; // "" follows the organization
   autoMerge: boolean; // rendimiento merges its pull requests once their branch passes
+  mergeAny: boolean; // any open pull request, not only the runs a person approved in rendimiento
   repo: string;
   installationId: number;
   defaultBranch: string;
@@ -950,7 +953,7 @@ export const api = {
   routeEncargo: (id: number, route: "platform" | "local") => request<Encargo>("POST", `/api/encargos/${id}/route`, { route }),
   doEncargos: (ids: number[]) => request<{ sent: number }>("POST", "/api/encargos/do", { ids }),
   setAppAutoEncargo: (app: string, mode: AutoEncargo | "") => request<void>("PUT", `/api/apps/${app}/auto-encargo`, { mode }),
-  setAppAutoMerge: (app: string, on: boolean) => request<void>("PUT", `/api/apps/${app}/auto-merge`, { on }),
+  setAppAutoMerge: (app: string, on: boolean, any: boolean) => request<void>("PUT", `/api/apps/${app}/auto-merge`, { on, any }),
   reestimateEncargo: (id: number) => request<Encargo>("POST", `/api/encargos/${id}/estimate`),
   comentarios: () => request<Comentario[]>("GET", "/api/comentarios"),
   comentar: (c: { cargoId?: number; encargoId?: number; body: string }) => request<Comentario>("POST", "/api/comentarios", c),
@@ -968,6 +971,7 @@ export const api = {
     request<void>("PUT", `/api/apps/${app}/secrets/${secret}`, data),
   run: (id: number) => request<Run>("GET", `/api/runs/${id}`),
   cancelRun: (id: number) => request<void>("POST", `/api/runs/${id}/cancel`),
+  approveMerge: (id: number) => request<Run>("POST", `/api/runs/${id}/merge`),
   stepLog: (id: number, step: string) => request<string>("GET", `/api/runs/${id}/steps/${encodeURIComponent(step)}/log`),
 };
 

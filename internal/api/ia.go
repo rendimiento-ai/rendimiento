@@ -369,22 +369,24 @@ func (s *Server) putAppAutoEncargo(w http.ResponseWriter, r *http.Request, login
 }
 
 // putAppAutoMerge is whether rendimiento merges the app's open pull
-// requests once their branch passes its run.
+// requests once their branch passes its run: the ones a person approved
+// in rendimiento, or any.
 func (s *Server) putAppAutoMerge(w http.ResponseWriter, r *http.Request, login string) {
 	a := s.app(w, r)
 	if a == nil {
 		return
 	}
 	var in struct {
-		On bool `json:"on"`
+		On  bool `json:"on"`
+		Any bool `json:"any"` // every open pull request, not only what a person approved here
 	}
 	if !readJSON(w, r, &in) {
 		return
 	}
-	if err := s.Store.SetAppAutoMerge(r.Context(), a.ID, in.On); err != nil {
+	if err := s.Store.SetAppAutoMerge(r.Context(), a.ID, in.On, in.Any); err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	s.Log.Info("app auto merge set", "app", a.Name, "on", in.On, "by", login)
+	s.Log.Info("app auto merge set", "app", a.Name, "on", in.On, "any", in.Any, "by", login)
 	w.WriteHeader(http.StatusNoContent)
 }
