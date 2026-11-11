@@ -1,1 +1,0 @@
-- **Visits to rendimiento itself:** with `UMAMI_WEBSITE_ID` (the id Umami gives a website) and `UMAMI_PUBLIC_URL`, every page of rendimiento loads Umami's script, so its own visits are counted like any app's.

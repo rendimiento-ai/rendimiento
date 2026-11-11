@@ -1,2 +1,0 @@
-- **Merging by itself:** an app that merges by itself now merges only what a person approved in rendimiento: **Merge this branch** on a run's page, or accepting the encargo that delivered the branch. rendimiento opens the pull request when the branch has none. Apps that had it on move to this; **any open pull request** (how it was) is a second choice in Settings → Merging.
-- **Merging by itself:** a pull request from a fork is never merged, and a dependency update that Renovate or Dependabot left open waits for a person's yes even where any open pull request is merged.

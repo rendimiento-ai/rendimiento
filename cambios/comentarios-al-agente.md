@@ -1,1 +1,0 @@
-- **Comments on an agent's work:** a person can comment on a cargo's handover or on an encargo without sending it back, to say something is wrong or they would like it otherwise. Agents find the unanswered ones when they start (and an encargo's while they wait on it) and answer them; the answer reaches the person in the bell.

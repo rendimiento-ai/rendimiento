@@ -1,1 +1,0 @@
-- **Quickstart:** the book opens with a page that takes a Linux computer to a deployed example app, step by step, with the measured time of each step; the README links to it.
