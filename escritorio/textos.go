@@ -51,7 +51,7 @@ var textos = map[string]texto{
 	"dormir.ocupado": {"Stopping rendimiento: its apps, its builds and the memory it held. Its data stays.", "Deteniendo rendimiento: sus aplicaciones, sus compilaciones y la memoria que ocupaba. Sus datos se quedan."},
 
 	"github.titulo":  {"Connect GitHub", "Conecte GitHub"},
-	"github.texto":   {"rendimiento builds what you push to GitHub. GitHub will ask you to create rendimiento's app in your account, and then to choose the repositories it may see.\n\nWhen GitHub is done, it brings you back. To come back before that, choose Back to the start in the menu of rendimiento's icon, next to the clock.", "rendimiento compila lo que usted sube a GitHub. GitHub le pedirá crear la aplicación de rendimiento en su cuenta, y después elegir los repositorios que puede ver.\n\nCuando GitHub termine, lo trae de regreso. Para volver antes, elija Volver al inicio en el menú del icono de rendimiento, junto al reloj."},
+	"github.texto":   {"rendimiento builds what you push to GitHub. GitHub will ask you to create rendimiento's app in your account, and then to choose the repositories it may see.\n\nWhen GitHub is done, it brings you back. To come back before that, choose Back or Back to the start in the Navigate menu, at the top of the window.", "rendimiento compila lo que usted sube a GitHub. GitHub le pedirá crear la aplicación de rendimiento en su cuenta, y después elegir los repositorios que puede ver.\n\nCuando GitHub termine, lo trae de regreso. Para volver antes, elija Atrás o Volver al inicio en el menú Navegar, arriba en la ventana."},
 	"github.boton":   {"Connect GitHub", "Conectar GitHub"},
 	"github.ocupado": {"Opening GitHub…", "Abriendo GitHub…"},
 
@@ -72,6 +72,9 @@ var textos = map[string]texto{
 	"reloj.atrasado":   {"This computer's clock is %s behind, and GitHub refuses rendimiento's signature when the clock is off. In Windows: Settings → Time & language → Date & time → Sync now.", "El reloj de esta computadora está atrasado %s, y GitHub rechaza la firma de rendimiento cuando el reloj está mal. En Windows: Configuración → Hora e idioma → Fecha y hora → Sincronizar ahora."},
 	"reloj.min":        {"%d min", "%d min"},
 	"reloj.h":          {"%d h", "%d h"},
+
+	"menu.navegar": {"Navigate", "Navegar"},
+	"menu.atras":   {"Back", "Atrás"},
 
 	"bandeja.abrir":     {"Open", "Abrir"},
 	"bandeja.inicio":    {"Back to the start", "Volver al inicio"},

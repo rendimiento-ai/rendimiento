@@ -17,6 +17,7 @@ import (
 
 	"fyne.io/systray"
 	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	wailswindows "github.com/wailsapp/wails/v2/pkg/options/windows"
@@ -59,6 +60,15 @@ func main() {
 	mensajes.PressOKToInstall = T(idioma, "webview.instalar")
 	mensajes.FailedToInstall = T(idioma, "webview.fallo")
 
+	// The window is lent to other sites (GitHub, and whoever GitHub sends
+	// the person to for signing in), and a web page in a window has no
+	// Back button: the window's menu has it. Windows makes every entry of
+	// the bar a menu, so the two live inside one.
+	navegar := menu.NewMenu()
+	ir := navegar.AddSubmenu(T(idioma, "menu.navegar"))
+	ir.AddText(T(idioma, "menu.atras"), nil, func(*menu.CallbackData) { go a.atras() })
+	ir.AddText(T(idioma, "bandeja.inicio"), nil, func(*menu.CallbackData) { go a.inicio() })
+
 	err := wails.Run(&options.App{
 		Title:             "rendimiento",
 		Width:             1100,
@@ -70,6 +80,7 @@ func main() {
 		AssetServer:       &assetserver.Options{Assets: fs.FS(pagina)},
 		Logger:            registro{},
 		Bind:              []interface{}{a},
+		Menu:              navegar,
 		// Wails starts this in its own goroutine: looking at the
 		// computer takes seconds and must not hold the window.
 		OnStartup: func(wctx context.Context) { a.empezar(ventanaWails{wctx}) },
@@ -138,6 +149,9 @@ func (v ventanaWails) Ir(direccion string) { runtime.WindowExecJS(v.ctx, guionIr
 // Volver loads the app's own page again, from any site (Wails does it by
 // setting location.href in the page that is loaded).
 func (v ventanaWails) Volver() { runtime.WindowReloadApp(v.ctx) }
+
+// Atras is the browser's Back, in whatever page the window has.
+func (v ventanaWails) Atras() { runtime.WindowExecJS(v.ctx, "history.back()") }
 
 func (v ventanaWails) Mostrar() { runtime.WindowShow(v.ctx) }
 

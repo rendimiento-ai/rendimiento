@@ -32,6 +32,7 @@ type ventana interface {
 	Emitir(v Vista)       // gives the assistant's page what to show
 	Ir(direccion string)  // takes the window to that site, unless it is there
 	Volver()              // brings the assistant's page back
+	Atras()               // goes to the page before this one
 	Mostrar()             // shows the window, in front
 	Navegador(dir string) // opens an address in the person's browser
 	Salir()               // ends the app
@@ -194,7 +195,8 @@ func (a *Asistente) abrir() {
 	}
 }
 
-// inicio is the icon's "Back to the start": it shows the window and takes
+// inicio is "Back to the start", in the icon's menu and in the window's:
+// it shows the window and takes
 // it off whatever site it was left on (GitHub's sign-in, another
 // account's). The assistant's page loads again, and sends the window on to
 // rendimiento's own pages when nothing is left to ask.
@@ -208,6 +210,15 @@ func (a *Asistente) inicio() {
 	v.Mostrar()
 	if fuera {
 		v.Volver()
+	}
+}
+
+// atras is the window's "Back": the page before this one, as in a
+// browser. A site the window was lent to (GitHub, and whoever GitHub sends
+// the person to for signing in) has no button for it.
+func (a *Asistente) atras() {
+	if v := a.laVentana(); v != nil {
+		v.Atras()
 	}
 }
 

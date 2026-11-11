@@ -260,6 +260,8 @@ From then on the app is a window of its own showing rendimiento (`http://localho
 - **Sleep**: stops the distribution, and with it your apps, the builds and the memory it held. The data stays. **Wake up** starts it again.
 - **Quit**: closes the app; with nothing keeping it awake, WSL stops the distribution soon after.
 
+The window has a menu of its own, **Navigate**, for the pages that are not rendimiento's (GitHub's, and those GitHub sends you to for signing in): **Back** goes to the page before, as in a browser, and **Back to the start** does the same as in the icon's menu.
+
 Where things live:
 
 - the program, wherever you saved it;
