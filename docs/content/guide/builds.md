@@ -91,3 +91,18 @@ The first build of a service is the slowest: base images and dependencies are do
 ## Reading a failed build
 
 The run page shows each step's log. For builds, BuildKit's output shows each Dockerfile (or Railpack) step, its cache status (`CACHED` or the time it took) and, on failure, the command's output. The GitHub check links to the run.
+
+## Kinds of branch {#kinds-of-branch}
+
+The app's **Runs** tab sorts its last 50 runs by the kind of their branch, with how many of each: **All**, **Main branch** (the runs that deploy), **With a pull request** (an open one), **Fixes**, **Features**, **Releases**, **Dependencies** and **Other branches**. Only the kinds that have runs show. The filter stays in the address (`?tipo=fix`), so a link opens it.
+
+A branch's kind comes first from the labels of its pull request (the open one, or else the latest), and when none of them says, from the start of its name:
+
+| Kind | Pull request labels | Branch names starting with |
+|---|---|---|
+| Fixes | `bug`, `bugfix`, `fix`, `hotfix`, `defect`, `regression`, `arreglo`, `error` | `fix/`, `fix-`, `bug/`, `bugfix/`, `hotfix/`, `arreglo/`, `arreglo-` |
+| Features | `enhancement`, `feature`, `new feature`, `función`, `mejora` | `feat/`, `feat-`, `feature/`, `funcion/`, `funcion-` |
+| Releases | `release`, `version`, `versión` | `release/`, `release-`, `version-`, `changelog-v` |
+| Dependencies | `dependencies`, `deps`, `renovate`, `dependabot` | `renovate/`, `dependabot/` |
+
+Labels are read without case and without a `type:` or `kind/` before them (`Type: Bug` is a fix). A label says more than the name: `fix/login` with the label `enhancement` is a feature. The default branch is always the main one. Each run's branch carries its kind and its pull request's number beside its name. What GitHub says of the pull requests is kept two minutes; when GitHub does not answer, the kinds come from the names only, and the tab says so.

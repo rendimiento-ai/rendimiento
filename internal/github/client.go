@@ -432,6 +432,9 @@ func (c *Client) Branches(ctx context.Context, repo string) ([]Branch, error) {
 type PullInfo struct {
 	Number int    `json:"number"`
 	Title  string `json:"title"`
+	Labels []struct {
+		Name string `json:"name"`
+	} `json:"labels"`
 	State  string `json:"state"`
 	Draft  bool   `json:"draft"`
 	Head   struct {

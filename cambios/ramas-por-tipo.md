@@ -1,0 +1,1 @@
+- **Runs by kind of branch:** the Runs tab of an app has filters with counts: the main branch, with a pull request, fixes, features, releases, dependencies and other branches. A branch's kind comes from its pull request's labels (`bug`, `enhancement`…) or else from the start of its name (`fix/`, `feat/`, `release/`…), and shows beside it with its pull request's number.

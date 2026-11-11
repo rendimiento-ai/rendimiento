@@ -301,6 +301,45 @@ func TestUniverse(t *testing.T) {
 	}
 }
 
+// The Runs tab's kinds of branch: without GitHub they come from the
+// branch names, and the default branch is always the main one.
+func TestBranchKinds(t *testing.T) {
+	e := newEnv(t, false)
+	ctx := context.Background()
+	me := e.session(t, "p0dxD")
+	sp := spec.Spec{Services: []spec.Service{{Name: "web", Port: 8080}}}
+	sp.Default()
+	app := &store.App{Name: "ramas", Repo: "p0dxD/ramas", DefaultBranch: "main", Spec: sp}
+	if err := e.store.CreateApp(ctx, app); err != nil {
+		t.Fatal(err)
+	}
+	for _, b := range []string{"main", "fix/login", "release/2", "pagina-lenta", "fix/login"} {
+		if err := e.store.CreateRun(ctx, &store.Run{AppID: app.ID, SHA: "abc", Branch: b, Event: "push"}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	r, body := e.do(t, "GET", "/api/apps/ramas/branch-kinds", "", me, nil)
+	var got struct {
+		Branches map[string]struct {
+			Kind string
+			Pull int
+		}
+		GitHub bool
+	}
+	if r.StatusCode != 200 || json.Unmarshal([]byte(body), &got) != nil {
+		t.Fatalf("branch kinds: %d %s", r.StatusCode, body)
+	}
+	want := map[string]string{"main": "main", "fix/login": "fix", "release/2": "release", "pagina-lenta": "other"}
+	if got.GitHub || len(got.Branches) != len(want) {
+		t.Fatalf("branch kinds = %s", body)
+	}
+	for b, k := range want {
+		if got.Branches[b].Kind != k {
+			t.Fatalf("%s is %q, want %q (%s)", b, got.Branches[b].Kind, k, body)
+		}
+	}
+}
+
 func TestUIFallback(t *testing.T) {
 	e := newEnv(t, true)
 	if r, body := e.do(t, "GET", "/apps/shop/runs/3", "", nil, nil); !strings.Contains(body, "<html>ui</html>") || r.Header.Get("Cache-Control") != "no-cache" {

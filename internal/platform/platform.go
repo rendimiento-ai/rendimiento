@@ -78,6 +78,9 @@ type Platform struct {
 	Config    Config
 	Log       *slog.Logger
 	caminos   caminosCache
+	// branchPullsCache keeps what GitHub said of each app's pull requests,
+	// for the kinds of branch on the Runs tab.
+	branchPullsCache branchPullsCache
 	// Verify configures release verification and automatic rollback.
 	Verify VerifySettings
 	// VerifyElsewhere, in a process that does not watch releases (the CI

@@ -91,3 +91,18 @@ La primera construcción de un servicio es la más lenta: se descargan las imág
 ## Leer una construcción fallida {#reading-a-failed-build}
 
 La página de la ejecución muestra el registro de cada paso. En las construcciones, la salida de BuildKit muestra cada paso del Dockerfile (o de Railpack), su estado de caché (`CACHED` o el tiempo que tardó) y, si falla, la salida del comando. La comprobación de GitHub lleva a la ejecución.
+
+## Tipos de rama {#kinds-of-branch}
+
+La pestaña **Ejecuciones** de la aplicación ordena sus últimas 50 ejecuciones por el tipo de su rama, con cuántas hay de cada uno: **Todas**, **Rama principal** (las que despliegan), **Con solicitud de incorporación** (una abierta), **Arreglos**, **Funciones**, **Versiones**, **Dependencias** y **Otras ramas**. Solo aparecen los tipos que tienen ejecuciones. El filtro queda en la dirección (`?tipo=fix`), así que un enlace lo abre.
+
+El tipo de una rama sale primero de las etiquetas de su solicitud de incorporación (la abierta o, si no hay, la más reciente), y cuando ninguna lo dice, del principio de su nombre:
+
+| Tipo | Etiquetas de la solicitud | Ramas cuyo nombre empieza con |
+|---|---|---|
+| Arreglos | `bug`, `bugfix`, `fix`, `hotfix`, `defect`, `regression`, `arreglo`, `error` | `fix/`, `fix-`, `bug/`, `bugfix/`, `hotfix/`, `arreglo/`, `arreglo-` |
+| Funciones | `enhancement`, `feature`, `new feature`, `función`, `mejora` | `feat/`, `feat-`, `feature/`, `funcion/`, `funcion-` |
+| Versiones | `release`, `version`, `versión` | `release/`, `release-`, `version-`, `changelog-v` |
+| Dependencias | `dependencies`, `deps`, `renovate`, `dependabot` | `renovate/`, `dependabot/` |
+
+Las etiquetas se leen sin importar mayúsculas y sin un `type:` o `kind/` al principio (`Type: Bug` es un arreglo). Una etiqueta dice más que el nombre: `fix/login` con la etiqueta `enhancement` es una función. La rama principal siempre es la principal. La rama de cada ejecución lleva junto a su nombre su tipo y el número de su solicitud. Lo que GitHub dice de las solicitudes se guarda dos minutos; cuando GitHub no responde, los tipos salen solo de los nombres, y la pestaña lo dice.
