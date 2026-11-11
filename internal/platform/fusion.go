@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	// M comes from the i18n dot import below: the merge messages need it.
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	. "github.com/rendimiento-ai/rendimiento/internal/i18n" //nolint:revive // M marks messages for people
 	"github.com/rendimiento-ai/rendimiento/internal/store"
