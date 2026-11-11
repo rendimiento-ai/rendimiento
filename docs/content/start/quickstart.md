@@ -45,7 +45,7 @@ Edit the greeting in `index.html` and push to `main`. Within a minute rendimient
 
 ## On a cluster on your computer {#on-a-cluster}
 
-To try rendimiento as it runs on Kubernetes, [k3d](https://k3d.io) makes a cluster inside Docker. You need Docker, `k3d`, `helm` and `kubectl`, and a rendimiento newer than `v0.1.9`. Two commands replace step 1: the cluster with its image registry, then rendimiento.
+To try rendimiento as it runs on Kubernetes, [k3d](https://k3d.io) makes a cluster inside Docker. You need Docker, `k3d`, `helm` and `kubectl`, and a rendimiento newer than `v0.1.10`. Two commands replace step 1: the cluster with its image registry, then rendimiento.
 
 ```sh
 k3d cluster create rendimiento -p "8080:80@loadbalancer" --registry-create rendimiento-registro

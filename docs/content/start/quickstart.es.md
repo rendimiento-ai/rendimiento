@@ -45,7 +45,7 @@ Edite el saludo en `index.html` y envíelo a `main`. En menos de un minuto rendi
 
 ## En un clúster en su computadora {#on-a-cluster}
 
-Para probar rendimiento como corre en Kubernetes, [k3d](https://k3d.io) hace un clúster dentro de Docker. Necesita Docker, `k3d`, `helm` y `kubectl`, y un rendimiento más nuevo que `v0.1.9`. Dos comandos reemplazan el paso 1: el clúster con su registro de imágenes, y luego rendimiento.
+Para probar rendimiento como corre en Kubernetes, [k3d](https://k3d.io) hace un clúster dentro de Docker. Necesita Docker, `k3d`, `helm` y `kubectl`, y un rendimiento más nuevo que `v0.1.10`. Dos comandos reemplazan el paso 1: el clúster con su registro de imágenes, y luego rendimiento.
 
 ```sh
 k3d cluster create rendimiento -p "8080:80@loadbalancer" --registry-create rendimiento-registro
