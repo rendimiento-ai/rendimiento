@@ -1,5 +1,7 @@
 # Empiece aquí
 
+Para probarlo antes de leer sobre él, el **[Inicio rápido](quickstart.md)** lleva una computadora con Linux a una aplicación desplegada en menos de diez minutos.
+
 Tres capítulos cortos le dan el panorama completo antes de entrar en detalles:
 
 1. **[Por qué existe rendimiento](vision.md)**: el problema que reemplazó, las decisiones que le dieron forma y la historia de cómo sus aplicaciones se mudaron a él.
