@@ -2,6 +2,8 @@
 
 What changed in each release, for people who run rendimiento. Every change is in the [merged pull requests](https://github.com/rendimiento-ai/rendimiento/pulls?q=is%3Apr+is%3Amerged); a release's notes on GitHub list them all.
 
+What is not released yet is in `cambios/`, one file per change; each release gathers them here.
+
 ## Unreleased
 
 - **The welcome page:** changing between Windows and Linux in "On your own computer" no longer leaves a copy of the previous system's block behind each time.
