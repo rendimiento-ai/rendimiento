@@ -166,7 +166,8 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 		}
 		holder.Set(app)
 	} else {
-		log.Warn("GitHub App not configured yet; open "+baseURL+"/setup", "setupToken", filepath.Join(dir, "ficha-configuracion"))
+		// A new install starts here: it is the next step, not a problem to list.
+		log.Info("GitHub App not configured yet; open "+baseURL+"/setup", "setupToken", filepath.Join(dir, "ficha-configuracion"))
 	}
 
 	stepTimeout, err := time.ParseDuration(env("STEP_TIMEOUT", "45m"))
