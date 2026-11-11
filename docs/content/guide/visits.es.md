@@ -36,6 +36,7 @@ Después, dele a rendimiento la dirección y las credenciales:
 # el ConfigMap rendimiento
 UMAMI_URL: http://umami.umami.svc.cluster.local:3000   # Umami dentro del clúster
 UMAMI_PUBLIC_URL: https://umami.example.com            # opcional: para los enlaces «Abrir en Umami»
+UMAMI_WEBSITE_ID: 00000000-1111-2222-3333-444444444444 # opcional: contar las visitas a rendimiento mismo
 ```
 
 ```bash

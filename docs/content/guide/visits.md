@@ -36,6 +36,7 @@ Then give rendimiento the address and the credentials:
 # the rendimiento ConfigMap
 UMAMI_URL: http://umami.umami.svc.cluster.local:3000   # Umami inside the cluster
 UMAMI_PUBLIC_URL: https://umami.example.com            # optional: for "Open in Umami" links
+UMAMI_WEBSITE_ID: 00000000-1111-2222-3333-444444444444 # optional: count the visits to rendimiento itself
 ```
 
 ```bash
