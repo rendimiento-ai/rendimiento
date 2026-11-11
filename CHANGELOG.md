@@ -7,11 +7,17 @@ What is not released yet is in `cambios/`, one file per change; each release gat
 ## Unreleased
 
 - **The welcome page:** changing between Windows and Linux in "On your own computer" no longer leaves a copy of the previous system's block behind each time.
+- **More than one cache per test:** a test with `cache: true` now keeps two volumes instead of one, so two runs (a branch and `main`, say) test at once without one waiting for the other's cache. **Caches of each test**, in the Environment page's Capacity, changes how many (up to 6); each is a volume of `TEST_CACHE_SIZE`, and the second one starts empty.
+
+## v0.1.9 (2026-11-10)
+
 - **Libraries:** an app with only tasks (a library) no longer shows as Pending: it says Library, and its page says there is nothing to deploy or check.
 - **rendimiento for Windows:** the icon's menu has **Back to the start**, for a window left on a page with no way back (GitHub's sign-in, for example).
 - **The README and the welcome page** now say what agents cannot do (deploy, roll back: they ask and a person decides), that every action is in the bitácora, and how to get rendimiento for Windows.
-- **More than one cache per test:** a test with `cache: true` now keeps two volumes instead of one, so two runs (a branch and `main`, say) test at once without one waiting for the other's cache. **Caches of each test**, in the Environment page's Capacity, changes how many (up to 6); each is a volume of `TEST_CACHE_SIZE`, and the second one starts empty.
 - **The welcome page:** installing has its own place, for Windows (a download button) and for Linux (the command to copy), each with its three steps and a small animation of what happens. It opens on the visitor's system.
+
+## v0.1.8 (2026-11-10)
+
 - **Connecting GitHub:** after you choose the repositories, GitHub brings you back to rendimiento instead of leaving you on its page. It applies to a GitHub App created from now on; one that already exists can get it in its settings on GitHub (Setup URL).
 - **rendimiento for Windows (preview):** each release publishes `rendimiento-windows-amd64.exe`, an app that turns WSL2 on, downloads, checks and imports the distribution, asks who signs in first, and shows rendimiento in a window of its own, with an icon next to the clock to put it to sleep and wake it up. It is not signed yet (SmartScreen asks before running it). See [the book](docs/content/environment/deploy.md#on-windows).
 - **A clock that is off:** when GitHub answers "Bad credentials" and the computer's clock is more than a minute away from GitHub's, the error says by how much and how to fix it.
