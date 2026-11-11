@@ -204,6 +204,8 @@ What the cluster still needs:
 - **An ingress controller** (`ingress.className`, `nginx` by default), and cert-manager with a ClusterIssuer if you want certificates (`ingress.clusterIssuer`).
 - **A default StorageClass**, or `storageClass`.
 
+**Without a domain, on your own computer.** When `baseURL` is a `.localhost` address (`http://rendimiento.localhost:8080`, as with k3d or kind and a port of the computer forwarded to the ingress), rendimiento behaves as it does [installed on one computer](#on-one-computer): each app's first service answers at `http://<app>.localhost` on the same port, over plain HTTP, with no certificate, DNS record or check from outside; and since GitHub cannot reach it with a webhook, it asks GitHub for new commits every `POLL_INTERVAL` (1 minute). A service with a `domain` of its own is published as anywhere else. The [quickstart](../start/quickstart.md#on-a-cluster) has the commands for k3d. With `ingress.clusterIssuer` empty, every app is published over plain HTTP, whatever its domain.
+
 `postgres.bundled=false` with `postgres.existingSecret` (a key `url`) uses your own database, and `buildkit.bundled=false` with `buildkit.address` your own BuildKit. `addons.enabled=false` leaves out the cluster-admin identity add-ons need. Every other setting goes in `config` (see [Configuration](../reference/config.md)), and the optional secrets (DNS, email, AI, log archive) are read by name as in `deploy/`. The chart installs one platform per cluster: its cluster-wide objects keep fixed names.
 
 ## On one computer, without Kubernetes (preview) {#on-one-computer}

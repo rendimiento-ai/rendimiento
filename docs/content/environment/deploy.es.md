@@ -204,6 +204,8 @@ Lo que el clúster todavía necesita:
 - **Un controlador de ingress** (`ingress.className`, `nginx` por omisión), y cert-manager con un ClusterIssuer si quiere certificados (`ingress.clusterIssuer`).
 - **Una StorageClass por omisión**, o `storageClass`.
 
+**Sin dominio, en su propia computadora.** Cuando `baseURL` es una dirección `.localhost` (`http://rendimiento.localhost:8080`, como con k3d o kind y un puerto de la computadora reenviado al ingress), rendimiento se comporta como [instalado en una computadora](#on-one-computer): el primer servicio de cada aplicación responde en `http://<app>.localhost` en el mismo puerto, por HTTP simple, sin certificado, registro de DNS ni revisión desde afuera; y como GitHub no lo alcanza con un aviso web, le pregunta a GitHub por commits nuevos cada `POLL_INTERVAL` (1 minuto). Un servicio con `domain` propio se publica como en cualquier otro lugar. El [inicio rápido](../start/quickstart.md#on-a-cluster) tiene los comandos para k3d. Con `ingress.clusterIssuer` vacío, todas las aplicaciones se publican por HTTP simple, sea cual sea su dominio.
+
 `postgres.bundled=false` con `postgres.existingSecret` (una llave `url`) usa su propia base de datos, y `buildkit.bundled=false` con `buildkit.address`, su propio BuildKit. `addons.enabled=false` deja fuera la identidad de administrador del clúster que necesitan los complementos. Cualquier otro ajuste va en `config` (vea [Configuración](../reference/config.md)), y los secretos opcionales (DNS, correo, IA, archivo de registros) se leen por nombre, como en `deploy/`. El chart instala una plataforma por clúster: sus objetos de todo el clúster tienen nombres fijos.
 
 ## En una computadora, sin Kubernetes (versión previa) {#on-one-computer}

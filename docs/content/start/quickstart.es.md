@@ -2,7 +2,7 @@
 
 De una computadora que nunca ha visto rendimiento a una aplicación suya con dirección, en menos de diez minutos. La mayor parte de ese tiempo es de usted, en las páginas de GitHub; la parte de la máquina tarda menos de un minuto.
 
-Necesita una computadora con **Linux** (amd64 o arm64, con systemd y `curl`) y una **cuenta de GitHub**. No hace falta un motor de contenedores: el instalador usa containerd o Docker cuando la computadora tiene uno, y trae containerd cuando no tiene ninguno. En Windows, use [la aplicación](../environment/deploy.md#on-windows) (versión previa); para un clúster de Kubernetes, vea [Instalar con Helm](../environment/deploy.md#installing-with-helm).
+Necesita una computadora con **Linux** (amd64 o arm64, con systemd y `curl`) y una **cuenta de GitHub**. No hace falta un motor de contenedores: el instalador usa containerd o Docker cuando la computadora tiene uno, y trae containerd cuando no tiene ninguno. En Windows, use [la aplicación](../environment/deploy.md#on-windows) (versión previa); con Kubernetes, los mismos pasos sirven en [un clúster en su computadora](#on-a-cluster), e [Instalar con Helm](../environment/deploy.md#installing-with-helm) cubre un clúster con dominio.
 
 ## 1. Instalar {#install}
 
@@ -43,6 +43,29 @@ Oprima **Nueva aplicación**, elija su copia de `hola` en la lista (**¿Falta un
 
 Edite el saludo en `index.html` y envíelo a `main`. En menos de un minuto rendimiento ve el envío, lo construye y reemplaza la versión que corre sin interrupción. (GitHub no alcanza a `localhost` con un aviso web, así que en una computadora rendimiento le pregunta a GitHub cada minuto.)
 
+## En un clúster en su computadora {#on-a-cluster}
+
+Para probar rendimiento como corre en Kubernetes, [k3d](https://k3d.io) hace un clúster dentro de Docker. Necesita Docker, `k3d`, `helm` y `kubectl`, y un rendimiento más nuevo que `v0.1.9`. Dos comandos reemplazan el paso 1: el clúster con su registro de imágenes, y luego rendimiento.
+
+```sh
+k3d cluster create rendimiento -p "8080:80@loadbalancer" --registry-create rendimiento-registro
+
+helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento \
+  -n rendimiento-system --create-namespace \
+  --set baseURL=http://rendimiento.localhost:8080 \
+  --set firstAdmins=su-usuario-de-github \
+  --set registry.host=rendimiento-registro:5000 \
+  --set ingress.className=traefik
+```
+
+En cosa de un minuto rendimiento responde en **<http://rendimiento.localhost:8080>** (su navegador resuelve todo nombre `.localhost` a su propia computadora). El token de configuración está en el clúster:
+
+```sh
+kubectl -n rendimiento-system get secret rendimiento-setup -o jsonpath='{.data.token}' | base64 -d
+```
+
+Los pasos 2 a 5 son los mismos, en esa dirección, y la aplicación responde en **<http://hola.localhost:8080>**: en una dirección `.localhost` rendimiento publica cada aplicación por HTTP simple, sin certificado ni registro de DNS, y le pregunta a GitHub por commits nuevos cada minuto. `k3d cluster delete rendimiento` lo quita todo.
+
 ## Cuánto tarda {#how-long-it-takes}
 
 Cada versión de rendimiento, y cada cambio al instalador, se instala en una máquina amd64 nueva (de GitHub, con una conexión rápida), despliega `hola` y se desinstala; la ejecución falla cuando la instalación y el despliegue juntos pasan de diez minutos ([la prueba del inicio rápido](../develop/testing.md)). En noviembre de 2026 midió:
@@ -52,6 +75,8 @@ Cada versión de rendimiento, y cada cambio al instalador, se instala en una má
 | El instalador, hasta que rendimiento responde | 25 s | 31 s |
 | De **Desplegar** hasta que la dirección responde | 15 s | 13 s |
 | Los dos | 40 s | 44 s |
+
+El clúster se prueba igual cuando cambia el chart o la forma en que se publica una aplicación: k3d hizo el clúster en 18 s, rendimiento respondió entre 22 y 47 s después de `helm install`, y `hola` respondió 17 s después de **Desplegar**. Ahí la imagen de rendimiento ya estaba en la máquina; la suya se descarga primero.
 
 Los pasos 2 y 3 son una persona en las páginas de GitHub, y la prueba no los cuenta: ahí un sustituto responde por GitHub. Cuente con unos minutos la primera vez.
 
