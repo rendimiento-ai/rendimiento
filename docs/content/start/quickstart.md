@@ -29,7 +29,7 @@ Open <http://localhost:8080>. The setup page does this once:
 1. Paste the **setup token**.
 2. Press **Create GitHub App**. GitHub opens with the name and the permissions already filled in; confirm.
 3. GitHub asks which repositories the app can see: choose your copy of `hola` (or all of them; you can change it later).
-4. Back in rendimiento, **Sign in with GitHub**.
+4. GitHub brings you back to rendimiento, which signs you in with your GitHub account (GitHub may ask you to authorize it).
 
 The GitHub App is yours, in your account: rendimiento's code never passes through anyone else's servers.
 
