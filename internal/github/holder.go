@@ -164,6 +164,15 @@ func (h *Holder) MergePull(ctx context.Context, installation int64, repo string,
 	return c.MergePull(ctx, repo, number, sha)
 }
 
+// DeleteBranch deletes a branch; one already gone is not an error.
+func (h *Holder) DeleteBranch(ctx context.Context, installation int64, repo, branch string) error {
+	c, err := h.client(installation)
+	if err != nil {
+		return err
+	}
+	return c.DeleteBranch(ctx, repo, branch)
+}
+
 // MergeBase is the best common ancestor of two commits or branches.
 func (h *Holder) MergeBase(ctx context.Context, installation int64, repo, base, head string) (string, time.Time, error) {
 	c, err := h.client(installation)

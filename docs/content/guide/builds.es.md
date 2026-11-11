@@ -14,7 +14,7 @@
 
 Una app puede integrar sus propias solicitudes de incorporación: **Configuración → Integración → rendimiento las integra cuando la rama pasa** (lo elige un administrador; viene apagado). Con eso encendido:
 
-- Una rama con una solicitud de incorporación abierta hacia la rama principal se integra cuando su ejecución pasa, con la confirmación que se probó: si alguien envía otra entretanto, la nueva espera su propia ejecución. Integrar es un envío a la rama principal, así que el despliegue sigue como siempre.
+- Una rama con una solicitud de incorporación abierta hacia la rama principal se integra cuando su ejecución pasa, con la confirmación que se probó: si alguien envía otra entretanto, la nueva espera su propia ejecución. Integrar es un envío a la rama principal, así que el despliegue sigue como siempre. Después rendimiento borra la rama integrada (nunca la de una bifurcación).
 - **Abrir la solicitud es el sí.** Una rama sin solicitud solo se prueba, y un borrador espera hasta que se marque como listo. Una solicitud que se abre después de que la rama pasó se integra en menos de un minuto.
 - En un repositorio con varias apps, la confirmación tiene que pasar en todas las que la corrieron.
 - Lo que GitHub pide de la solicitud se respeta: cuando una regla de la rama quiere una revisión o una comprobación, la ejecución dice que espera eso, y se integra cuando lo tiene.

@@ -14,7 +14,7 @@
 
 An app can merge its own pull requests: **Settings → Merging → rendimiento merges them when the branch passes** (an administrator sets it; it is off until then). With it on:
 
-- A branch with an open pull request into the default branch is merged once its run passes, with the commit that was tested: if someone pushes in between, the new commit waits for its own run. The merge is a push to the default branch, so the deploy follows as always.
+- A branch with an open pull request into the default branch is merged once its run passes, with the commit that was tested: if someone pushes in between, the new commit waits for its own run. The merge is a push to the default branch, so the deploy follows as always. rendimiento then deletes the merged branch (never a fork's).
 - **Opening the pull request is the yes.** A branch without one is only tested, and a draft waits until it is marked ready. A pull request opened after the branch passed is merged within a minute.
 - In a repository with several apps, the commit must pass in every one that ran it.
 - What GitHub asks of the pull request still holds: when a rule of the branch wants a review or a check, the run says it waits for that, and merges when it is given.

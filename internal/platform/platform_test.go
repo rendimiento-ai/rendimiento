@@ -56,6 +56,7 @@ type fakeGitHub struct {
 	changed map[string][]string // "base...head" → changed files
 	pulls   []gh.PullInfo       // the open pull requests, with whether each can be merged
 	merged  []int
+	deleted []string // the branches deleted after their merge
 }
 
 func (f *fakeGitHub) tree(ref string) fstest.MapFS {
@@ -122,6 +123,12 @@ func (f *fakeGitHub) MergePull(_ context.Context, _ int64, _ string, number int,
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.merged = append(f.merged, number)
+	return nil
+}
+func (f *fakeGitHub) DeleteBranch(_ context.Context, _ int64, _, branch string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.deleted = append(f.deleted, branch)
 	return nil
 }
 func (f *fakeGitHub) MergeBase(context.Context, int64, string, string, string) (string, time.Time, error) {
@@ -898,7 +905,7 @@ func TestCaminos(t *testing.T) {
 }
 
 // An app that merges by itself: the open pull request of a branch that
-// passed is merged; one in conflict is not, and its run says so; with the
+// passed is merged and its branch deleted; one in conflict is not, and its run says so; with the
 // option off, nothing is merged.
 func TestFusionAutomatica(t *testing.T) {
 	p, fake, _, _ := setup(t)
@@ -978,5 +985,12 @@ func TestFusionAutomatica(t *testing.T) {
 	push("sin-solicitud", strings.Repeat("5", 40), "")
 	if got := merged(); len(got) != 1 || got[0] != 5 {
 		t.Fatalf("merged %v, want only #5", got)
+	}
+	// Only the merged branch is deleted.
+	fake.mu.Lock()
+	deleted := append([]string(nil), fake.deleted...)
+	fake.mu.Unlock()
+	if len(deleted) != 1 || deleted[0] != "lista" {
+		t.Fatalf("deleted %v, want only lista", deleted)
 	}
 }

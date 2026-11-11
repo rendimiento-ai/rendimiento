@@ -18,6 +18,7 @@ import (
 // the default branch is merged by rendimiento once the branch's run passes.
 // Opening the pull request is the person's yes; a branch without one is only
 // tested. What is merged is the commit that was tested, never a newer one.
+// The merged branch is deleted, as GitHub's own button offers.
 
 // mergeEvery is how often open pull requests are looked at again: one
 // opened after its branch passed is merged within this time.
@@ -122,6 +123,11 @@ func (p *Platform) mergePull(ctx context.Context, app *store.App, run *store.Run
 				return // the branch moved while merging
 			}
 			state, msg = store.MergeBlocked, M("pull request #%d not merged: %s", number, githubSays(err))
+		} else if fork := pr.Head.Repo.FullName; fork == "" || strings.EqualFold(fork, app.Repo) {
+			// The branch did its work. A fork's is not ours to delete.
+			if err := p.GitHub.DeleteBranch(ctx, app.InstallationID, app.Repo, pr.Head.Ref); err != nil {
+				p.Log.Warn("merge: delete the branch", "app", app.Name, "branch", pr.Head.Ref, "err", err)
+			}
 		}
 	}
 	if state == run.Merge && state == store.MergeBlocked {

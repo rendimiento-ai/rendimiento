@@ -438,8 +438,11 @@ type PullInfo struct {
 	State  string `json:"state"`
 	Draft  bool   `json:"draft"`
 	Head   struct {
-		Ref string `json:"ref"`
-		SHA string `json:"sha"`
+		Ref  string `json:"ref"`
+		SHA  string `json:"sha"`
+		Repo struct {
+			FullName string `json:"full_name"`
+		} `json:"repo"` // a fork's, when the branch is not this repository's
 	} `json:"head"`
 	Base struct {
 		Ref string `json:"ref"`
@@ -483,6 +486,17 @@ func (c *Client) Pull(ctx context.Context, repo string, number int) (*PullInfo, 
 // is still sha: what was tested is what is merged.
 func (c *Client) MergePull(ctx context.Context, repo string, number int, sha string) error {
 	return c.do(ctx, http.MethodPut, fmt.Sprintf("/repos/%s/pulls/%d/merge", repo, number), map[string]string{"sha": sha}, nil)
+}
+
+// DeleteBranch deletes a branch. One that is already gone (GitHub deletes
+// merged branches itself where the repository says so) is not an error.
+func (c *Client) DeleteBranch(ctx context.Context, repo, branch string) error {
+	err := c.do(ctx, http.MethodDelete, "/repos/"+repo+"/git/refs/heads/"+branch, nil, nil)
+	var ae *APIError
+	if errorsAs(err, &ae) && (ae.Status == http.StatusUnprocessableEntity || ae.Status == http.StatusNotFound) {
+		return nil
+	}
+	return err
 }
 
 // RecentPullRequests lists a repo's 100 most recently updated pull requests,
