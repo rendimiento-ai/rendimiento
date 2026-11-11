@@ -74,7 +74,9 @@ helm install rendimiento ./chart/rendimiento -n "$ns" --create-namespace \
 	--set ingress.className=traefik \
 	--set image.repository="${IMAGEN%:*}" --set image.tag="${IMAGEN##*:}" \
 	--set config.GITHUB_API_URL=http://host.k3d.internal:8099 \
-	--set config.GITHUB_URL=http://host.k3d.internal:8099 || falla "helm could not install the chart"
+	--set config.GITHUB_URL=http://host.k3d.internal:8099 >"$tmp/helm.log" 2>&1 || falla "helm could not install the chart:
+$(tail -n 12 "$tmp/helm.log" | cut -c1-400)"
+cat "$tmp/helm.log"
 i=0
 until c -fsS -m 3 "$api/healthz" >/dev/null 2>&1 && c -fsS -m 3 "$api/" 2>/dev/null | grep -qi '<html'; do
 	i=$((i + 1))
