@@ -98,15 +98,18 @@ type App struct {
 	// AutoEncargo is the app's own choice of when an encargo opens by
 	// itself for a failed run ("" follows the organization's).
 	AutoEncargo string `json:"autoEncargo"`
+	// AutoMerge has rendimiento merge a branch's open pull request once
+	// the branch's run passes.
+	AutoMerge bool `json:"autoMerge"`
 }
 
-const appCols = `id, name, repo, installation_id, default_branch, spec, created_at, org_id, auto_encargo`
+const appCols = `id, name, repo, installation_id, default_branch, spec, created_at, org_id, auto_encargo, auto_merge`
 
 // scanApp reads an app row (with its spec, stored as JSON).
 func scanApp(row pgx.Row) (*App, error) {
 	var a App
 	var raw []byte
-	if err := row.Scan(&a.ID, &a.Name, &a.Repo, &a.InstallationID, &a.DefaultBranch, &raw, &a.CreatedAt, &a.OrgID, &a.AutoEncargo); err != nil {
+	if err := row.Scan(&a.ID, &a.Name, &a.Repo, &a.InstallationID, &a.DefaultBranch, &raw, &a.CreatedAt, &a.OrgID, &a.AutoEncargo, &a.AutoMerge); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -212,7 +215,18 @@ type Run struct {
 	StartedAt  *time.Time `json:"startedAt,omitempty"`
 	FinishedAt *time.Time `json:"finishedAt,omitempty"`
 	Steps      []Step     `json:"steps,omitempty"`
+	// Pull is the pull request rendimiento tried to merge when this run
+	// passed (0 when none), and Merge what became of it.
+	Pull  int    `json:"pull,omitempty"`
+	Merge string `json:"merge,omitempty"`
 }
+
+// What became of the pull request of a run that passed.
+const (
+	MergeMerged   = "merged"
+	MergeConflict = "conflict" // it conflicts with the default branch
+	MergeBlocked  = "blocked"  // GitHub refuses it: a review, a required check
+)
 
 // Step is one test or build step of a run, with its result.
 type Step struct {
@@ -235,12 +249,12 @@ const (
 	RunCancelled = "cancelled"
 )
 
-const runCols = `id, app_id, sha, branch, event, deploy, status, message, check_run, created_at, started_at, finished_at`
+const runCols = `id, app_id, sha, branch, event, deploy, status, message, check_run, created_at, started_at, finished_at, pull_number, merge_state`
 
 // scanRun reads a run row, without its steps.
 func scanRun(row pgx.Row) (*Run, error) {
 	var r Run
-	err := row.Scan(&r.ID, &r.AppID, &r.SHA, &r.Branch, &r.Event, &r.Deploy, &r.Status, &r.Message, &r.CheckRun, &r.CreatedAt, &r.StartedAt, &r.FinishedAt)
+	err := row.Scan(&r.ID, &r.AppID, &r.SHA, &r.Branch, &r.Event, &r.Deploy, &r.Status, &r.Message, &r.CheckRun, &r.CreatedAt, &r.StartedAt, &r.FinishedAt, &r.Pull, &r.Merge)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -389,6 +403,18 @@ func (s *Store) CancelQueued(ctx context.Context, appID int64, branch string) er
 			WHERE app_id = $1 AND branch = $2 AND status = 'queued'`, appID, branch)
 		return err
 	})
+}
+
+// RunAt is the app's latest run of a commit on a branch (without its steps).
+func (s *Store) RunAt(ctx context.Context, appID int64, branch, sha string) (*Run, error) {
+	return scanRun(s.pool.QueryRow(ctx, `SELECT `+runCols+` FROM runs WHERE app_id = $1 AND branch = $2 AND sha = $3 ORDER BY id DESC LIMIT 1`, appID, branch, sha))
+}
+
+// SetRunMerge records what became of the pull request of a run that
+// passed, in its message too. A run whose pull request was merged stays so.
+func (s *Store) SetRunMerge(ctx context.Context, runID int64, pull int, state, message string) error {
+	_, err := s.pool.Exec(ctx, `UPDATE runs SET pull_number = $2, merge_state = $3, message = $4 WHERE id = $1 AND merge_state <> 'merged'`, runID, pull, state, message)
+	return err
 }
 
 // GetRun returns a run with its steps.
@@ -699,6 +725,13 @@ func (s *Store) ResetForTests(ctx context.Context) error {
 
 // Ping checks the database connection.
 func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
+
+// SetAppAutoMerge is whether rendimiento merges the app's pull requests
+// once their branch passes.
+func (s *Store) SetAppAutoMerge(ctx context.Context, appID int64, on bool) error {
+	_, err := s.pool.Exec(ctx, `UPDATE apps SET auto_merge = $2 WHERE id = $1`, appID, on)
+	return err
+}
 
 // SetAppAutoEncargo is an app's own choice of when an encargo opens by
 // itself for a failed run ("" to follow the organization).

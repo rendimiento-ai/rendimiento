@@ -10,6 +10,16 @@
 | **▾ Test a branch**, beside it: one that ran lately, or any by name | every service | no | yes |
 | pull request from a fork | nothing | — | — |
 
+## Merging by itself {#merging-by-itself}
+
+An app can merge its own pull requests: **Settings → Merging → rendimiento merges them when the branch passes** (an administrator sets it; it is off until then). With it on:
+
+- A branch with an open pull request into the default branch is merged once its run passes, with the commit that was tested: if someone pushes in between, the new commit waits for its own run. The merge is a push to the default branch, so the deploy follows as always.
+- **Opening the pull request is the yes.** A branch without one is only tested, and a draft waits until it is marked ready. A pull request opened after the branch passed is merged within a minute.
+- In a repository with several apps, the commit must pass in every one that ran it.
+- What GitHub asks of the pull request still holds: when a rule of the branch wants a review or a check, the run says it waits for that, and merges when it is given.
+- **A conflict is never merged.** The run says so, and its page offers **Ask an agent to resolve it**: that makes an [encargo](agents.md), which says how hard it is and about what it would cost with the platform's AI before anyone does it. An agent of yours, working in a clone with git, resolves it well; the platform's own agent edits through GitHub without merging the two sides, so it suits small conflicts only. The new commit runs, and is merged if it passes.
+
 ## Dockerfile or Railpack
 
 | The service's folder has… | rendimiento uses… |

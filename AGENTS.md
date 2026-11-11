@@ -19,7 +19,7 @@ The person you work with merges and deploys; you prepare.
 
 - **One branch per change**, from a fresh `origin/main`, with a short name (in Spanish, like the rest: `app-sin-codigo`, `envtest-paciencia`). Never commit or push to `main`.
 - **Push it and let rendimiento test it.** rendimiento builds itself: every push runs the `rendimiento-ai` app's steps (`platform:build`, `platform:test`, `docs`, the SDK tasks). Say a branch is ready only when its run has passed; if it failed, read the step's log and say why.
-- **Hand over the link** `https://github.com/<owner>/<repo>/pull/new/<branch>`. The person opens the pull request and merges it.
+- **Hand over the link** `https://github.com/<owner>/<repo>/pull/new/<branch>`. The person opens the pull request and merges it. Where the app merges by itself (its Settings say so), opening it is the merge: rendimiento merges the branch whose run passed, and says on the run when a conflict stopped it.
 - **A merge makes a release**; the person updates the platform from **Entorno → Actualizar**, or with `make deploy` when `deploy/` changed (the page says so).
 - **Changes that depend on each other** (in this repo or across apps): say the order to merge them, and why. The same rules apply in the apps' repositories.
 - **What changed, for whoever runs rendimiento**, goes in a file of the change's own: `cambios/<branch>.md`, with one or more lines like `- **Capacity:** what is different now.` Never add lines to `CHANGELOG.md`: every branch would write the same line and each merge would make the others conflict. A release gathers the files there (`hack/registro-cambios.sh`).

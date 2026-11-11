@@ -50,6 +50,9 @@ type GitHub interface {
 	ChangedFiles(ctx context.Context, installation int64, repo, base, head string) ([]string, bool, error)
 	BranchSHA(ctx context.Context, installation int64, repo, branch string) (string, error)
 	RecentPullRequests(ctx context.Context, installation int64, repo string) ([]gh.PullInfo, error)
+	OpenPulls(ctx context.Context, installation int64, repo string) ([]gh.PullInfo, error)
+	Pull(ctx context.Context, installation int64, repo string, number int) (*gh.PullInfo, error)
+	MergePull(ctx context.Context, installation int64, repo string, number int, sha string) error
 	MergeBase(ctx context.Context, installation int64, repo, base, head string) (string, time.Time, error)
 	FirstParent(ctx context.Context, installation int64, repo, sha string) (string, error)
 }
@@ -557,6 +560,7 @@ func (p *Platform) Work(ctx context.Context) {
 			}
 		}
 	}()
+	go p.mergeLoop(ctx)
 	n := max(p.Workers, 1)
 	if p.Capacity != nil {
 		n = MaxWorkers // the Environment page may raise it; limits() holds the rest back
@@ -866,6 +870,9 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 	}
 	p.finishCheck(ctx, app, run, checkID, status, msg)
 	p.publishRun(app, run.ID)
+	if status == store.RunSucceeded && !run.Deploy && app.AutoMerge {
+		p.MergeReady(ctx, app) // after the check: GitHub may ask for it before merging
+	}
 	log.Info("run finished", "app", app.Name, "status", status, "message", msg)
 }
 

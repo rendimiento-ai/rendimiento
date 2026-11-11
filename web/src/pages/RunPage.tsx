@@ -68,6 +68,7 @@ export function RunPage() {
       </p>
 
       {run.status === "failed" && <WhyFailed run={run} d={diagnosis} setD={setDiagnosis} />}
+      {run.merge === "conflict" && <Conflict run={run} app={name} />}
 
       {run.steps?.length ? (
         <div className="ejecucion">
@@ -178,6 +179,37 @@ function Registro({ text, empty, innerRef, onScroll }: { text?: string; empty: s
 function formatLog(s?: string) {
   if (!s) return "";
   return s.replace(/^::group::(.*)$/gm, "── $1 ──").replace(/^::endgroup::$\n?/gm, "");
+}
+
+/**
+ * On a run that passed but whose pull request conflicts: why rendimiento
+ * did not merge it, and handing the conflict to agents as an encargo, which
+ * is estimated (how hard, what the platform's AI would spend) before
+ * anyone does it.
+ */
+function Conflict({ run, app }: { run: Run; app: string }) {
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const body = [
+    t("Pull request #{pull} of {app} ({branch}, {sha}) passed run #{n}, but it conflicts with the default branch, so rendimiento did not merge it.", { pull: run.pull ?? 0, app, branch: run.branch, sha: run.sha.slice(0, 7), n: run.id }),
+    t("Resolve it keeping what both sides meant. With git: merge the default branch into {branch} and push; the new commit is tested, and merged if it passes. Without git: redo what {branch} changes on a new branch from the default one. Say in the handover what you chose in each conflict.", { branch: run.branch }),
+  ].join("\n");
+  return (
+    <div className="card why-failed">
+      <h2 style={{ margin: 0 }}>{t("It passed, but it was not merged")}</h2>
+      <p className="small" style={{ margin: 0 }}>{t("Pull request #{pull} conflicts with the default branch: both changed the same lines. Resolve it on {branch} and push; the new commit is tested and merged by itself.", { pull: run.pull ?? 0, branch: run.branch })}</p>
+      {session.role !== "guest" && (
+        <div className="row">
+          <button disabled={busy} title={t("Creates an encargo for an agent to take")} onClick={() => {
+            setBusy(true);
+            api.createEncargo({ title: t("Resolve the conflict of {branch} in {app}", { branch: run.branch, app }), body, app, runId: run.id })
+              .then(() => navigate("/ruta?tab=encargos"), (e) => { setBusy(false); alert(e.message); });
+          }}>{t("Ask an agent to resolve it")}</button>
+          <span className="small muted">{t("The encargo is estimated first: how hard it is and what the platform's AI would spend. You see it before anyone starts.")}</span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /**

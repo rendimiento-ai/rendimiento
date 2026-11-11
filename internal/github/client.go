@@ -433,14 +433,53 @@ type PullInfo struct {
 	Number int    `json:"number"`
 	Title  string `json:"title"`
 	State  string `json:"state"`
+	Draft  bool   `json:"draft"`
 	Head   struct {
 		Ref string `json:"ref"`
+		SHA string `json:"sha"`
 	} `json:"head"`
 	Base struct {
 		Ref string `json:"ref"`
 	} `json:"base"`
 	MergedAt       *time.Time `json:"merged_at"`
 	MergeCommitSHA string     `json:"merge_commit_sha"`
+	// Mergeable is nil while GitHub still works it out; only Pull has it,
+	// with MergeableState ("clean", "dirty" for a conflict, "blocked"...).
+	Mergeable      *bool  `json:"mergeable"`
+	MergeableState string `json:"mergeable_state"`
+}
+
+// OpenPulls lists a repo's open pull requests (up to 100), the most
+// recently updated first.
+func (c *Client) OpenPulls(ctx context.Context, repo string) ([]PullInfo, error) {
+	var out []PullInfo
+	err := c.do(ctx, http.MethodGet, "/repos/"+repo+"/pulls?state=open&sort=updated&direction=desc&per_page=100", nil, &out)
+	return out, err
+}
+
+// Pull is one pull request, with whether it can be merged. GitHub works
+// that out after each push: it is asked again, a few seconds, while it does.
+func (c *Client) Pull(ctx context.Context, repo string, number int) (*PullInfo, error) {
+	for try := 0; ; try++ {
+		var out PullInfo
+		if err := c.do(ctx, http.MethodGet, fmt.Sprintf("/repos/%s/pulls/%d", repo, number), nil, &out); err != nil {
+			return nil, err
+		}
+		if out.Mergeable != nil || out.State != "open" || try == 4 {
+			return &out, nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
+	}
+}
+
+// MergePull merges a pull request with a merge commit, only while its head
+// is still sha: what was tested is what is merged.
+func (c *Client) MergePull(ctx context.Context, repo string, number int, sha string) error {
+	return c.do(ctx, http.MethodPut, fmt.Sprintf("/repos/%s/pulls/%d/merge", repo, number), map[string]string{"sha": sha}, nil)
 }
 
 // RecentPullRequests lists a repo's 100 most recently updated pull requests,

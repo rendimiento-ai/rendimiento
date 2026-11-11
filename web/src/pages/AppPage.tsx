@@ -541,12 +541,39 @@ function AutoEncargoSetting({ app }: { app: App }) {
   );
 }
 
-/** The Settings tab: when encargos open for failures, the app's secrets (values set here, never in git) and the danger zone. */
+/**
+ * Who merges the app's pull requests: the person, or rendimiento once the
+ * branch passes its run.
+ */
+function AutoMergeSetting({ app }: { app: App }) {
+  const [on, setOn] = useState(!!app.autoMerge);
+  const [busy, setBusy] = useState(false);
+  const admin = session.role === "admin";
+  return (
+    <div className="card stack">
+      <label className="field" style={{ maxWidth: 420 }}><span>{t("This app's pull requests")}</span>
+        <select id="auto-merge" value={on ? "on" : "off"} disabled={!admin || busy} onChange={(e) => {
+          const v = e.target.value === "on";
+          setBusy(true);
+          api.setAppAutoMerge(app.name, v).then(() => { setBusy(false); setOn(v); }, (err: Error) => { setBusy(false); alert(err.message); });
+        }}>
+          <option value="off">{t("A person merges them")}</option>
+          <option value="on">{t("rendimiento merges them when the branch passes")}</option>
+        </select>
+      </label>
+      <span className="small muted">{t("Opening the pull request into {branch} is your yes: once the branch's run passes, rendimiento merges it, and the merge deploys as always. A branch without a pull request is only tested. If it conflicts, or GitHub asks for a review first, it is not merged and the run says so.", { branch: app.defaultBranch })}</span>
+    </div>
+  );
+}
+
+/** The Settings tab: who merges, when encargos open for failures, the app's secrets (values set here, never in git) and the danger zone. */
 function Settings({ name, app, secrets }: { name: string; app: App; secrets: string[] }) {
   const nav = useNavigate();
   return (
     <div className="stack">
-      <h2 style={{ marginTop: 0 }}>{t("Encargos")}</h2>
+      <h2 style={{ marginTop: 0 }}>{t("Merging")}</h2>
+      <AutoMergeSetting app={app} />
+      <h2>{t("Encargos")}</h2>
       <AutoEncargoSetting app={app} />
       <h2>{t("Secrets")}</h2>
       {secrets.length === 0 && <p className="muted">{t("This app declares no secrets. Add names under")} <code>secrets:</code> {t("in rendimiento.yaml.")}</p>}

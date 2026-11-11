@@ -266,6 +266,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/apps/{app}/addons", s.appAddons)
 	auth(store.MemberCollaborator, "PUT /api/apps/{app}/addons/{addon}", s.putAppAddon)
 	auth(store.MemberAdmin, "PUT /api/apps/{app}/auto-encargo", s.putAppAutoEncargo)
+	auth(store.MemberAdmin, "PUT /api/apps/{app}/auto-merge", s.putAppAutoMerge)
 	plat(store.MemberAdmin, "POST /api/dns/sync", s.dnsSync)
 	plat(store.MemberAdmin, "POST /api/notifications/test", s.testNotification)
 	plat(store.MemberAdmin, "POST /api/propose", s.propose)
