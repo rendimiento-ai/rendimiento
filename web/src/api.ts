@@ -147,6 +147,9 @@ export interface Run {
   startedAt?: string;
   finishedAt?: string;
   steps?: Step[];
+  /** The pull request rendimiento tried to merge when this run passed, and what became of it. */
+  pull?: number;
+  merge?: "merged" | "conflict" | "blocked";
 }
 
 export interface ServiceStatus {
@@ -172,6 +175,7 @@ export interface App {
   id: number;
   name: string;
   autoEncargo: AutoEncargo | ""; // "" follows the organization
+  autoMerge: boolean; // rendimiento merges its pull requests once their branch passes
   repo: string;
   installationId: number;
   defaultBranch: string;
@@ -909,6 +913,7 @@ export const api = {
   routeEncargo: (id: number, route: "platform" | "local") => request<Encargo>("POST", `/api/encargos/${id}/route`, { route }),
   doEncargos: (ids: number[]) => request<{ sent: number }>("POST", "/api/encargos/do", { ids }),
   setAppAutoEncargo: (app: string, mode: AutoEncargo | "") => request<void>("PUT", `/api/apps/${app}/auto-encargo`, { mode }),
+  setAppAutoMerge: (app: string, on: boolean) => request<void>("PUT", `/api/apps/${app}/auto-merge`, { on }),
   reestimateEncargo: (id: number) => request<Encargo>("POST", `/api/encargos/${id}/estimate`),
   createAgentKey: (k: { name: string; role: AgentRole; apps: string[]; days: number }) => request<CreatedAgentKey>("POST", "/api/agent-keys", k),
   revokeAgentKey: (id: number) => request<void>("DELETE", `/api/agent-keys/${id}`),

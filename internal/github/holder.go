@@ -137,6 +137,33 @@ func (h *Holder) RecentPullRequests(ctx context.Context, installation int64, rep
 	return c.RecentPullRequests(ctx, repo)
 }
 
+// OpenPulls lists a repo's open pull requests.
+func (h *Holder) OpenPulls(ctx context.Context, installation int64, repo string) ([]PullInfo, error) {
+	c, err := h.client(installation)
+	if err != nil {
+		return nil, err
+	}
+	return c.OpenPulls(ctx, repo)
+}
+
+// Pull is one pull request, with whether it can be merged.
+func (h *Holder) Pull(ctx context.Context, installation int64, repo string, number int) (*PullInfo, error) {
+	c, err := h.client(installation)
+	if err != nil {
+		return nil, err
+	}
+	return c.Pull(ctx, repo, number)
+}
+
+// MergePull merges a pull request while its head is still sha.
+func (h *Holder) MergePull(ctx context.Context, installation int64, repo string, number int, sha string) error {
+	c, err := h.client(installation)
+	if err != nil {
+		return err
+	}
+	return c.MergePull(ctx, repo, number, sha)
+}
+
 // MergeBase is the best common ancestor of two commits or branches.
 func (h *Holder) MergeBase(ctx context.Context, installation int64, repo, base, head string) (string, time.Time, error) {
 	c, err := h.client(installation)

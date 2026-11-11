@@ -54,6 +54,8 @@ type fakeGitHub struct {
 	prs     []map[string]string
 	checks  map[int64]gh.CheckRun
 	changed map[string][]string // "base...head" → changed files
+	pulls   []gh.PullInfo       // the open pull requests, with whether each can be merged
+	merged  []int
 }
 
 func (f *fakeGitHub) tree(ref string) fstest.MapFS {
@@ -100,6 +102,27 @@ func (f *fakeGitHub) UpdateCheck(_ context.Context, _ int64, _ string, id int64,
 func (f *fakeGitHub) CloneToken(context.Context, int64) (string, error) { return "ghs_x", nil }
 func (f *fakeGitHub) RecentPullRequests(context.Context, int64, string) ([]gh.PullInfo, error) {
 	return nil, nil
+}
+func (f *fakeGitHub) OpenPulls(context.Context, int64, string) ([]gh.PullInfo, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]gh.PullInfo(nil), f.pulls...), nil
+}
+func (f *fakeGitHub) Pull(_ context.Context, _ int64, _ string, number int) (*gh.PullInfo, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, pr := range f.pulls {
+		if pr.Number == number {
+			return &pr, nil
+		}
+	}
+	return nil, &gh.APIError{Status: 404}
+}
+func (f *fakeGitHub) MergePull(_ context.Context, _ int64, _ string, number int, _ string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.merged = append(f.merged, number)
+	return nil
 }
 func (f *fakeGitHub) MergeBase(context.Context, int64, string, string, string) (string, time.Time, error) {
 	return "", time.Time{}, nil
@@ -871,5 +894,89 @@ func TestCaminos(t *testing.T) {
 	}
 	if fresh, _ := p.Caminos(ctx, app); fresh == h || len(fresh.Branches[0].Runs) != 2 {
 		t.Fatalf("a new run should rebuild the history: %+v", fresh)
+	}
+}
+
+// An app that merges by itself: the open pull request of a branch that
+// passed is merged; one in conflict is not, and its run says so; with the
+// option off, nothing is merged.
+func TestFusionAutomatica(t *testing.T) {
+	p, fake, _, _ := setup(t)
+	ctx := context.Background()
+	yaml := "tasks:\n  - name: test\n    image: node:20\n    command: npm test\n    when: always\n"
+	fake.files["main"] = fstest.MapFS{"rendimiento.yaml": {Data: []byte(yaml)}}
+	sp, err := spec.Parse([]byte(yaml))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.Onboard(ctx, OnboardRequest{Installation: 7, Repo: "p0dxD/fusion", DefaultBranch: "main", Name: "fusion", Spec: *sp}, false); err != nil {
+		t.Fatalf("onboarding: %v", err)
+	}
+	app, err := p.Store.GetApp(ctx, "fusion")
+	if err != nil {
+		t.Fatal(err)
+	}
+	yes, no := true, false
+	pull := func(number int, branch, sha string, mergeable *bool) gh.PullInfo {
+		pr := gh.PullInfo{Number: number, State: "open", Mergeable: mergeable, MergeableState: "clean"}
+		pr.Head.Ref, pr.Head.SHA, pr.Base.Ref = branch, sha, "main"
+		return pr
+	}
+	// push runs the branch and waits for what became of its pull request.
+	push := func(branch, sha, want string) *store.Run {
+		t.Helper()
+		fake.mu.Lock()
+		fake.files[sha] = fake.files["main"]
+		fake.mu.Unlock()
+		runs, err := p.HandlePush(ctx, PushEvent{Installation: 7, Repo: "p0dxD/fusion", Branch: branch, SHA: sha})
+		if err != nil || len(runs) != 1 {
+			t.Fatalf("push to %s: %v %v", branch, runs, err)
+		}
+		r := waitRun(t, p, runs[0].ID)
+		if r.Status != store.RunSucceeded {
+			t.Fatalf("run of %s: %s %q", branch, r.Status, r.Message)
+		}
+		for deadline := time.Now().Add(5 * time.Second); r.Merge != want && time.Now().Before(deadline); {
+			time.Sleep(50 * time.Millisecond)
+			r, _ = p.Store.GetRun(ctx, r.ID)
+		}
+		if r.Merge != want {
+			t.Fatalf("pull request of %s: merge %q, want %q (%s)", branch, r.Merge, want, r.Message)
+		}
+		return r
+	}
+	merged := func() []int {
+		fake.mu.Lock()
+		defer fake.mu.Unlock()
+		return append([]int(nil), fake.merged...)
+	}
+
+	// Off: a branch that passes is only tested.
+	fake.pulls = []gh.PullInfo{pull(4, "apagada", strings.Repeat("1", 40), &yes)}
+	push("apagada", strings.Repeat("1", 40), "")
+	if got := merged(); len(got) != 0 {
+		t.Fatalf("merged with the option off: %v", got)
+	}
+
+	if err := p.Store.SetAppAutoMerge(ctx, app.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	fake.mu.Lock()
+	fake.pulls = []gh.PullInfo{
+		pull(5, "lista", strings.Repeat("2", 40), &yes),
+		pull(6, "choca", strings.Repeat("3", 40), &no),
+		pull(7, "otra-vez", strings.Repeat("f", 40), &yes), // its head is not the commit that ran
+	}
+	fake.mu.Unlock()
+	if r := push("lista", strings.Repeat("2", 40), store.MergeMerged); r.Pull != 5 || !strings.Contains(r.Message, "merged pull request #5") {
+		t.Fatalf("the merged run: %+v", r)
+	}
+	if r := push("choca", strings.Repeat("3", 40), store.MergeConflict); r.Pull != 6 || !strings.Contains(r.Message, "conflicts with main") {
+		t.Fatalf("the run in conflict: %+v", r)
+	}
+	push("otra-vez", strings.Repeat("4", 40), "")
+	push("sin-solicitud", strings.Repeat("5", 40), "")
+	if got := merged(); len(got) != 1 || got[0] != 5 {
+		t.Fatalf("merged %v, want only #5", got)
 	}
 }

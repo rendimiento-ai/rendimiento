@@ -10,6 +10,16 @@
 | **▾ Probar una rama**, junto a él: una que corrió hace poco, o cualquiera por su nombre | todos los servicios | no | sí |
 | solicitud de incorporación desde una bifurcación | nada | — | — |
 
+## Integrar por sí sola {#merging-by-itself}
+
+Una app puede integrar sus propias solicitudes de incorporación: **Configuración → Integración → rendimiento las integra cuando la rama pasa** (lo elige un administrador; viene apagado). Con eso encendido:
+
+- Una rama con una solicitud de incorporación abierta hacia la rama principal se integra cuando su ejecución pasa, con la confirmación que se probó: si alguien envía otra entretanto, la nueva espera su propia ejecución. Integrar es un envío a la rama principal, así que el despliegue sigue como siempre.
+- **Abrir la solicitud es el sí.** Una rama sin solicitud solo se prueba, y un borrador espera hasta que se marque como listo. Una solicitud que se abre después de que la rama pasó se integra en menos de un minuto.
+- En un repositorio con varias apps, la confirmación tiene que pasar en todas las que la corrieron.
+- Lo que GitHub pide de la solicitud se respeta: cuando una regla de la rama quiere una revisión o una comprobación, la ejecución dice que espera eso, y se integra cuando lo tiene.
+- **Un conflicto nunca se integra.** La ejecución lo dice, y su página ofrece **Pedírselo a un agente**: eso crea un [encargo](agents.md), que dice qué tan difícil es y cuánto costaría más o menos con la IA de la plataforma antes de que alguien lo haga. Un agente de usted, que trabaja en una copia con git, lo resuelve bien; el agente de la plataforma edita a través de GitHub sin juntar los dos lados, así que solo sirve para conflictos pequeños. La nueva confirmación corre, y se integra si pasa.
+
 ## Dockerfile o Railpack {#dockerfile-or-railpack}
 
 | La carpeta del servicio tiene… | rendimiento usa… |
