@@ -30,6 +30,7 @@ rendimiento is configured only through **environment variables**, read once at s
 |---|---|---|
 | `GITHUB_APP_NAME` | `rendimiento` | the App's name, used when creating it with the manifest flow (`rendimiento` here) |
 | `GITHUB_SECRET` | `rendimiento-github` | the Secret the App's credentials are saved in after setup |
+| `GITHUB_API_URL`, `GITHUB_URL` | `https://api.github.com`, `https://github.com` | where GitHub's API is, and where sign-in codes are exchanged. Only for tests: the quickstart's test points both at a stand-in for GitHub (`hack/github-de-prueba.py`). GitHub's own pages (creating the App, the sign-in page, clones) stay at github.com |
 | `SECRETS_KEY_FILE` | | a file with a key (32 random bytes in base64: `head -c32 /dev/urandom \| base64`); when set, the GitHub App's credentials and organizations' AI keys are sealed with AES-256-GCM in Postgres instead of Kubernetes Secrets, for running without a cluster. Keep the file outside the database and back it up: without it they do not open |
 
 ## Builds

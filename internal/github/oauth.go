@@ -71,7 +71,7 @@ func manifest(name, baseURL string) map[string]any {
 // ConvertManifest exchanges the one-time code for the new app's credentials.
 func ConvertManifest(ctx context.Context, apiBase, code string) (*Credentials, error) {
 	if apiBase == "" {
-		apiBase = "https://api.github.com"
+		apiBase = APIBase
 	}
 	a := &App{BaseURL: apiBase}
 	var c Credentials
@@ -89,7 +89,8 @@ func (a *App) AuthorizeURL(state, redirect string) string {
 	return "https://github.com/login/oauth/authorize?" + q.Encode()
 }
 
-// OAuthBase is overridden in tests.
+// OAuthBase is where sign-in codes are exchanged. GITHUB_URL changes it, and
+// tests do.
 var OAuthBase = "https://github.com"
 
 // Login exchanges an OAuth code for the user's login name.

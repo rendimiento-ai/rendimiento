@@ -1,11 +1,14 @@
 # The quickstart, on a clean machine: runs the installer for one computer
 # (instalar/instalar.sh) on a new amd64 Ubuntu, once with no container
-# engine (the installer brings containerd) and once with Docker, and says
-# how long it took (hack/ci-inicio-rapido.sh). rendimiento tests everything
-# else itself; this one runs here because it needs a machine nobody has
-# used, with systemd and sudo, and an amd64 one.
-# It runs when the installer changes, after each release is published
-# (the installer downloads the latest), and by hand.
+# engine (the installer brings containerd) and once with Docker, then
+# deploys the example (rendimiento-ai/hola) until its address answers, and
+# says how long each part took (hack/ci-inicio-rapido.sh). GitHub's pages,
+# which a person would go through, are a stand-in (hack/github-de-prueba.py).
+# rendimiento tests everything else itself; this one runs here because it
+# needs a machine nobody has used, with systemd and sudo, and an amd64 one.
+# It runs when the installer or this test changes and by hand, with the
+# program built from that commit; and after each release is published, with
+# the release the installer downloads.
 name: inicio-rapido
 
 on:
@@ -13,6 +16,7 @@ on:
     paths:
       - instalar/instalar.sh
       - hack/ci-inicio-rapido.sh
+      - hack/github-de-prueba.py
       - .github/workflows/inicio-rapido.yml
   workflow_run:
     workflows: [binarios]
@@ -30,14 +34,29 @@ jobs:
   instalar:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         motor: [containerd, docker]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install, time it, uninstall
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: github.event_name != 'workflow_run'
+        with:
+          node-version: 20
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        if: github.event_name != 'workflow_run'
+        with:
+          go-version-file: go.mod
+      - name: The program, from this commit
+        if: github.event_name != 'workflow_run'
+        run: |
+          (cd web && npm ci --no-audit --no-fund && npm run build)
+          CGO_ENABLED=0 go build -trimpath -o "$RUNNER_TEMP/rendimiento" ./cmd/rendimiento
+          echo "BINARIO=$RUNNER_TEMP/rendimiento" >>"$GITHUB_ENV"
+      - name: Install, deploy the example, time it, uninstall
         env:
           MOTOR: ${{ matrix.motor }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: hack/ci-inicio-rapido.sh
