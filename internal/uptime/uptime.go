@@ -67,7 +67,8 @@ func Targets(apps []*store.App) []Target {
 				t.Addr = net.JoinHostPort(host, fmt.Sprint(svc.Port))
 			}
 			out = append(out, t)
-			if svc.Domain != "" {
+			// A local name is this computer's alone: from here it is the checker itself.
+			if svc.Domain != "" && svc.Domain != "localhost" && !strings.HasSuffix(svc.Domain, ".localhost") {
 				path, anyAnswer := "/", true
 				if svc.Health != nil && svc.Health.Path != "" {
 					path, anyAnswer = svc.Health.Path, false

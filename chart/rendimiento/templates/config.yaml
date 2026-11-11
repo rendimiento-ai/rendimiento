@@ -22,9 +22,8 @@ data:
   {{- if .Values.ingress.enabled }}
   INGRESS_CLASS: {{ .Values.ingress.className | quote }}
   {{- end }}
-  {{- with .Values.ingress.clusterIssuer }}
-  CLUSTER_ISSUER: {{ . | quote }}
-  {{- end }}
+  # Empty: no issuer, and apps are published over plain HTTP.
+  CLUSTER_ISSUER: {{ .Values.ingress.clusterIssuer | quote }}
   {{- range $k, $v := .Values.config }}
   {{ $k }}: {{ $v | quote }}
   {{- end }}

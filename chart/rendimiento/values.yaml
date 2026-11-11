@@ -57,7 +57,8 @@ ingress:
   enabled: true
   className: nginx
   # A cert-manager ClusterIssuer for the certificates of rendimiento and
-  # every app ("": no automatic certificates).
+  # every app ("": no certificates; rendimiento and the apps answer over
+  # plain HTTP, as on a cluster on your own computer).
   clusterIssuer: ""
   annotations: {}
 

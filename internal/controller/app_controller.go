@@ -182,7 +182,7 @@ func (r *AppReconciler) sync(ctx context.Context, app *v1alpha1.App, st *v1alpha
 
 	healthy := true
 	// The app's services, then the database and cache its needs run.
-	for _, svc := range append(append([]spec.Service{}, app.Spec.Services...), render.NeedServices(in.Spec)...) {
+	for _, svc := range append(append([]spec.Service{}, r.Render.Published(app.Name, app.Spec.Services)...), render.NeedServices(in.Spec)...) {
 		image := app.Spec.Images[svc.Name]
 		if image == "" {
 			image = svc.Image
@@ -213,16 +213,19 @@ func (r *AppReconciler) sync(ctx context.Context, app *v1alpha1.App, st *v1alpha
 			healthy = false
 		}
 		if svc.Domain != "" {
-			ss.URL = "https://" + svc.Domain
+			ss.URL = r.Render.URL(svc.Domain)
 			for _, h := range svc.Hosts() {
+				if render.LocalHost(h) { // every computer resolves it to itself
+					continue
+				}
 				if err := r.DNS.Ensure(ctx, h, app.Name); err != nil {
 					ss.DNSReady, ss.Message = false, err.Error()
 					healthy = false
 				}
 			}
 			ss.CertReady = true
-			for _, g := range svc.TLSGroups() {
-				ss.CertReady = ss.CertReady && r.certReady(ctx, app.Name, g[0].(string))
+			for _, secret := range r.Render.CertSecrets(svc) {
+				ss.CertReady = ss.CertReady && r.certReady(ctx, app.Name, secret)
 			}
 			healthy = healthy && ss.CertReady
 		}

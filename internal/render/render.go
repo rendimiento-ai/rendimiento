@@ -5,6 +5,7 @@ package render
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -44,6 +45,43 @@ type Options struct {
 	// Telemetry is where services with `observe` send traces (empty
 	// endpoint: nowhere, and observe does nothing).
 	Telemetry Telemetry
+	// Local is set when rendimiento itself answers at a .localhost address
+	// (a cluster on the person's own computer): each app's first service
+	// answers at http://<app>.localhost, with no certificate, as on an
+	// installed rendimiento. LocalPort is the port that computer reaches
+	// the ingress at, as in the address (":8080"; empty: 80).
+	Local     bool
+	LocalPort string
+}
+
+// LocalHost reports whether a host is a name every computer resolves to
+// itself: nothing to put in DNS, and no certificate to ask for.
+func LocalHost(host string) bool {
+	return host == "localhost" || strings.HasSuffix(host, ".localhost")
+}
+
+// Published returns an app's services as they are published. They are the
+// spec's own, except on a local cluster (Options.Local), where the first
+// service is given <app>.localhost when it has no address of its own.
+func (o Options) Published(app string, services []spec.Service) []spec.Service {
+	if !o.Local || len(services) == 0 || services[0].HasIngress() {
+		return services
+	}
+	out := append([]spec.Service{}, services...)
+	out[0].Domain = app + ".localhost"
+	return out
+}
+
+// URL is the address a host is published at: HTTPS, or plain HTTP for a
+// local name and where the cluster has no issuer of certificates.
+func (o Options) URL(host string) string {
+	switch {
+	case LocalHost(host):
+		return "http://" + host + o.LocalPort
+	case o.ClusterIssuer == "":
+		return "http://" + host
+	}
+	return "https://" + host
 }
 
 // GPUProfile is how this cluster attaches a GPU to a pod. Apps only say how
@@ -98,6 +136,7 @@ func Render(in Input, opt Options) (*Objects, error) {
 		TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "Namespace"},
 		ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: appLabels(in.App)},
 	}}
+	in.Spec.Services = opt.Published(in.App, in.Spec.Services)
 	services, err := withNeeds(in)
 	if err != nil {
 		return nil, err
@@ -494,12 +533,18 @@ func merge(a, b map[string]string) map[string]string {
 
 // ingress publishes a service on its domain, aliases and routes over HTTPS:
 // cert-manager issues the certificate, HTTP redirects to HTTPS, and the
-// service's own ingress annotations are added.
+// service's own ingress annotations are added. Local names (.localhost)
+// and a cluster with no issuer get plain HTTP: no certificate, no redirect.
 func ingress(meta metav1.ObjectMeta, svc spec.Service, opt Options) *networkingv1.Ingress {
-	meta.Annotations = map[string]string{
-		"cert-manager.io/cluster-issuer":                 opt.ClusterIssuer,
-		"nginx.ingress.kubernetes.io/ssl-redirect":       "true",
-		"nginx.ingress.kubernetes.io/force-ssl-redirect": "true",
+	meta.Annotations = map[string]string{}
+	certs := tls(svc, opt)
+	if len(certs) > 0 {
+		meta.Annotations["cert-manager.io/cluster-issuer"] = opt.ClusterIssuer
+		// A redirect would also catch the local names, which have no certificate.
+		if !slices.ContainsFunc(svc.Hosts(), LocalHost) {
+			meta.Annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "true"
+			meta.Annotations["nginx.ingress.kubernetes.io/force-ssl-redirect"] = "true"
+		}
 	}
 	if svc.Ingress != nil {
 		for k, v := range svc.Ingress.Annotations {
@@ -517,17 +562,33 @@ func ingress(meta metav1.ObjectMeta, svc spec.Service, opt Options) *networkingv
 		ObjectMeta: meta,
 		Spec: networkingv1.IngressSpec{
 			IngressClassName: &opt.IngressClass,
-			TLS:              tls(svc),
+			TLS:              certs,
 			Rules:            rules(svc, &pathType),
 		},
 	}
 }
 
-// tls is the ingress's certificates: one secret per group of hosts.
-func tls(svc spec.Service) []networkingv1.IngressTLS {
+// tls is the ingress's certificates: one secret per group of hosts. None
+// without an issuer, and none for local names.
+func tls(svc spec.Service, opt Options) []networkingv1.IngressTLS {
 	var out []networkingv1.IngressTLS
+	if opt.ClusterIssuer == "" {
+		return nil
+	}
 	for _, g := range svc.TLSGroups() {
-		out = append(out, networkingv1.IngressTLS{SecretName: g[0].(string), Hosts: g[1].([]string)})
+		hosts := slices.DeleteFunc(slices.Clone(g[1].([]string)), LocalHost)
+		if len(hosts) > 0 {
+			out = append(out, networkingv1.IngressTLS{SecretName: g[0].(string), Hosts: hosts})
+		}
+	}
+	return out
+}
+
+// CertSecrets are the secrets of the certificates a service waits for.
+func (o Options) CertSecrets(svc spec.Service) []string {
+	var out []string
+	for _, c := range tls(svc, o) {
+		out = append(out, c.SecretName)
 	}
 	return out
 }

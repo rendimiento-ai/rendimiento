@@ -1,0 +1,48 @@
+# The quickstart, on a cluster on one computer: makes a k3d cluster with its
+# registry on a new amd64 Ubuntu, installs the chart of this commit with the
+# image built from it, deploys the example (rendimiento-ai/hola) until
+# http://hola.localhost:8080 answers, and says how long each part took
+# (hack/ci-inicio-rapido-k3d.sh). GitHub's pages, which a person would go
+# through, are a stand-in (hack/github-de-prueba.py). rendimiento tests
+# everything else itself; this one runs here because it needs a machine
+# nobody has used, with Docker, and an amd64 one. It runs when the chart,
+# how an app is published or this test changes, and by hand.
+name: inicio-rapido-k3d
+
+on:
+  push:
+    paths:
+      - chart/**
+      - internal/render/**
+      - hack/ci-inicio-rapido-k3d.sh
+      - hack/github-de-prueba.py
+      - .github/workflows/inicio-rapido-k3d.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: inicio-rapido-k3d-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  K3D: v5.8.3
+
+jobs:
+  k3d:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: The image, from this commit
+        run: docker build -t rendimiento:prueba --build-arg GIT_SHA="$GITHUB_SHA" .
+      - name: k3d
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/k3d" "https://github.com/k3d-io/k3d/releases/download/$K3D/k3d-linux-amd64"
+          sudo install -m 0755 "$RUNNER_TEMP/k3d" /usr/local/bin/k3d
+          k3d version && helm version --short && kubectl version --client
+      - name: Make the cluster, install, deploy the example, time it, delete the cluster
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: hack/ci-inicio-rapido-k3d.sh
