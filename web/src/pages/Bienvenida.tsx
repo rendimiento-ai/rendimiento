@@ -340,7 +340,8 @@ function Instalar() {
               </div>
             </div>
           )}
-          <ol key={sistema} className="inst-pasos">
+          {/* Its own key: the same one as the block above would leave a copy behind on each change. */}
+          <ol key={`pasos-${sistema}`} className="inst-pasos">
             {pasos.map((p, i) => (
               <li key={p.titulo} style={{ ["--d" as string]: `${i * 120}ms` }}>
                 <span className="paso-num" aria-hidden="true">{i + 1}</span>
