@@ -3,9 +3,9 @@
 {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
 {{- end }}
 
-{{/* The host of baseURL, for the Ingress. */}}
+{{/* The host of baseURL, without its port, for the Ingress. */}}
 {{- define "rendimiento.host" -}}
-{{ .Values.baseURL | trimPrefix "https://" | trimPrefix "http://" | trimSuffix "/" | splitList "/" | first }}
+{{ .Values.baseURL | trimPrefix "https://" | trimPrefix "http://" | trimSuffix "/" | splitList "/" | first | splitList ":" | first }}
 {{- end }}
 
 {{/* Where builds reach BuildKit. */}}

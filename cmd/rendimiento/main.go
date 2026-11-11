@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"slices"
@@ -228,7 +229,22 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 	}
 
 	renderOpts := render.DefaultOptions()
-	renderOpts.ClusterIssuer = env("CLUSTER_ISSUER", renderOpts.ClusterIssuer)
+	// CLUSTER_ISSUER set and empty: no issuer, apps are published over plain HTTP.
+	if v, ok := os.LookupEnv("CLUSTER_ISSUER"); ok {
+		renderOpts.ClusterIssuer = v
+	}
+	pollEvery, err := time.ParseDuration(env("POLL_INTERVAL", "1m"))
+	if err != nil || pollEvery < 15*time.Second {
+		return fmt.Errorf("POLL_INTERVAL must be a duration of at least 15s, got %q", os.Getenv("POLL_INTERVAL"))
+	}
+	// rendimiento at a .localhost address is a cluster on the person's own
+	// computer: its apps answer at <app>.localhost, on the same port.
+	if u, err := url.Parse(baseURL); err == nil && gh.Local(baseURL) {
+		renderOpts.Local = true
+		if u.Port() != "" {
+			renderOpts.LocalPort = ":" + u.Port()
+		}
+	}
 	renderOpts.IngressClass = env("INGRESS_CLASS", renderOpts.IngressClass)
 	renderOpts.StorageClass = env("STORAGE_CLASS", renderOpts.StorageClass)
 	// VOLUME_LABELS is KEY=VALUE pairs added to every app volume claim, e.g.
@@ -694,6 +710,10 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 			}
 			go p.ServeVerifications(ctx)
 			go srv.Senales.Run(ctx)
+			if gh.Local(baseURL) {
+				// GitHub cannot send webhooks to this computer: ask it for new commits.
+				go (&platform.Vigia{P: p, Every: pollEvery, Branches: holder.Branches}).Run(ctx)
+			}
 			go renovateRunner.Loop(ctx)
 			go addonSyncer.Loop(ctx)
 			if prober != nil {

@@ -2,7 +2,7 @@
 
 From a computer that has never seen rendimiento to an app of yours with an address, in under ten minutes. Most of that time is yours, on GitHub's pages; the machine's part takes under a minute.
 
-You need a computer with **Linux** (amd64 or arm64, with systemd and `curl`) and a **GitHub account**. A container engine is not needed: the installer uses containerd or Docker when the computer has one, and brings containerd when it has none. On Windows, use [the app](../environment/deploy.md#on-windows) (a preview); for a Kubernetes cluster, see [Installing with Helm](../environment/deploy.md#installing-with-helm).
+You need a computer with **Linux** (amd64 or arm64, with systemd and `curl`) and a **GitHub account**. A container engine is not needed: the installer uses containerd or Docker when the computer has one, and brings containerd when it has none. On Windows, use [the app](../environment/deploy.md#on-windows) (a preview); with Kubernetes, the same steps work on [a cluster on your computer](#on-a-cluster), and [Installing with Helm](../environment/deploy.md#installing-with-helm) covers a cluster with a domain.
 
 ## 1. Install {#install}
 
@@ -43,6 +43,29 @@ Press **New app**, choose your copy of `hola` in the list (**Missing a repo?** t
 
 Edit the greeting in `index.html` and push to `main`. Within a minute rendimiento sees the push, builds it and replaces the running version without a gap. (GitHub cannot reach `localhost` with a webhook, so on one computer rendimiento asks GitHub every minute.)
 
+## On a cluster on your computer {#on-a-cluster}
+
+To try rendimiento as it runs on Kubernetes, [k3d](https://k3d.io) makes a cluster inside Docker. You need Docker, `k3d`, `helm` and `kubectl`, and a rendimiento newer than `v0.1.10`. Two commands replace step 1: the cluster with its image registry, then rendimiento.
+
+```sh
+k3d cluster create rendimiento -p "8080:80@loadbalancer" --registry-create rendimiento-registro
+
+helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento \
+  -n rendimiento-system --create-namespace \
+  --set baseURL=http://rendimiento.localhost:8080 \
+  --set firstAdmins=your-github-login \
+  --set registry.host=rendimiento-registro:5000 \
+  --set ingress.className=traefik
+```
+
+In about a minute rendimiento answers at **<http://rendimiento.localhost:8080>** (your browser resolves every `.localhost` name to your own computer). The setup token is in the cluster:
+
+```sh
+kubectl -n rendimiento-system get secret rendimiento-setup -o jsonpath='{.data.token}' | base64 -d
+```
+
+Steps 2 to 5 are the same, at that address, and the app answers at **<http://hola.localhost:8080>**: on a `.localhost` address rendimiento publishes each app over plain HTTP, with no certificate or DNS record, and asks GitHub for new commits every minute. `k3d cluster delete rendimiento` takes it all off.
+
 ## How long it takes {#how-long-it-takes}
 
 Each release of rendimiento, and each change to the installer, is installed on a new amd64 machine (GitHub's, with a fast connection), deploys `hola` and is uninstalled; the run fails when the install and the deploy together pass ten minutes ([the quickstart test](../develop/testing.md)). In November 2026 it measured:
@@ -52,6 +75,8 @@ Each release of rendimiento, and each change to the installer, is installed on a
 | The installer, until rendimiento answers | 25 s | 31 s |
 | From **Deploy** until the address answers | 15 s | 13 s |
 | Both | 40 s | 44 s |
+
+The cluster is tested the same way when the chart or how an app is published changes: k3d made the cluster in 18 s, rendimiento answered between 22 and 47 s after `helm install`, and `hola` answered 17 s after **Deploy**. There the image of rendimiento was already on the machine; yours is downloaded first.
 
 Steps 2 and 3 are a person on GitHub's pages, and the test does not count them: a stand-in answers for GitHub there. Expect a few minutes the first time.
 

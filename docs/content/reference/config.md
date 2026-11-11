@@ -62,7 +62,8 @@ rendimiento is configured only through **environment variables**, read once at s
 | Variable | Default | Meaning |
 |---|---|---|
 | `INGRESS_CLASS` | `nginx` | `ingressClassName` of app Ingresses |
-| `CLUSTER_ISSUER` | `letsencrypt-prod` | cert-manager issuer for app certificates |
+| `CLUSTER_ISSUER` | `letsencrypt-prod` | cert-manager issuer for app certificates; set and empty: none, apps are published over plain HTTP |
+| `POLL_INTERVAL` | `1m` | how often rendimiento asks GitHub for new commits when `BASE_URL` is a `.localhost` address, which a webhook cannot reach (at least `15s`) |
 | `STORAGE_CLASS` | `longhorn` | storage class of `volume:` claims and `needs:` databases |
 | `VOLUME_LABELS` | *(empty)* | `KEY=value` pairs (comma-separated) added to every app volume claim, e.g. `recurring-job.longhorn.io/source=enabled,recurring-job-group.longhorn.io/backup-nightly=enabled` to back them up nightly |
 | `GPU_RESOURCE` | *(empty)* | resource name requested by `gpu:` services (`nvidia.com/gpu`) |

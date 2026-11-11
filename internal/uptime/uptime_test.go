@@ -23,6 +23,7 @@ func TestTargets(t *testing.T) {
 		{Name: "db", Port: 5432, Replicas: 1, Health: &spec.Health{TCP: true}},
 		{Name: "landing", Port: 8080, Replicas: 1, Domain: "example.com"},
 		{Name: "paused", Port: 8080, Replicas: 0, Domain: "paused.example.com"},
+		{Name: "local", Port: 8080, Replicas: 1, Domain: "shop.localhost"},
 	}}}}
 	var got []string
 	for _, tg := range Targets(apps) {
@@ -38,6 +39,7 @@ func TestTargets(t *testing.T) {
 		"db internal db.shop.svc.cluster.local:5432",
 		"landing internal landing.shop.svc.cluster.local:8080", // no health check: is the port open?
 		"landing public https://example.com/ (any answer)",     // no health path: "/" may well be a 404
+		"local internal local.shop.svc.cluster.local:8080",     // a local name is not checked from outside
 	}
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Fatalf("targets:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))

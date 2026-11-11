@@ -62,7 +62,8 @@ rendimiento se configura solo con **variables de entorno**, que se leen una vez 
 | Variable | Predeterminado | Significado |
 |---|---|---|
 | `INGRESS_CLASS` | `nginx` | el `ingressClassName` de las entradas de las aplicaciones |
-| `CLUSTER_ISSUER` | `letsencrypt-prod` | el emisor de cert-manager para los certificados de las aplicaciones |
+| `CLUSTER_ISSUER` | `letsencrypt-prod` | el emisor de cert-manager para los certificados de las aplicaciones; definida y vacía: ninguno, las aplicaciones se publican por HTTP simple |
+| `POLL_INTERVAL` | `1m` | cada cuánto rendimiento le pregunta a GitHub por commits nuevos cuando `BASE_URL` es una dirección `.localhost`, que un aviso web no alcanza (al menos `15s`) |
 | `STORAGE_CLASS` | `longhorn` | la clase de almacenamiento de los volúmenes de `volume:` y de las bases de datos de `needs:` |
 | `VOLUME_LABELS` | *(vacío)* | pares `KEY=value` (separados por comas) que se agregan a cada volumen de las aplicaciones, p. ej. `recurring-job.longhorn.io/source=enabled,recurring-job-group.longhorn.io/backup-nightly=enabled` para respaldarlos cada noche |
 | `GPU_RESOURCE` | *(vacío)* | el nombre del recurso que piden los servicios con `gpu:` (`nvidia.com/gpu`) |

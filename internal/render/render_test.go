@@ -437,3 +437,58 @@ func TestRenderLAN(t *testing.T) {
 		t.Error("public addresses are refused")
 	}
 }
+
+// A cluster on the person's own computer: the first service answers at
+// <app>.localhost over plain HTTP, and a real domain keeps its certificate.
+func TestRenderLocal(t *testing.T) {
+	sp := spec.Spec{Services: []spec.Service{
+		{Name: "web", Port: 8080, Replicas: 1},
+		{Name: "api", Port: 8080, Replicas: 1},
+		{Name: "tienda", Port: 8080, Replicas: 1, Domain: "tienda.example.com", Aliases: []string{"tienda.localhost"}},
+	}}
+	opt := DefaultOptions()
+	opt.Local, opt.LocalPort = true, ":8080"
+	objs, err := Render(Input{App: "hola", Spec: sp, Images: map[string]string{"web": "w", "api": "a", "tienda": "t"}}, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(objs.Ingresses) != 2 {
+		t.Fatalf("ingresses = %d, want web's and tienda's", len(objs.Ingresses))
+	}
+	web, tienda := objs.Ingresses[0], objs.Ingresses[1]
+	if web.Spec.Rules[0].Host != "hola.localhost" || len(web.Spec.TLS) != 0 || len(web.Annotations) != 0 {
+		t.Fatalf("web must answer at hola.localhost with no certificate: %+v %+v", web.Spec, web.Annotations)
+	}
+	if len(tienda.Spec.TLS) != 1 || strings.Join(tienda.Spec.TLS[0].Hosts, " ") != "tienda.example.com" {
+		t.Fatalf("only the real domain gets a certificate: %+v", tienda.Spec.TLS)
+	}
+	if tienda.Annotations["cert-manager.io/cluster-issuer"] != "letsencrypt-prod" || tienda.Annotations["nginx.ingress.kubernetes.io/ssl-redirect"] != "" {
+		t.Fatalf("a local alias must not be redirected to HTTPS: %+v", tienda.Annotations)
+	}
+	if got := opt.URL("hola.localhost") + " " + opt.URL("tienda.example.com"); got != "http://hola.localhost:8080 https://tienda.example.com" {
+		t.Fatalf("addresses = %s", got)
+	}
+	if len(sp.Services[0].Domain) != 0 {
+		t.Fatal("Render must not change the spec it was given")
+	}
+
+	// Elsewhere nothing is given an address it did not ask for.
+	objs, err = Render(Input{App: "hola", Spec: sp, Images: map[string]string{"web": "w", "api": "a", "tienda": "t"}}, DefaultOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(objs.Ingresses) != 1 || objs.Ingresses[0].Annotations["nginx.ingress.kubernetes.io/ssl-redirect"] != "" {
+		t.Fatalf("ingresses = %+v", objs.Ingresses)
+	}
+
+	// No issuer: plain HTTP for every host.
+	opt = DefaultOptions()
+	opt.ClusterIssuer = ""
+	objs, err = Render(Input{App: "hola", Spec: sp, Images: map[string]string{"web": "w", "api": "a", "tienda": "t"}}, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ing := objs.Ingresses[0]; len(ing.Spec.TLS) != 0 || len(ing.Annotations) != 0 || opt.URL("tienda.example.com") != "http://tienda.example.com" {
+		t.Fatalf("without an issuer there is no certificate to wait for: %+v %+v", ing.Spec.TLS, ing.Annotations)
+	}
+}
