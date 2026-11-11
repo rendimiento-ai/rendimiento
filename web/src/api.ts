@@ -389,6 +389,10 @@ export interface BitacoraCheck {
   motivo?: string;
 }
 
+// The example app of the quickstart: GitHub's page that copies it to the
+// person's account ("Use this template").
+export const EXAMPLE_URL = "https://github.com/rendimiento-ai/hola/generate";
+
 export const session: { operator: boolean; role: MemberRole; cluster: boolean; mercado: boolean } = { operator: false, role: "guest", cluster: false, mercado: false };
 
 // The AI gateway (internal/ia, api.IAView).

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { api, envApi, isLibrary, timeAgo, type App, session } from "../api";
+import { api, envApi, EXAMPLE_URL, isLibrary, timeAgo, type App, session } from "../api";
 import { ErrorBox, PhaseBadge, RunBadge, usePoll } from "../components/ui";
 import { fmtPct } from "../components/reliability";
 import { DeliveryPanel } from "../components/delivery";
@@ -116,6 +116,7 @@ export function Dashboard() {
         <div className="card empty">
           <p>{t("No apps yet.")}</p>
           <Link to="/new" className="btn primary big">{t("Deploy your first app")}</Link>
+          <p className="small muted" style={{ margin: "12px 0 0" }}>{t("Nothing of your own to deploy yet?")} <a href={EXAMPLE_URL} target="_blank" rel="noreferrer">{t("Copy the example to your GitHub account")}</a>{t(", then choose your copy in New app.")}</p>
         </div>
       )}
       {apps && apps.length > 0 && (
