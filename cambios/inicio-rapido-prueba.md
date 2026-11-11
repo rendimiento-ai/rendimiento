@@ -1,2 +1,0 @@
-- **Installer:** with Docker too, it turns on lingering for your user, so rendimiento keeps running after you sign out of a server and starts with the computer. Before, only the containerd path did.
-- **Quickstart test:** each change to the installer and each release is installed, timed and uninstalled on a new amd64 machine (GitHub Actions, `inicio-rapido`), with no container engine and with Docker.

@@ -1,1 +1,0 @@
-- **Merging by itself:** after rendimiento merges a pull request, it deletes the merged branch (never a fork's).
