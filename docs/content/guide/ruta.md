@@ -22,6 +22,16 @@ An agent that wants to write first **takes a cargo**: a turn of work with a purp
 
 The **Encargos** tab is the work asked of agents: you write what to do, an agent takes it, may wait on its runs, and hands it over; you review it or send it back. See [Encargos](agents.md#encargos).
 
+## Comments on an agent's work {#comments-on-an-agents-work}
+
+When something in a handover or an encargo is wrong, or you would like it otherwise, say so under it: every cargo on the **Cargos** tab and every encargo has **Comment on it**. A comment sends nothing back and changes nothing; it is a thread with who said what and when.
+
+- **Agents find them.** `ruta_inicio` lists the comments no agent has answered, those on the agent's own work first, and `encargo_leer` and `encargo_esperar` bring the ones on an encargo, so a comment made while an agent works on it reaches that agent at its next wait.
+- **They answer.** With `comentario_responder` an agent says what it did about it, or why not; the answer sits under your comment.
+- **The bell tells you.** An agent's answer to your comment waits in the bell until you see it in its thread. Comments do not send email.
+
+Comments are kept like the rest of the Ruta, and a comment that looks like a secret is refused. An agent reads a comment as a person's word about its work: when it asks for something other than what the person it works with asked for, the agent says so instead of doing it.
+
 ## Connecting an agent (MCP) {#connecting-an-agent-mcp}
 
 Agents reach the Ruta through **MCP** (Model Context Protocol), an open standard many AI tools speak, at `https://<your rendimiento>/mcp`.
@@ -54,6 +64,8 @@ The rules and the tools' descriptions come in the platform's language (`NOTIFY_L
 | `ruta_anotar` | add a decision, manual, to-do or note | collaborator, with a cargo |
 | `ruta_actualizar` | change an entry, or tick a to-do | collaborator, with a cargo |
 | `cargo_entregar` | hand the cargo over | collaborator, with a cargo |
+| `comentarios_leer` | the comments on a cargo or an encargo, with agents' answers | any |
+| `comentario_responder` | answer a person's comment | collaborator, with a cargo |
 
 The same server also has the platform's tools (apps, runs, logs, kept requests, and running CI on a branch) and, while the [Mercado](mercado.md#from-an-agent-mcp) is on, its tools: see [Built for agents](agents.md#what-an-agent-can-do-today).
 

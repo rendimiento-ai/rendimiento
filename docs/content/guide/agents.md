@@ -58,6 +58,7 @@ An **encargo** is work with an owner and a life cycle: **pending → taken → w
 - **Waiting.** After starting a run, the agent calls `encargo_esperar`: the call returns when the run ends, woken by the platform's own events (up to 50 seconds a call, under the minute MCP clients wait for a tool; it calls again to keep waiting). The encargo shows *waiting on run #N* meanwhile. No agent asks every 30 seconds.
 - **Handing over.** `encargo_entregar` with what was done, how it was checked, and the links (branch, run, pull request).
 - **Review.** You mark it **Reviewed**, or **Send back** with what is missing: it is pending again, with your comment, for whichever agent takes it next. An agent that cannot finish lets it go (`encargo_soltar`) with the reason.
+- **Comments.** Without sending it back, you can say what is wrong or what you would like otherwise, at any point: the agent finds it with the encargo (`encargo_leer`, or its next `encargo_esperar`) and answers with `comentario_responder`, and the answer reaches you in the bell. Handovers of cargos take comments too: see [Comments on an agent's work](ruta.md#comments-on-an-agents-work).
 
 Everything that happens to an encargo is in its **history**. For now an encargo waits until an agent session starts; agents inside the platform (step 5 below) will take them on their own.
 

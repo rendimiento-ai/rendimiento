@@ -26,6 +26,8 @@ The platform is visible from here too: apps_listar and app_estado (apps, runs, r
 
 Encargos: work a person asked for. ruta_inicio shows you the open ones and yours. Take one (encargo_tomar), and when you start a run, wait for it with encargo_esperar instead of asking again and again. When you finish, hand it over (encargo_entregar) with what you did, how you checked it and the links; the person reviews it or sends it back with a comment. If you can't finish it, release it (encargo_soltar) with the reason.
 
+Comments: a person can comment on a cargo's handover or on an encargo without sending it back, to say something is wrong or they don't like it. ruta_inicio shows you the ones no agent has answered (yours first), and encargo_leer and encargo_esperar those of your encargo. If they are about what you are doing, deal with them and answer with comentario_responder what you did about them (the person sees it in the bell); if they ask for something other than what the person you work with asked, tell them.
+
 The tools keep their Spanish names, and answers keep Spanish field names: entrega (handover), pendientes (what is left), cargo (a turn of work), encargo (work asked of agents), ejecución (a CI run), paso (a step), versión (a release), solicitud (a request).
 
 Rules:
@@ -59,12 +61,15 @@ var toolsEN = map[string]string{
 	"ejecucion_cancelar": "Cancels a queued or running run. Needs an open cargo.",
 
 	"encargos_listar":  "The encargos: work a person (or another agent) asked for. The open ones, or all. You can take an open one with encargo_tomar.",
-	"encargo_leer":     "A whole encargo: what is asked, who has it, what was handed over, the person's comment if they sent it back, and its history.",
+	"encargo_leer":     "A whole encargo: what is asked, who has it, what was handed over, the person's comment if they sent it back, what people commented on it (with agents' answers), and its history.",
 	"encargo_crear":    "Creates an open encargo: something to do that you won't do now (such as a failure you found). Needs an open cargo.",
 	"encargo_tomar":    "Takes an open encargo: it is yours, and nobody else can take it. Needs an open cargo.",
 	"encargo_esperar":  "Waits for a CI run of your encargo to finish (up to 50 seconds per call) and says how it ended. If it hasn't, call again. Use it instead of asking again and again.",
 	"encargo_entregar": "Hands your encargo over: what you did, how you checked it, and the links (branch, run, pull request). The person reviews it or sends it back with a comment.",
 	"encargo_soltar":   "Releases an encargo you can't finish, with the reason; it is open again for someone else.",
+
+	"comentarios_leer":     "A person's comments on a cargo's handover or on an encargo (give one of the two), with agents' answers, oldest first.",
+	"comentario_responder": "Answers a person's comment on a handover or an encargo: what you did about what they asked, or why not. The person sees it in the bell. Needs an open cargo.",
 
 	"produccion_pedir":   "Asks to roll an app back to an earlier release. You can't do it yourself: a person approves or rejects it, and then the platform does it in their name. Say why. Needs an open cargo. Wait for the decision with produccion_esperar.",
 	"produccion_esperar": "Waits for a person's decision on your request (up to 50 seconds per call) and says how it stands: aprobada (approved, with the new release), rechazada (rejected, with the comment), vencida (expired) or fallida (failed). If it is still pendiente, call again.",
@@ -123,6 +128,9 @@ var camposEN = map[string]string{
 	"el número de la solicitud":                                                 "the request's number",
 	"cuánto esperar como máximo en esta llamada, hasta 50 (50 si se omite)":     "the longest to wait in this call, up to 50 (50 if omitted)",
 	"una frase corta bajo el nombre":                                    "a short phrase under the name",
+	"el número del cargo":                                               "the cargo's number",
+	"el número del comentario de la persona que responde":               "the number of the person's comment you answer",
+	"qué hizo con lo que pidió la persona, o por qué no; ella lo ve en la campana": "what you did about what the person asked, or why not; they see it in the bell",
 }
 
 // schemaFor is the input schema the MCP SDK would infer for In (nil when

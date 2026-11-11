@@ -1620,3 +1620,77 @@ func TestSenalesDeVida(t *testing.T) {
 		t.Fatalf("public with 27: %d", st.Instalaciones)
 	}
 }
+
+// A person comments on a delivered encargo and on the agent's cargo without
+// sending anything back; a secret is refused; the agent's answer is in the
+// bell for that person until they have seen it, and only for them.
+func TestComentariosAPI(t *testing.T) {
+	e := newEnv(t, false)
+	srv := httptest.NewServer(e.s.Handler())
+	t.Cleanup(srv.Close)
+	e.srv = srv
+	me, abi := e.session(t, "p0dxD"), e.session(t, "abi")
+	ctx := context.Background()
+	if err := e.store.SetMember(ctx, store.DefaultOrg, "abi", store.MemberCollaborator, "p0dxD"); err != nil {
+		t.Fatal(err)
+	}
+	k, err := e.store.CreateAgentKey(ctx, store.DefaultOrg, "claude", "h-comentarios", store.RoleCollaborator, nil, "p0dxD", time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := e.store.TakeCargo(ctx, k.ID, "el carrito")
+	enc, _ := e.store.CreateEncargo(ctx, store.Encargo{Title: "Revisar el carrito", CreatedBy: "p0dxD"})
+	_, _ = e.store.TakeEncargo(ctx, enc.ID, k.ID, c.ID, "claude")
+	if _, err := e.store.DeliverEncargo(ctx, enc.ID, k.ID, "claude", "arreglado", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if r, _ := e.do(t, "POST", "/api/comentarios", `{"body":"sin de qué"}`, me, nil); r.StatusCode != 400 {
+		t.Fatalf("about nothing: %d", r.StatusCode)
+	}
+	if r, _ := e.do(t, "POST", "/api/comentarios", `{"encargoId":999,"body":"x"}`, me, nil); r.StatusCode != 404 {
+		t.Fatalf("on no encargo: %d", r.StatusCode)
+	}
+	if r, _ := e.do(t, "POST", "/api/comentarios", fmt.Sprintf(`{"encargoId":%d,"body":"token: ghp_abcdefghijklmnopqrstuvwxyz0123456789"}`, enc.ID), me, nil); r.StatusCode != 400 {
+		t.Fatalf("a secret: %d", r.StatusCode)
+	}
+	r, body := e.do(t, "POST", "/api/comentarios", fmt.Sprintf(`{"encargoId":%d,"body":"El botón quedó muy chico"}`, enc.ID), me, nil)
+	var mine store.Comentario
+	if r.StatusCode != 201 || json.Unmarshal([]byte(body), &mine) != nil || mine.Author != "p0dxD" || mine.About != "Revisar el carrito" {
+		t.Fatalf("comment: %d %s", r.StatusCode, body)
+	}
+	if r, body := e.do(t, "POST", "/api/comentarios", fmt.Sprintf(`{"cargoId":%d,"body":"Y la entrega no dice cómo probarlo"}`, c.ID), abi, nil); r.StatusCode != 201 {
+		t.Fatalf("on the cargo: %d %s", r.StatusCode, body)
+	}
+	if got, _ := e.store.Encargo(ctx, enc.ID); got.Status != store.EncargoDelivered {
+		t.Fatalf("a comment sent it back: %s", got.Status)
+	}
+
+	answer, err := e.store.ResponderComentario(ctx, store.DefaultOrg, mine.ID, k.ID, "claude", "Lo agrandé en la rama boton-grande")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var news []store.Comentario
+	if _, body := e.do(t, "GET", "/api/comentarios/respuestas", "", me, nil); json.Unmarshal([]byte(body), &news) != nil || len(news) != 1 || news[0].ID != answer.ID || !news[0].New {
+		t.Fatalf("the bell's answers: %s", body)
+	}
+	if _, body := e.do(t, "GET", "/api/comentarios/respuestas", "", abi, nil); body != "[]\n" {
+		t.Fatalf("someone else's answers: %q", body)
+	}
+	var thread []store.Comentario
+	if _, body := e.do(t, "GET", fmt.Sprintf("/api/comentarios?encargo=%d", enc.ID), "", me, nil); json.Unmarshal([]byte(body), &thread) != nil || len(thread) != 2 || !thread[1].New {
+		t.Fatalf("thread: %s", body)
+	}
+	if r, _ := e.do(t, "GET", "/api/comentarios?cargo=x", "", me, nil); r.StatusCode != 400 {
+		t.Fatalf("a bad number: %d", r.StatusCode)
+	}
+	if r, _ := e.do(t, "POST", "/api/comentarios/vistos", fmt.Sprintf(`{"ids":[%d]}`, answer.ID), me, nil); r.StatusCode != 204 {
+		t.Fatalf("seen: %d", r.StatusCode)
+	}
+	if _, body := e.do(t, "GET", "/api/comentarios/respuestas", "", me, nil); body != "[]\n" {
+		t.Fatalf("seen, still in the bell: %q", body)
+	}
+	if _, body := e.do(t, "GET", "/api/comentarios", "", me, nil); json.Unmarshal([]byte(body), &thread) != nil || len(thread) != 3 {
+		t.Fatalf("all: %s", body)
+	}
+}

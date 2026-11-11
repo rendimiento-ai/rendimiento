@@ -71,6 +71,9 @@ type EncargoOut struct {
 	Para        string      `json:"para,omitempty"`
 	Actualizado time.Time   `json:"actualizado"`
 	Historia    []SucesoOut `json:"historia,omitempty"`
+	// Comentarios: what people said about it, with agents' answers (in
+	// encargo_leer and encargo_tomar).
+	Comentarios []ComentarioOut `json:"comentarios,omitempty"`
 }
 
 // SucesoOut is one step of an encargo's history.
@@ -126,6 +129,9 @@ type esperarOut struct {
 	Ejecucion Corrida    `json:"ejecucion"`
 	Encargo   EncargoOut `json:"encargo"`
 	Nota      string     `json:"nota"`
+	// ComentariosNuevos: people's comments on the encargo no agent has
+	// answered, so one said while the agent works reaches it.
+	ComentariosNuevos []ComentarioOut `json:"comentarios_nuevos,omitempty"`
 }
 
 type entregarEncargoIn struct {
@@ -144,7 +150,7 @@ type soltarIn struct {
 // write, inside a cargo.
 func (s *Server) addEncargoTools(srv herramientas, write bool) {
 	addTool(s, srv, &mcp.Tool{Name: "encargos_listar", Description: "Los encargos: trabajo que una persona (u otro agente) pidió. Los abiertos, o todos. Un encargo pendiente lo puede tomar usted con encargo_tomar."}, s.encargosListar)
-	addTool(s, srv, &mcp.Tool{Name: "encargo_leer", Description: "Un encargo completo: lo que se pide, quién lo tiene, lo que se entregó, el comentario de la persona si lo devolvió, y su historia."}, s.encargoLeer)
+	addTool(s, srv, &mcp.Tool{Name: "encargo_leer", Description: "Un encargo completo: lo que se pide, quién lo tiene, lo que se entregó, el comentario de la persona si lo devolvió, lo que comentaron de él (con las respuestas de los agentes) y su historia."}, s.encargoLeer)
 	if !write {
 		return
 	}
@@ -204,7 +210,9 @@ func (s *Server) encargoLeer(ctx context.Context, k store.AgentKey, in encargoIn
 	if err != nil {
 		return EncargoOut{}, err
 	}
-	return encargoOut(e, true), nil
+	out := encargoOut(e, true)
+	out.Comentarios, err = s.hiloEncargo(ctx, k, e.ID)
+	return out, err
 }
 
 // encargoCrear (encargo_crear) leaves work for later, in the agent's cargo.
@@ -256,7 +264,9 @@ func (s *Server) encargoTomar(ctx context.Context, k store.AgentKey, in encargoI
 	if err != nil {
 		return EncargoOut{}, err
 	}
-	return encargoOut(taken, true), nil
+	out := encargoOut(taken, true)
+	out.Comentarios, err = s.hiloEncargo(ctx, k, taken.ID)
+	return out, err
 }
 
 // mine checks the encargo is the agent's, taken or waiting.
@@ -315,7 +325,8 @@ func (s *Server) encargoEsperar(ctx context.Context, k store.AgentKey, in espera
 	if !out.Terminada {
 		out.Encargo = encargoOut(e, false)
 		out.Nota = fmt.Sprintf("la ejecución %d sigue %s; vuelva a llamar encargo_esperar para seguir esperando", run.ID, run.Status)
-		return out, nil
+		err := s.comentariosNuevos(ctx, k, &out)
+		return out, err
 	}
 	note := fmt.Sprintf("la ejecución %d terminó: %s", run.ID, run.Status)
 	if e.Status == store.EncargoWaiting {
@@ -333,7 +344,16 @@ func (s *Server) encargoEsperar(ctx context.Context, k store.AgentKey, in espera
 		e = resumed
 	}
 	out.Encargo, out.Nota = encargoOut(e, false), note
-	return out, nil
+	err = s.comentariosNuevos(ctx, k, &out)
+	return out, err
+}
+
+// comentariosNuevos adds to a wait's answer what people said about the
+// encargo that no agent answered yet.
+func (s *Server) comentariosNuevos(ctx context.Context, k store.AgentKey, out *esperarOut) error {
+	hilo, err := s.hiloEncargo(context.WithoutCancel(ctx), k, out.Encargo.ID)
+	out.ComentariosNuevos = nuevos(hilo)
+	return err
 }
 
 // encargoEntregar (encargo_entregar) hands the agent's encargo over.

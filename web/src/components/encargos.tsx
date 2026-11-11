@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { api, dollars, timeAgo, type CodeAgent, type Encargo, type EncargoStatus } from "../api";
+import { api, dollars, timeAgo, type CodeAgent, type Comentario, type Encargo, type EncargoStatus } from "../api";
 import { ErrorBox, usePoll } from "./ui";
 import { t, tn } from "../i18n";
 import { TextoConFormato } from "./texto";
+import { Comentarios, porTrabajo } from "./comentarios";
 
 const statusLabel: Record<EncargoStatus, string> = {
   pending: "Pending", taken: "Taken", waiting: "Waiting", delivered: "Delivered", reviewed: "Reviewed", cancelled: "Dropped",
@@ -145,7 +146,7 @@ function NewEncargo({ onCreated }: { onCreated: () => void }) {
 }
 
 /** One encargo: what was asked, who has it, what it waits on, what came back, and its history. */
-function EncargoCard({ e, onChange, choosable, chosen, onChoose }: { e: Encargo; onChange: () => void; choosable: boolean; chosen: boolean; onChoose: (on: boolean) => void }) {
+function EncargoCard({ e, onChange, choosable, chosen, onChoose, comentarios }: { e: Encargo; onChange: () => void; choosable: boolean; chosen: boolean; onChoose: (on: boolean) => void; comentarios: Comentario[] }) {
   const [open, setOpen] = useState(false);
   const [full, setFull] = useState<Encargo>();
   const act = (p: Promise<unknown>) => p.then(onChange, (err: Error) => alert(err.message));
@@ -187,6 +188,7 @@ function EncargoCard({ e, onChange, choosable, chosen, onChoose }: { e: Encargo;
         )}
         <button className="link small" onClick={toggle}>{open ? t("Hide history") : t("History")}</button>
       </div>
+      {(e.status !== "cancelled" || comentarios.length > 0) && <Comentarios list={comentarios} encargoId={e.id} onChange={onChange} />}
       {open && (
         <div className="small encargo-log">
           {full?.body && <TextoConFormato text={full.body} />}
@@ -208,7 +210,9 @@ export function Encargos() {
   const [all, setAll] = useState(false);
   const { data, error, reload: reloadList } = usePoll(() => api.encargos(all), [all], 15000);
   const { data: todos, reload: reloadAll } = usePoll(() => api.encargos(true), [], 15000);
-  const reload = () => { reloadList(); reloadAll(); };
+  const { data: comentarios, reload: reloadComentarios } = usePoll(api.comentarios, [], 15000);
+  const hilos = porTrabajo(comentarios, "encargoId");
+  const reload = () => { reloadList(); reloadAll(); reloadComentarios(); };
   const { data: ia } = usePoll(api.ia, [], 60000);
   const codeAgent = ia?.settings.codeAgent;
   const [chosen, setChosen] = useState<number[]>([]);
@@ -230,7 +234,7 @@ export function Encargos() {
       {data && !data.length && <p className="muted">{t("No encargos. Ask agents for something above, or from a failed run.")}</p>}
       <div className="stack" style={{ marginTop: 8 }}>
         {data?.map((e) => (
-          <EncargoCard key={e.id} e={e} onChange={reload} chosen={chosen.includes(e.id)}
+          <EncargoCard key={e.id} e={e} onChange={reload} chosen={chosen.includes(e.id)} comentarios={hilos.get(e.id) ?? []}
             choosable={!!codeAgent && codeAgent !== "off" && e.status === "pending" && !!e.app && !e.doNow}
             onChoose={(on) => setChosen(on ? [...chosen, e.id] : chosen.filter((id) => id !== e.id))} />
         ))}

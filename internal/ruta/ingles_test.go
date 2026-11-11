@@ -26,7 +26,7 @@ func TestIngles(t *testing.T) {
 	m.keys[h] = store.AgentKey{ID: 1, Name: "agent", Role: store.RoleCollaborator, ExpiresAt: time.Now().Add(time.Hour)}
 	s := &Server{Store: m, Plataforma: &fakePlataforma{runs: map[int64]*store.Run{}},
 		Encargos: &fakeEncargos{keys: map[int64]string{}}, Mercado: &fakeMercado{paginas: map[string]mercado.Pagina{}},
-		Produccion: &fakeProduccion{todas: map[int64]store.Aprobacion{}}}
+		Produccion: &fakeProduccion{todas: map[int64]store.Aprobacion{}}, Comentarios: &fakeComentarios{}}
 	srv := httptest.NewServer(s.Handler())
 	defer srv.Close()
 	if len(s.faltan) > 0 {

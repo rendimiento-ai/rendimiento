@@ -218,6 +218,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	rutaSrv := &ruta.Server{Store: st, Log: log.With("component", "ruta"), Lang: env("NOTIFY_LANG", "en")}
 	rutaSrv.Plataforma = plataformaMCP{Store: st, p: p, srv: srv}
 	rutaSrv.Encargos = st
+	rutaSrv.Comentarios = st
 	rutaSrv.Produccion = produccionMCP{Store: st, p: p}
 	srv.MCP = rutaSrv.Handler()
 	notifier := &notify.Notifier{To: splitList(os.Getenv("NOTIFY_EMAIL_TO")), Log: log.With("component", "notify"), Lang: i18n.Parse(env("NOTIFY_LANG", "en"))}

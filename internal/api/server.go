@@ -247,6 +247,12 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberCollaborator, "POST /api/encargos/{id}/route", s.routeEncargo)
 	auth(store.MemberCollaborator, "POST /api/encargos/{id}/estimate", s.reestimateEncargo)
 	auth(store.MemberCollaborator, "POST /api/encargos/do", s.doEncargos)
+	// What people say about agents' work (a cargo, an encargo), and agents'
+	// answers, which reach the person who commented in the bell.
+	auth(store.MemberGuest, "GET /api/comentarios", s.listComentarios)
+	auth(store.MemberCollaborator, "POST /api/comentarios", s.addComentario)
+	auth(store.MemberGuest, "GET /api/comentarios/respuestas", s.respuestasSinVer)
+	auth(store.MemberGuest, "POST /api/comentarios/vistos", s.verRespuestas)
 	auth(store.MemberAdmin, "GET /api/agent-keys", s.listAgentKeys)
 	auth(store.MemberAdmin, "POST /api/agent-keys", s.createAgentKey)
 	auth(store.MemberAdmin, "DELETE /api/agent-keys/{id}", s.revokeAgentKey)

@@ -70,6 +70,10 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | GET | `/api/encargos/{id}` | un encargo con su historia |
 | POST | `/api/encargos/{id}/review` | aceptar un encargo entregado (`accept: true`) o devolverlo con un `comment` |
 | POST | `/api/encargos/{id}/cancel` | descartar un encargo |
+| GET | `/api/comentarios` | los comentarios sobre el trabajo de los agentes, del más viejo al más nuevo: los de un cargo (`?cargo=`), los de un encargo (`?encargo=`) o los últimos de la organización; `new` marca la respuesta de un agente a uno suyo que usted no ha visto |
+| POST | `/api/comentarios` | comentar un cargo (`cargoId`) o un encargo (`encargoId`) sin devolverlo (`body`); colaboradores |
+| GET | `/api/comentarios/respuestas` | las respuestas de los agentes a sus comentarios que usted no ha visto (la campana) |
+| POST | `/api/comentarios/vistos` | marcar como vistas respuestas a sus comentarios (`ids`) |
 | PUT | `/api/apps/{app}/auto-encargo` | cuándo se abre solo un encargo por las fallas explicadas de la aplicación (`mode`: `off`, `branches`, `all`, o vacío para seguir a la organización); administradores |
 | POST | `/api/encargos/do` | mandar encargos pendientes al agente de código (`ids`); debe estar encendido |
 | POST | `/api/encargos/{id}/estimate` | volver a calificar un encargo (el estimador lo hace en unos 30 segundos) |
