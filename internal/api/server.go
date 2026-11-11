@@ -118,6 +118,9 @@ type Server struct {
 	// is Umami's public address, for links.
 	Analytics    Analytics
 	AnalyticsURL string
+	// Tracker is Umami's script tag for rendimiento's own pages (TrackerTag;
+	// empty: its visits are not counted).
+	Tracker string
 	// Mercado opens and keeps pages made from a form (nil: off).
 	Mercado *mercado.Mercado
 	// Update moves rendimiento to an image it built itself (nil: off).
@@ -1605,6 +1608,13 @@ func (s *Server) ui() http.Handler {
 		})
 	}
 	files := http.FileServerFS(s.UI)
+	// With a tracker, the page is served with its tag in the head.
+	var tracked []byte
+	if s.Tracker != "" {
+		if page, err := fs.ReadFile(s.UI, "index.html"); err == nil {
+			tracked = withTracker(page, s.Tracker)
+		}
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			httpError(w, http.StatusNotFound, "no such endpoint")
@@ -1616,6 +1626,11 @@ func (s *Server) ui() http.Handler {
 			r = r.Clone(r.Context())
 			r.URL.Path = "/"
 			w.Header().Set("Cache-Control", "no-cache")
+			if tracked != nil {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				_, _ = w.Write(tracked)
+				return
+			}
 		} else if strings.HasPrefix(p, "assets/") {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		}

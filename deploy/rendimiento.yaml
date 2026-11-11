@@ -74,6 +74,8 @@ data:
   # cluster with a view-only user (the rendimiento-umami secret).
   # UMAMI_URL: http://umami.umami.svc.cluster.local:3000
   # UMAMI_PUBLIC_URL: https://umami.example.com
+  # rendimiento's own pages counted there too: the id Umami gives the website.
+  # UMAMI_WEBSITE_ID: 00000000-1111-2222-3333-444444444444
   # The AI gateway (internal/ia): the local model, free, which organizations
   # use by default and fall back to; and the platform's key (the
   # rendimiento-ia secret), which organizations use only within the
