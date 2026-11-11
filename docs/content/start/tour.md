@@ -35,7 +35,7 @@ One screen, in three moves:
 :   One card per service: ready replicas, public URL, DNS and certificate status, the running image. **Provided for this app** shows the database and cache from `needs:`, which services use them and how to connect from your machine. **Dependency updates** is the per-app Renovate switch. **Resources** is a live tree of the Kubernetes objects (Deployments, pods, Services, Ingresses) with their health.
 
 **Runs**
-:   Every CI run: commit, branch, status, duration. **Run** starts a build of the default branch by hand.
+:   Every CI run: commit, branch, status, duration. **Run** starts a build of the default branch by hand. Above the list, filters by [kind of branch](../guide/builds.md#kinds-of-branch): the main branch, with a pull request, fixes, features, releases, dependencies, other branches.
 
 **Run page**
 :   The run's steps as a list, each with a bar for when it ran (bars that overlap ran «a la par», side by side: tests before builds, services in parallel), with its live log, its duration and, for builds, the image digest and the BuildKit daemon that built it. Reused steps show which release they came from.

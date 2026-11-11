@@ -94,6 +94,7 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | GET | `/api/apps/{app}/impact` | what a delete would remove (shown before confirming) |
 | POST | `/api/apps/{app}/disconnect` | stop managing the app but leave its workloads running |
 | GET | `/api/apps/{app}/runs` | CI runs |
+| GET | `/api/apps/{app}/branch-kinds` | the kind of each branch of the last 50 runs (main, fix, feature, release, deps, other) and its pull request ([Kinds of branch](../guide/builds.md#kinds-of-branch)) |
 | GET | `/api/apps/{app}/caminos` | the last 14 days of runs by branch, with where each branch started and was merged ([Roads](../guide/caminos.md)) |
 | POST | `/api/apps/{app}/runs` | start a run of the default branch (the **Run** button) |
 | GET | `/api/apps/{app}/releases` | release history (digest per service) |

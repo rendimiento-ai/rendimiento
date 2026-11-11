@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { addonsApi, api, appSecretNames, duration, isLibrary, session, subscribe, timeAgo, type App, type AutoEncargo, type Release, type ReleaseTask } from "../api";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { addonsApi, api, appSecretNames, duration, isLibrary, session, subscribe, timeAgo, type App, type AutoEncargo, type BranchKind, type Release, type ReleaseTask } from "../api";
 import { autoEncargoName } from "./IA";
 import { ErrorBox, PhaseBadge, ResourceTree, RunBadge, Switch, usePoll } from "../components/ui";
 import { fmtPct, ReliabilityTab } from "../components/reliability";
@@ -366,30 +366,85 @@ function DependencyUpdates({ name }: { name: string }) {
   );
 }
 
-/** The Runs tab: the last runs, with their commit, branch, state and time. */
+/** The Runs tab's filters, by kind of branch; "pull" is any branch with an open pull request. */
+const runFilters: { id: "all" | "pull" | BranchKind; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "main", label: "Main branch" },
+  { id: "pull", label: "With a pull request" },
+  { id: "fix", label: "Fixes" },
+  { id: "feature", label: "Features" },
+  { id: "release", label: "Releases" },
+  { id: "deps", label: "Dependencies" },
+  { id: "other", label: "Other branches" },
+];
+
+/** A branch's kind beside its name, when it says something. */
+const kindNames: Partial<Record<BranchKind, string>> = { fix: "fix", feature: "feature", release: "release", deps: "dependencies" };
+
+/**
+ * The Runs tab: the last runs, with their commit, branch, state and time, filtered by the kind of their branch (the
+ * default branch, with a pull request, fixes, features, releases...). The filter is kept in the address.
+ */
 function Runs({ name }: { name: string }) {
   const { data: runs, error } = usePoll(() => api.runs(name), [name], 5000);
+  const { data: kinds } = usePoll(() => api.branchKinds(name), [name], 60000);
+  const [params, setParams] = useSearchParams();
   const nav = useNavigate();
+  const of = (branch: string) => kinds?.branches[branch];
+  const fits = (id: string, branch: string) =>
+    id === "all" || (id === "pull" ? !!of(branch)?.open : of(branch)?.kind === id);
+  const counts = new Map(runFilters.map((f) => [f.id, (runs ?? []).filter((r) => fits(f.id, r.branch)).length]));
+  const asked = params.get("tipo") ?? "all";
+  const filter = kinds && runFilters.some((f) => f.id === asked) ? asked : "all";
+  const shown = (runs ?? []).filter((r) => fits(filter, r.branch));
+  const choose = (id: string) => {
+    const next = new URLSearchParams(params);
+    if (id === "all") next.delete("tipo");
+    else next.set("tipo", id);
+    setParams(next, { replace: true });
+  };
   return (
     <>
       <ErrorBox error={error} />
       {runs && runs.length === 0 && <div className="empty">{t("No runs yet. Merge the onboarding PR or press “Build now”.")}</div>}
-      {runs && runs.length > 0 && (
+      {runs && runs.length > 0 && kinds && (
+        <div className="rel-filters" role="group" aria-label={t("Kind of branch")}>
+          {runFilters.filter((f) => f.id === "all" || f.id === filter || counts.get(f.id)! > 0).map((f) => (
+            <button key={f.id} aria-pressed={filter === f.id} onClick={() => choose(f.id)}>
+              {t(f.label)} <span className="muted">{counts.get(f.id)}</span>
+            </button>
+          ))}
+          {!kinds.github && runs.some((r) => of(r.branch)?.kind !== "main") && (
+            <span className="small muted">{t("GitHub did not answer: the kinds come from the branch names.")}</span>
+          )}
+        </div>
+      )}
+      {runs && runs.length > 0 && shown.length === 0 && <div className="empty">{t("None of the last runs is of this kind.")}</div>}
+      {shown.length > 0 && (
         <div className="card table-wrap" style={{ padding: 0 }}>
           <table>
             <thead><tr><th>#</th><th>{t("Status")}</th><th>{t("Commit")}</th><th>{t("Branch")}</th><th className="hide-sm">{t("Result")}</th><th>{t("Duration")}</th><th>{t("Started")}</th></tr></thead>
             <tbody>
-              {runs.map((r) => (
-                <tr key={r.id} className="clickable" onClick={() => nav(`/apps/${name}/runs/${r.id}`)}>
-                  <td>{r.id}</td>
-                  <td><RunBadge status={r.status} /></td>
-                  <td className="mono">{r.sha.slice(0, 7)}</td>
-                  <td>{r.branch}{r.deploy && <span className="badge" style={{ marginLeft: 6 }}>{t("deploys")}</span>}</td>
-                  <td className="small muted hide-sm">{r.message}</td>
-                  <td className="small">{duration(r.startedAt, r.finishedAt)}</td>
-                  <td className="small muted">{timeAgo(r.createdAt)}</td>
-                </tr>
-              ))}
+              {shown.map((r) => {
+                const k = of(r.branch);
+                const kind = k && kindNames[k.kind];
+                return (
+                  <tr key={r.id} className="clickable" onClick={() => nav(`/apps/${name}/runs/${r.id}`)}>
+                    <td>{r.id}</td>
+                    <td><RunBadge status={r.status} /></td>
+                    <td className="mono">{r.sha.slice(0, 7)}</td>
+                    <td>
+                      {r.branch}
+                      {r.deploy && <span className="badge" style={{ marginLeft: 6 }}>{t("deploys")}</span>}
+                      {kind && filter !== k?.kind && <span className="chip" style={{ marginLeft: 6 }}>{t(kind)}</span>}
+                      {!!k?.pull && <span className="chip" style={{ marginLeft: 6 }} title={k.open ? t("Its pull request is open") : t("Its last pull request")}>#{k.pull}</span>}
+                    </td>
+                    <td className="small muted hide-sm">{r.message}</td>
+                    <td className="small">{duration(r.startedAt, r.finishedAt)}</td>
+                    <td className="small muted">{timeAgo(r.createdAt)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

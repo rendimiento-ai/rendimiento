@@ -817,6 +817,17 @@ export interface Caminos {
   partial?: boolean;
 }
 
+// ---- kinds of branch (the Runs tab) ----
+
+/** What a branch is: the default branch, a fix, a feature, a release, dependency updates, or another. */
+export type BranchKind = "main" | "fix" | "feature" | "release" | "deps" | "other";
+
+/** The kind of each branch of an app's last runs, and its pull request; github is false when GitHub did not answer. */
+export interface BranchKinds {
+  branches: Record<string, { kind: BranchKind; pull?: number; open?: boolean }>;
+  github: boolean;
+}
+
 export const api = {
   me: () => request<Me>("GET", "/api/me"),
   orgs: () => request<Org[]>("GET", "/api/orgs"),
@@ -870,6 +881,7 @@ export const api = {
   deleteApp: (name: string) => request<void>("DELETE", `/api/apps/${name}?confirm=${encodeURIComponent(name)}`),
   runs: (app: string) => request<Run[]>("GET", `/api/apps/${app}/runs`),
   caminos: (app: string) => request<Caminos>("GET", `/api/apps/${app}/caminos`),
+  branchKinds: (app: string) => request<BranchKinds>("GET", `/api/apps/${app}/branch-kinds`),
   triggerRun: (app: string, branch?: string) => request<Run>("POST", `/api/apps/${app}/runs`, { branch }),
   releases: (app: string) => request<Release[]>("GET", `/api/apps/${app}/releases`),
   releaseTaskLog: (app: string, release: number, task: string) => request<string>("GET", `/api/apps/${app}/releases/${release}/tasks/${encodeURIComponent(task)}/log`),

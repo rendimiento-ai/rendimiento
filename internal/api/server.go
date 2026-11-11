@@ -282,6 +282,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/apps/{app}/impact", s.deleteImpact)
 	auth(store.MemberAdmin, "POST /api/apps/{app}/disconnect", s.disconnectApp)
 	auth(store.MemberGuest, "GET /api/apps/{app}/runs", s.listRuns)
+	auth(store.MemberGuest, "GET /api/apps/{app}/branch-kinds", s.branchKinds)
 	auth(store.MemberGuest, "GET /api/apps/{app}/caminos", s.appCaminos)
 	auth(store.MemberCollaborator, "POST /api/apps/{app}/runs", s.triggerRun)
 	auth(store.MemberGuest, "GET /api/universe", s.universe)
@@ -1282,6 +1283,25 @@ func (s *Server) listRuns(w http.ResponseWriter, r *http.Request, _ string) {
 		runs = []*store.Run{}
 	}
 	writeJSON(w, runs)
+}
+
+// branchKinds is what kind each branch of the app's last runs is (the
+// default branch, a fix, a feature, a release...), for the Runs tab.
+func (s *Server) branchKinds(w http.ResponseWriter, r *http.Request, _ string) {
+	a := s.app(w, r)
+	if a == nil {
+		return
+	}
+	runs, err := s.Store.ListRuns(r.Context(), a.ID, 50)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	branches := make([]string, 0, len(runs))
+	for _, run := range runs {
+		branches = append(branches, run.Branch)
+	}
+	writeJSON(w, s.Platform.BranchKinds(r.Context(), a, branches))
 }
 
 // appCaminos is the Caminos tab: the app's last two weeks of runs, drawn as
