@@ -98,6 +98,7 @@ type cristal struct {
 	vistas   []Vista
 	idas     []string
 	vueltas  int
+	atras    int
 	muestras int
 	salidas  int
 }
@@ -105,6 +106,7 @@ type cristal struct {
 func (c *cristal) Emitir(v Vista) { c.mu.Lock(); c.vistas = append(c.vistas, v); c.mu.Unlock() }
 func (c *cristal) Ir(d string)    { c.mu.Lock(); c.idas = append(c.idas, d); c.mu.Unlock() }
 func (c *cristal) Volver()        { c.mu.Lock(); c.vueltas++; c.mu.Unlock() }
+func (c *cristal) Atras()         { c.mu.Lock(); c.atras++; c.mu.Unlock() }
 func (c *cristal) Mostrar()       { c.mu.Lock(); c.muestras++; c.mu.Unlock() }
 func (c *cristal) Navegador(d string) {
 	c.mu.Lock()
@@ -278,6 +280,11 @@ func TestInicio(t *testing.T) {
 	// The assistant's page loads again and asks.
 	if v := a.Vista(); v.Accion != "Conectar" {
 		t.Fatalf("back at the start: %+v", v)
+	}
+	// One page back is the window's own business, wherever it is.
+	a.atras()
+	if c.atras != 1 || c.vueltas != 1 {
+		t.Fatalf("one page back: back %d, to the start %d", c.atras, c.vueltas)
 	}
 }
 

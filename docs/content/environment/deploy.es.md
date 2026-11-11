@@ -260,6 +260,8 @@ Desde entonces la aplicación es una ventana propia que muestra rendimiento (`ht
 - **Dormir**: detiene la distribución, y con ella sus aplicaciones, las construcciones y la memoria que ocupaba. Los datos se quedan. **Despertar** la arranca de nuevo.
 - **Salir**: cierra la aplicación; sin nada que la mantenga despierta, WSL detiene la distribución poco después.
 
+La ventana tiene su propio menú, **Navegar**, para las páginas que no son de rendimiento (las de GitHub, y aquellas a las que GitHub lo manda para iniciar sesión): **Atrás** va a la página anterior, como en un navegador, y **Volver al inicio** hace lo mismo que en el menú del icono.
+
 Dónde queda cada cosa:
 
 - el programa, donde usted lo guardó;

@@ -36,7 +36,7 @@ func TestVer(t *testing.T) {
 		{"waking after the login", situacion{estado: wsl.SinUsuario, tarea: "despertar"}, "Start", "Start rendimiento", "", false, -1, "first time takes a few minutes"},
 		{"asleep", situacion{estado: wsl.Dormida}, "Start", "Start rendimiento", "Despertar", false, -1, "asleep"},
 		{"going to sleep", situacion{estado: wsl.Despierta, configurado: true, tarea: "dormir"}, "Start", "Going to sleep…", "", false, -1, "data stays"},
-		{"connect", situacion{estado: wsl.Despierta}, "GitHub", "Connect GitHub", "Conectar", false, -1, "next to the clock"},
+		{"connect", situacion{estado: wsl.Despierta}, "GitHub", "Connect GitHub", "Conectar", false, -1, "top of the window"},
 		{"ready", situacion{estado: wsl.Despierta, configurado: true}, "", "rendimiento is ready", "Entrar", false, -1, ""},
 		{"unknown problem", situacion{estado: wsl.Dormida, problema: &wsl.Problema{Clave: "nueva", Detalle: "x"}}, "Start", "Start rendimiento", "Despertar", false, -1, "Something did not work"},
 	} {
