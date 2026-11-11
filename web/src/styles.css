@@ -994,6 +994,8 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 .inst-accion { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; animation: vista-entra .35s ease both; }
 .inst-accion .bienv-comando { align-self: stretch; }
 .inst-accion p { margin: 0; }
+.inst-largo .bienv-comando { align-items: flex-start; }
+.inst-largo .bienv-comando code { white-space: pre-wrap; font-size: 13px; }
 .inst-pasos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .inst-pasos li { display: flex; gap: 12px; align-items: flex-start; animation: vista-entra .4s ease both; animation-delay: var(--d); }
 .inst-pasos .paso-num { flex: none; width: 30px; height: 30px; font-size: 16px; }

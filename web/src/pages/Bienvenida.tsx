@@ -277,51 +277,77 @@ function EscenaWindows() {
   );
 }
 
-/** The one command in a terminal, and what it leaves running. */
-function EscenaLinux({ command }: { command: string }) {
+/** The one command in a terminal, what it leaves running, and where rendimiento answers. */
+function EscenaTerminal({ command, listo, direccion }: { command: string; listo: [string, string]; direccion: string }) {
   return (
     <div className="inst-escena inst-terminal" aria-hidden="true">
       <div className="inst-titulo"><span className="inst-luces"><i /><i /><i /></span></div>
       <div className="inst-cuerpo">
         <div className="inst-orden"><b>$</b> <span style={{ ["--n" as string]: command.length }}>{command}</span></div>
-        <div className="inst-t2"><i>✓</i> containerd</div>
-        <div className="inst-t3"><i>✓</i> rendimiento</div>
-        <div className="inst-t4"><b>→</b> http://localhost:8080</div>
+        <div className="inst-t2"><i>✓</i> {listo[0]}</div>
+        <div className="inst-t3"><i>✓</i> {listo[1]}</div>
+        <div className="inst-t4"><b>→</b> {direccion}</div>
       </div>
     </div>
   );
 }
 
+// The chart of the latest release, with the three values a cluster has to say (the book's example ones).
+const helm = `helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento \\
+  -n rendimiento-system --create-namespace \\
+  --set baseURL=https://rendimiento.example.com \\
+  --set firstAdmins=your-github-login \\
+  --set registry.host=registry.example.com`;
+
 /**
- * Install it on your own computer, by system: the app to download on Windows, the one command (from this same
- * address) on Linux, each with its three steps and a small scene of what happens. It starts on the visitor's system.
+ * Install it, by system: the app to download on Windows, the one command (from this same address) on Linux, the
+ * Helm chart on a Kubernetes cluster, each with its three steps and a small scene of what happens. It starts on the
+ * visitor's system.
  */
+type Sistema = "windows" | "linux" | "kubernetes";
+const sistemas: Sistema[] = ["windows", "linux", "kubernetes"];
+const nombres: Record<Sistema, string> = { windows: "Windows", linux: "Linux", kubernetes: "Kubernetes" };
+
 function Instalar() {
   const command = `curl -fsSL ${location.origin}/instalar | sh`;
-  const [sistema, setSistema] = useState<"windows" | "linux">(() => (/Windows/i.test(navigator.userAgent) ? "windows" : "linux"));
+  const [sistema, setSistema] = useState<Sistema>(() => (/Windows/i.test(navigator.userAgent) ? "windows" : "linux"));
   const [copiado, setCopiado] = useState(false);
+  const comando = (texto: string) => (
+    <div className="bienv-comando">
+      <code>{texto}</code>
+      <button onClick={() => navigator.clipboard?.writeText(texto).then(() => setCopiado(true), () => setCopiado(false))}>
+        {copiado ? t("Copied") : t("Copy")}
+      </button>
+    </div>
+  );
   const github = { titulo: t("Connect GitHub"), texto: t("Choose the repositories rendimiento may see, and deploy the first one.") };
-  const pasos = sistema === "windows"
-    ? [
+  const pasos = {
+    windows: [
       { titulo: t("Open it"), texto: t("An assistant turns WSL 2 on, downloads rendimiento (about 174 MB) and starts it.") },
       github,
       { titulo: t("It lives next to the clock"), texto: t("Sleep stops everything and frees the memory; Wake up brings it back.") },
-    ]
-    : [
+    ],
+    linux: [
       { titulo: t("Run the command"), texto: t("It uses containerd or Docker, or installs containerd for you, and it asks before it does.") },
       github,
       { titulo: t("It starts with the computer"), texto: t("A service of your own user, without root. One command removes it.") },
-    ];
+    ],
+    kubernetes: [
+      { titulo: t("Run the command"), texto: t("With your address, your GitHub username and your image registry in place of the example ones.") },
+      github,
+      { titulo: t("Each app gets its address"), texto: t("Under the same domain, with a certificate when the cluster has cert-manager.") },
+    ],
+  }[sistema];
   return (
     <section className="bienv-seccion bienv-instalar" aria-labelledby="instalar">
-      <h2 id="instalar">{t("On your own computer")}</h2>
-      <p className="bienv-entrada">{t("One program on Windows, one command on Linux. Your apps then run on your computer, at <app>.localhost.")}</p>
+      <h2 id="instalar">{t("On your own computer, or your cluster")}</h2>
+      <p className="bienv-entrada">{t("One program on Windows, one command on Linux: your apps then run on your computer, at <app>.localhost. On Kubernetes, one Helm chart.")}</p>
       <div className="inst">
         <div className="inst-texto">
           <div className="inst-sistemas" role="group" aria-label={t("Operating system")}>
-            {(["windows", "linux"] as const).map((s) => (
-              <button key={s} className={sistema === s ? "on" : undefined} aria-pressed={sistema === s} onClick={() => setSistema(s)}>
-                {s === "windows" ? "Windows" : "Linux"}
+            {sistemas.map((s) => (
+              <button key={s} className={sistema === s ? "on" : undefined} aria-pressed={sistema === s} onClick={() => { setSistema(s); setCopiado(false); }}>
+                {nombres[s]}
               </button>
             ))}
           </div>
@@ -330,14 +356,12 @@ function Instalar() {
               <a className="btn primary big" href={descargaWindows}>{t("Download for Windows")}</a>
               <p className="small muted">{t("Windows 10 or 11, on a 64-bit Intel or AMD processor. A preview, not signed yet: Windows asks before it opens it.")}</p>
             </div>
+          ) : sistema === "linux" ? (
+            <div key="linux" className="inst-accion">{comando(command)}</div>
           ) : (
-            <div key="linux" className="inst-accion">
-              <div className="bienv-comando">
-                <code>{command}</code>
-                <button onClick={() => navigator.clipboard?.writeText(command).then(() => setCopiado(true), () => setCopiado(false))}>
-                  {copiado ? t("Copied") : t("Copy")}
-                </button>
-              </div>
+            <div key="kubernetes" className="inst-accion inst-largo">
+              {comando(helm)}
+              <p className="small muted">{t("The cluster needs an image registry its nodes trust, an ingress controller and storage. The book says the rest, and how to try it on your computer with k3d.")}</p>
             </div>
           )}
           {/* Its own key: the same one as the block above would leave a copy behind on each change. */}
@@ -351,7 +375,9 @@ function Instalar() {
           </ol>
           <p className="small muted">{t("Mac comes later.")}</p>
         </div>
-        {sistema === "windows" ? <EscenaWindows key="w" /> : <EscenaLinux key="l" command={command} />}
+        {sistema === "windows" ? <EscenaWindows key="w" />
+          : sistema === "linux" ? <EscenaTerminal key="l" command={command} listo={["containerd", "rendimiento"]} direccion="http://localhost:8080" />
+          : <EscenaTerminal key="k" command="helm install rendimiento …" listo={["postgres", "rendimiento"]} direccion="https://rendimiento.example.com" />}
       </div>
     </section>
   );
