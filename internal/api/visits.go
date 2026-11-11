@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rendimiento-ai/rendimiento/internal/analytics"
@@ -203,6 +204,17 @@ type VisitsSummary struct {
 	Current    analytics.Stats `json:"current"`
 	Previous   analytics.Stats `json:"previous"`
 	Apps       []AppVisits     `json:"apps"` // most visitors first; only apps Umami counts
+	// Platform is rendimiento's own pages (UMAMI_WEBSITE_ID): only for an
+	// administrator of the platform's organization, and not in the totals.
+	Platform *PlatformVisits `json:"platform,omitempty"`
+}
+
+// PlatformVisits is the dashboard's line of rendimiento's own visits.
+type PlatformVisits struct {
+	Domain   string          `json:"domain"`
+	URL      string          `json:"url,omitempty"` // the website in Umami
+	Current  analytics.Stats `json:"current"`
+	Previous analytics.Stats `json:"previous"`
 }
 
 // addStats adds b's numbers to a.
@@ -256,5 +268,23 @@ func (s *Server) visitsSummary(w http.ResponseWriter, r *http.Request, _ string)
 		out.Apps = append(out.Apps, line)
 	}
 	sort.SliceStable(out.Apps, func(i, j int) bool { return out.Apps[i].Current.Visitors > out.Apps[j].Current.Visitors })
+	// Who visits rendimiento itself is the platform's business: its
+	// administrators see it, and no other organization does.
+	if s.TrackerSite != "" && orgOf(r) == store.DefaultOrg && roleOf(r) == store.MemberAdmin {
+		for _, site := range sites {
+			if !strings.EqualFold(site.ID, s.TrackerSite) {
+				continue
+			}
+			cur, prev, err := s.Analytics.Totals(ctx, site, from, to)
+			if err != nil {
+				umamiError(w, err)
+				return
+			}
+			out.Platform = &PlatformVisits{Domain: site.Domain, Current: cur, Previous: prev}
+			if s.AnalyticsURL != "" {
+				out.Platform.URL = s.AnalyticsURL + "/websites/" + url.PathEscape(site.ID)
+			}
+		}
+	}
 	writeJSON(w, out)
 }

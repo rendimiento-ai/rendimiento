@@ -1,0 +1,1 @@
+- **Visits:** the dashboard's visitors panel shows rendimiento's own visits (the website of `UMAMI_WEBSITE_ID`) in a line of their own, only to administrators of the platform's organization.

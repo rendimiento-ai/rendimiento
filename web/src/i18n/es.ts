@@ -965,6 +965,8 @@ export const es: Record<string, string> = {
   "Put its tracking script in the app's pages, inside <head>:": "Ponga su guion de seguimiento en las páginas de la aplicación, dentro de <head>:",
   "Visits appear here a few minutes after the first one.": "Las visitas aparecen aquí unos minutos después de la primera.",
   "Visitors, last {n} days": "Visitantes, últimos {n} días",
+  "rendimiento's own pages. Only administrators see this line, and it is not in the totals above.": "Las páginas de rendimiento. Solo los administradores ven este renglón, y no entra en los totales de arriba.",
+  "rendimiento itself · only administrators": "rendimiento mismo · solo administradores",
   "from Umami": "según Umami",
   "across {n} app": "en {n} aplicación",
   "across {n} apps": "en {n} aplicaciones",

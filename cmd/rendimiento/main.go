@@ -558,6 +558,8 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 	if id := os.Getenv("UMAMI_WEBSITE_ID"); id != "" {
 		if srv.Tracker = api.TrackerTag(os.Getenv("UMAMI_PUBLIC_URL"), id); srv.Tracker == "" {
 			log.Warn("UMAMI_WEBSITE_ID is set but it is not a website id, or UMAMI_PUBLIC_URL is not an address: rendimiento's own visits are not counted")
+		} else {
+			srv.TrackerSite = id
 		}
 	}
 	if u, ok := srv.Analytics.(*analytics.Umami); ok {

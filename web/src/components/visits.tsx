@@ -347,9 +347,9 @@ export function VisitsTab({ app }: { app: App }) {
 /** The dashboard's visitors panel: the last 7 days, all apps Umami counts. */
 export function VisitsPanel() {
   const { data } = usePoll(api.visitsSummary, [], 300000);
-  if (!data || !data.configured || data.apps.length === 0) return null;
-  const c = data.current, p = data.previous;
-  const max = Math.max(...data.apps.map((a) => a.current.visitors), 1);
+  if (!data || !data.configured || (data.apps.length === 0 && !data.platform)) return null;
+  const c = data.current, p = data.previous, own = data.platform;
+  const max = Math.max(...data.apps.map((a) => a.current.visitors), own?.current.visitors ?? 0, 1);
   return (
     <section className="card dlv vis-panel" aria-labelledby="vis-h">
       <div className="row between">
@@ -373,6 +373,19 @@ export function VisitsPanel() {
               <td><TrendNote trend={change(a.current.visitors, a.previous.visitors)} className="small muted" /></td>
             </tr>
           ))}
+          {own && (
+            <tr id="vis-platform" title={t("rendimiento's own pages. Only administrators see this line, and it is not in the totals above.")}>
+              <td>
+                {own.url ? <a href={own.url} target="_blank" rel="noreferrer">{own.domain}</a> : own.domain}
+                <div className="small muted">{t("rendimiento itself · only administrators")}</div>
+              </td>
+              <td className="vis-cell">
+                <span className="vis-bar" style={{ width: `${(own.current.visitors / max) * 100}%` }} aria-hidden="true" />
+                <span className="vis-label">{tn(own.current.visitors, "{n} visitor", "{n} visitors", { n: fmtN(own.current.visitors) })}</span>
+              </td>
+              <td><TrendNote trend={change(own.current.visitors, own.previous.visitors)} className="small muted" /></td>
+            </tr>
+          )}
         </tbody>
       </table>
     </section>
