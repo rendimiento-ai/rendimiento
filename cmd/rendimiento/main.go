@@ -94,6 +94,10 @@ func main() {
 func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	// A stand-in for GitHub, for tests of an installed rendimiento
+	// (hack/ci-inicio-rapido.sh).
+	gh.APIBase = strings.TrimRight(env("GITHUB_API_URL", gh.APIBase), "/")
+	gh.OAuthBase = strings.TrimRight(env("GITHUB_URL", gh.OAuthBase), "/")
 	// MODE=local: one computer without Kubernetes (see local.go).
 	if env("MODE", "cluster") == "local" {
 		return runLocal(ctx, log, problemLog, plain)

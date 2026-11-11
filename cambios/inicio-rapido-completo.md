@@ -1,0 +1,2 @@
+- **Quickstart:** the test on a clean machine now goes on from the installer to the example app (`rendimiento-ai/hola`) answering at its address, timed, with a stand-in for GitHub's pages; it fails when the install and the deploy take more than ten minutes.
+- **Settings:** `GITHUB_API_URL` and `GITHUB_URL` say where GitHub's API and sign-in exchange are, for tests against a stand-in. Leave them unset otherwise.
