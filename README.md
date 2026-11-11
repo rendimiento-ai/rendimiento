@@ -20,6 +20,8 @@ helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento \
   --set registry.host=registry.example.com
 ```
 
+The [quickstart](https://learn.rendimiento.ai/start/quickstart/) goes from that first command to an example app with an address in under ten minutes ([en español](https://aprende.rendimiento.ai/start/quickstart/)).
+
 On **Windows** (preview), download [the app](https://github.com/rendimiento-ai/rendimiento/releases/latest/download/rendimiento-windows-amd64.exe): it sets up WSL2 for you and shows rendimiento in a window of its own. It is not signed yet, so SmartScreen asks before running it.
 
 https://github.com/user-attachments/assets/cc33f1e6-b708-4b8e-8aca-6118f357d278

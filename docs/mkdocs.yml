@@ -65,6 +65,7 @@ plugins:
           nav_translations:
             Home: Inicio
             Start here: Empiece aquí
+            Quickstart: Inicio rápido
             Why rendimiento exists: Por qué existe rendimiento
             Concepts and vocabulary: Conceptos y vocabulario
             A tour of the UI: Un recorrido por la interfaz
@@ -154,6 +155,7 @@ nav:
   - Home: index.md
   - Start here:
       - start/index.md
+      - Quickstart: start/quickstart.md
       - Why rendimiento exists: start/vision.md
       - Concepts and vocabulary: start/concepts.md
       - A tour of the UI: start/tour.md

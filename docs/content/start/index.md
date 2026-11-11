@@ -1,5 +1,7 @@
 # Start here
 
+To try it before reading about it, the **[Quickstart](quickstart.md)** takes a Linux computer to a deployed app in under ten minutes.
+
 Three short chapters give you the whole picture before any detail:
 
 1. **[Why rendimiento exists](vision.md)**: the problem it replaced, the decisions that shaped it, and the history of how your apps moved onto it.
