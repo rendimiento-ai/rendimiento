@@ -64,7 +64,8 @@ aviso notice "inicio rápido ($MOTOR)" "installed and answering in ${total}s. $p
 [ "$total" -le "$LIMITE" ] || falla "the install took ${total}s, more than ${LIMITE}s"
 
 # ---- from installed to an app with an address ----
-api=http://127.0.0.1:8080
+# localhost, as in BASE_URL: a sign-in begun at another address starts over there.
+api=http://localhost:8080
 falso=127.0.0.1:8099
 app=${EJEMPLO##*/}
 tmp=$(mktemp -d)
