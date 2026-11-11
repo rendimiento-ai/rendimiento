@@ -323,7 +323,8 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 		holder.Set(app)
 		log.Info("GitHub App loaded", "slug", c.Slug)
 	} else {
-		log.Warn("GitHub App not configured yet; open " + baseURL + "/setup")
+		// A new install starts here: it is the next step, not a problem to list.
+		log.Info("GitHub App not configured yet; open " + baseURL + "/setup")
 	}
 
 	// Add-ons act as their own, more privileged service account, so what
