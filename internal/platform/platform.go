@@ -53,6 +53,7 @@ type GitHub interface {
 	OpenPulls(ctx context.Context, installation int64, repo string) ([]gh.PullInfo, error)
 	Pull(ctx context.Context, installation int64, repo string, number int) (*gh.PullInfo, error)
 	MergePull(ctx context.Context, installation int64, repo string, number int, sha string) error
+	DeleteBranch(ctx context.Context, installation int64, repo, branch string) error
 	MergeBase(ctx context.Context, installation int64, repo, base, head string) (string, time.Time, error)
 	FirstParent(ctx context.Context, installation int64, repo, sha string) (string, error)
 }
