@@ -563,6 +563,12 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		httpError(w, http.StatusBadRequest, "login state mismatch; try again")
 		return
 	}
+	// The person said no on GitHub's page (error=access_denied, and no
+	// code): nothing failed, and the welcome page is where they were.
+	if r.URL.Query().Get("error") != "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
 	login, err := app.Login(r.Context(), r.URL.Query().Get("code"))
 	if err != nil {
 		s.Log.Warn("login failed", "err", err)

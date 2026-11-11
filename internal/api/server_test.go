@@ -161,6 +161,10 @@ func TestAuthBoundaries(t *testing.T) {
 	if r, _ := e.do(t, "GET", "/api/auth/callback?code=x&state=y", "", &http.Cookie{Name: "oauth_state", Value: "z"}, nil); r.StatusCode != 400 {
 		t.Fatalf("oauth state: %d", r.StatusCode)
 	}
+	// Cancelling on GitHub's page comes back to the start, signed out.
+	if r, _ := e.do(t, "GET", "/api/auth/callback?error=access_denied&state=z", "", &http.Cookie{Name: "oauth_state", Value: "z"}, nil); r.StatusCode != 302 || r.Header.Get("Location") != "/" || len(r.Cookies()) != 0 {
+		t.Fatalf("cancelled on GitHub: %d to %q, cookies %v", r.StatusCode, r.Header.Get("Location"), r.Cookies())
+	}
 }
 
 func sign(secret, body string) string {
