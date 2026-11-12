@@ -367,7 +367,16 @@ func (p *Platform) Register(ctx context.Context, req OnboardRequest) (*store.App
 	if err := req.Spec.Validate(); err != nil {
 		return nil, err
 	}
-	req.Name = generate.Slug(req.Name)
+	if req.Adopt && req.OrgID != 0 && req.OrgID != store.DefaultOrg {
+		// Its name carries the organization's address, so the namespace it
+		// would take over is never the one that was found running.
+		return nil, errors.New("migrating an app that already runs in the cluster is for the platform's organization")
+	}
+	name, err := p.nameInOrg(ctx, req.OrgID, req.Name)
+	if err != nil {
+		return nil, err
+	}
+	req.Name = name
 	app := &store.App{Name: req.Name, Repo: req.Repo, InstallationID: req.Installation, DefaultBranch: req.DefaultBranch, Spec: req.Spec, OrgID: req.OrgID}
 	if err := p.Store.CreateApp(ctx, app); err != nil {
 		if store.IsUniqueViolation(err) {
@@ -380,6 +389,43 @@ func (p *Platform) Register(ctx context.Context, req OnboardRequest) (*store.App
 		return nil, err
 	}
 	return app, nil
+}
+
+// maxAppName is the longest an app's name can be: it is its namespace.
+const maxAppName = 63
+
+// nameInOrg is the name an app gets in its organization. The name is also
+// the app's namespace and its address in rendimiento, so it is one across
+// the installation: an app of the platform's organization keeps the name as
+// given, and any other organization's app carries the organization's
+// address in front ("tienda" in "otra" is "otra-tienda"). Two organizations
+// can then both have a "tienda", and neither learns what the other has. The
+// platform's organization may not use another's prefix.
+func (p *Platform) nameInOrg(ctx context.Context, orgID int64, name string) (string, error) {
+	name = generate.Slug(name)
+	if orgID == 0 || orgID == store.DefaultOrg {
+		orgs, err := p.Store.AllOrgs(ctx)
+		if err != nil {
+			return "", err
+		}
+		for _, o := range orgs {
+			if o.ID != store.DefaultOrg && strings.HasPrefix(name, o.Slug+"-") {
+				return "", fmt.Errorf("names starting with %q are for the apps of the organization %s; pick another name", o.Slug+"-", o.Name)
+			}
+		}
+		return name, nil
+	}
+	org, err := p.Store.GetOrg(ctx, orgID)
+	if err != nil {
+		return "", err
+	}
+	if !strings.HasPrefix(name, org.Slug+"-") {
+		name = org.Slug + "-" + name
+	}
+	if len(name) > maxAppName {
+		return "", fmt.Errorf("the name %q is too long: with the organization's address in front it has %d characters, and %d is the most", name, len(name), maxAppName)
+	}
+	return name, nil
 }
 
 // DeleteApp removes the app from its destination (in Kubernetes, the

@@ -44,6 +44,7 @@ function Shell() {
         session.role = me.role;
         session.cluster = !!me.cluster;
         session.mercado = !!me.mercado;
+        session.appPrefix = me.appPrefix ?? "";
         setState({ login: me.login, role: me.role, org: me.org, operator: me.operator, demo: me.demo, cluster: me.cluster, configured: true, loading: false });
       } catch (e) {
         if (!(e instanceof ApiError && e.status === 401)) throw e;

@@ -22,6 +22,18 @@ Everything belongs to an **organization**: its apps (with their runs, releases a
 
 The **platform's organization** (the first one) runs the platform. Its administrators are the **operators**: they alone see the cluster's pages (Environment, Add-ons, Services, Problems, the Mercado), update the platform, and, for now, create organizations (under Members → Organizations) and onboard apps, in whichever organization they are working in. An agent key belongs to the organization it was made in, and its tools see only that organization.
 
+### App names {#app-names}
+
+An app's name is also its address in rendimiento and its namespace in the cluster, so it is one across the installation. The platform's organization keeps the names it gives. In any other organization the name carries the organization's address in front: «tienda» in the organization `almacen` is `almacen-tienda`, in rendimiento and in the cluster. Two organizations can each have their «tienda», and neither is told what the other has. The **New app** page shows the full name before you confirm.
+
+Three rules keep the names apart:
+
+- The platform's organization cannot name an app with another organization's address in front (`almacen-…`).
+- A new organization's address cannot begin the address of another (`almacen` and `almacen-norte`), nor the name of an app that already exists.
+- With the address in front, a name has at most 63 characters, the limit of a namespace. Keep an organization's address short.
+
+Migrating an app that already runs in the cluster (taking over its namespace) is only for the platform's organization.
+
 Today all organizations share the platform's cluster. Organizations in a dedicated virtual cluster, or on their own cluster in any cloud, come later.
 
 ## Demo links {#demo-links}

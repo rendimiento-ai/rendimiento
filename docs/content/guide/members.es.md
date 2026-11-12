@@ -22,6 +22,18 @@ Todo pertenece a una **organización**: sus aplicaciones (con sus ejecuciones, v
 
 La **organización de la plataforma** (la primera) es la que la opera. Sus administradores son los **operadores**: solo ellos ven las páginas del clúster (Entorno, Complementos, Servicios, Problemas, el Mercado), actualizan la plataforma y, por ahora, crean organizaciones (en Miembros → Organizaciones) e incorporan aplicaciones, en la organización en la que estén trabajando. Una llave de agente pertenece a la organización en la que se creó, y sus herramientas solo ven esa organización.
 
+### Nombres de las aplicaciones {#app-names}
+
+El nombre de una aplicación es también su dirección en rendimiento y su espacio de nombres en el clúster, así que es uno solo en toda la instalación. La organización de la plataforma conserva los nombres que da. En cualquier otra organización el nombre lleva al frente la dirección de la organización: «tienda» en la organización `almacen` es `almacen-tienda`, en rendimiento y en el clúster. Dos organizaciones pueden tener cada una su «tienda», y a ninguna se le dice qué tiene la otra. La página **Nueva aplicación** muestra el nombre completo antes de confirmar.
+
+Tres reglas mantienen separados los nombres:
+
+- La organización de la plataforma no puede nombrar una aplicación con la dirección de otra organización al frente (`almacen-…`).
+- La dirección de una organización nueva no puede ser el comienzo de la dirección de otra (`almacen` y `almacen-norte`), ni del nombre de una aplicación que ya existe.
+- Con la dirección al frente, un nombre tiene a lo más 63 caracteres, el límite de un espacio de nombres. Conviene que la dirección de una organización sea corta.
+
+Migrar una aplicación que ya corre en el clúster (tomar su espacio de nombres) es solo de la organización de la plataforma.
+
 Hoy todas las organizaciones comparten el clúster de la plataforma. Las organizaciones en un clúster virtual dedicado, o en su propio clúster en cualquier nube, llegan después.
 
 ## Ligas de demostración {#demo-links}
