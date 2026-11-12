@@ -67,6 +67,9 @@ type Config struct {
 	Zone     string // default DNS zone for generated domains
 	// Railpack means build pods can build services that have no Dockerfile.
 	Railpack bool
+	// OrgQuota is the most an organization other than the platform's may
+	// ask the cluster for (ORG_QUOTA_CPU, ORG_QUOTA_MEMORY; zero: no limit).
+	OrgQuota OrgQuota
 }
 
 // Platform connects GitHub, the store, CI and the cluster: webhooks become runs, runs become
@@ -947,6 +950,9 @@ func (p *Platform) release(ctx context.Context, app *store.App, run *store.Run, 
 			images[svc.Name] = svc.Image // ready-made image, released as given
 		}
 	}
+	if err := p.checkOrgQuota(ctx, app, sp); err != nil {
+		return nil, err
+	}
 	_, prevErr := p.Store.LatestRelease(ctx, app.ID)
 	first := errors.Is(prevErr, store.ErrNotFound)
 	rel := &store.Release{AppID: app.ID, RunID: &run.ID, SHA: run.SHA, Images: images, Spec: sp}
@@ -1126,7 +1132,29 @@ func (p *Platform) Target() destino.Destino {
 	if p.Kube == nil {
 		return destino.Ninguno{}
 	}
-	return destino.Kubernetes{Kube: p.Kube, Clientset: p.Clientset}
+	k := destino.Kubernetes{Kube: p.Kube, Clientset: p.Clientset}
+	if p.Store != nil {
+		k.Org = p.orgSlug
+	}
+	return k
+}
+
+// orgSlug is the address of the organization an app belongs to, which its
+// App object carries to the cluster.
+func (p *Platform) orgSlug(ctx context.Context, appID int64) (string, error) {
+	app, err := p.Store.GetAppByID(ctx, appID)
+	if err != nil {
+		return "", err
+	}
+	id := app.OrgID
+	if id == 0 {
+		id = store.DefaultOrg
+	}
+	o, err := p.Store.GetOrg(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	return o.Slug, nil
 }
 
 // ---- GitHub check runs ----

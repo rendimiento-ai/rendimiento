@@ -45,6 +45,10 @@ type AppReconciler struct {
 	Scheme *runtime.Scheme
 	Render render.Options
 	DNS    dns.Provider
+	// Uncached reads network policies straight from the API server
+	// (mgr.GetAPIReader()), so the controller needs no watch on them;
+	// nil: the Client.
+	Uncached client.Reader
 }
 
 // +kubebuilder:rbac:groups=rendimiento.ai,resources=apps;apps/status;apps/finalizers,verbs=*
@@ -52,6 +56,7 @@ type AppReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=*
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=*
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=*
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch
 
@@ -115,7 +120,7 @@ func (r *AppReconciler) sync(ctx context.Context, app *v1alpha1.App, st *v1alpha
 		return ctrl.Result{RequeueAfter: 5 * time.Minute}, err
 	}
 
-	in := render.Input{App: app.Name, Selectors: map[string]map[string]string{}}
+	in := render.Input{App: app.Name, Org: orgOf(app), Selectors: map[string]map[string]string{}}
 	in.Spec.Services = app.Spec.Services
 	in.Spec.Jobs = app.Spec.Jobs
 	in.Spec.Postgres, in.Spec.Redis = app.Spec.Postgres, app.Spec.Redis
@@ -147,6 +152,10 @@ func (r *AppReconciler) sync(ctx context.Context, app *v1alpha1.App, st *v1alpha
 			// The namespace exists now: create the credentials the database,
 			// cache and their users read, before any of them start.
 			if err := r.ensureNeedSecrets(ctx, app, in.Spec); err != nil {
+				return ctrl.Result{}, err
+			}
+			// The boundary goes in before the workloads behind it.
+			if err := r.syncNetworkPolicies(ctx, app, objs); err != nil {
 				return ctrl.Result{}, err
 			}
 			continue
@@ -245,6 +254,63 @@ func (r *AppReconciler) sync(ctx context.Context, app *v1alpha1.App, st *v1alpha
 		st.Phase, st.Message = v1alpha1.PhaseProgressing, M("rolling out")
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
+}
+
+// orgOf is the address of the app's organization, from its App object's
+// label; an App without one (made before organizations reached the
+// cluster) is the platform's, until the platform writes it again.
+func orgOf(app *v1alpha1.App) string {
+	if o := app.Labels[render.LabelOrg]; o != "" {
+		return o
+	}
+	return render.PlatformOrg
+}
+
+// syncNetworkPolicies applies the app's network policies (the boundary
+// between organizations, render.OrgNetwork) in a namespace rendimiento
+// owns, and deletes those of its own it no longer renders: all of them when
+// the boundary is off, and in a shared namespace, which is someone else's.
+func (r *AppReconciler) syncNetworkPolicies(ctx context.Context, app *v1alpha1.App, objs *render.Objects) error {
+	var want []*networkingv1.NetworkPolicy
+	if !app.Spec.SharedNamespace {
+		want = objs.NetworkPolicies
+	}
+	keep := map[string]bool{}
+	for _, p := range want {
+		if err := r.apply(ctx, app, p); err != nil {
+			return err
+		}
+		keep[p.Name] = true
+	}
+	reader := r.Uncached
+	if reader == nil {
+		reader = r.Client
+	}
+	var live networkingv1.NetworkPolicyList
+	if err := reader.List(ctx, &live, client.InNamespace(app.Name),
+		client.MatchingLabels{render.LabelApp: app.Name, render.LabelManagedBy: render.ManagedBy}); err != nil {
+		if len(want) == 0 {
+			// Off: nothing of this may stop the app's release.
+			log.FromContext(ctx).Error(err, "list network policies")
+			return nil
+		}
+		return err
+	}
+	for i := range live.Items {
+		p := &live.Items[i]
+		if keep[p.Name] {
+			continue
+		}
+		if err := r.Delete(ctx, p); client.IgnoreNotFound(err) != nil {
+			if len(want) == 0 {
+				log.FromContext(ctx).Error(err, "remove network policy", "policy", p.Name)
+				continue
+			}
+			return err
+		}
+		log.FromContext(ctx).Info("removed network policy", "policy", p.Name)
+	}
+	return nil
 }
 
 // checkOwnership refuses to take over a namespace or hostname that belongs

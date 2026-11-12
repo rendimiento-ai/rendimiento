@@ -79,6 +79,49 @@ func TestKubernetes(t *testing.T) {
 	}
 }
 
+// The App object carries its app's organization: from the start, and, for
+// one made before organizations reached the cluster, from its next release.
+func TestKubernetesOrg(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+	old := &v1alpha1.App{ObjectMeta: metav1.ObjectMeta{Name: "viejo", Labels: map[string]string{"rendimiento.ai/app-id": "8"}}}
+	kube := fake.NewClientBuilder().WithScheme(scheme).WithObjects(old).Build()
+	orgs := map[int64]string{7: "acme", 8: "principal"}
+	d := Kubernetes{Kube: kube, Org: func(_ context.Context, id int64) (string, error) {
+		if o, ok := orgs[id]; ok {
+			return o, nil
+		}
+		return "", store.ErrNotFound
+	}}
+	sp := spec.Spec{Services: []spec.Service{{Name: "web"}}}
+	sp.Default()
+	if err := d.Crear(ctx, &store.App{ID: 7, Name: "acme-tienda", Spec: sp}, false); err != nil {
+		t.Fatal(err)
+	}
+	var cr v1alpha1.App
+	if err := kube.Get(ctx, client.ObjectKey{Name: "acme-tienda"}, &cr); err != nil || cr.Labels[render.LabelOrg] != "acme" {
+		t.Fatalf("new App object: %v %v", err, cr.Labels)
+	}
+	if err := d.Aplicar(ctx, "viejo", &store.Release{AppID: 8, Number: 1, Spec: sp}); err != nil {
+		t.Fatal(err)
+	}
+	if err := kube.Get(ctx, client.ObjectKey{Name: "viejo"}, &cr); err != nil || cr.Labels[render.LabelOrg] != "principal" || cr.Labels["rendimiento.ai/app-id"] != "8" {
+		t.Fatalf("existing App object after a release: %v %v", err, cr.Labels)
+	}
+	if err := d.Aplicar(ctx, "viejo", &store.Release{AppID: 9, Number: 2, Spec: sp}); err == nil {
+		t.Error("an organization that cannot be read stops the release")
+	}
+
+	// Without a way to know, every app is the platform's.
+	if err := (Kubernetes{Kube: kube}).Crear(ctx, &store.App{ID: 10, Name: "sola", Spec: sp}, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := kube.Get(ctx, client.ObjectKey{Name: "sola"}, &cr); err != nil || cr.Labels[render.LabelOrg] != render.PlatformOrg {
+		t.Fatalf("without Org: %v %v", err, cr.Labels)
+	}
+}
+
 // The app's page from the cluster: its status, the resource tree with each
 // part's health, a restart, and what deleting it would remove.
 func TestKubernetesPaginas(t *testing.T) {

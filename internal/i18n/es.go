@@ -443,6 +443,8 @@ var catalog = map[string]string{
 	"release #%d was never deployed (a pre-deploy task failed), so it cannot be rolled back to": "la versión n.º %d nunca se desplegó (falló una tarea previa al despliegue), así que no se puede revertir a ella",
 	"Release #%d was rolled back":                  "Se revirtió la versión n.º %d",
 	"release failed: %s":                           "falló la publicación: %s",
+	"its organization's apps would ask for %s of CPU, more than the organization's quota of %s":    "las aplicaciones de su organización pedirían %s de CPU, más que la cuota de la organización, de %s",
+	"its organization's apps would ask for %s of memory, more than the organization's quota of %s": "las aplicaciones de su organización pedirían %s de memoria, más que la cuota de la organización, de %s",
 	"there is no stall named %q":                   "no hay ningún puesto llamado %q",
 	"%s is an app, not a stall of the Mercado":     "%s es una aplicación, no un puesto del Mercado",
 	"released #%d":                                 "publicada la n.º %d",

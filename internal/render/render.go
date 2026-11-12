@@ -52,6 +52,9 @@ type Options struct {
 	// the ingress at, as in the address (":8080"; empty: 80).
 	Local     bool
 	LocalPort string
+	// OrgNetwork is the network boundary between organizations (off: no
+	// NetworkPolicy is rendered).
+	OrgNetwork OrgNetwork
 }
 
 // LocalHost reports whether a host is a name every computer resolves to
@@ -113,6 +116,10 @@ type Input struct {
 	// ServiceURLs are the addresses of services the app's services need
 	// ({service: namespace/name}), looked up by the controller.
 	ServiceURLs map[string]string
+	// Org is the address of the app's organization: its namespace is
+	// labeled with it, and with Options.OrgNetwork on its NetworkPolicy
+	// lets that organization in ("": neither).
+	Org string
 }
 
 // Objects returns the namespace first, then each service's objects in a stable order.
@@ -123,6 +130,10 @@ type Objects struct {
 	Ingresses   []*networkingv1.Ingress
 	Volumes     []*corev1.PersistentVolumeClaim
 	CronJobs    []*batchv1.CronJob
+	// NetworkPolicies keep the namespace to the app's organization
+	// (Options.OrgNetwork). They are not in List: the controller applies
+	// them only to namespaces it owns, and removes them when turned off.
+	NetworkPolicies []*networkingv1.NetworkPolicy
 }
 
 // Render returns every object an app release needs: namespace, deployments, services, ingresses,
@@ -136,6 +147,10 @@ func Render(in Input, opt Options) (*Objects, error) {
 		TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "Namespace"},
 		ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: appLabels(in.App)},
 	}}
+	if in.Org != "" {
+		out.Namespace.Labels[LabelOrg] = in.Org
+	}
+	var lan []lanPeer
 	in.Spec.Services = opt.Published(in.App, in.Spec.Services)
 	services, err := withNeeds(in)
 	if err != nil {
@@ -176,6 +191,7 @@ func Render(in Input, opt Options) (*Objects, error) {
 		out.Services = append(out.Services, s)
 		if svc.LAN != nil {
 			out.Services = append(out.Services, lanService(meta(svc.Name+"-lan"), sel, svc))
+			lan = append(lan, lanPeer{name: svc.Name + "-lan", selector: sel, port: svc.Port})
 		}
 		if svc.HasIngress() {
 			out.Ingresses = append(out.Ingresses, ingress(meta(svc.IngressName()), svc, opt))
@@ -195,6 +211,7 @@ func Render(in Input, opt Options) (*Objects, error) {
 		}
 		out.CronJobs = append(out.CronJobs, cronJob(ns, in.App, j, image))
 	}
+	out.NetworkPolicies = networkPolicies(ns, in.App, in.Org, lan, opt.OrgNetwork)
 	return out, nil
 }
 

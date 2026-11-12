@@ -38,6 +38,13 @@ data:
   SERVICES: rendimiento,rendimiento-control,rendimiento-worker,rendimiento-traces,rendimiento-agents
   CLUSTER_ISSUER: letsencrypt-prod
   INGRESS_CLASS: nginx
+  # The boundary between organizations in the cluster (off until set; see
+  # the book's Configuration reference). Each app namespace then lets in only
+  # its organization, this platform and the ingress controller's namespace.
+  # ORG_NETWORK_POLICY: "true"
+  # INGRESS_NAMESPACE: ingress-nginx
+  # ORG_QUOTA_CPU: "4"
+  # ORG_QUOTA_MEMORY: 8Gi
   STORAGE_CLASS: longhorn
   # Labels added to every app volume claim; these put it in a Longhorn backup job.
   # VOLUME_LABELS: recurring-job.longhorn.io/source=enabled,recurring-job-group.longhorn.io/backup-nightly=enabled

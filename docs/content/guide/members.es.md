@@ -34,7 +34,7 @@ Tres reglas mantienen separados los nombres:
 
 Migrar una aplicación que ya corre en el clúster (tomar su espacio de nombres) es solo de la organización de la plataforma.
 
-Hoy todas las organizaciones comparten el clúster de la plataforma. Las organizaciones en un clúster virtual dedicado, o en su propio clúster en cualquier nube, llegan después.
+Todas las organizaciones comparten el clúster de la plataforma. Ahí, el espacio de nombres de cada aplicación lleva la etiqueta de su organización, y el operador puede encender una política de red que solo deja entrar a los espacios de nombres de la misma organización y al controlador de entrada, y una cuota de CPU y memoria por organización. Una sola cuenta de servicio sigue administrando todos los espacios de nombres, y las construcciones comparten un espacio de nombres, BuildKit y registro: vea [Las organizaciones en el clúster](../architecture/security.md#organizations-in-the-cluster). Las organizaciones en un clúster virtual dedicado, o en su propio clúster en cualquier nube, llegan después.
 
 ## Ligas de demostración {#demo-links}
 

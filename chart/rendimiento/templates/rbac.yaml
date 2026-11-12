@@ -37,6 +37,11 @@ rules:
   - apiGroups: [networking.k8s.io]
     resources: [ingresses]
     verbs: [get, list, watch, create, update, patch, delete]
+  # The boundary between organizations (ORG_NETWORK_POLICY): a
+  # NetworkPolicy in each app namespace, read without a watch.
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies]
+    verbs: [get, list, create, update, patch, delete]
   - apiGroups: [batch]
     resources: [cronjobs]
     verbs: [get, list, watch, create, update, patch, delete]
