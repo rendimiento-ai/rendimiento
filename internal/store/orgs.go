@@ -107,6 +107,9 @@ func (s *Store) RemoveMember(ctx context.Context, orgID int64, login string) err
 	if tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
+	if err := forgetAppMembers(ctx, tx, orgID, login); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 

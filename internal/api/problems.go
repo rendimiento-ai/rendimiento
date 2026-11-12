@@ -2,7 +2,9 @@ package api
 
 import (
 	"errors"
+	"maps"
 	"net/http"
+	"slices"
 	"strconv"
 	"time"
 
@@ -20,14 +22,25 @@ type ProblemList struct {
 
 // listProblems is the Problems page: warnings and errors the platform
 // logged recently (an app's, or all), repeats grouped.
-func (s *Server) listProblems(w http.ResponseWriter, r *http.Request, _ string) {
+func (s *Server) listProblems(w http.ResponseWriter, r *http.Request, login string) {
 	q := r.URL.Query()
-	list, err := s.Store.ListProblems(r.Context(), q.Get("app"), time.Now().Add(-problems.Keep), q.Get("dismissed") == "1", 300)
+	hidden, err := s.platformHidden(r.Context(), login)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	open, err := s.Store.OpenProblems(r.Context())
+	all, err := s.Store.ListProblems(r.Context(), q.Get("app"), time.Now().Add(-problems.Keep), q.Get("dismissed") == "1", 300)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	list := []store.Problem{}
+	for _, p := range all {
+		if !hidden[p.App] { // an app whose list leaves the person out
+			list = append(list, p)
+		}
+	}
+	open, err := s.Store.OpenProblems(r.Context(), slices.Collect(maps.Keys(hidden))...)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -36,8 +49,13 @@ func (s *Server) listProblems(w http.ResponseWriter, r *http.Request, _ string) 
 }
 
 // problemCount is the navigation badge's number.
-func (s *Server) problemCount(w http.ResponseWriter, r *http.Request, _ string) {
-	open, err := s.Store.OpenProblems(r.Context())
+func (s *Server) problemCount(w http.ResponseWriter, r *http.Request, login string) {
+	hidden, err := s.platformHidden(r.Context(), login)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	open, err := s.Store.OpenProblems(r.Context(), slices.Collect(maps.Keys(hidden))...)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -50,6 +68,15 @@ func (s *Server) dismissProblem(w http.ResponseWriter, r *http.Request, login st
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		httpError(w, http.StatusBadRequest, "bad problem id")
+		return
+	}
+	hidden, err := s.platformHidden(r.Context(), login)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if app, err := s.Store.ProblemApp(r.Context(), id); err == nil && hidden[app] {
+		httpError(w, http.StatusNotFound, "no such problem")
 		return
 	}
 	if err := s.Store.DismissProblem(r.Context(), id); errors.Is(err, store.ErrNotFound) {

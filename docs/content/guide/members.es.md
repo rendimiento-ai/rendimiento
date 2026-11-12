@@ -4,13 +4,26 @@ Las personas entran a rendimiento con GitHub, y solo pasan los **miembros**. Cad
 
 | Función | Puede |
 |---|---|
-| **Invitado** | ver todo: las aplicaciones, las ejecuciones y sus registros, las versiones, el [Universo](universe.md), la [Ruta](ruta.md) y los encargos |
+| **Invitado** | ver todo (salvo las aplicaciones cuya [lista](#who-enters-an-app) lo deja fuera): las aplicaciones, las ejecuciones y sus registros, las versiones, el [Universo](universe.md), la [Ruta](ruta.md) y los encargos |
 | **Colaborador** | además: lanzar CI, cancelar ejecuciones, escribir en la Ruta, [pedirles cosas a los agentes](agents.md#encargos) y revisar lo que entregan, editar páginas del [Mercado](mercado.md), encender Renovate en una aplicación |
 | **Administrador** | además: desplegar y revertir, leer y cambiar secretos, incorporar y quitar aplicaciones, y manejar complementos, llaves de agentes, miembros y la actualización de la plataforma |
 
 ## Agregar a alguien {#adding-someone}
 
 En **Miembros** (su nombre en la barra de arriba), las personas aparecen a la izquierda por función; al elegir una se ven su función y, renglón por renglón, **lo que puede hacer**. Un administrador toca **Agregar a alguien**, escribe el **usuario de GitHub** de la persona y elige su función. Desde ese momento puede entrar, en la misma dirección. Cambiar una función o quitar a alguien cuenta desde su siguiente clic; a quien se quita se le cierra la sesión de inmediato. Una organización siempre conserva al menos un administrador.
+
+## Quién entra a una aplicación {#who-enters-an-app}
+
+La función de una persona vale en todas las aplicaciones de la organización, salvo que la aplicación tenga su propia lista. Un administrador de la organización la maneja en la pestaña **Configuración** de la aplicación, en **Quién entra**:
+
+- **Sin lista** (así empieza toda aplicación), todos en la organización entran a la aplicación con su función en la organización.
+- **Elegir quién entra** le da una lista a la aplicación. Entonces solo entran las personas que están en ella, cada una con la función que la lista le da *en esta aplicación*, menor o mayor que su función en la organización: un colaborador puede ser invitado en una aplicación, y un invitado, colaborador en otra. Para los demás la aplicación no existe: no aparece en sus listas (aplicaciones, ejecuciones, encargos, solicitudes, el Universo, la bitácora, los avisos de actividad, los problemas) y sus páginas responden *no existe*, como la aplicación de otra organización.
+- Los **administradores** de la organización **siempre entran** a todas las aplicaciones, como administradores, así que una lista nunca los deja fuera; no se ponen en las listas.
+- **Dejar entrar a toda la organización** olvida la lista, y la aplicación vuelve a las funciones de la organización.
+
+Solo se pueden poner en una lista personas de la organización. A quien se saca de la organización también se le quita de las listas de sus aplicaciones: si vuelve, empieza fuera de todas. El invitado de una liga de demostración se trata como cualquier invitado: no ve una aplicación cuya lista lo deja fuera.
+
+Una [llave de agente](agents.md) actúa por la organización, no por una persona, así que las listas de las personas no se le aplican; una llave tiene su propia lista de aplicaciones, que se elige al crearla, y sus herramientas solo ven y tocan esas aplicaciones.
 
 ## Los primeros administradores {#the-first-administrators}
 

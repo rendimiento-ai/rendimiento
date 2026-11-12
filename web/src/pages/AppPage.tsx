@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { addonsApi, api, appSecretNames, duration, isLibrary, session, subscribe, timeAgo, type App, type AutoEncargo, type BranchKind, type Release, type ReleaseTask } from "../api";
+import { addonsApi, api, appSecretNames, duration, isLibrary, session, subscribe, timeAgo, type App, type AppAccess, type AutoEncargo, type BranchKind, type MemberRole, type Release, type ReleaseTask } from "../api";
+import { memberRoleLabel } from "./Members";
 import { autoEncargoName } from "./IA";
 import { ErrorBox, PhaseBadge, ResourceTree, RunBadge, Switch, usePoll } from "../components/ui";
 import { fmtPct, ReliabilityTab } from "../components/reliability";
@@ -578,7 +579,7 @@ function VerificationBanner({ name }: { name: string }) {
 function AutoEncargoSetting({ app }: { app: App }) {
   const [mode, setMode] = useState<AutoEncargo | "">(app.autoEncargo ?? "");
   const [busy, setBusy] = useState(false);
-  const admin = session.role === "admin";
+  const admin = (app.role ?? session.role) === "admin";
   return (
     <div className="card stack">
       <label className="field" style={{ maxWidth: 420 }}><span>{t("Encargos for this app's failures")}</span>
@@ -604,7 +605,7 @@ function AutoEncargoSetting({ app }: { app: App }) {
 function AutoMergeSetting({ app }: { app: App }) {
   const [mode, setMode] = useState(!app.autoMerge ? "off" : app.mergeAny ? "any" : "approved");
   const [busy, setBusy] = useState(false);
-  const admin = session.role === "admin";
+  const admin = (app.role ?? session.role) === "admin";
   return (
     <div className="card stack">
       <label className="field" style={{ maxWidth: 420 }}><span>{t("This app's pull requests")}</span>
@@ -624,6 +625,76 @@ function AutoMergeSetting({ app }: { app: App }) {
   );
 }
 
+const roles: MemberRole[] = ["guest", "collaborator", "admin"];
+
+/**
+ * «Who enters»: for the organization's administrators. Without a list everyone in the organization enters the app with
+ * their role; with one, only the people on it, each with the role given here, and the administrators always.
+ */
+function WhoEnters({ name }: { name: string }) {
+  const [view, setView] = useState<AppAccess>();
+  const [err, setErr] = useState<unknown>();
+  const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState("");
+  const [addRole, setAddRole] = useState<MemberRole>("guest");
+  useEffect(() => { api.appAccess(name).then(setView, setErr); }, [name]);
+  const act = (p: Promise<AppAccess>) => {
+    setBusy(true);
+    setErr(undefined);
+    p.then((v) => { setView(v); setBusy(false); setAdding(""); }, (e) => { setErr(e); setBusy(false); });
+  };
+  if (!view) return <ErrorBox error={err} />;
+  const admins = view.people.filter((p) => p.role === "admin");
+  const onList = new Set(view.members.map((m) => m.login.toLowerCase()));
+  const addable = view.people.filter((p) => p.role !== "admin" && !onList.has(p.login.toLowerCase()));
+  return (
+    <div className="card stack" id="quien-entra">
+      <ErrorBox error={err} />
+      {!view.list ? (
+        <>
+          <span className="small muted">{t("Without a list, everyone in the organization enters this app with their role in the organization.")}</span>
+          <div><button disabled={busy} onClick={() => act(api.setAppList(name, true))}>{t("Choose who enters")}</button></div>
+        </>
+      ) : (
+        <>
+          <span className="small muted">{t("Only the people on this list enter this app, each with the role given here; for everyone else it does not exist. The organization's administrators always enter.")}</span>
+          {admins.length > 0 && <span className="small">{t("Always enter: {who}", { who: admins.map((a) => "@" + a.login).join(", ") })}</span>}
+          {view.members.length === 0 && <span className="small muted">{t("Nobody is on the list yet: only the administrators enter.")}</span>}
+          {view.members.map((m) => (
+            <div key={m.login} className="row between" style={{ gap: 8 }}>
+              <span>@{m.login}</span>
+              <span className="row" style={{ gap: 8 }}>
+                <select aria-label={t("Role of @{login} on this app", { login: m.login })} value={m.role} disabled={busy}
+                  onChange={(e) => act(api.setAppMember(name, m.login, e.target.value as MemberRole))}>
+                  {roles.map((r) => <option key={r} value={r}>{t(memberRoleLabel[r])}</option>)}
+                </select>
+                <button disabled={busy} onClick={() => act(api.removeAppMember(name, m.login))}>{t("Remove")}</button>
+              </span>
+            </div>
+          ))}
+          {addable.length > 0 && (
+            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <select aria-label={t("Person to add")} value={adding} disabled={busy} onChange={(e) => setAdding(e.target.value)}>
+                <option value="">{t("Someone of the organization…")}</option>
+                {addable.map((p) => <option key={p.login} value={p.login}>@{p.login}</option>)}
+              </select>
+              <select aria-label={t("Their role on this app")} value={addRole} disabled={busy} onChange={(e) => setAddRole(e.target.value as MemberRole)}>
+                {roles.map((r) => <option key={r} value={r}>{t(memberRoleLabel[r])}</option>)}
+              </select>
+              <button className="primary" disabled={busy || !adding} onClick={() => act(api.setAppMember(name, adding, addRole))}>{t("Add")}</button>
+            </div>
+          )}
+          <div>
+            <button disabled={busy} onClick={() => {
+              if (confirm(t("Let everyone in the organization enter this app again, with their role? The list is forgotten."))) act(api.setAppList(name, false));
+            }}>{t("Let everyone in the organization enter")}</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** The Settings tab: who merges, when encargos open for failures, the app's secrets (values set here, never in git) and the danger zone. */
 function Settings({ name, app, secrets }: { name: string; app: App; secrets: string[] }) {
   const nav = useNavigate();
@@ -633,6 +704,7 @@ function Settings({ name, app, secrets }: { name: string; app: App; secrets: str
       <AutoMergeSetting app={app} />
       <h2>{t("Encargos")}</h2>
       <AutoEncargoSetting app={app} />
+      {session.role === "admin" && <><h2>{t("Who enters")}</h2><WhoEnters name={name} /></>}
       <h2>{t("Secrets")}</h2>
       {secrets.length === 0 && <p className="muted">{t("This app declares no secrets. Add names under")} <code>secrets:</code> {t("in rendimiento.yaml.")}</p>}
       {secrets.map((s) => <SecretForm key={s} app={name} secret={s} />)}

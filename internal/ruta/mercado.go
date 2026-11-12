@@ -3,6 +3,7 @@ package ruta
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -85,11 +86,20 @@ func (s *Server) puestos(ctx context.Context, k store.AgentKey, _ empty) (puesto
 		return puestosOut{}, err
 	}
 	ps, err := s.Mercado.Puestos(ctx)
-	return puestosOut{Puestos: ps}, err
+	out := puestosOut{Puestos: []mercado.PuestoBrief{}}
+	for _, p := range ps {
+		if k.AllowsApp(p.Puesto) { // a key limited to some apps sees those stalls only
+			out.Puestos = append(out.Puestos, p)
+		}
+	}
+	return out, err
 }
 
 func (s *Server) leerPuesto(ctx context.Context, k store.AgentKey, in puestoIn) (paginaOut, error) {
 	if err := mercadoKey(k); err != nil {
+		return paginaOut{}, err
+	}
+	if err := puestoKey(k, in.Puesto); err != nil {
 		return paginaOut{}, err
 	}
 	p, err := s.Mercado.LeerPuesto(ctx, strings.TrimSpace(in.Puesto))
@@ -107,6 +117,9 @@ func (s *Server) editarPuesto(ctx context.Context, k store.AgentKey, in editarPu
 		return paginaOut{}, err
 	}
 	name := strings.TrimSpace(in.Puesto)
+	if err := puestoKey(k, name); err != nil {
+		return paginaOut{}, err
+	}
 	p, err := s.Mercado.LeerPuesto(ctx, name)
 	if err != nil {
 		return paginaOut{}, err
@@ -163,6 +176,14 @@ func (s *Server) abrirPuesto(ctx context.Context, k store.AgentKey, in abrirPues
 	}
 	return abrirPuestoOut{Puesto: app.Name, Repo: app.Repo,
 		Nota: "La página se construye y se publica en unos minutos. Las fotos se agregan desde Mercado → el puesto, en la interfaz."}, nil
+}
+
+// puestoKey refuses a stall (an app) the key's app list leaves out.
+func puestoKey(k store.AgentKey, name string) error {
+	if !k.AllowsApp(strings.TrimSpace(name)) {
+		return fmt.Errorf("esta llave no tiene acceso a la aplicación %s", strings.TrimSpace(name))
+	}
+	return nil
 }
 
 // mercadoKey refuses the Mercado to keys of other organizations: the

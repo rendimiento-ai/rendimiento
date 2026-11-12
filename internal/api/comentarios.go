@@ -28,10 +28,19 @@ func (s *Server) listComentarios(w http.ResponseWriter, r *http.Request, login s
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if list == nil {
-		list = []store.Comentario{}
+	writeJSON(w, visibleComentarios(r, list))
+}
+
+// visibleComentarios leaves out the comments about apps the person may
+// not see.
+func visibleComentarios(r *http.Request, list []store.Comentario) []store.Comentario {
+	out := []store.Comentario{}
+	for _, c := range list {
+		if accessOf(r).Sees(c.App) {
+			out = append(out, c)
+		}
 	}
-	writeJSON(w, list)
+	return out
 }
 
 // idParam reads an optional number from the query (0 when absent).
@@ -70,6 +79,8 @@ func (s *Server) addComentario(w http.ResponseWriter, r *http.Request, login str
 	var err error
 	if in.CargoID != 0 {
 		c, err = s.Store.ComentarCargo(r.Context(), orgOf(r), in.CargoID, login, in.Body)
+	} else if e, eerr := s.Store.Encargo(r.Context(), in.EncargoID); eerr == nil && !accessOf(r).Sees(e.App) {
+		err = store.ErrNotFound // an encargo of an app whose list leaves the person out
 	} else {
 		c, err = s.Store.ComentarEncargo(r.Context(), orgOf(r), in.EncargoID, login, in.Body)
 	}
@@ -93,10 +104,7 @@ func (s *Server) respuestasSinVer(w http.ResponseWriter, r *http.Request, login 
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if list == nil {
-		list = []store.Comentario{}
-	}
-	writeJSON(w, list)
+	writeJSON(w, visibleComentarios(r, list))
 }
 
 // verRespuestas notes that the person saw these answers to their comments
