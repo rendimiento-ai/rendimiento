@@ -16,7 +16,8 @@ export const test = base.extend<{ problemas: string[] }>({
 
 export { expect };
 
-function vigilar(page: Page): string[] {
+/** Watches a page the test opened itself (another person's, say). */
+export function vigilar(page: Page): string[] {
   const problemas: string[] = [];
   page.on("pageerror", (e) => problemas.push(`${page.url()}: ${e.message}`));
   page.on("console", (m) => {

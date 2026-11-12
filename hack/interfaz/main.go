@@ -6,7 +6,10 @@
 // rendimiento.yaml, so "New app" can be walked with each kind of app.
 //
 // It signs in the person "prueba" and writes the cookie as Playwright's
-// storage state (-estado), then serves until stopped.
+// storage state (-estado), then serves until stopped. A second person,
+// "vecina", administers an organization of her own; her cookie is written
+// beside the first (.estado-vecina.json), for the tests that look at one
+// organization from the other.
 package main
 
 import (
@@ -26,6 +29,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -43,11 +47,12 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
-// cuenta is the GitHub account of the fake installation, and persona the
-// person signed in.
+// cuenta is the GitHub account of the fake installation, persona the
+// person signed in, and vecina the administrator of another organization.
 const (
 	cuenta  = "ejemplos"
 	persona = "prueba"
+	vecina  = "vecina"
 )
 
 func main() {
@@ -78,6 +83,13 @@ func run(addr, ui, estado string, log *slog.Logger) error {
 	}
 	if _, err := st.SeedAdmins(ctx, []string{persona}); err != nil {
 		return err
+	}
+	if orgs, err := st.OrgsOf(ctx, vecina); err != nil {
+		return err
+	} else if len(orgs) == 0 {
+		if _, err := st.CreateOrg(ctx, "vecinas", "Las vecinas", vecina); err != nil {
+			return err
+		}
 	}
 
 	repos, err := repositorios()
@@ -121,6 +133,12 @@ func run(addr, ui, estado string, log *slog.Logger) error {
 	}
 	host, _, _ := net.SplitHostPort(addr)
 	if err := guardarEstado(estado, host, cookie); err != nil {
+		return err
+	}
+	if cookie, err = srv.Session(ctx, vecina, 24*time.Hour); err != nil {
+		return err
+	}
+	if err := guardarEstado(filepath.Join(filepath.Dir(estado), ".estado-vecina.json"), host, cookie); err != nil {
 		return err
 	}
 	ln, err := net.Listen("tcp", addr)

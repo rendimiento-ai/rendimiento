@@ -1,0 +1,1 @@
+- **Organizations:** two tests now hold the wall between them on every push: each agent tool (MCP) is called with another organization's key and must find nothing of the first, and two people of two organizations walk the interface without seeing each other's apps, notes or bitácora. No leak was found.
