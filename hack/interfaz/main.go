@@ -3,7 +3,10 @@
 // computer without Kubernetes (MODE=local's destination, without
 // containers). GitHub is a fake that serves every example of
 // internal/spec/ejemplos as a repository, plus one without a
-// rendimiento.yaml, so "New app" can be walked with each kind of app.
+// rendimiento.yaml, so "New app" can be walked with each kind of app. The
+// fake App is also installed on vecina's own GitHub account (installation
+// 2, one repository): she connects it to her organization and creates an
+// app from it.
 //
 // It signs in the person "prueba" and writes the cookie as Playwright's
 // storage state (-estado), then serves until stopped. A second person,
@@ -216,6 +219,12 @@ func repositorios() (map[string]*repo, error) {
 	for _, e := range todos {
 		add(e.Nombre, map[string][]byte{spec.FileName: e.Crudo, "README.md": []byte("# " + e.Nombre + "\n")})
 	}
+	// Vecina's own repository, on her account: seen only through her
+	// installation.
+	full := vecina + "/huerto"
+	out[full] = &repo{Repo: gh.Repo{ID: int64(len(out) + 1), FullName: full, Name: "huerto", DefaultBranch: "main",
+		HTMLURL: "https://github.com/" + full, PushedAt: time.Now().Format(time.RFC3339)},
+		files: map[string][]byte{spec.FileName: []byte("# Vecina's garden: one web service.\nservices:\n  - name: web\n    port: 3000\n"), "README.md": []byte("# huerto\n")}}
 	add("tienda-node", map[string][]byte{
 		"package.json": []byte(`{"name": "tienda", "version": "1.0.0", "scripts": {"start": "node server.js"}, "dependencies": {"express": "^4.21.0"}}`),
 		"server.js":    []byte("require('express')().get('/', (_, r) => r.send('hola')).listen(process.env.PORT || 3000);\n"),
@@ -233,20 +242,30 @@ func githubFalso(repos map[string]*repo, log *slog.Logger) http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(v)
 	}
-	instalacion := map[string]any{"id": 1, "account": map[string]string{"login": cuenta},
-		"permissions": map[string]string{"contents": "write", "pull_requests": "write", "checks": "write", "metadata": "read"}}
+	permisos := map[string]string{"contents": "write", "pull_requests": "write", "checks": "write", "metadata": "read"}
+	instalacion := map[string]any{"id": 1, "account": map[string]string{"login": cuenta}, "permissions": permisos}
+	// The App on vecina's own account: its token is "vecina", and it sees
+	// only her repositories.
+	deVecina := map[string]any{"id": 2, "account": map[string]string{"login": vecina}, "permissions": permisos}
+	suya := func(r *http.Request) bool { return r.Header.Get("Authorization") == "token "+vecina }
 	mux.HandleFunc("GET /app", func(w http.ResponseWriter, _ *http.Request) {
 		jsonOK(w, map[string]any{"id": 1, "slug": "rendimiento-pruebas", "name": "rendimiento-pruebas"})
 	})
-	mux.HandleFunc("GET /app/installations", func(w http.ResponseWriter, _ *http.Request) { jsonOK(w, []any{instalacion}) })
+	mux.HandleFunc("GET /app/installations", func(w http.ResponseWriter, _ *http.Request) { jsonOK(w, []any{instalacion, deVecina}) })
 	mux.HandleFunc("GET /app/installations/1", func(w http.ResponseWriter, _ *http.Request) { jsonOK(w, instalacion) })
+	mux.HandleFunc("GET /app/installations/2", func(w http.ResponseWriter, _ *http.Request) { jsonOK(w, deVecina) })
 	mux.HandleFunc("POST /app/installations/1/access_tokens", func(w http.ResponseWriter, _ *http.Request) {
 		jsonOK(w, map[string]any{"token": "pruebas", "expires_at": time.Now().Add(time.Hour).Format(time.RFC3339)})
 	})
-	mux.HandleFunc("GET /installation/repositories", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("POST /app/installations/2/access_tokens", func(w http.ResponseWriter, _ *http.Request) {
+		jsonOK(w, map[string]any{"token": vecina, "expires_at": time.Now().Add(time.Hour).Format(time.RFC3339)})
+	})
+	mux.HandleFunc("GET /installation/repositories", func(w http.ResponseWriter, r *http.Request) {
 		list := []gh.Repo{}
-		for _, r := range repos {
-			list = append(list, r.Repo)
+		for _, rp := range repos {
+			if strings.HasPrefix(rp.FullName, vecina+"/") == suya(r) {
+				list = append(list, rp.Repo)
+			}
 		}
 		sort.Slice(list, func(i, j int) bool { return list[i].ID < list[j].ID })
 		jsonOK(w, map[string]any{"total_count": len(list), "repositories": list})

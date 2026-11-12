@@ -20,7 +20,18 @@ A new platform has no members, so the `ALLOWED_USERS` setting names the first ad
 
 Everything belongs to an **organization**: its apps (with their runs, releases and requests), its Ruta, encargos, agent keys and members. People of one organization never see another's: lists leave them out, and their pages answer *not found*. A person can belong to several, with a role in each, and switches with the selector at the top; the role that counts is the one in the organization they are working in.
 
-The **platform's organization** (the first one) runs the platform. Its administrators are the **operators**: they alone see the cluster's pages (Environment, Add-ons, Services, Problems, the Mercado), update the platform, and, for now, create organizations (under Members → Organizations) and onboard apps, in whichever organization they are working in. An agent key belongs to the organization it was made in, and its tools see only that organization.
+The **platform's organization** (the first one) runs the platform. Its administrators are the **operators**: they alone see the cluster's pages (Environment, Add-ons, Services, Problems, the Mercado), update the platform, and, for now, create organizations (under Members → Organizations). The administrators of every organization create its apps with **New app**, from the GitHub accounts their organization may use (below). An agent key belongs to the organization it was made in, and its tools see only that organization.
+
+### GitHub accounts {#github-accounts}
+
+An app is created from a repository the GitHub App can reach: an **installation** of the App on a GitHub account (a person's or a GitHub organization's). Which installations an organization may use:
+
+- **The platform's organization** uses every installation the App allows (all of them, or those in `GITHUB_ACCOUNTS`). Its operators do too, in whichever organization they are working in.
+- **Any other organization** uses only the installations it was given, and never sees the others: not in **New app**, not by typing an installation's number (the answer is the same whether it does not exist or another organization uses it). It gets one in two ways:
+    - **The App on your own GitHub account.** An administrator installs the GitHub App on their own GitHub account (the link is in **New app**), reloads the page and presses **Connect**. rendimiento connects it only when the account's login is the one they signed in with, which GitHub's sign-in proves; nothing else is asked of GitHub.
+    - **A GitHub organization's account**, given by an operator under Members → Organizations → *GitHub accounts of the organizations*. There is no proof of who administers a GitHub organization without asking GitHub for more permissions, so an operator decides. The same list takes an installation away again.
+
+Taking one away stops new apps from it; the organization's apps keep building from it. A repository must be on the installation's own account. For anyone to install it on their account, the GitHub App must be public (a private App installs only on the account that owns it), and, when `GITHUB_ACCOUNTS` is set, the account must be in it.
 
 ### App names {#app-names}
 
@@ -32,7 +43,7 @@ Three rules keep the names apart:
 - A new organization's address cannot begin the address of another (`almacen` and `almacen-norte`), nor the name of an app that already exists.
 - With the address in front, a name has at most 63 characters, the limit of a namespace. Keep an organization's address short.
 
-Migrating an app that already runs in the cluster (taking over its namespace) is only for the platform's organization.
+Migrating an app that already runs in the cluster (taking over its namespace) is only for the platform's organization, and so is `sharedNamespace` (deploying into a namespace that rendimiento does not own): an app of another organization always has a namespace of its own. Two rules keep addresses apart too: no app takes an address that an app of another organization already claims in its `rendimiento.yaml`, even before that app is live, and no app of another organization takes the platform's own address. They are checked when the app is created and on every push; a push that breaks one is not built, and its run says why.
 
 Today all organizations share the platform's cluster. Organizations in a dedicated virtual cluster, or on their own cluster in any cloud, come later.
 

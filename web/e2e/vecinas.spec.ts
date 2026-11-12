@@ -24,10 +24,12 @@ test("two organizations: neither sees the other's", async ({ page, browser, base
   const suya = await contexto.newPage();
   const problemasSuyos = vigilar(suya);
   try {
-    // Vecina's lists are her own: no apps, and her note.
+    // Vecina's lists are her own: only her organization's apps (the next
+    // test makes some), and her note.
     const lista = await suya.request.get("/api/apps");
     expect(lista.ok()).toBeTruthy();
-    expect(await lista.json(), "vecina has no apps").toEqual([]);
+    const deElla = ((await lista.json()) as { name: string }[]).map((a) => a.name);
+    expect(deElla.filter((n) => !n.startsWith("vecinas-")), "vecina's apps are all of her organization").toEqual([]);
     expect((await suya.request.post("/api/ruta", { data: nota("vecina") })).ok()).toBeTruthy();
 
     // An address of prueba's app, typed: it does not exist for her.
@@ -85,5 +87,57 @@ test("two organizations: neither sees the other's", async ({ page, browser, base
   }
   await page.goto("/ruta");
   await expect(page.locator("main")).toContainText(nota("prueba").title);
+  expect(problemas).toEqual([]);
+});
+
+// Vecina, administrator of her own organization, brings her apps: the fake
+// GitHub (hack/interfaz) has the App installed on her own GitHub account;
+// she connects it to her organization in New app and creates an app from
+// it, named with her organization's address. She never sees the
+// platform's GitHub account, and prueba does not find her app.
+test("an organization's administrator creates an app from her own GitHub", async ({ page, browser, baseURL, problemas }, info) => {
+  const nombre = `huerto-${info.project.name}`;
+  const completo = `vecinas-${nombre}`;
+  const contexto = await browser.newContext({ storageState: estadoVecina, baseURL, locale: info.project.use.locale });
+  const suya = await contexto.newPage();
+  const problemasSuyos = vigilar(suya);
+  try {
+    await suya.goto("/");
+    await expect(suya.locator("header.topbar a.btn.primary[href='/new']"), "an administrator sees New app").toBeVisible();
+    await suya.goto("/new");
+    const conectar = suya.locator(".conectar-github button");
+    const huerto = suya.locator("button.ld-item", { has: suya.locator(".ld-nombre", { hasText: /^huerto$/ }) });
+    await expect(conectar.or(huerto).first()).toBeVisible();
+    if (await conectar.count()) await conectar.click(); // the first language connects it; the second finds it connected
+    await expect(conectar).toHaveCount(0);
+    await expect(suya.locator(".sin-github")).toHaveCount(0);
+    await huerto.click();
+    const detalle = suya.locator("main.ld-detalle");
+    await expect(detalle.locator("code", { hasText: "rendimiento.yaml" }).first(), "her repo's rendimiento.yaml is used").toBeVisible();
+    await detalle.locator("label.field input").first().fill(nombre);
+    await expect(detalle, "the name it will have").toContainText(completo);
+    await detalle.locator("button.primary.big").click();
+    await expect(detalle.locator("h2.ld-titulo")).toContainText(completo);
+    await detalle.locator(`a.btn.primary[href="/apps/${completo}"]`).click();
+    await expect(suya.locator("main h1").first()).toContainText(completo);
+
+    // Only her account: not the platform's, whose repositories she cannot list.
+    const cuentas = await (await suya.request.get("/api/installations")).json() as { installations: { id: number; account: { login: string } }[] };
+    expect(cuentas.installations.map((i) => i.account.login)).toEqual(["vecina"]);
+    expect((await suya.request.get("/api/installations/1/repos")).status(), "the platform's installation").toBe(403);
+    expect((await suya.request.post("/api/propose", { data: { installation: 1, repo: "ejemplos/sencilla", branch: "main" } })).status()).toBe(403);
+  } finally {
+    await contexto.close();
+  }
+  expect(problemasSuyos, "errors in vecina's browser or the API").toEqual([]);
+
+  // Prueba, in the platform's organization, does not find it.
+  const apps = (await (await page.request.get("/api/apps")).json()) as { name: string }[];
+  expect(apps.map((a) => a.name)).not.toContain(completo);
+  expect((await page.request.get(`/api/apps/${completo}`)).status()).toBe(404);
+  await page.goto("/");
+  await expect(page.locator("main h1").first()).toBeVisible();
+  await page.waitForTimeout(700);
+  expect(await page.locator("main").innerText()).not.toContain(completo);
   expect(problemas).toEqual([]);
 });

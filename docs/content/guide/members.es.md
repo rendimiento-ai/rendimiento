@@ -20,7 +20,18 @@ Una plataforma nueva no tiene miembros, así que el ajuste `ALLOWED_USERS` nombr
 
 Todo pertenece a una **organización**: sus aplicaciones (con sus ejecuciones, versiones y solicitudes), su Ruta, sus encargos, sus llaves de agentes y sus miembros. Las personas de una organización nunca ven lo de otra: las listas no lo incluyen y sus páginas responden *no existe*. Una persona puede pertenecer a varias, con una función en cada una, y cambia con el selector de arriba; cuenta la función en la organización en la que está trabajando.
 
-La **organización de la plataforma** (la primera) es la que la opera. Sus administradores son los **operadores**: solo ellos ven las páginas del clúster (Entorno, Complementos, Servicios, Problemas, el Mercado), actualizan la plataforma y, por ahora, crean organizaciones (en Miembros → Organizaciones) e incorporan aplicaciones, en la organización en la que estén trabajando. Una llave de agente pertenece a la organización en la que se creó, y sus herramientas solo ven esa organización.
+La **organización de la plataforma** (la primera) es la que la opera. Sus administradores son los **operadores**: solo ellos ven las páginas del clúster (Entorno, Complementos, Servicios, Problemas, el Mercado), actualizan la plataforma y, por ahora, crean organizaciones (en Miembros → Organizaciones). Los administradores de cada organización crean sus aplicaciones con **Nueva aplicación**, desde las cuentas de GitHub que su organización puede usar (abajo). Una llave de agente pertenece a la organización en la que se creó, y sus herramientas solo ven esa organización.
+
+### Cuentas de GitHub {#github-accounts}
+
+Una aplicación se crea desde un repositorio al que llega la aplicación de GitHub: una **instalación** de la aplicación en una cuenta de GitHub (de una persona o de una organización de GitHub). Qué instalaciones puede usar una organización:
+
+- **La organización de la plataforma** usa todas las instalaciones que la aplicación permite (todas, o las de `GITHUB_ACCOUNTS`). Sus operadores también, en la organización en la que estén trabajando.
+- **Cualquier otra organización** usa solo las instalaciones que se le dieron, y nunca ve las demás: ni en **Nueva aplicación** ni escribiendo el número de una instalación (la respuesta es la misma si no existe o si la usa otra organización). Obtiene una de dos maneras:
+    - **La aplicación en su propia cuenta de GitHub.** Un administrador instala la aplicación de GitHub en su propia cuenta de GitHub (la liga está en **Nueva aplicación**), recarga la página y presiona **Conectar**. rendimiento la conecta solo si el usuario de la cuenta es aquel con el que inició sesión, lo que el inicio de sesión de GitHub comprueba; no se le pide nada más a GitHub.
+    - **La cuenta de una organización de GitHub**, que da un operador en Miembros → Organizaciones → *Cuentas de GitHub de las organizaciones*. No hay manera de comprobar quién administra una organización de GitHub sin pedirle más permisos a GitHub, así que lo decide un operador. La misma lista vuelve a quitar una instalación.
+
+Quitarla impide crear aplicaciones nuevas desde ella; las aplicaciones que la organización ya tiene siguen construyéndose desde ella. El repositorio debe estar en la propia cuenta de la instalación. Para que cualquiera la instale en su cuenta, la aplicación de GitHub debe ser pública (una aplicación privada solo se instala en la cuenta que es su dueña) y, si `GITHUB_ACCOUNTS` está definida, la cuenta debe estar en ella.
 
 ### Nombres de las aplicaciones {#app-names}
 
@@ -32,7 +43,7 @@ Tres reglas mantienen separados los nombres:
 - La dirección de una organización nueva no puede ser el comienzo de la dirección de otra (`almacen` y `almacen-norte`), ni del nombre de una aplicación que ya existe.
 - Con la dirección al frente, un nombre tiene a lo más 63 caracteres, el límite de un espacio de nombres. Conviene que la dirección de una organización sea corta.
 
-Migrar una aplicación que ya corre en el clúster (tomar su espacio de nombres) es solo de la organización de la plataforma.
+Migrar una aplicación que ya corre en el clúster (tomar su espacio de nombres) es solo de la organización de la plataforma, y también lo es `sharedNamespace` (desplegar en un espacio de nombres que no es de rendimiento): una aplicación de otra organización siempre tiene un espacio de nombres propio. Dos reglas separan también las direcciones: ninguna aplicación toma una dirección que una aplicación de otra organización ya reclama en su `rendimiento.yaml`, aunque esa aplicación todavía no esté en línea, y ninguna aplicación de otra organización toma la dirección de la propia plataforma. Se comprueban al crear la aplicación y en cada envío; un envío que rompe una no se construye, y su ejecución dice por qué.
 
 Hoy todas las organizaciones comparten el clúster de la plataforma. Las organizaciones en un clúster virtual dedicado, o en su propio clúster en cualquier nube, llegan después.
 
