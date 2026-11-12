@@ -11,3 +11,4 @@ How rendimiento is put together, from the whole down to each subsystem. Every ch
 7. **[API, auth and the UI](api-ui.md)**: the HTTP API, login, webhooks, live updates, the React app.
 8. **[Data and state](data.md)**: what lives in Postgres, in Kubernetes and in git, and why.
 9. **[Security model](security.md)**: identities, isolation, secrets, and the gaps.
+10. **[The destination agent](agente-destino.md)**: design of the outbound-only agent that runs apps on a computer or cluster elsewhere.

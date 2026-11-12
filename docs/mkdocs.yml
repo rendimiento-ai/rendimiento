@@ -81,6 +81,7 @@ plugins:
             Data and state: Datos y estado
             API, auth and the UI: API, autenticación e interfaz
             Security model: Modelo de seguridad
+            The destination agent: El agente de destino
             Using it: Uso
             rendimiento.yaml reference: Referencia de rendimiento.yaml
             Apps day to day: Las aplicaciones en el día a día
@@ -173,6 +174,7 @@ nav:
       - API, auth and the UI: architecture/api-ui.md
       - Data and state: architecture/data.md
       - Security model: architecture/security.md
+      - The destination agent: architecture/agente-destino.md
   - Using it:
       - guide/index.md
       - rendimiento.yaml reference: guide/spec.md
