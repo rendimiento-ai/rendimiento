@@ -72,6 +72,19 @@ rendimiento se configura solo con **variables de entorno**, que se leen una vez 
 | `GPU_ENV` | *(vacío)* | `KEY=value;KEY=value` que se agregan a los contenedores con GPU |
 | `GPU_SHARED_MEMORY` | *(vacío)* | el tamaño de `/dev/shm` en los pods con GPU |
 
+## Las organizaciones en el clúster {#organizations-in-the-cluster}
+
+La barda entre las aplicaciones de las organizaciones en un clúster; vea [Modelo de seguridad](../architecture/security.md#organizations-in-the-cluster). Apagada de forma predeterminada; cambiarla requiere reiniciar, y la política de red requiere los permisos (RBAC) de la versión (`make deploy` o `helm upgrade`). En Helm: `ingress.namespace` y `orgBoundary`.
+
+| Variable | Predeterminado | Significado |
+|---|---|---|
+| `ORG_NETWORK_POLICY` | `false` | `true`: cada espacio de nombres de aplicación que rendimiento administra recibe una NetworkPolicy que solo deja entrar a sus propios pods, a los espacios de nombres de su organización, al de la plataforma, al del controlador de entrada y a las listas de abajo; `false` quita las que hizo. Solo se cumple donde el complemento de red aplica las NetworkPolicy |
+| `INGRESS_NAMESPACE` | `ingress-nginx` con `INGRESS_CLASS=nginx`, `kube-system` con `traefik` | el espacio de nombres del controlador de entrada, que siempre entra; con otra clase hay que definirlo para encender la política |
+| `ORG_NETWORK_POLICY_NAMESPACES` | *(vacío)* | más espacios de nombres que siempre entran (separados por comas), p. ej. `monitoring` para un recolector de métricas |
+| `ORG_NETWORK_POLICY_CIDRS` | *(vacío)* | rangos de direcciones que siempre entran, p. ej. la red de los nodos cuando el controlador de entrada usa la red del nodo |
+| `ORG_QUOTA_CPU` | *(ninguno)* | lo más de CPU (solicitudes, como `4` o `2500m`) que pueden pedir juntas las aplicaciones de una organización que no sea la de la plataforma; una versión que la pasaría se rechaza |
+| `ORG_QUOTA_MEMORY` | *(ninguno)* | lo mismo para la memoria, como `8Gi` |
+
 ## DNS {#dns}
 
 Se toman del Secret opcional `rendimiento-dns`. Sin token, la automatización de DNS está apagada (`dns.Noop`).

@@ -34,7 +34,7 @@ Three rules keep the names apart:
 
 Migrating an app that already runs in the cluster (taking over its namespace) is only for the platform's organization.
 
-Today all organizations share the platform's cluster. Organizations in a dedicated virtual cluster, or on their own cluster in any cloud, come later.
+All organizations share the platform's cluster. There, each app's namespace carries its organization's label, and the operator can turn on a network policy that lets in only the organization's own namespaces and the ingress controller, and a quota of CPU and memory per organization. One service account still manages every namespace, and builds share one namespace, BuildKit and registry: see [Organizations in the cluster](../architecture/security.md#organizations-in-the-cluster). Organizations in a dedicated virtual cluster, or on their own cluster in any cloud, come later.
 
 ## Demo links {#demo-links}
 
