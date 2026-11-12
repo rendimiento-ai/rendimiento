@@ -61,13 +61,14 @@ test("two organizations: neither sees the other's", async ({ page, browser, base
       });
     }
 
-    // Her Ruta has her note; her bitácora, what she did and not what prueba did.
+    // Her Ruta has her note; her bitácora, what she did (her own apps too,
+    // made by the next test) and not what prueba did.
     await suya.goto("/ruta");
     await expect(suya.locator("main")).toContainText(nota("vecina").title);
     await suya.goto("/bitacora");
     await expect(suya.locator("table.bitacora").first()).toContainText("POST /api/ruta");
-    await expect(suya.locator("main")).not.toContainText("POST /api/apps");
     await expect(suya.locator("main")).not.toContainText("prueba");
+    for (const marca of ajeno) await expect(suya.locator("main")).not.toContainText(marca);
   } finally {
     await contexto.close();
   }
