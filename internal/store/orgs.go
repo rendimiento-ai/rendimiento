@@ -205,6 +205,12 @@ func (s *Store) GetOrg(ctx context.Context, id int64) (Org, error) {
 	return o, err
 }
 
+// ErrSlugPrefix is a new organization's address that would mix its apps'
+// names with another's: an organization's apps are named "<address>-<name>",
+// so no address may start another address (with a dash), nor the name of an
+// app that already exists.
+var ErrSlugPrefix = errors.New("that address begins the name of an app or of another organization's address")
+
 // CreateOrg makes an organization with its first administrator.
 func (s *Store) CreateOrg(ctx context.Context, slug, name, admin string) (Org, error) {
 	tx, err := s.pool.Begin(ctx)
@@ -212,6 +218,14 @@ func (s *Store) CreateOrg(ctx context.Context, slug, name, admin string) (Org, e
 		return Org{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	var near bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM orgs WHERE id <> $2 AND (starts_with(slug, $1::text || '-') OR starts_with($1::text, slug || '-')))
+		OR EXISTS (SELECT 1 FROM apps WHERE starts_with(name, $1::text || '-'))`, slug, DefaultOrg).Scan(&near); err != nil {
+		return Org{}, err
+	}
+	if near {
+		return Org{}, ErrSlugPrefix
+	}
 	var o Org
 	err = tx.QueryRow(ctx, `INSERT INTO orgs (slug, name) VALUES ($1, $2) ON CONFLICT (slug) DO NOTHING RETURNING id, slug, name, created_at`,
 		slug, name).Scan(&o.ID, &o.Slug, &o.Name, &o.CreatedAt)

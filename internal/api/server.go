@@ -874,6 +874,9 @@ func (s *Server) propose(w http.ResponseWriter, r *http.Request, _ string) {
 		httpError(w, http.StatusUnprocessableEntity, err.Error())
 		return
 	}
+	if orgOf(r) != store.DefaultOrg {
+		prop.Migration = nil // what already runs in the cluster is the platform's to migrate
+	}
 	writeJSON(w, prop)
 }
 

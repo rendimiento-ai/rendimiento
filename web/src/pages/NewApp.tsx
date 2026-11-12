@@ -96,7 +96,7 @@ export function NewApp() {
   // Re-check for an existing deployment whenever the app name changes, so a
   // repo can be migrated from a namespace with a different name (personal → podoi).
   useEffect(() => {
-    if (!session.cluster || step !== 2 || !proposal || adopt || !/^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$/.test(name)) return;
+    if (!session.cluster || session.appPrefix || step !== 2 || !proposal || adopt || !/^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$/.test(name)) return;
     const timer = setTimeout(() => {
       api.migration(name).then(
         (r) => setProposal((p) => (p ? { ...p, migration: r.migration ?? undefined } : p)),
@@ -174,6 +174,9 @@ export function NewApp() {
               <label className="field" style={{ flex: "1 1 240px", maxWidth: 340 }}>
                 <span>{t("App name (also its Kubernetes namespace)")}</span>
                 <input value={name} disabled={adopt} onChange={(e) => setName(e.target.value)} />
+                {session.appPrefix && name && !name.startsWith(session.appPrefix) && (
+                  <div className="small muted" style={{ marginTop: 4 }}>{t("In this organization it will be called {name}", { name: session.appPrefix + name })}</div>
+                )}
               </label>
               <span className="small muted">
                 {(proposal.detected ?? []).map((d) => `${d.path === "." ? t("repo root") : d.path}: ${d.language}${d.framework ? ` / ${d.framework}` : ""}`).join(" · ")}

@@ -26,6 +26,10 @@ type Me struct {
 	// Mercado is whether the Mercado (pages without code) is set up here
 	// (PAGES_ORG): it is reached from the Apps page, not the menu.
 	Mercado bool `json:"mercado,omitempty"`
+	// AppPrefix is what the names of this organization's apps begin with
+	// (its address and a dash); empty in the platform's organization, whose
+	// apps keep the name they are given.
+	AppPrefix string `json:"appPrefix,omitempty"`
 }
 
 // me is the signed-in person, for the top bar.
@@ -37,6 +41,9 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request, login string) {
 		return
 	}
 	out.Org = o
+	if o.ID != store.DefaultOrg {
+		out.AppPrefix = o.Slug + "-"
+	}
 	if role, err := s.Store.MemberRole(r.Context(), store.DefaultOrg, login); err == nil {
 		out.Operator = role == store.MemberAdmin
 	}
@@ -71,6 +78,9 @@ func (s *Server) createOrg(w http.ResponseWriter, r *http.Request, login string)
 	o, err := s.Store.CreateOrg(r.Context(), in.Slug, in.Name, login)
 	if errors.Is(err, store.ErrSlugTaken) {
 		httpError(w, http.StatusConflict, "that address is taken by another organization")
+		return
+	} else if errors.Is(err, store.ErrSlugPrefix) {
+		httpError(w, http.StatusConflict, "that address begins the name of an app, or of another organization's address: an organization's apps carry its address in front, and their names would mix; choose another")
 		return
 	} else if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())

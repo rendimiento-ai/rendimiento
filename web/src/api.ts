@@ -293,6 +293,7 @@ export interface Me {
   demo?: boolean; // signed in by a demo link: read-only
   cluster: boolean; // false on a computer without Kubernetes: no Environment, Services or Add-ons
   mercado?: boolean; // the Mercado is set up here (reached from the Apps page)
+  appPrefix?: string; // what this organization's app names begin with ("" in the platform's)
 }
 
 // A demo link (internal/store.DemoLink): a secret address that opens a
@@ -396,7 +397,7 @@ export interface BitacoraCheck {
 // person's account ("Use this template").
 export const EXAMPLE_URL = "https://github.com/rendimiento-ai/hola/generate";
 
-export const session: { operator: boolean; role: MemberRole; cluster: boolean; mercado: boolean } = { operator: false, role: "guest", cluster: false, mercado: false };
+export const session: { operator: boolean; role: MemberRole; cluster: boolean; mercado: boolean; appPrefix: string } = { operator: false, role: "guest", cluster: false, mercado: false, appPrefix: "" };
 
 // The AI gateway (internal/ia, api.IAView).
 export type AIProvider = "local" | "own" | "platform";

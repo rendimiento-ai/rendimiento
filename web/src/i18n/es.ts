@@ -64,6 +64,7 @@ export const es: Record<string, string> = {
   "API documentation ↗": "Documentación de la API ↗",
   "App": "Aplicación",
   "App name (also its Kubernetes namespace)": "Nombre de la aplicación (también su espacio de nombres en Kubernetes)",
+  "In this organization it will be called {name}": "En esta organización se llamará {name}",
   "App records follow your IP automatically. To include a record you made by hand, add": "Los registros de las aplicaciones siguen su IP automáticamente. Para incluir un registro creado a mano, agregue",
   "Apps": "Aplicaciones",
   "ArgoCD": "ArgoCD",
