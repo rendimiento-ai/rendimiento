@@ -776,6 +776,15 @@ export interface Installation {
   account: { login: string };
 }
 
+/** An installation given to an organization other than the platform's (store.OrgInstallation). */
+export interface OrgInstallation {
+  orgId: number;
+  installation: number;
+  account: string;
+  addedBy: string;
+  createdAt: string;
+}
+
 export interface Repo {
   id: number;
   full_name: string;
@@ -887,7 +896,14 @@ export const api = {
   logout: () => request<void>("POST", "/api/auth/logout"),
   setupStatus: () => request<{ configured: boolean; appSlug?: string; installURL?: string; book?: { en?: string; es?: string }; activity?: boolean; tokenCommand?: string }>("GET", "/api/setup/status"),
   publicActivity: () => request<PublicActivity>("GET", "/api/public/activity"),
-  installations: () => request<{ installations: Installation[]; installURL: string }>("GET", "/api/installations"),
+  /** The accounts this organization creates apps from, and those its administrator could connect (the App on their own GitHub account). */
+  installations: () => request<{ installations: Installation[]; connectable: Installation[]; installURL: string }>("GET", "/api/installations"),
+  connectInstallation: (id: number) => request<Installation>("POST", `/api/installations/${id}/connect`),
+  disconnectInstallation: (id: number) => request<void>("DELETE", `/api/installations/${id}`),
+  /** For the operators: every installation of the App and the organizations it is given to. */
+  orgInstallations: () => request<{ installations: Installation[]; given: OrgInstallation[]; orgs: Org[]; installURL: string }>("GET", "/api/org-installations"),
+  giveInstallation: (installation: number, org: number) => request<void>("PUT", `/api/org-installations/${installation}`, { org }),
+  takeInstallation: (installation: number, org: number) => request<void>("DELETE", `/api/org-installations/${installation}?org=${org}`),
   repos: (installation: number) => request<Repo[]>("GET", `/api/installations/${installation}/repos`),
   zones: () => request<string[]>("GET", "/api/zones"),
   migration: (name: string) => request<{ migration: Proposal["migration"] | null }>("GET", `/api/namespaces/${encodeURIComponent(name)}/migration`),

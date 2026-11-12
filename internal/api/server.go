@@ -210,9 +210,14 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberAdmin, "GET /api/demo-links", s.listDemoLinks)
 	auth(store.MemberAdmin, "POST /api/demo-links", s.createDemoLink)
 	auth(store.MemberAdmin, "DELETE /api/demo-links/{id}", s.deleteDemoLink)
-	plat(store.MemberAdmin, "GET /api/installations", s.installations)
-	plat(store.MemberAdmin, "GET /api/installations/{id}/repos", s.repos)
-	plat(store.MemberAdmin, "GET /api/zones", s.zones)
+	auth(store.MemberAdmin, "GET /api/installations", s.installations)
+	auth(store.MemberAdmin, "GET /api/installations/{id}/repos", s.repos)
+	auth(store.MemberAdmin, "POST /api/installations/{id}/connect", s.connectInstallation)
+	auth(store.MemberAdmin, "DELETE /api/installations/{id}", s.disconnectInstallation)
+	plat(store.MemberAdmin, "GET /api/org-installations", s.orgInstallations)
+	plat(store.MemberAdmin, "PUT /api/org-installations/{id}", s.giveInstallation)
+	plat(store.MemberAdmin, "DELETE /api/org-installations/{id}", s.takeInstallation)
+	auth(store.MemberAdmin, "GET /api/zones", s.zones)
 	plat(store.MemberGuest, "GET /api/environment", s.environment)
 	plat(store.MemberGuest, "GET /api/environment/capacity", s.getCapacity)
 	plat(store.MemberAdmin, "PUT /api/environment/capacity", s.putCapacity)
@@ -278,7 +283,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberAdmin, "PUT /api/apps/{app}/auto-merge", s.putAppAutoMerge)
 	plat(store.MemberAdmin, "POST /api/dns/sync", s.dnsSync)
 	plat(store.MemberAdmin, "POST /api/notifications/test", s.testNotification)
-	plat(store.MemberAdmin, "POST /api/propose", s.propose)
+	auth(store.MemberAdmin, "POST /api/propose", s.propose)
 	plat(store.MemberAdmin, "GET /api/namespaces/{name}/migration", s.migration)
 	plat(store.MemberGuest, "GET /api/mercado", s.listMercado)
 	plat(store.MemberCollaborator, "POST /api/mercado", s.openPuesto)
@@ -286,7 +291,7 @@ func (s *Server) Handler() http.Handler {
 	plat(store.MemberGuest, "GET /api/mercado/{app}", s.getPuesto)
 	plat(store.MemberCollaborator, "PUT /api/mercado/{app}", s.savePuesto)
 	auth(store.MemberGuest, "GET /api/apps", s.listApps)
-	plat(store.MemberAdmin, "POST /api/apps", s.createApp)
+	auth(store.MemberAdmin, "POST /api/apps", s.createApp)
 	auth(store.MemberGuest, "GET /api/apps/{app}", s.getApp)
 	auth(store.MemberAdmin, "DELETE /api/apps/{app}", s.deleteApp)
 	auth(store.MemberGuest, "GET /api/apps/{app}/impact", s.deleteImpact)
@@ -782,51 +787,73 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 
 // ---- GitHub browsing for the wizard ----
 
-// installationAllowed answers 403 for an installation on an account not in
-// GITHUB_ACCOUNTS.
-func (s *Server) installationAllowed(w http.ResponseWriter, r *http.Request, id int64) bool {
+// installationAllowed answers 403 for an installation the organization may
+// not use (see usable), and for a repository not on its account; nil means
+// the answer was already written.
+func (s *Server) installationAllowed(w http.ResponseWriter, r *http.Request, login string, id int64, repo string) *gh.Installation {
 	app, err := s.GitHub.Get()
 	if err != nil {
 		httpError(w, http.StatusServiceUnavailable, err.Error())
-		return false
+		return nil
 	}
-	if _, err := app.Installation(r.Context(), id); err != nil {
-		httpError(w, http.StatusForbidden, err.Error())
-		return false
+	inst, err := s.usable(r, app, login)
+	if err != nil {
+		httpError(w, http.StatusBadGateway, err.Error())
+		return nil
 	}
-	return true
+	for i := range inst {
+		if inst[i].ID != id {
+			continue
+		}
+		// An installation reaches only its account's repositories: a name
+		// of another account would register an app it can never build.
+		if owner, _, _ := strings.Cut(repo, "/"); repo != "" && !strings.EqualFold(owner, inst[i].Account.Login) {
+			httpError(w, http.StatusForbidden, "that repository is not on the GitHub account of the installation")
+			return nil
+		}
+		return &inst[i]
+	}
+	// The same answer whether the installation does not exist or another
+	// organization uses it.
+	httpError(w, http.StatusForbidden, "this organization cannot use that GitHub installation; connect it first")
+	return nil
 }
 
-// installations lists the accounts the App is installed on (those in
-// GITHUB_ACCOUNTS, when set), for the "New app" wizard's first choice.
-func (s *Server) installations(w http.ResponseWriter, r *http.Request, _ string) {
+// installations lists the accounts this organization may create apps from
+// (usable), and the ones its administrator could connect (the App on their
+// own GitHub account), for the "New app" wizard's first choice.
+func (s *Server) installations(w http.ResponseWriter, r *http.Request, login string) {
 	app, err := s.GitHub.Get()
 	if err != nil {
 		httpError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
-	inst, err := app.Installations(r.Context())
+	inst, err := s.usable(r, app, login)
 	if err != nil {
 		httpError(w, http.StatusBadGateway, err.Error())
 		return
 	}
-	writeJSON(w, map[string]any{"installations": inst, "installURL": app.Credentials().HTMLURL + "/installations/new"})
+	connectable, err := s.connectable(r, app, login)
+	if err != nil {
+		httpError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"installations": inst, "connectable": connectable, "installURL": app.Credentials().HTMLURL + "/installations/new"})
 }
 
 // repos lists the repositories one installation can see, for the wizard.
-func (s *Server) repos(w http.ResponseWriter, r *http.Request, _ string) {
-	app, err := s.GitHub.Get()
-	if err != nil {
-		httpError(w, http.StatusServiceUnavailable, err.Error())
-		return
-	}
+func (s *Server) repos(w http.ResponseWriter, r *http.Request, login string) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		httpError(w, http.StatusBadRequest, "bad installation id")
 		return
 	}
-	if _, err := app.Installation(r.Context(), id); err != nil {
-		httpError(w, http.StatusForbidden, err.Error())
+	if s.installationAllowed(w, r, login, id, "") == nil {
+		return
+	}
+	app, err := s.GitHub.Get()
+	if err != nil {
+		httpError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
 	repos, err := app.Client(id).Repos(r.Context())
@@ -857,7 +884,7 @@ func (s *Server) zones(w http.ResponseWriter, r *http.Request, _ string) {
 // propose looks at a repository (detects its languages, ports, Dockerfiles)
 // and answers the rendimiento.yaml it would write, without writing anything:
 // the wizard's form starts from it.
-func (s *Server) propose(w http.ResponseWriter, r *http.Request, _ string) {
+func (s *Server) propose(w http.ResponseWriter, r *http.Request, login string) {
 	var req struct {
 		Installation int64  `json:"installation"`
 		Repo         string `json:"repo"`
@@ -866,7 +893,7 @@ func (s *Server) propose(w http.ResponseWriter, r *http.Request, _ string) {
 	if !readJSON(w, r, &req) {
 		return
 	}
-	if !s.installationAllowed(w, r, req.Installation) {
+	if s.installationAllowed(w, r, login, req.Installation, req.Repo) == nil {
 		return
 	}
 	prop, err := s.Platform.Propose(r.Context(), req.Installation, req.Repo, req.Branch)
@@ -875,7 +902,12 @@ func (s *Server) propose(w http.ResponseWriter, r *http.Request, _ string) {
 		return
 	}
 	if orgOf(r) != store.DefaultOrg {
-		prop.Migration = nil // what already runs in the cluster is the platform's to migrate
+		// What already runs in the cluster is the platform's to migrate, and
+		// the namespace serving the repo's hosts is not hers to learn.
+		if prop.Migration != nil {
+			prop.SuggestedName = ""
+		}
+		prop.Migration = nil
 	}
 	writeJSON(w, prop)
 }
@@ -1196,7 +1228,7 @@ func (s *Server) createApp(w http.ResponseWriter, r *http.Request, login string)
 	if !readJSON(w, r, &req) {
 		return
 	}
-	if !s.installationAllowed(w, r, req.Installation) {
+	if s.installationAllowed(w, r, login, req.Installation, req.Repo) == nil {
 		return
 	}
 	req.OnboardRequest.OrgID = orgOf(r)

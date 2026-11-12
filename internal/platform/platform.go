@@ -380,6 +380,9 @@ func (p *Platform) Register(ctx context.Context, req OnboardRequest) (*store.App
 		return nil, err
 	}
 	req.Name = name
+	if err := p.allowedInOrg(ctx, req.OrgID, 0, req.Spec); err != nil {
+		return nil, err
+	}
 	app := &store.App{Name: req.Name, Repo: req.Repo, InstallationID: req.Installation, DefaultBranch: req.DefaultBranch, Spec: req.Spec, OrgID: req.OrgID}
 	if err := p.Store.CreateApp(ctx, app); err != nil {
 		if store.IsUniqueViolation(err) {
@@ -531,6 +534,9 @@ func (p *Platform) QueueRun(ctx context.Context, app *store.App, branch, sha, ev
 		return nil, err
 	}
 	sp, err := spec.Parse(raw)
+	if err == nil {
+		err = p.allowedInOrg(ctx, app.OrgID, app.ID, *sp) // what the organization's apps may not be
+	}
 	if err != nil {
 		err = fmt.Errorf("%s at %s: %w", spec.FileName, shortSHA(ref), err)
 		if sha == "" {
