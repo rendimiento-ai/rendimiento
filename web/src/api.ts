@@ -56,6 +56,15 @@ export interface Spec {
   jobs?: Job[];
   tasks?: Task[];
   builds?: unknown[];
+  previews?: Previews;
+}
+
+/** A live copy for each pull request, at pr-<number>.<domain> (spec.Previews); never a copy of production's data. */
+export interface Previews {
+  data?: "empty" | "seed";
+  seed?: string; // the task that loads sample data, with data: seed
+  keep?: number; // days without a push, 1 to 30 (7)
+  max?: number; // copies at once, 1 to 5 (3)
 }
 
 /** A library: nothing of it runs or is built to keep, so a run tests it and there is nothing to deploy. */

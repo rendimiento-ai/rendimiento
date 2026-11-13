@@ -70,6 +70,7 @@ tasks:
 | `postgres` | objeto | vea [necesidades](#postgres-and-redis) | Ajustes para `needs: [postgres]`. |
 | `redis` | objeto | vea [necesidades](#postgres-and-redis) | Ajustes para `needs: [redis]`. |
 | `observe` | booleano | `false` | Envía trazas de cada servicio, para ver la latencia en el mapa del [universo](universe.md#latency-on-every-line). Los servicios en Java, Node y Python reciben el agente de OpenTelemetry sin cambiar su código. No hace nada mientras la plataforma no tenga `TELEMETRY_ENDPOINT`. |
+| `previews` | objeto | apagado | Una copia en vivo por cada solicitud de incorporación, en `pr-<número>.<dominio>` ([entornos de vista previa](../future/previews.md), en construcción): `data` (`empty`, o `seed` con `seed`, el nombre de una tarea que carga datos de ejemplo; nunca se ofrece copiar los datos de producción), `keep` (días sin un envío antes de borrarla, 1–30, 7 si no se pone), `max` (copias a la vez, 1–5, 3 si no se pone). Necesita un servicio con `domain`. Cada copia corre cada servicio una vez, pide la cuarta parte de su CPU y memoria, y no tiene tareas programadas, puertos en la red local ni verificación. |
 | `barrio` | texto | se agrupa por lo que llama | El barrio en el que se dibuja la aplicación en el mapa del [universo](universe.md#barrios): un equipo o un dominio (`Pagos`, `Clientes`). Letras, dígitos, espacios y guiones, hasta 40. |
 
 ## Servicios {#services}
