@@ -924,10 +924,45 @@ export interface DaySummary {
   source: "ia" | "counts" | "empty";
   provider?: string;
 }
+/** One app's numbers of a day (store.AppDay); hours are [passed, failed] runs by the hour they started. */
+export interface AppDay {
+  app: string;
+  releases: number;
+  healthy: number;
+  rollbacks: number;
+  night: number;
+  runs: number;
+  failed: number;
+  merges: number;
+  problems: number;
+  hours: [number, number][];
+}
+/** The day's lotería card (marcador.Card): the most notable thing of the day. */
+export interface DayCard {
+  kind: "nube" | "tropiezo" | "flor" | "luna" | "colibri";
+  count: number;
+  of?: number;
+  app?: string;
+}
+/** A day's scoreboard (marcador.Board): the totals and hours are sums of apps. */
+export interface DayBoard {
+  releases: number;
+  healthy: number;
+  rollbacks: number;
+  runs: number;
+  failed: number;
+  merges: number;
+  problems: number;
+  toReview: number;
+  hours: [number, number][];
+  apps: AppDay[];
+  card?: DayCard;
+}
 export interface SummaryView {
   days: DaySummary[];
   pending: boolean;
   timeZone: string;
+  boards: Record<string, DayBoard>;
 }
 
 export const api = {
