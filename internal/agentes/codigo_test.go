@@ -196,7 +196,7 @@ func TestCoderDelivers(t *testing.T) {
 		t.Fatalf("commits %q, removed %v", r.commits, r.removed)
 	}
 	if !strings.Contains(st.delivered, "Saludo en español.") || !strings.Contains(st.delivered, "Gastó $0.35") ||
-		len(st.links) != 2 || st.links[0] != "https://github.com/o/tienda/pull/new/encargo-12" || st.links[1] != "https://rendimiento.example.com/apps/tienda/runs/902" {
+		len(st.links) != 2 || st.links[0] != "https://github.com/o/tienda/pull/new/encargo-12-saludar-en-espanol" || st.links[1] != "https://rendimiento.example.com/apps/tienda/runs/902" {
 		t.Fatalf("delivered %q %v", st.delivered, st.links)
 	}
 	if st.spent != 350_000 || st.gaveBack != "" || len(st.waited) != 2 || !strings.Contains(st.handover, "lo entregó") {
@@ -243,7 +243,7 @@ func TestCoderWorksFromTheFailedRunsBranch(t *testing.T) {
 	if r.from != "head-of-propina-redonda" {
 		t.Fatalf("made from %q, want the failed run's branch", r.from)
 	}
-	if len(st.links) == 0 || st.links[0] != "https://github.com/o/tienda/compare/propina-redonda...encargo-12?expand=1" {
+	if len(st.links) == 0 || st.links[0] != "https://github.com/o/tienda/compare/propina-redonda...encargo-12-saludar-en-espanol?expand=1" {
 		t.Fatalf("links %v", st.links)
 	}
 }
