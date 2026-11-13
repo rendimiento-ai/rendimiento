@@ -488,6 +488,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 	// Diagnoses are written in NOTIFY_LANG and translated for readers of the
 	// other language, once, by the same gateway.
 	srv.Translator, srv.AgentLang = &agentes.Translator{Model: srv.IA}, env("NOTIFY_LANG", "en")
+	srv.Summarizer = &agentes.Summarizer{Store: st, Model: srv.IA, Log: log.With("component", "summary")}
 	// La Ruta's MCP server, with the Mercado's tools when it is on (an unset
 	// *Mercado must stay a nil interface, or the tools would appear broken).
 	rutaSrv := &ruta.Server{Store: st, Log: log.With("component", "ruta"), Lang: env("NOTIFY_LANG", "en")}

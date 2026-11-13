@@ -7,8 +7,12 @@ import { fileURLToPath } from "node:url";
 export default defineConfig({
   testDir: ".",
   outputDir: "resultados",
-  timeout: 60_000,
-  expect: { timeout: 15_000 },
+  // Generous: on a busy cluster a page can take long to come, and a wait
+  // that runs out fails a test that was right (runs 1263, 1275 and 1276).
+  // No retries: the tests share one database, and a retried one would find
+  // what its first try made.
+  timeout: 120_000,
+  expect: { timeout: 30_000 },
   // One server and one database: the tests run one after another, in order.
   workers: 1,
   fullyParallel: false,

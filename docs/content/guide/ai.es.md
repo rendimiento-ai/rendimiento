@@ -25,6 +25,14 @@ El gasto se mide con los tokens que reporta cada proveedor y el precio de lista 
 
 Lo más barato es el modelo local más las fallas conocidas de la Ruta, que el diagnosticador lee primero. Para las fallas de las que la Ruta no sabe nada parecido, una organización puede escalar a un modelo más fuerte (su propia llave, o la de la plataforma dentro de su asignación), hasta cierto número de veces al mes (10 si no se cambia); está apagado mientras no se encienda. Lo que conteste el modelo más fuerte se vuelve una falla conocida sin confirmar, así que la próxima vez el modelo local la sabe. Vea [Agentes dentro de la plataforma](agents.md#agents-inside-the-platform).
 
+## El resumen del día {#the-days-summary}
+
+Arriba del inicio, unas pocas líneas cuentan lo que pasó cada día desde su última visita (ayer, y hasta tres días atrás): versiones nuevas y si quedaron sanas, reversiones, fallas y arreglos, lo que hicieron las personas y los agentes, y los encargos que esperan revisión. Cada línea es de una aplicación, con su enlace, o de toda la organización.
+
+- **Cómo se escribe.** Cada día, rendimiento junta lo que registró (versiones, ejecuciones, problemas, la bitácora, los encargos) y la IA de la plataforma lo cuenta, una vez por organización, día e idioma, por la misma pasarela y con los mismos [topes](#caps) que todo lo demás. Cuando se agota la parte de la plataforma, lo escribe el modelo local; sin ningún modelo, muestra solo los números. Un día sin nada nuevo es una línea, escrita sin modelo. Los mensajes de commit y los registros nunca van al modelo; lo que va son datos, nunca instrucciones, y el modelo no tiene herramientas.
+- **Quién ve qué.** Una línea de una aplicación solo la ven quienes pueden ver esa aplicación ([quién entra](members.md#who-enters-an-app)).
+- **Rehacer** vuelve a escribir el último día (colaboradores y administradores); **Ocultar por hoy** lo esconde en este dispositivo hasta mañana. Los días empiezan y terminan en `PUBLIC_STATS_TZ` (UTC si no está puesta).
+
 ## La página IA {#the-ai-page}
 
 - **Arriba, cómo está todo:** quién contesta ahora (y, si el elegido no puede, por qué contesta el modelo local), si se explican las fallas y cuántas fallas nuevas fueron este mes a un modelo más fuerte, lo gastado de cada tope y quién hizo el último cambio.

@@ -1453,3 +1453,10 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 /* A copy button that just copied, and the ✕ that closes a panel. */
 button.copiado { color: var(--ok); border-color: var(--ok); }
 .cerrar { position: absolute; top: 8px; right: 8px; background: none; border: none; font-size: 1.1rem; line-height: 1; cursor: pointer; color: inherit; padding: 4px 8px; }
+
+/* The day's summary on the home page: a card with a cempasúchil top, a block per day. */
+.resumen-dia { border-top: 4px solid var(--cempasuchil); margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
+.resumen-dia ul { margin: 0 0 4px; padding-left: 1.1rem; }
+.resumen-dia li { margin: 2px 0; }
+.resumen-dia-fecha { font-weight: 700; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.resumen-dia-pie { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; border-top: 1px solid var(--border); padding-top: 6px; }
