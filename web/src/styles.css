@@ -1488,6 +1488,22 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .vistazo-usted { display: flex; flex-direction: column; gap: 4px; border-left: 4px solid var(--cempasuchil); padding: 6px 12px; background: var(--bg); border-radius: 8px; }
 .vistazo-pie { display: flex; gap: 12px 18px; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 10px; }
 .vistazo-mas { font-weight: 800; }
+/* On a wide screen the glance is two columns: the flower and its words on the left, the week and the visits on the
+   right, so the page is not a narrow strip with empty space beside it. */
+@media (min-width: 900px) {
+  .vistazo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); grid-template-areas: "flor datos" "flor visitas" "chips usted" "pie pie"; gap: 22px 40px; padding: 28px 32px; align-items: start; }
+  .vistazo > .vistazo-flor { grid-area: flor; flex-direction: column; align-items: flex-start; }
+  .vistazo > .vistazo-flor > div { min-width: 0; }
+  .vistazo > .vistazo-datos { grid-area: datos; }
+  .vistazo > .vistazo-visitas { grid-area: visitas; }
+  .vistazo > .vistazo-chips { grid-area: chips; }
+  .vistazo > .vistazo-usted { grid-area: usted; }
+  .vistazo > .vistazo-pie { grid-area: pie; }
+  .flor-grande { width: 260px; }
+  .vistazo-palabra { font-size: 2.4rem; }
+  .vistazo-visitas svg { max-width: none; }
+  .vistazo-dia i { width: 22px; height: 22px; }
+}
 .flor-grande .corola { transform-origin: 100px 100px; animation: flor-respira 4s ease-in-out infinite; }
 .flor-grande.cerrandose .corola { animation: none; transform: scale(.82); }
 .flor-grande.marchita .corola { animation: none; transform: rotate(18deg) translate(10px, 18px) scale(.85); }

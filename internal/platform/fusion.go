@@ -218,7 +218,12 @@ func (p *Platform) ApproveMerge(ctx context.Context, runID int64, who string) (*
 	body, _ := p.GitHub.FileAt(ctx, app.InstallationID, app.Repo, "cambios/"+run.Branch+".md", run.SHA)
 	number, err := p.GitHub.CreatePull(ctx, app.InstallationID, app.Repo, app.DefaultBranch, run.Branch, title, string(body))
 	if err != nil {
-		return nil, &NotApprovable{Why: M("GitHub did not open the pull request: %s", githubSays(err))}
+		says := githubSays(err)
+		if strings.Contains(says, "No commits between") {
+			// Another branch built on this one brought its commits in.
+			return nil, &NotApprovable{Why: M("the branch is already in %s: there is nothing left to merge", app.DefaultBranch)}
+		}
+		return nil, &NotApprovable{Why: M("GitHub did not open the pull request: %s", says)}
 	}
 	if err := p.Store.ApproveRun(ctx, run.ID, who); err != nil {
 		return nil, err
@@ -293,9 +298,24 @@ func githubSays(err error) string {
 	}
 	var body struct {
 		Message string `json:"message"`
+		// Errors say what a "Validation Failed" was about.
+		Errors []struct {
+			Message string `json:"message"`
+			Code    string `json:"code"`
+			Field   string `json:"field"`
+		} `json:"errors"`
 	}
 	if json.Unmarshal([]byte(api.Body), &body) == nil && body.Message != "" {
-		return strings.TrimSuffix(body.Message, ".")
+		says := strings.TrimSuffix(body.Message, ".")
+		for _, e := range body.Errors {
+			switch {
+			case e.Message != "":
+				says += ": " + strings.TrimSuffix(e.Message, ".")
+			case e.Field != "":
+				says += ": " + e.Field + " " + e.Code
+			}
+		}
+		return says
 	}
 	return err.Error()
 }

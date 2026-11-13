@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, dollars, timeAgo, type CodeAgent, type Comentario, type Encargo, type EncargoStatus } from "../api";
 import { ErrorBox, usePoll } from "./ui";
@@ -155,14 +155,19 @@ function EncargoCard({ e, onChange, choosable, chosen, onChoose, comentarios }: 
     if (!open && !full) api.encargo(e.id).then(setFull, () => undefined);
     setOpen(!open);
   };
+  // A link to this encargo (#encargo-N) brings it into view.
+  const card = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (location.hash === `#encargo-${e.id}`) card.current?.scrollIntoView({ block: "center" });
+  }, [e.id]);
   return (
-    <div className="card encargo">
+    <div className="card encargo" id={`encargo-${e.id}`} ref={card}>
       <div className="row between">
         <div className="row" style={{ gap: 8, minWidth: 0 }}>
           {choosable && <input type="checkbox" checked={chosen} onChange={(ev) => onChoose(ev.target.checked)} aria-label={t("Choose it")} />}
           <span className={`badge ${statusClass[e.status]}`}>{t(statusLabel[e.status])}</span>
           {e.doNow && e.status === "pending" && <span className="badge warn live">{t("in the coding agent's queue")}</span>}
-          <strong className="encargo-title">{e.title}</strong>
+          <strong className="encargo-title"><span className="muted">#{e.id}</span> {e.title}</strong>
         </div>
         <span className="small muted">{e.app && <Link to={`/apps/${e.app}`}>{e.app}</Link>} · {timeAgo(e.updatedAt)}</span>
       </div>
