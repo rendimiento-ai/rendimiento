@@ -64,9 +64,13 @@ func TestOrgBoundaryOn(t *testing.T) {
 		pol.Spec.Ingress[0].From[1].NamespaceSelector.MatchLabels[render.LabelOrg] != "acme" {
 		t.Fatalf("policy = %+v", pol)
 	}
+	// The LAN service's policy comes in the same reconcile, just after.
 	var lan networkingv1.NetworkPolicy
-	if err := c.Get(ctx, client.ObjectKey{Namespace: "acme-frontera", Name: "web-lan"}, &lan); err != nil || len(lan.Spec.Ingress[0].From) != 0 {
-		t.Fatalf("the LAN service's port is open to all: %v %+v", err, lan.Spec)
+	eventually(t, "the LAN service's policy", func() bool {
+		return c.Get(ctx, client.ObjectKey{Namespace: "acme-frontera", Name: "web-lan"}, &lan) == nil
+	})
+	if len(lan.Spec.Ingress) != 1 || len(lan.Spec.Ingress[0].From) != 0 {
+		t.Fatalf("the LAN service's port is open to all: %+v", lan.Spec)
 	}
 
 	eventually(t, "the platform's app's policy", func() bool {
