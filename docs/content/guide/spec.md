@@ -108,7 +108,7 @@ tasks:
 | `port` | int | `8080` | The port the app listens on. `PORT` is set to it. |
 | `replicas` | int 0–10 | `1` | Pods. More than one gives zero-downtime rollouts. |
 | `size` | `small` \| `medium` \| `large` | `small` | Resource preset (below). |
-| `resources` | object | none | Override any of `cpu`, `memory` (requests), `cpuLimit`, `memoryLimit`; a limit may be `none`. |
+| `resources` | object | none | Override any of `cpu`, `memory` (requests), `cpuLimit`, `memoryLimit`; a limit may be `none`. A request over its limit (the size's or your own) is refused when the file is read, since Kubernetes would refuse the pod: raise the limit too, or set it to `none`. |
 | `health.path` | string | none | HTTP GET check for readiness and liveness. Liveness starts once the check first passes (up to 5 minutes after start), so a slow start is not restarted. |
 | `health.tcp` | bool | `false` | Check that the port accepts connections (databases, non-HTTP). |
 | `health.timeout` | int 1–60 | 1 | Seconds per check. |

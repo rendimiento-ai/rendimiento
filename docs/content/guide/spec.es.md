@@ -108,7 +108,7 @@ tasks:
 | `port` | entero | `8080` | El puerto en el que escucha la aplicación. `PORT` se define con él. |
 | `replicas` | entero 0–10 | `1` | Pods. Más de uno da despliegues sin interrupciones. |
 | `size` | `small` \| `medium` \| `large` | `small` | Tamaño predefinido de recursos (abajo). |
-| `resources` | objeto | ninguno | Sobrescribir cualquiera de `cpu`, `memory` (solicitudes), `cpuLimit`, `memoryLimit`; un límite puede ser `none`. |
+| `resources` | objeto | ninguno | Sobrescribir cualquiera de `cpu`, `memory` (solicitudes), `cpuLimit`, `memoryLimit`; un límite puede ser `none`. Una solicitud mayor que su límite (el del tamaño o el suyo) se rechaza al leer el archivo, porque Kubernetes rechazaría el pod: suba también el límite o póngalo en `none`. |
 | `health.path` | texto | ninguna | Comprobación HTTP GET de disponibilidad y de vida. La de vida empieza cuando la comprobación pasa por primera vez (hasta 5 minutos después de arrancar), así un arranque lento no se reinicia. |
 | `health.tcp` | booleano | `false` | Comprobar que el puerto acepta conexiones (bases de datos, servicios que no son HTTP). |
 | `health.timeout` | entero 1–60 | 1 | Segundos por comprobación. |
