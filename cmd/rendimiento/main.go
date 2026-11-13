@@ -35,6 +35,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
 	"github.com/rendimiento-ai/rendimiento/internal/addon"
 	"github.com/rendimiento-ai/rendimiento/internal/agentes"
+	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
 	"github.com/rendimiento-ai/rendimiento/internal/analytics"
 	"github.com/rendimiento-ai/rendimiento/internal/api"
 	"github.com/rendimiento-ai/rendimiento/internal/catalog"
@@ -285,18 +286,23 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 		}
 		renderOpts.Telemetry.Agents[k] = v
 	}
-	if renderOpts.OrgNetwork, err = orgNetwork(ns, renderOpts.IngressClass); err != nil {
-		return err
-	}
-	quota, err := orgQuota()
+	// The boundary between organizations and its quota: the environment's
+	// values, then what is saved on the Environment page, read again every
+	// 15 seconds by every process.
+	settings, err := liveSettings(st, ns, renderOpts.IngressClass, log)
 	if err != nil {
 		return err
 	}
+	renderOpts.OrgNetwork = settings.Network()
 	if runs("control") {
-		if err := (&controller.AppReconciler{Client: mgr.GetClient(), Scheme: scheme, Render: renderOpts, DNS: dnsProvider, Uncached: mgr.GetAPIReader()}).SetupWithManager(mgr); err != nil {
+		if err := (&controller.AppReconciler{Client: mgr.GetClient(), Scheme: scheme, Render: renderOpts, OrgNetwork: settings.Network, DNS: dnsProvider, Uncached: mgr.GetAPIReader()}).SetupWithManager(mgr); err != nil {
 			return err
 		}
+		// A change of the boundary reaches every app within a minute, not at
+		// its next resync.
+		settings.OnChange = func(ajustes.Boundary) { go nudgeApps(ctx, mgr.GetClient(), log) }
 	}
+	go settings.Run(ctx)
 
 	// GITHUB_ACCOUNTS: the only accounts whose installations of the App
 	// count (empty: all); a public App can be installed by anyone.
@@ -367,8 +373,9 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 	}
 	p := &platform.Platform{
 		Store: st, Kube: kube, GitHub: holder, Generator: generate.Templates{}, Hub: events.NewHub(), Log: log,
-		Config: platform.Config{Registry: env("REGISTRY", "registry.example.lan:5000"), BaseURL: baseURL, Zone: os.Getenv("DNS_ZONE"), Railpack: os.Getenv("RAILPACK_IMAGE") != "", OrgQuota: quota},
+		Config: platform.Config{Registry: env("REGISTRY", "registry.example.lan:5000"), BaseURL: baseURL, Zone: os.Getenv("DNS_ZONE"), Railpack: os.Getenv("RAILPACK_IMAGE") != ""},
 	}
+	p.LiveQuota = liveQuota(settings)
 	// Live events (log lines, step changes, cancels) cross between processes
 	// through Postgres: during an update the UI may be served by one version
 	// while the other still runs a build.
@@ -434,7 +441,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 	srv := &api.Server{
 		BookURL: os.Getenv("BOOK_URL"), BookURLEs: os.Getenv("BOOK_URL_ES"),
 		Platform: p, Store: st, Kube: kube, GitHub: holder, Credentials: creds, DNS: dnsProvider, Log: log,
-		BaseURL: baseURL, AllowedUsers: users, SetupToken: os.Getenv("SETUP_TOKEN"), Capacity: capacity,
+		BaseURL: baseURL, AllowedUsers: users, SetupToken: os.Getenv("SETUP_TOKEN"), Capacity: capacity, Settings: settings,
 		AppName: env("GITHUB_APP_NAME", "rendimiento"), UI: web.Dist(),
 		Catalog:  &catalog.Builder{Kube: kube},
 		Renovate: renovateRunner,

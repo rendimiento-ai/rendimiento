@@ -74,7 +74,9 @@ rendimiento is configured only through **environment variables**, read once at s
 
 ## Organizations in the cluster {#organizations-in-the-cluster}
 
-The wall between organizations' apps on a cluster; see [Security model](../architecture/security.md#organizations-in-the-cluster). Off by default; changing it needs a restart, and the network policy needs the release's RBAC (`make deploy` or `helm upgrade`). Helm: `ingress.namespace` and `orgBoundary`.
+The wall between organizations' apps on a cluster; see [Security model](../architecture/security.md#organizations-in-the-cluster). Off by default; the network policy needs the release's RBAC (`make deploy` or `helm upgrade`). Helm: `ingress.namespace` and `orgBoundary`.
+
+These six are **live settings**: an administrator of the platform's organization changes them on **Environment → Platform settings**, with no restart. The variable is the starting value; **a value saved on the page wins over it**, setting by setting, until **Back to the ConfigMap's value** forgets it (the page shows when the two differ). Saved values are kept in the database (`platform_settings`, beside the capacity), every process reads them again within 15 seconds, and each change is a row in the [bitácora](../architecture/security.md#the-bitacora) with its value before and after. A saved value that no longer checks out (a namespace deleted since, say) is set aside, the variables' values hold, and the page says why. A bad variable still stops the platform at boot, as before. On one computer (`MODE=local`) the network settings do not apply; the quota does, from its variables.
 
 | Variable | Default | Meaning |
 |---|---|---|

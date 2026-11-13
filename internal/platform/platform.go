@@ -114,6 +114,9 @@ type Platform struct {
 	// Capacity is what the Environment page sets now, overriding Workers
 	// and PerApp (nil, or a zero: keep them). Up to MaxWorkers run at once.
 	Capacity func() (workers, perApp int)
+	// LiveQuota is the organizations' quota now, as the Environment page
+	// may set it (nil: Config.OrgQuota).
+	LiveQuota func() OrgQuota
 
 	claimMu sync.Mutex
 	going   map[int64]*appGoing // apps with runs going
