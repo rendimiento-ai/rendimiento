@@ -1,0 +1,1 @@
+- **Comments for p0dxD:** the book has the design for letting people write to p0dxD (from the app, the Windows icon or a public form), with the AI classifying and drafting and p0dxD reviewing and sending every answer. Nothing runs yet.
