@@ -53,6 +53,7 @@ var toolsEN = map[string]string{
 
 	"apps_listar":        "The apps the platform deploys, with their last run and their release in production.",
 	"app_estado":         "An app's state: its services, its last runs and releases (with their verification), and its open problems.",
+	"mesa_leer":          "An app's work board: each branch with its pull request, its last run and its encargos, and who it waits for (usted: a person; trabajando: working; sobra: can be closed; hoy: merged today). Read it before opening a new branch: if there is one for the same thing already, keep to it.",
 	"ejecucion_leer":     "A CI run with its steps and each one's state. To see why a step failed, use paso_registro.",
 	"paso_registro":      "The end of a run step's log (200 lines unless you ask for more).",
 	"solicitudes_listar": "The requests the traces service kept (the failed ones, the slow ones and a sample), newest first; by service, or only the failed ones.",

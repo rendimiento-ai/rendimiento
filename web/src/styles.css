@@ -1460,3 +1460,63 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .resumen-dia li { margin: 2px 0; }
 .resumen-dia-fecha { font-weight: 700; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .resumen-dia-pie { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; border-top: 1px solid var(--border); padding-top: 6px; }
+
+/* The glance at an app (components/vistazo.tsx): a big cempasúchil and the week, for whoever does not need the technical side. */
+.vistazo { display: flex; flex-direction: column; gap: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 22px; padding: 18px; }
+.vistazo-flor { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.vistazo-flor > div { flex: 1; min-width: 12rem; }
+.flor-grande { width: 180px; max-width: 45vw; flex: none; }
+.vistazo-palabra { font: 700 1.9rem/1.1 Fraunces, Georgia, serif; }
+.vistazo-palabra.abierta { color: var(--nopal); }
+.vistazo-palabra.cerrandose { color: var(--warn); }
+.vistazo-palabra.marchita { color: var(--bad); }
+.vistazo-palabra.brote { color: var(--muted); }
+.vistazo-frase { margin: 8px 0 0; font-size: 1.05rem; }
+.vistazo-agente { margin: 6px 0 0; color: var(--muted); font-size: .95rem; }
+.vistazo-datos { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.vistazo-semana { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.vistazo-dias { display: flex; gap: 8px; flex-wrap: wrap; }
+.vistazo-dia { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: .72rem; color: var(--muted); text-transform: capitalize; }
+.vistazo-dia i { width: 16px; height: 16px; border-radius: 50%; background: var(--border); }
+.vistazo-dia.ok i { background: var(--nopal); }
+.vistazo-dia.lenta i { background: var(--maiz); }
+.vistazo-dia.caida i { background: var(--bad); }
+.vistazo-visitas svg { width: 100%; max-width: 360px; }
+.vistazo-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.vistazo-chips .chip { background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; font-size: .9rem; }
+.vistazo-chips .chip b { font-weight: 800; }
+.vistazo-usted { display: flex; flex-direction: column; gap: 4px; border-left: 4px solid var(--cempasuchil); padding: 6px 12px; background: var(--bg); border-radius: 8px; }
+.vistazo-pie { display: flex; gap: 12px 18px; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 10px; }
+.vistazo-mas { font-weight: 800; }
+.flor-grande .corola { transform-origin: 100px 100px; animation: flor-respira 4s ease-in-out infinite; }
+.flor-grande.cerrandose .corola { animation: none; transform: scale(.82); }
+.flor-grande.marchita .corola { animation: none; transform: rotate(18deg) translate(10px, 18px) scale(.85); }
+.flor-grande.marchita .tallo { transform-origin: 100px 196px; transform: rotate(8deg); }
+.flor-grande .colibri { animation: colibri-vuela 6s ease-in-out infinite; }
+.flor-grande .ala { transform-origin: 6px 4px; animation: colibri-aletea .12s linear infinite alternate; }
+.vistazo-visitas .barra { transform-origin: bottom; transform-box: fill-box; animation: barra-crece 1.2s cubic-bezier(.2,.8,.2,1) both; }
+.vistazo-anillo .llena { transition: stroke-dashoffset 1.2s ease-out; }
+@keyframes flor-respira { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.04) rotate(2deg); } }
+@keyframes colibri-vuela { 0%, 100% { transform: translate(150px, 30px); } 50% { transform: translate(180px, 8px); } }
+@keyframes colibri-aletea { from { transform: rotate(-25deg); } to { transform: rotate(25deg); } }
+@keyframes barra-crece { from { transform: scaleY(0); } }
+@media (prefers-reduced-motion: reduce) { .flor-grande .corola, .flor-grande .colibri, .flor-grande .ala, .vistazo-visitas .barra { animation: none; } .flor-grande .colibri { transform: translate(160px, 20px); } }
+:root[data-motion="off"] .flor-grande .colibri { transform: translate(160px, 20px); }
+
+/* The work board (components/mesa.tsx): one row per line of work, grouped by who it waits for. */
+.mesa { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.mesa-grupo { padding: 10px 16px; border-top: 1px solid var(--border); }
+.mesa-grupo:first-child { border-top: 0; }
+.mesa-grupo h3 { margin: 0 0 4px; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; }
+.mesa-you h3 { color: var(--bad); }
+.mesa-working h3 { color: var(--link); }
+.mesa-spare h3 { color: var(--muted); }
+.mesa-today h3 { color: var(--ok); }
+.mesa-grupo h3 .muted { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.mesa-fila { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; gap: 6px 12px; align-items: baseline; padding: 7px 0; border-top: 1px dashed var(--border); }
+.mesa-grupo h3 + .mesa-fila { border-top: 0; }
+.mesa-que b { overflow-wrap: anywhere; }
+.mesa-que, .mesa-como { min-width: 0; }
+.mesa-accion .btn { white-space: nowrap; }
+.mesa-aviso { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; border-left: 4px solid var(--bad); margin-bottom: 16px; }
+@media (max-width: 560px) { .mesa-fila { grid-template-columns: 1fr; } }

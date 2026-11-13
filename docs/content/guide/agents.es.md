@@ -28,6 +28,7 @@ Todo por un mismo servidor MCP, en `https://<su rendimiento>/mcp`:
 |---|---|---|
 | `ruta_inicio`, `ruta_buscar`, `ruta_leer` | empezar por las últimas entregas y los pendientes; buscar y leer la Ruta | lector |
 | `apps_listar`, `app_estado` | las aplicaciones, con su última ejecución, su versión (y su verificación) y los problemas abiertos | lector |
+| `mesa_leer` | la [mesa de trabajo](../start/tour.md#the-app-page) de una aplicación: cada rama, en qué va y a quién le toca; léala antes de abrir una rama nueva | lector |
 | `ejecucion_leer`, `paso_registro` | una ejecución con sus pasos y el final del registro de un paso: por qué falló algo | lector |
 | `solicitudes_listar`, `solicitud_leer` | las solicitudes guardadas y su [cascada](universe.md#following-one-request): en qué se le fue el tiempo a una solicitud lenta o fallida | lector |
 | `cargo_tomar`, `cargo_entregar` | tomar y entregar un turno de trabajo | colaborador |

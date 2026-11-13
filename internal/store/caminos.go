@@ -18,7 +18,7 @@ type HistoryRun struct {
 func (s *Store) RunHistory(ctx context.Context, appID int64, since time.Time) ([]HistoryRun, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT r.id, r.app_id, r.sha, r.branch, r.event, r.deploy, r.status, r.message, r.check_run,
-		       r.created_at, r.started_at, r.finished_at,
+		       r.created_at, r.started_at, r.finished_at, r.pull_number, r.merge_state,
 		       COALESCE((SELECT array_agg(st.step_id ORDER BY st.step_id) FROM steps st WHERE st.run_id = r.id AND st.status = 'failed'), '{}'),
 		       COALESCE((SELECT max(rel.number) FROM releases rel WHERE rel.run_id = r.id AND rel.rollback_of IS NULL), 0)
 		FROM runs r WHERE r.app_id = $1 AND r.created_at >= $2 ORDER BY r.id LIMIT 2000`, appID, since)
@@ -31,7 +31,7 @@ func (s *Store) RunHistory(ctx context.Context, appID int64, since time.Time) ([
 		var h HistoryRun
 		r := &h.Run
 		if err := rows.Scan(&r.ID, &r.AppID, &r.SHA, &r.Branch, &r.Event, &r.Deploy, &r.Status, &r.Message, &r.CheckRun,
-			&r.CreatedAt, &r.StartedAt, &r.FinishedAt, &h.Failed, &h.Release); err != nil {
+			&r.CreatedAt, &r.StartedAt, &r.FinishedAt, &r.Pull, &r.Merge, &h.Failed, &h.Release); err != nil {
 			return nil, err
 		}
 		out = append(out, h)

@@ -7,13 +7,17 @@ import { ErrorBox, PhaseBadge, ResourceTree, RunBadge, Switch, usePoll } from ".
 import { fmtPct, ReliabilityTab } from "../components/reliability";
 import { VisitsTab } from "../components/visits";
 import { CaminosTab } from "../components/caminos-tab";
+import { tecnicoPrimero, Vistazo } from "../components/vistazo";
+import { MesaTab } from "../components/mesa";
 import { AppProblems } from "./Problems";
 import { outsideWhy } from "../components/barda";
 import { Flor, LluviaDePetalos } from "../components/ambiente";
 import { t, tn } from "../i18n";
 
 const tabs = [
-  { id: "", label: "Overview", icon: "M4 5h16v14H4zM4 10h16M10 10v9" }, // labels are translated where shown
+  { id: "", label: "At a glance", icon: "M12 3a4 4 0 0 1 4 4 4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-8 0 4 4 0 0 1-4-4 4 4 0 0 1 4-4 4 4 0 0 1 4-4zM12 12h.01" }, // labels are translated where shown
+  { id: "mesa", label: "Work board", icon: "M3 7h18M3 12h18M3 17h12M7 3v4M17 3v4" },
+  { id: "overview", label: "Overview", icon: "M4 5h16v14H4zM4 10h16M10 10v9" },
   { id: "runs", label: "Runs", icon: "M5 4l14 8-14 8z" },
   { id: "caminos", label: "Roads", icon: "M6 3v12a3 3 0 0 0 3 3h9M6 9h6a3 3 0 0 1 3 3v6" },
   { id: "releases", label: "Releases", icon: "M12 3l8 4v10l-8 4-8-4V7zM12 12l8-5M12 12v9M12 12L4 7" },
@@ -23,10 +27,12 @@ const tabs = [
 ];
 
 /**
- * An app's page, in tabs: overview, runs, roads (its branches as caminos), releases, reliability, visits and settings. It refreshes as runs and releases happen.
+ * An app's page, in tabs: the glance, the work board, overview, runs, roads (its branches as caminos), releases, reliability, visits and settings. It refreshes as runs and releases happen.
  */
 export function AppPage() {
-  const { name = "", tab = "" } = useParams();
+  const { name = "", tab: asked = "" } = useParams();
+  // Whoever asked for the technical side first lands on the work board instead of the glance.
+  const tab = asked === "" && tecnicoPrimero() ? "mesa" : asked;
   const { data: app, error, reload } = usePoll(() => api.app(name), [name], 5000);
   // The first release while the page is open: the bud opens, and petals fall.
   const [lluvia, setLluvia] = useState(0);
@@ -80,7 +86,9 @@ export function AppPage() {
         ))}
       </nav>
       <div className="app-vista" key={tab}>
-      {tab === "" && <Overview name={name} app={app} />}
+      {tab === "" && <Vistazo app={app} />}
+      {tab === "mesa" && <MesaTab app={app} />}
+      {tab === "overview" && <Overview name={name} app={app} />}
       {tab === "runs" && <Runs name={name} />}
       {tab === "caminos" && <CaminosTab name={name} />}
       {tab === "releases" && <Releases name={name} current={app.status.release} />}
