@@ -58,6 +58,7 @@ type GitHub interface {
 	CommitSubject(ctx context.Context, installation int64, repo, sha string) (string, error)
 	MergeBase(ctx context.Context, installation int64, repo, base, head string) (string, time.Time, error)
 	FirstParent(ctx context.Context, installation int64, repo, sha string) (string, error)
+	CommitMerge(ctx context.Context, installation int64, repo, branch, head, other, message string, files map[string][]byte, remove []string) (string, error)
 }
 
 // Config is the platform's cluster-level settings.
@@ -516,6 +517,11 @@ func (p *Platform) HandlePush(ctx context.Context, e PushEvent) ([]*store.Run, e
 			}
 			if tried, err := p.Store.TriedOn(ctx, app.ID, app.DefaultBranch, e.SHA); err == nil && tried {
 				p.Log.Info("push not run: the default branch already ran this commit", "app", app.Name, "branch", e.Branch, "sha", shortSHA(e.SHA))
+				continue
+			}
+			// rendimiento queued it itself (a merge it resolved), or GitHub
+			// sent the push twice.
+			if tried, err := p.Store.TriedOn(ctx, app.ID, e.Branch, e.SHA); err == nil && tried {
 				continue
 			}
 		}

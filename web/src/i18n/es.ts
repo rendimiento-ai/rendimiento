@@ -1817,4 +1817,5 @@ export const es: Record<string, string> = {
   "Redo": "Rehacer",
   "Hide for today": "Ocultar por hoy",
   "Only the numbers: the AI's answer could not be used this time. Redo tries again.": "Solo los números: esta vez no se pudo usar la respuesta de la IA. Rehacer lo intenta otra vez.",
+  "It goes to your own agent, which has git: the platform's agent cannot merge branches.": "Va a su propio agente, que tiene git: el agente de la plataforma no puede unir ramas.",
 };

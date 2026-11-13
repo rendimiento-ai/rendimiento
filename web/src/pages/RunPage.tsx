@@ -264,6 +264,7 @@ function Conflict({ run, app }: { run: Run; app: string }) {
   const [busy, setBusy] = useState(false);
   const body = [
     t("Pull request #{pull} of {app} ({branch}, {sha}) passed run #{n}, but it conflicts with the default branch, so rendimiento did not merge it.", { pull: run.pull ?? 0, app, branch: run.branch, sha: run.sha.slice(0, 7), n: run.id }),
+    run.message,
     t("Resolve it keeping what both sides meant. With git: merge the default branch into {branch} and push; the new commit is tested, and merged if it passes. Without git: redo what {branch} changes on a new branch from the default one. Say in the handover what you chose in each conflict.", { branch: run.branch }),
   ].join("\n");
   return (
@@ -274,10 +275,12 @@ function Conflict({ run, app }: { run: Run; app: string }) {
         <div className="row">
           <button disabled={busy} title={t("Creates an encargo for an agent to take")} onClick={() => {
             setBusy(true);
+            // A conflict of code needs git: it goes to the person's own agent, not the platform's.
             api.createEncargo({ title: t("Resolve the conflict of {branch} in {app}", { branch: run.branch, app }), body, app, runId: run.id })
+              .then((e) => api.routeEncargo(e.id, "local").catch(() => e))
               .then(() => navigate("/ruta?tab=encargos"), (e) => { setBusy(false); alert(e.message); });
           }}>{t("Ask an agent to resolve it")}</button>
-          <span className="small muted">{t("The encargo is estimated first: how hard it is and what the platform's AI would spend. You see it before anyone starts.")}</span>
+          <span className="small muted">{t("It goes to your own agent, which has git: the platform's agent cannot merge branches.")}</span>
         </div>
       )}
     </div>

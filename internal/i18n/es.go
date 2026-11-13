@@ -621,4 +621,6 @@ var catalog = map[string]string{
 	"%d things were done; no releases, failures or problems.": "Se hicieron %s cosas; sin versiones, fallas ni problemas.",
 	"a past day, as 2006-01-02": "un día pasado, como 2006-01-02",
 	"the summary is not written in this process": "este proceso no escribe el resumen",
+	"pull request #%d conflicted with %s only where both sides added lines: rendimiento joined them in %s (%s), and tests it now": "la solicitud n.º %s chocaba con %s solo donde los dos lados agregaron líneas: rendimiento las juntó en %s (%s), y ahora lo prueba",
+	"pull request #%d conflicts with %s in %s: not merged": "la solicitud n.º %s choca con %s en %s: no se integró",
 }

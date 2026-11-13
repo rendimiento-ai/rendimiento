@@ -60,6 +60,9 @@ type fakeGitHub struct {
 	deleted []string          // the branches deleted after their merge
 	heads   map[string]string // branch → its commit, for a pull request opened on approval
 	opened  []string          // "branch: title" of each pull request opened on approval
+	base    string            // what MergeBase answers
+	merges  []map[string][]byte
+	removed [][]string
 }
 
 func (f *fakeGitHub) tree(ref string) fstest.MapFS {
@@ -153,9 +156,15 @@ func (f *fakeGitHub) DeleteBranch(_ context.Context, _ int64, _, branch string) 
 	return nil
 }
 func (f *fakeGitHub) MergeBase(context.Context, int64, string, string, string) (string, time.Time, error) {
-	return "", time.Time{}, nil
+	return f.base, time.Time{}, nil
 }
 func (f *fakeGitHub) FirstParent(context.Context, int64, string, string) (string, error) { return "", nil }
+func (f *fakeGitHub) CommitMerge(_ context.Context, _ int64, _, _, _, _, _ string, files map[string][]byte, remove []string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.merges, f.removed = append(f.merges, files), append(f.removed, remove)
+	return "4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d", nil
+}
 func (f *fakeGitHub) BranchSHA(context.Context, int64, string, string) (string, error) {
 	return strings.Repeat("9", 40), nil
 }
