@@ -1,7 +1,7 @@
 # AI-generated tests (design)
 
-!!! info "Status: design, for p0dxD to approve"
-    This is step 13 of decision 95, an idea of p0dxD. **Nothing here is built.** The page says what we would build, why that way, what it costs and what is still open. The work starts when p0dxD approves it; see [what we need decided](#decisions-needed).
+!!! info "Status: approved (decision 136); phase 2 built"
+    This is step 13 of decision 95, an idea of p0dxD, approved with every recommendation below. **Phase 2 is built:** an app's own tests run after each release and are judged test by test ([the app's own tests](../guide/reliability.md#the-apps-own-tests)); their image is one of the app's builds, since post-deploy tasks do not check the repository out. Phase 1 (the walk on ping-demo) and the AI phases come next; the price per case is decided later.
 
 rendimiento already builds, deploys and verifies an app. This step lets it also **write the app's tests**: it discovers the app, generates tests, proposes them as a pull request to the app's own repository, and runs them after each deploy, rolling the release back if they fail.
 

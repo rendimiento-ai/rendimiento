@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,7 +17,8 @@ import (
 // services and databases, and a task with service: runs in that service's
 // image with its environment, which is what a migration needs.
 
-// stageTasks are the release's tasks of one stage (pre- or post-deploy).
+// stageTasks are the release's tasks of one stage (pre- or post-deploy);
+// the app's own tests (tests:) are a post-deploy task too.
 func stageTasks(rel *store.Release, stage string) []spec.Task {
 	var out []spec.Task
 	for _, t := range rel.Spec.Tasks {
@@ -24,7 +26,20 @@ func stageTasks(rel *store.Release, stage string) []spec.Task {
 			out = append(out, t)
 		}
 	}
+	if stage == spec.StagePostDeploy && rel.Spec.Tests != nil {
+		out = append(out, rel.Spec.Tests.Task(&rel.Spec))
+	}
 	return out
+}
+
+// buildImage resolves a task's image "build:<name>" to that build's image
+// in the release ("" when the release has none).
+func buildImage(rel *store.Release, image string) (string, bool) {
+	if !strings.HasPrefix(image, "build:") {
+		return image, true
+	}
+	img := rel.Images[image]
+	return img, img != ""
 }
 
 // postDeployTasks are the release's post-deploy tasks.
@@ -83,8 +98,14 @@ func (p *Platform) runStage(ctx context.Context, app *store.App, rel *store.Rele
 			go func(t spec.Task) {
 				defer wg.Done()
 				now := time.Now()
-				p.saveTask(store.ReleaseTask{ReleaseID: rel.ID, Name: t.Name, Stage: stage, Optional: t.Optional, Status: store.TaskRunning, StartedAt: &now})
-				r := run(ctx, app, rel, t)
+				var r store.ReleaseTask
+				if img, ok := buildImage(rel, t.Image); ok {
+					t.Image = img
+					p.saveTask(store.ReleaseTask{ReleaseID: rel.ID, Name: t.Name, Stage: stage, Optional: t.Optional, Status: store.TaskRunning, StartedAt: &now})
+					r = run(ctx, app, rel, t)
+				} else {
+					r = store.ReleaseTask{Status: store.TaskFailed, Message: M("the release has no image of %s", strings.TrimPrefix(t.Image, "build:"))}
+				}
 				r.ReleaseID, r.Name, r.Stage, r.Optional, r.StartedAt = rel.ID, t.Name, stage, t.Optional, &now
 				if r.FinishedAt == nil {
 					end := time.Now()

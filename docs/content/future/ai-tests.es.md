@@ -1,7 +1,7 @@
 # Pruebas generadas por IA (diseño)
 
-!!! info "Estado: diseño, para que lo apruebe p0dxD"
-    Este es el paso 13 de la decisión 95, una idea de p0dxD. **Nada de esto está construido.** La página dice qué construiríamos, por qué así, cuánto cuesta y qué sigue abierto. El trabajo empieza cuando p0dxD la apruebe; vea [lo que hay que decidir](#decisions-needed).
+!!! info "Estado: aprobado (decisión 136); fase 2 construida"
+    Este es el paso 13 de la decisión 95, una idea de p0dxD, aprobada con todas las recomendaciones de abajo. **La fase 2 ya está construida:** las pruebas de la propia aplicación corren después de cada versión y se juzgan una por una ([las pruebas de la propia aplicación](../guide/reliability.md#the-apps-own-tests)); su imagen es una de las de `builds:`, porque las tareas posteriores al despliegue no traen el repositorio. Siguen la fase 1 (el recorrido en ping-demo) y las fases con IA; el precio por caso se decide después.
 
 rendimiento ya construye, despliega y verifica una aplicación. Este paso hace que también **escriba las pruebas de la aplicación**: la descubre, genera pruebas, las propone como solicitud de incorporación al repositorio de la propia aplicación, y las corre después de cada despliegue, revirtiendo la versión si fallan.
 

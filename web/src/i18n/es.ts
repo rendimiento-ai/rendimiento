@@ -1922,4 +1922,9 @@ export const es: Record<string, string> = {
   "The flower": "La flor",
   "The moon": "La luna",
   "The hummingbird": "El colibrí",
+  "Tests: {ok} of {n} passed": "Pruebas: pasaron {ok} de {n}",
+  "failed, then passed": "falló y luego pasó",
+  "only reports": "solo avisa",
+  "blocks": "bloquea",
+  "set aside": "aparte",
 };

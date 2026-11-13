@@ -241,6 +241,8 @@ func (p *Platform) verify(ctx context.Context, app *store.App, rel *store.Releas
 		taskCount = len(results)
 		failures, taskWarnings := judgeTasks(results)
 		warnings = append(warnings, taskWarnings...)
+		testFailures, testWarnings := p.judgeTests(ctx, app, rel, results)
+		failures, warnings = append(failures, testFailures...), append(warnings, testWarnings...)
 		if len(failures) > 0 {
 			ok = false
 			if reason != "" {
@@ -563,7 +565,8 @@ func (p *Platform) postDeployOnly(ctx context.Context, app *store.App, rel *stor
 			p.Log.Warn("post-deploy tasks not run: the release did not become healthy", "app", app.Name, "release", rel.Number, "why", why)
 			return
 		}
-		p.runPostDeploy(ctx, app, rel)
+		// Verification is off: the tests' results are kept, and roll nothing back.
+		p.judgeTests(ctx, app, rel, p.runPostDeploy(ctx, app, rel))
 		p.Hub.Publish(appTopic(app.Name), events.Event{Type: "release", Data: rel})
 	}()
 }
