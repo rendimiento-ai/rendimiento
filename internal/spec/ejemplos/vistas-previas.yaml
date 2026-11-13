@@ -1,0 +1,10 @@
+# A web service with a domain whose pull requests each get a live copy, at
+# pr-<number>.tienda.example.com, deleted after five days without a push.
+services:
+  - name: web
+    port: 3000
+    domain: tienda.example.com
+    test: { image: "node:20", command: "npm ci && npm test" }
+previews:
+  keep: 5
+  max: 2

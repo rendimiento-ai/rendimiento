@@ -191,6 +191,10 @@ spec:
                       17).
                     type: string
                 type: object
+              preview:
+                description: Preview is the pull request a copy shows, or 0.
+                minimum: 0
+                type: integer
               redis:
                 description: RedisOptions configure the app's cache (one per app,
                   shared by every service that needs it).

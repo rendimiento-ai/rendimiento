@@ -70,6 +70,7 @@ tasks:
 | `postgres` | objeto | vea [necesidades](#postgres-and-redis) | Ajustes para `needs: [postgres]`. |
 | `redis` | objeto | vea [necesidades](#postgres-and-redis) | Ajustes para `needs: [redis]`. |
 | `observe` | booleano | `false` | Envía trazas de cada servicio, para ver la latencia en el mapa del [universo](universe.md#latency-on-every-line). Los servicios en Java, Node y Python reciben el agente de OpenTelemetry sin cambiar su código. No hace nada mientras la plataforma no tenga `TELEMETRY_ENDPOINT`. |
+| `previews` | objeto | apagado | Una copia en vivo por cada solicitud de incorporación, en `pr-<número>.<dominio>` ([entornos de vista previa](../future/previews.md), en construcción): `data` (`empty`, o `seed` con `seed`, el nombre de una tarea que carga datos de ejemplo; nunca se ofrece copiar los datos de producción), `keep` (días sin un envío antes de borrarla, 1–30, 7 si no se pone), `max` (copias a la vez, 1–5, 3 si no se pone). Necesita un servicio con `domain`. Cada copia corre cada servicio una vez, pide la cuarta parte de su CPU y memoria, y no tiene tareas programadas, puertos en la red local ni verificación. |
 | `barrio` | texto | se agrupa por lo que llama | El barrio en el que se dibuja la aplicación en el mapa del [universo](universe.md#barrios): un equipo o un dominio (`Pagos`, `Clientes`). Letras, dígitos, espacios y guiones, hasta 40. |
 
 ## Servicios {#services}
@@ -108,7 +109,7 @@ tasks:
 | `port` | entero | `8080` | El puerto en el que escucha la aplicación. `PORT` se define con él. |
 | `replicas` | entero 0–10 | `1` | Pods. Más de uno da despliegues sin interrupciones. |
 | `size` | `small` \| `medium` \| `large` | `small` | Tamaño predefinido de recursos (abajo). |
-| `resources` | objeto | ninguno | Sobrescribir cualquiera de `cpu`, `memory` (solicitudes), `cpuLimit`, `memoryLimit`; un límite puede ser `none`. |
+| `resources` | objeto | ninguno | Sobrescribir cualquiera de `cpu`, `memory` (solicitudes), `cpuLimit`, `memoryLimit`; un límite puede ser `none`. Una solicitud mayor que su límite (el del tamaño o el suyo) se rechaza al leer el archivo, porque Kubernetes rechazaría el pod: suba también el límite o póngalo en `none`. |
 | `health.path` | texto | ninguna | Comprobación HTTP GET de disponibilidad y de vida. La de vida empieza cuando la comprobación pasa por primera vez (hasta 5 minutos después de arrancar), así un arranque lento no se reinicia. |
 | `health.tcp` | booleano | `false` | Comprobar que el puerto acepta conexiones (bases de datos, servicios que no son HTTP). |
 | `health.timeout` | entero 1–60 | 1 | Segundos por comprobación. |

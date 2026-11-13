@@ -123,7 +123,7 @@ func (r *AppReconciler) sync(ctx context.Context, app *v1alpha1.App, st *v1alpha
 		return ctrl.Result{RequeueAfter: 5 * time.Minute}, err
 	}
 
-	in := render.Input{App: app.Name, Org: orgOf(app), Selectors: map[string]map[string]string{}}
+	in := render.Input{App: app.Name, Org: orgOf(app), Preview: app.Spec.Preview, Selectors: map[string]map[string]string{}}
 	in.Spec.Services = app.Spec.Services
 	in.Spec.Jobs = app.Spec.Jobs
 	in.Spec.Postgres, in.Spec.Redis = app.Spec.Postgres, app.Spec.Redis

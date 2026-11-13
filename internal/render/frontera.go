@@ -14,6 +14,10 @@ const (
 	// to: on its App object, written by the platform, and on the namespace
 	// rendimiento makes for it. An App without it is the platform's.
 	LabelOrg = "rendimiento.ai/org"
+	// LabelPreview marks the namespace of a pull request's copy (its
+	// number), so a sweep finds and deletes the copies whose pull request
+	// is closed or gone.
+	LabelPreview = "rendimiento.ai/preview"
 	// PlatformOrg is the address of the platform's own organization (the
 	// one store's migration 0018 makes, store.DefaultOrg).
 	PlatformOrg = "principal"

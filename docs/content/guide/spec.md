@@ -70,6 +70,7 @@ tasks:
 | `postgres` | object | see [needs](#postgres-and-redis) | Settings for `needs: [postgres]`. |
 | `redis` | object | see [needs](#postgres-and-redis) | Settings for `needs: [redis]`. |
 | `observe` | bool | `false` | Send traces from every service, for latency on the [Universe](universe.md#latency-on-every-line) map. Java, Node and Python services get the OpenTelemetry agent without code changes. Does nothing until the platform has `TELEMETRY_ENDPOINT`. |
+| `previews` | object | off | A live copy for each pull request, at `pr-<number>.<domain>` ([preview environments](../future/previews.md), being built): `data` (`empty`, or `seed` with `seed`, the name of a task that loads sample data; a copy of production's data is never offered), `keep` (days without a push before it is deleted, 1–30, default 7), `max` (copies at once, 1–5, default 3). Needs a service with a `domain`. Each copy runs every service once, asking for a quarter of its CPU and memory, with no scheduled jobs, no LAN ports and no verification. |
 | `barrio` | string | grouped by what it calls | The barrio the app is drawn in on the [Universe](universe.md#barrios) map: a team or a domain (`Pagos`, `Clientes`). Letters, digits, spaces and dashes, up to 40. |
 
 ## Services
@@ -108,7 +109,7 @@ tasks:
 | `port` | int | `8080` | The port the app listens on. `PORT` is set to it. |
 | `replicas` | int 0–10 | `1` | Pods. More than one gives zero-downtime rollouts. |
 | `size` | `small` \| `medium` \| `large` | `small` | Resource preset (below). |
-| `resources` | object | none | Override any of `cpu`, `memory` (requests), `cpuLimit`, `memoryLimit`; a limit may be `none`. |
+| `resources` | object | none | Override any of `cpu`, `memory` (requests), `cpuLimit`, `memoryLimit`; a limit may be `none`. A request over its limit (the size's or your own) is refused when the file is read, since Kubernetes would refuse the pod: raise the limit too, or set it to `none`. |
 | `health.path` | string | none | HTTP GET check for readiness and liveness. Liveness starts once the check first passes (up to 5 minutes after start), so a slow start is not restarted. |
 | `health.tcp` | bool | `false` | Check that the port accepts connections (databases, non-HTTP). |
 | `health.timeout` | int 1–60 | 1 | Seconds per check. |
