@@ -655,6 +655,7 @@ func (p *Platform) Work(ctx context.Context) {
 		}
 	}()
 	go p.mergeLoop(ctx)
+	go p.PreviewLoop(ctx)
 	n := max(p.Workers, 1)
 	if p.Capacity != nil {
 		n = MaxWorkers // the Environment page may raise it; limits() holds the rest back
@@ -981,6 +982,9 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 			p.startVerification(ctx, app, rel)
 		}
 	}
+	if status == store.RunSucceeded && !run.Deploy && sp.Previews != nil {
+		p.deployPreview(ctx, app, run, sp, runImages(sp, append(toRun, keptSteps...), results, reuse))
+	}
 	if err := p.Store.FinishRun(ctx, run.ID, status, msg); err != nil {
 		log.Error("finish run", "err", err)
 	}
@@ -1000,6 +1004,25 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 // the pre-deploy tasks and points the app's App object at the release, which
 // the controller deploys.
 func (p *Platform) release(ctx context.Context, app *store.App, run *store.Run, sp spec.Spec, steps []pipeline.Step, results map[string]pipeline.StepResult, reuse map[string]string) (*store.Release, error) {
+	images := runImages(sp, steps, results, reuse)
+	if err := p.checkOrgQuota(ctx, app, sp); err != nil {
+		return nil, err
+	}
+	_, prevErr := p.Store.LatestRelease(ctx, app.ID)
+	first := errors.Is(prevErr, store.ErrNotFound)
+	rel := &store.Release{AppID: app.ID, RunID: &run.ID, SHA: run.SHA, Images: images, Spec: sp}
+	if err := p.Store.CreateRelease(ctx, rel); err != nil {
+		return nil, err
+	}
+	if err := p.preDeploy(ctx, app, rel, first); err != nil {
+		return rel, err
+	}
+	return rel, p.pointApp(ctx, app.Name, rel)
+}
+
+// runImages are the images a run passed: the ones it built (by digest), the
+// ones it reused, and ready-made images as given.
+func runImages(sp spec.Spec, steps []pipeline.Step, results map[string]pipeline.StepResult, reuse map[string]string) map[string]string {
 	images := map[string]string{}
 	for key, img := range reuse {
 		images[key] = img // unchanged since the last release
@@ -1014,19 +1037,7 @@ func (p *Platform) release(ctx context.Context, app *store.App, run *store.Run, 
 			images[svc.Name] = svc.Image // ready-made image, released as given
 		}
 	}
-	if err := p.checkOrgQuota(ctx, app, sp); err != nil {
-		return nil, err
-	}
-	_, prevErr := p.Store.LatestRelease(ctx, app.ID)
-	first := errors.Is(prevErr, store.ErrNotFound)
-	rel := &store.Release{AppID: app.ID, RunID: &run.ID, SHA: run.SHA, Images: images, Spec: sp}
-	if err := p.Store.CreateRelease(ctx, rel); err != nil {
-		return nil, err
-	}
-	if err := p.preDeploy(ctx, app, rel, first); err != nil {
-		return rel, err
-	}
-	return rel, p.pointApp(ctx, app.Name, rel)
+	return images
 }
 
 // errPreDeploy means a release was recorded but not deployed: a required
