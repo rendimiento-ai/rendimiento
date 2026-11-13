@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -116,6 +117,9 @@ type Input struct {
 	// ServiceURLs are the addresses of services the app's services need
 	// ({service: namespace/name}), looked up by the controller.
 	ServiceURLs map[string]string
+	// Preview is the pull request this app is a copy of (0: none): its
+	// namespace is labeled with it.
+	Preview int
 	// Org is the address of the app's organization: its namespace is
 	// labeled with it, and with Options.OrgNetwork on its NetworkPolicy
 	// lets that organization in ("": neither).
@@ -147,6 +151,9 @@ func Render(in Input, opt Options) (*Objects, error) {
 		TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "Namespace"},
 		ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: appLabels(in.App)},
 	}}
+	if in.Preview > 0 {
+		out.Namespace.Labels[LabelPreview] = strconv.Itoa(in.Preview)
+	}
 	if in.Org != "" {
 		out.Namespace.Labels[LabelOrg] = in.Org
 	}

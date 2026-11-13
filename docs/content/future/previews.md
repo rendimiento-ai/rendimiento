@@ -1,6 +1,6 @@
 # Preview environments {#preview-environments}
 
-**Status: design, not built yet.** This page is decision 95, step 12 of the plan: each branch or pull request gets its own live copy at its own address, and an agent walks through it and comments on the pull request before a person merges. Nothing here runs today; it says what to build, in what order, and what it costs. The [roadmap](roadmap.md) points here.
+**Status: approved (decision 136), slice 1 built.** `previews:` is in [rendimiento.yaml](../guide/spec.md#top-level), and the copy's spec and namespace are rendered; the copies themselves come with slice 2. p0dxD answered the open questions: the tips app if it has browser tests (else ping-demo), up to 10% of the cluster with 3 copies per app, and **no `copy`** of production's data for now. This page is decision 95, step 12 of the plan: each branch or pull request gets its own live copy at its own address, and an agent walks through it and comments on the pull request before a person merges. Nothing here runs today; it says what to build, in what order, and what it costs. The [roadmap](roadmap.md) points here.
 
 ## What a person sees {#what-a-person-sees}
 

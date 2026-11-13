@@ -1,6 +1,6 @@
 # Entornos de vista previa {#preview-environments}
 
-**Estado: diseño, todavía no construido.** Esta página es la decisión 95, paso 12 del plan: cada rama o solicitud de incorporación tiene su propia copia en vivo, con su propia dirección, y un agente la recorre y comenta en la solicitud antes de que una persona la integre. Nada de esto corre hoy; dice qué construir, en qué orden y cuánto cuesta. La [hoja de ruta](roadmap.md) apunta aquí.
+**Estado: aprobado (decisión 136), rebanada 1 construida.** `previews:` ya está en [rendimiento.yaml](../guide/spec.md#top-level), y se generan el spec y el espacio de nombres de la copia; las copias llegan con la rebanada 2. p0dxD respondió las preguntas abiertas: la app de propinas si tiene pruebas de navegador (si no, ping-demo), hasta el 10 % del clúster con 3 copias por app, y **sin `copy`** de los datos de producción por ahora. Esta página es la decisión 95, paso 12 del plan: cada rama o solicitud de incorporación tiene su propia copia en vivo, con su propia dirección, y un agente la recorre y comenta en la solicitud antes de que una persona la integre. Nada de esto corre hoy; dice qué construir, en qué orden y cuánto cuesta. La [hoja de ruta](roadmap.md) apunta aquí.
 
 ## Lo que ve una persona {#what-a-person-sees}
 

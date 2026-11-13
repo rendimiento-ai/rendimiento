@@ -53,6 +53,10 @@ type Spec struct {
 	// domain ("pagos", "clientes"). Apps without one are grouped by what
 	// they call.
 	Barrio string `json:"barrio,omitempty"`
+	// Previews gives each pull request a live copy of the app, at
+	// pr-<number>.<domain>, for a person (and an agent) to try before
+	// merging. Off unless set.
+	Previews *Previews `json:"previews,omitempty"`
 }
 
 // Observed reports whether svc sends traces: its own observe, else the app's.
@@ -1038,6 +1042,7 @@ func (s *Spec) Validate() error {
 	}
 	errs = append(errs, s.validateNeeds(seen)...)
 	errs = append(errs, s.validateRoutes()...)
+	errs = append(errs, s.Previews.validate(s)...)
 	errs = append(errs, s.validateJobs(seen)...)
 	errs = append(errs, s.validateBuilds()...)
 	errs = append(errs, s.validateTasks()...)
