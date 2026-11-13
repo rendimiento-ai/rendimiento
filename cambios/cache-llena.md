@@ -1,0 +1,1 @@
+- **CI:** a test whose kept cache is 85% full empties Go's build cache before it starts (modules and tools stay), instead of failing every step with "no space left on device".
