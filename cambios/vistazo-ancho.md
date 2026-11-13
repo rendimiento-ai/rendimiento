@@ -1,0 +1,1 @@
+- **At a glance:** on a wide screen the glance is two columns (the flower and its words beside the week and the visits), with a bigger flower, instead of a narrow strip with empty space beside it.
