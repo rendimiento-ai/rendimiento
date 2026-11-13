@@ -49,6 +49,19 @@ Every app lands in one barrio:
 - **A service's recent requests.** Below its moments, the panel lists the requests through that service the [traces service](#following-one-request) kept, newest first: whether it **failed**, **was slow** or is **in the sample**, its duration and when. **Only the failed ones** narrows the list. Tap one to follow it step by step.
 - **Refresh** rebuilds the catalog from the cluster right away (otherwise it is at most 30 seconds old, and the page reloads every minute).
 
+## The wall {#the-wall}
+
+On a cluster, the map also shows the [boundary between organizations](../architecture/security.md#organizations-in-the-cluster) as a wall around your organization's barrios:
+
+- **An adobe wall** with a line of teja on top when the boundary is on; **mojoneras**, boundary stones, when it is off: the land is yours, but anyone walks in.
+- **Zaguanes** along its side are what it lets in: the ingress controller (public traffic), rendimiento (its release and uptime checks), and each namespace or address range listed in the settings.
+- **A red tranca** along its top is a namespace that calls one of your apps from outside (its workloads point at the app's service in their environment): *stopped* with the boundary on, *would be stopped* with it off. rendimiento sees no traffic, so something that calls an app without saying so in its environment is not drawn.
+- **A low stone fence** around each pueblo the boundary covers; **a broken red one** around an app it leaves out: a `sharedNamespace` app, or one with a pod on a node whose network does not enforce policies. Mark such a node once, `kubectl label node <node> rendimiento.ai/network-policy=no`, and its apps show outside.
+- **Yellow postigos** in a fence are services with `lan:`, open to the local network.
+- **A xoloitzcuintle** lies by the first gate: asleep when nothing is stopped, up and barking when there is a tranca. With movement off, it holds still.
+
+Tap the wall, a zaguán or a tranca for the same in words. An administrator of the platform's organization can **Let it in** from a tranca, which adds the namespace to the boundary's list ([Configuration](../reference/config.md#organizations-in-the-cluster)). Each app's **Overview** says the same for that app, and **Environment → Platform settings** counts the apps inside and lists those outside.
+
 ## Latency on every road {#latency-on-every-line}
 
 With tracing on, each road also carries what was measured over the **Period** chosen at the top (15 minutes, an hour, 24 hours): **calls per minute**, the share that **failed**, and how long they took (**p50**, half were faster; **p95**, the slowest 5%), each with its trend across the period. Roads get **wider** with more calls, turn **red** when 5% or more fail and **amber** when the slowest 5% take half a second or more. Fireflies (by night) or confetti (by day) run along measured roads from the caller to the callee: more of them for more calls, faster for quicker calls. Turn movement off in the top bar and they hold still.

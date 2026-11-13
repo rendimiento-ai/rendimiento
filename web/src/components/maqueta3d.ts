@@ -10,7 +10,7 @@ import * as THREE from "three";
 import { MapControls } from "three/examples/jsm/controls/MapControls.js";
 import { t } from "../i18n";
 import {
-  INTERNET, INTERNET_AT, badge, clamp, drawLabels, hash, isNight, ms, palette, paseo, placeInside, placeWorld, rate, roadWidth, shade, still,
+  INTERNET, INTERNET_AT, badge, clamp, drawLabels, hash, isNight, ms, palette, paseo, placeInside, placeWorld, rate, roadWidth, shade, still, wallPlan,
   type Decor, type Engine, type HitKind, type Inside, type Label, type MapModel, type MapRoad, type MapView, type Palette, type Pick, type PlacedBarrio, type PlacedPueblo, type Status,
 } from "./maqueta";
 
@@ -46,6 +46,7 @@ export class Maqueta3D implements Engine {
   private view: MapView = { level: "region" };
   private barrios: Map<string, PlacedBarrio> = new Map();
   private pueblos: Map<string, PlacedPueblo> = new Map();
+  private wall: { gx: number; gy: number }[] = [];
   private inside?: Inside;
   private placedOnce = false;
   private homeDist = 30;
@@ -142,7 +143,7 @@ export class Maqueta3D implements Engine {
   set(model: MapModel, view: MapView) {
     const relayout = model !== this.model, before = this.view;
     this.model = model;
-    if (relayout) ({ barrios: this.barrios, pueblos: this.pueblos } = placeWorld(model));
+    if (relayout) ({ barrios: this.barrios, pueblos: this.pueblos, wall: this.wall } = placeWorld(model));
     this.view = view;
     if (view.level === "pueblo" && view.pueblo && (relayout || before.pueblo !== view.pueblo || !this.inside)) {
       const p = this.pueblos.get(view.pueblo)?.p;
@@ -442,6 +443,7 @@ export class Maqueta3D implements Engine {
       this.frame(pb.x0, pb.y0, pb.x0 + pb.side, pb.y0 + pb.side, sel ? P.accent : tone, sel ? 0.12 : 0.06, sel ? 1 : 0.55 * a);
       for (const d of pb.decor) this.decor(d, a);
     }
+    if (m.barda) this.barda(focus ? 0.5 : 1);
     const net = this.internetAt();
     const center = (id: string) => {
       if (id === INTERNET) return { gx: INTERNET_AT.gx, gy: INTERNET_AT.gy, y: GROUND + 1.2 };
@@ -479,6 +481,12 @@ export class Maqueta3D implements Engine {
       const mine = pp.barrio === focus;
       const a = !focus ? 1 : mine ? 1 : linked.has(pp.p.id) ? 0.7 : 0.32;
       const sel = this.selected("pueblo", pp.p.id);
+      const fence = m.barda?.fences.get(pp.p.id);
+      if (fence) this.ring(pp.gx, pp.gy, 0, 1.6 * pp.size, fence.inside ? (this.night ? "#B7A9C9" : "#A08A72") : P.bad, fence.inside && m.barda!.on ? 0.07 : 0.035, a * (fence.inside ? 0.9 : 0.7));
+      if (fence) for (let i = 0; i < Math.min(fence.lan, 3); i++) {
+        const ang = Math.PI * (0.35 + i * 0.12);
+        this.box(pp.gx + Math.cos(ang) * 1.6 * pp.size - 0.08, 0, pp.gy + Math.sin(ang) * 1.6 * pp.size - 0.04, 0.16, 9 * Z, 0.08, P.maiz, a);
+      }
       this.ring(pp.gx, pp.gy, 0, 1.25 * pp.size, this.ringColor(pp.p.status), sel ? 0.13 : 0.08, a, pp.p.status === "bad");
       if (sel) this.ring(pp.gx, pp.gy, 0, 1.5 * pp.size, P.accent, 0.07, 1);
       let h = 0;
@@ -498,6 +506,46 @@ export class Maqueta3D implements Engine {
       this.anchor(pb.x0, 0, pb.y0, b.title, b.perMinute ? rate(b.perMinute) : t("{n} apps", { n: b.pueblos.length }), {
         big: true, dy: -50, prio: 10, force: true, subColor: this.subColor(b.status), ring: b.status === "slow" || b.status === "bad" ? this.statusColor(b.status) : undefined,
       });
+    }
+  }
+
+  /** The wall between organizations: adobe (stones when off), its zaguanes, trancas and the xolo; as in 2.5D. */
+  private barda(alpha: number) {
+    const P = this.P, b = this.model!.barda!, plan = wallPlan(this.wall, b);
+    const adobe = this.night ? "#9C6B52" : "#C98A5A";
+    for (const s of plan.sides) for (const [x0, y0, x1, y1] of s.pieces) {
+      const along = y0 === y1;
+      if (b.on) {
+        this.box(Math.min(x0, x1) - (along ? 0 : 0.13), GROUND, Math.min(y0, y1) - (along ? 0.13 : 0),
+          Math.abs(x1 - x0) + (along ? 0 : 0.26), -GROUND + 11 * Z, Math.abs(y1 - y0) + (along ? 0.26 : 0), [adobe, adobe, P.teja, adobe, adobe, adobe], alpha);
+      } else {
+        const len = Math.hypot(x1 - x0, y1 - y0);
+        for (let k = 0; k <= len; k += 1.4) {
+          const u = len ? k / len : 0;
+          this.box(x0 + (x1 - x0) * u - 0.12, GROUND, y0 + (y1 - y0) * u - 0.12, 0.24, -GROUND + 6 * Z, 0.24, P.cal, alpha);
+        }
+      }
+    }
+    for (const g of plan.gates) {
+      const { gx, gy } = g.at;
+      this.box(gx - 0.15, GROUND, gy - 0.65, 0.3, -GROUND + 18 * Z, 0.25, P.cantera, alpha);
+      this.box(gx - 0.15, GROUND, gy + 0.4, 0.3, -GROUND + 18 * Z, 0.25, P.cantera, alpha);
+      this.box(gx - 0.2, 18 * Z, gy - 0.7, 0.4, 4 * Z, 1.4, P.teja, alpha);
+      this.proxy("zaguan", g.id, gx, GROUND, gy, 0.7, 1);
+      this.anchor(gx, GROUND, gy, g.title, g.sub, { dy: 10, prio: this.selected("zaguan", g.id) ? 12 : 4, subColor: P.ok, ring: this.selected("zaguan", g.id) ? P.accent : undefined });
+    }
+    for (const g of plan.trancas) {
+      const { gx, gy } = g.at;
+      this.box(gx - 0.5, GROUND, gy - 0.12, 1.0, -GROUND + 9 * Z, 0.24, P.bad, alpha);
+      this.proxy("tranca", g.id, gx, GROUND, gy, 0.6, 0.8);
+      this.anchor(gx, GROUND, gy, g.title, g.sub, { dy: -24, prio: this.selected("tranca", g.id) ? 12 : 6, subColor: P.bad, ring: this.selected("tranca", g.id) ? P.accent : P.bad });
+    }
+    if (plan.xolo) {
+      const { gx, gy } = plan.xolo, up = plan.trancas.length > 0, skin = this.night ? "#6C6A86" : "#4A4646";
+      this.box(gx - 0.25, up ? 4 * Z : 0, gy - 0.1, 0.5, 5 * Z, 0.2, skin, alpha);
+      this.box(gx + 0.2, up ? 8 * Z : 0, gy - 0.08, 0.16, 6 * Z, 0.16, skin, alpha);
+      if (up) for (const dx of [-0.2, 0.15]) this.box(gx + dx, 0, gy - 0.05, 0.05, 4 * Z, 0.1, skin, alpha);
+      if (up) this.anchor(gx, 0.3, gy, t("woof!"), undefined, { dy: -18, prio: 3, subColor: P.bad });
     }
   }
 

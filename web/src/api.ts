@@ -1130,6 +1130,10 @@ export interface SettingsView {
   fixed: FixedSetting[];
   ingressNamespace: string;
   platformNamespace: string;
+  /** How many apps the platform runs, and those the boundary leaves out, with why. */
+  apps: number;
+  outside?: Record<string, "shared" | "node">;
+  nodes?: Record<string, string[]>;
 }
 // Who calls apps across the boundary (api.BoundaryCheck): a guide, from
 // the workloads' environment, not from traffic.
@@ -1289,7 +1293,31 @@ export interface UniverseEdge {
   metrics?: { perMinute: number; errors: number; p50Ms?: number; p95Ms?: number; trend?: number[]; p50Trend?: number[]; p95Trend?: number[] };
 }
 
+/**
+ * The boundary between organizations as this organization's apps see it (api.Barda): on or off, who is let in, the apps it
+ * leaves out and why ("shared": a shared namespace; "node": a pod on a node that does not enforce it), the ports open to the
+ * LAN, and who calls in from outside.
+ */
+export interface UniverseBarda {
+  state: "on" | "off";
+  org: string;
+  ingress: string;
+  platform: string;
+  namespaces: string[];
+  cidrs: string[];
+  outside: Record<string, "shared" | "node">;
+  nodes: Record<string, string[]>;
+  lan: Record<string, string[]>;
+  callers: { namespace: string; calls: string[]; in: boolean }[];
+}
+/** One app's place in the boundary, for its page (api.AppBarda). */
+export interface AppBarda extends UniverseBarda {
+  inside: boolean;
+  why?: "shared" | "node" | "off";
+}
+
 export interface Universe {
+  barda?: UniverseBarda;
   barrios: UniverseBarrio[];
   systems: UniverseSystem[];
   nodes: UniverseNode[];
@@ -1356,6 +1384,8 @@ export const universeApi = {
   traces: (service: string, errorsOnly = false) =>
     request<{ traces: KeptTrace[] }>("GET", `/api/universe/traces?service=${encodeURIComponent(service)}${errorsOnly ? "&errors=1" : ""}`),
   trace: (id: string) => request<{ trace: KeptTrace; spans: TraceSpan[] }>("GET", `/api/universe/traces/${encodeURIComponent(id)}`),
+  /** The boundary as one app sees it; undefined with no cluster. */
+  barda: (app: string) => request<AppBarda | undefined>("GET", `/api/apps/${app}/barda`),
 };
 
 export const catalogApi = {

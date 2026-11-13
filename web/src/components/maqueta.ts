@@ -19,7 +19,21 @@ export interface MapPueblo { id: string; title: string; status: Status; perMinut
 export interface MapBarrio { id: string; title: string; tone: number; status: Status; perMinute: number; pueblos: MapPueblo[] }
 /** A road between two barrios, pueblos or nodes ("internet" for visitors). */
 export interface MapRoad { id: string; from: string; to: string; perMinute: number; p50?: number; status: Status }
+/**
+ * The boundary between organizations, drawn as a wall of adobe around the organization's barrios: zaguanes for what it lets
+ * in, a red tranca where a call from outside is stopped (or would be, with it off), a stone fence around each pueblo it
+ * covers (broken where it does not), little postigos for ports open to the LAN, and a xoloitzcuintle by the gate that
+ * sleeps, or barks when there is a tranca.
+ */
+export interface MapBarda {
+  on: boolean;
+  gates: { id: string; title: string; sub: string }[];
+  trancas: { id: string; title: string; sub: string }[];
+  /** Each pueblo it can cover: inside or not (why goes to the panel), and its ports open to the LAN. */
+  fences: Map<string, { inside: boolean; lan: number }>;
+}
 export interface MapModel {
+  barda?: MapBarda;
   barrios: MapBarrio[];
   barrioRoads: MapRoad[];
   puebloRoads: MapRoad[];
@@ -28,7 +42,7 @@ export interface MapModel {
   puebloOf: Map<string, string>;
 }
 export type Level = "region" | "barrio" | "pueblo";
-export type HitKind = "barrio" | "pueblo" | "node" | "road" | "internet" | "arch" | "sign";
+export type HitKind = "barrio" | "pueblo" | "node" | "road" | "internet" | "arch" | "sign" | "barda" | "zaguan" | "tranca";
 export interface Pick { kind: HitKind; id: string }
 export interface MapView { level: Level; barrio?: string; pueblo?: string; sel?: Pick }
 /** What the page asks of a maqueta, in 2.5D or in 3D. */
@@ -115,6 +129,7 @@ export class Maqueta implements Engine {
   private view: MapView = { level: "region" };
   private barrios: Map<string, PlacedBarrio> = new Map();
   private pueblos: Map<string, PlacedPueblo> = new Map();
+  private wall: { gx: number; gy: number }[] = [];
   private inside?: Inside;
   private hits: Hit[] = [];
   private labels: Label[] = [];
@@ -182,6 +197,7 @@ export class Maqueta implements Engine {
     const placed = placeWorld(this.model!);
     this.barrios = placed.barrios;
     this.pueblos = placed.pueblos;
+    this.wall = placed.wall;
   }
 
   private layoutInside(id: string) {
@@ -371,6 +387,8 @@ export class Maqueta implements Engine {
   private drawWorld(now: number) {
     const m = this.model!, v = this.view, { ctx } = this;
     const focus = v.level === "barrio" ? v.barrio : undefined;
+    const walls = m.barda ? this.wallSides() : undefined;
+    if (walls) { ctx.globalAlpha = focus ? 0.5 : 1; this.drawWall(walls.sides.filter((x) => x.back), now); ctx.globalAlpha = 1; }
     for (const pb of this.barrios.values()) {
       ctx.globalAlpha = focus && pb.b.id !== focus ? 0.38 : 1;
       const { x0, y0, side } = pb, x1 = x0 + side, y1 = y0 + side, tone = this.tone(pb.b.id);
@@ -432,6 +450,8 @@ export class Maqueta implements Engine {
       const pp = item.pp, mine = pp.barrio === focus;
       ctx.globalAlpha = !focus ? 1 : mine ? 1 : linked.has(pp.p.id) ? 0.7 : 0.32;
       const sel = this.selected("pueblo", pp.p.id);
+      const fence = m.barda?.fences.get(pp.p.id);
+      if (fence) this.fence(pp.gx, pp.gy, 1.6 * pp.size, fence.inside && m.barda!.on, fence.inside, fence.lan);
       this.ring(pp.gx, pp.gy, 1.25 * pp.size, this.ringColor(pp.p.status), sel ? 4 : 2.4, pp.p.status === "bad" && !still() ? 1.15 + 0.12 * Math.sin(now * 0.005) : 0);
       if (sel) this.ring(pp.gx, pp.gy, 1.5 * pp.size, this.P.accent, 2);
       const order = offs.slice(0, pp.houses).sort((a, b) => a[0] + a[1] - (b[0] + b[1]));
@@ -448,6 +468,7 @@ export class Maqueta implements Engine {
         });
       }
     }
+    if (walls) { ctx.globalAlpha = focus ? 0.5 : 1; this.drawWall(walls.sides.filter((x) => !x.back), now); this.drawZaguanes(walls, now); ctx.globalAlpha = 1; }
     if (v.level === "region") for (const pb of this.barrios.values()) {
       const b = pb.b;
       this.label(iso(pb.x0, pb.y0), b.title, b.perMinute ? rate(b.perMinute) : t("{n} apps", { n: b.pueblos.length }), {
@@ -558,6 +579,105 @@ export class Maqueta implements Engine {
 
   private label(wp: P, title: string, sub: string | undefined, o: Omit<Label, "p" | "title" | "sub">) { this.labels.push({ p: this.toScreen(wp), title, sub, ...o }); }
   private drawLabels() { drawLabels(this.ctx, this.labels, this.W, this.H, this.P); }
+
+  // ---- the wall between organizations ----
+
+  private wallSides() { return wallPlan(this.wall, this.model!.barda!); }
+
+  /** The adobe wall along some sides (stones when the boundary is off), leaving gaps for zaguanes and trancas. */
+  private drawWall(sides: WallSide[], now: number) {
+    const { P } = this, b = this.model!.barda!;
+    const adobe = { t: this.night ? "#9C6B52" : "#D9A27A", l: this.night ? "#7A4E3C" : "#B9784A", r: this.night ? "#5E3B2E" : "#9A6440" };
+    for (const s of sides) for (const [x0, y0, x1, y1] of s.pieces) {
+      if (b.on) {
+        const along = y0 === y1, gx = Math.min(x0, x1) - (along ? 0 : 0.13), gy = Math.min(y0, y1) - (along ? 0.13 : 0);
+        this.box(gx, gy, Math.abs(x1 - x0) + (along ? 0 : 0.26), Math.abs(y1 - y0) + (along ? 0.26 : 0), 11, adobe);
+        // a line of teja on top, as on the walls of a corral
+        const top = [iso(x0, y0, 11), iso(x1, y1, 11)];
+        this.ctx.strokeStyle = P.teja; this.ctx.lineWidth = 2.2;
+        this.ctx.beginPath(); this.ctx.moveTo(top[0].x, top[0].y); this.ctx.lineTo(top[1].x, top[1].y); this.ctx.stroke();
+      } else {
+        // off: the land is marked with mojoneras, and anyone walks in
+        const len = Math.hypot(x1 - x0, y1 - y0);
+        for (let k = 0; k <= len; k += 1.4) {
+          const u = len ? k / len : 0;
+          this.box(x0 + (x1 - x0) * u - 0.12, y0 + (y1 - y0) * u - 0.12, 0.24, 0.24, 6, { t: P.cal, l: P.cantera, r: P.roofD });
+        }
+      }
+      this.hits.push({ kind: "barda", id: "barda", pts: [iso(x0, y0, 6), iso(x1, y1, 6)].map((p) => this.toScreen(p)) });
+    }
+    void now;
+  }
+
+  /** The zaguanes (what the boundary lets in), the trancas (what it stops) and the xolo by the first of them. */
+  private drawZaguanes(w: WallPlan, now: number) {
+    const { P } = this;
+    const post = { t: P.wallL, l: P.cantera, r: this.night ? "#5E4470" : "#C18F72" };
+    for (const g of w.gates) {
+      const { gx, gy } = g.at;
+      this.box(gx - 0.15, gy - 0.65, 0.3, 0.25, 18, post);
+      this.box(gx - 0.15, gy + 0.4, 0.3, 0.25, 18, post);
+      this.box(gx - 0.2, gy - 0.7, 0.4, 1.4, 4, { t: P.teja, l: P.cantera, r: P.roofD }, 18);
+      this.hitCircle("zaguan", g.id, iso(gx, gy, 10), 22);
+      this.label(iso(gx, gy), g.title, g.sub, { dy: 12, prio: this.selected("zaguan", g.id) ? 12 : 4, subColor: P.ok, ring: this.selected("zaguan", g.id) ? P.accent : undefined });
+    }
+    for (const g of w.trancas) {
+      const { gx, gy } = g.at;
+      this.box(gx - 0.5, gy - 0.12, 1.0, 0.24, 9, { t: P.bad, l: P.bad, r: P.grana });
+      const a = iso(gx - 0.35, gy, 3), c = iso(gx + 0.35, gy, 8), d = iso(gx - 0.35, gy, 8), e = iso(gx + 0.35, gy, 3);
+      this.ctx.strokeStyle = P.cal; this.ctx.lineWidth = 1.6;
+      this.ctx.beginPath(); this.ctx.moveTo(a.x, a.y); this.ctx.lineTo(c.x, c.y); this.ctx.moveTo(d.x, d.y); this.ctx.lineTo(e.x, e.y); this.ctx.stroke();
+      this.hitCircle("tranca", g.id, iso(gx, gy, 6), 20);
+      this.label(iso(gx, gy), g.title, g.sub, { dy: -24, prio: this.selected("tranca", g.id) ? 12 : 6, subColor: P.bad, ring: this.selected("tranca", g.id) ? P.accent : P.bad });
+    }
+    if (w.xolo) this.xolo(w.xolo.gx, w.xolo.gy, w.trancas.length > 0, now);
+  }
+
+  /** A xoloitzcuintle, gray and hairless: asleep when nothing is stopped, up and barking when there is a tranca. */
+  private xolo(gx: number, gy: number, barking: boolean, now: number) {
+    const { ctx, P } = this, p = iso(gx, gy), skin = this.night ? "#6C6A86" : "#4A4646";
+    const moving = !still();
+    ctx.fillStyle = skin;
+    if (!barking) {
+      ctx.beginPath(); ctx.ellipse(p.x, p.y - 3, 9, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x + 8, p.y - 3, 3.6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(p.x + 8, p.y - 6); ctx.lineTo(p.x + 9.5, p.y - 11); ctx.lineTo(p.x + 11, p.y - 5.5); ctx.fill();
+      if (moving && Math.sin(now * 0.002) > 0.6) { // zz, now and then
+        ctx.fillStyle = P.muted; ctx.font = "600 8px system-ui, sans-serif"; ctx.fillText("z", p.x + 13, p.y - 12 - (now % 1500) / 300);
+      }
+      return;
+    }
+    const wag = moving ? Math.sin(now * 0.02) * 0.6 : 0;
+    ctx.beginPath(); ctx.ellipse(p.x, p.y - 8, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+    for (const lx of [-5, -2, 3, 6]) ctx.fillRect(p.x + lx, p.y - 6, 1.6, 6);
+    ctx.beginPath(); ctx.arc(p.x + 8.5, p.y - 13, 3.8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(p.x + 7, p.y - 16); ctx.lineTo(p.x + 7.5, p.y - 23); ctx.lineTo(p.x + 10, p.y - 16); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(p.x + 10, p.y - 16); ctx.lineTo(p.x + 12.5, p.y - 22); ctx.lineTo(p.x + 12.5, p.y - 15); ctx.fill();
+    ctx.strokeStyle = skin; ctx.lineWidth = 1.8;
+    ctx.beginPath(); ctx.moveTo(p.x - 7, p.y - 9); ctx.quadraticCurveTo(p.x - 12, p.y - 12 - 4 * wag, p.x - 13, p.y - 18 - 3 * wag); ctx.stroke();
+    if (!moving || Math.sin(now * 0.004) > 0) {
+      const bx = p.x + 14, by = p.y - 34;
+      ctx.fillStyle = P.cal; ctx.strokeStyle = P.bad; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.roundRect(bx, by, 40, 15, 7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = P.bad; ctx.font = "700 9px system-ui, sans-serif"; ctx.fillText(t("woof!"), bx + 6, by + 11);
+    }
+  }
+
+  /** A low fence of stones around a pueblo: whole when the boundary covers it, broken when not; a postigo per LAN port. */
+  private fence(cx: number, cy: number, r: number, walled: boolean, covered: boolean, lan: number) {
+    const { ctx, P } = this, e = this.ellipse(cx, cy, 0, r);
+    ctx.save();
+    ctx.setLineDash(walled ? [2.5, 2.5] : covered ? [1.5, 6] : [6, 9]);
+    ctx.lineWidth = walled ? 3 : 2.2;
+    ctx.strokeStyle = covered ? (this.night ? "#B7A9C9" : "#A08A72") : P.bad;
+    ctx.beginPath(); ctx.ellipse(e.p.x, e.p.y, e.rx, e.ry, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+    for (let i = 0; i < Math.min(lan, 3); i++) {
+      const a = Math.PI * (0.35 + i * 0.12), p = { x: e.p.x + Math.cos(a) * e.rx, y: e.p.y + Math.sin(a) * e.ry };
+      ctx.fillStyle = P.maiz; ctx.fillRect(p.x - 3, p.y - 9, 6, 9);
+      ctx.strokeStyle = P.roofD; ctx.lineWidth = 0.8; ctx.strokeRect(p.x - 3, p.y - 9, 6, 9);
+    }
+  }
 
   // ---- the village's pieces (world space) ----
 
@@ -862,10 +982,12 @@ export function palette(night: boolean): Palette {
 /** Where every barrio and pueblo goes, in tiles; both the 2.5D and the 3D maqueta use it. */
 export function placeWorld(m: MapModel) {
   const barrios = new Map<string, PlacedBarrio>(), pueblos = new Map<string, PlacedPueblo>();
-  const sides = m.barrios.map((b) => Math.max(6, Math.ceil(Math.sqrt(b.pueblos.length)) * 3.3 + 1.2));
+  // The outskirts go last, so the organization's barrios sit together inside the wall.
+  const order = [...m.barrios.filter((b) => b.tone >= 0), ...m.barrios.filter((b) => b.tone < 0)];
+  const sides = order.map((b) => Math.max(6, Math.ceil(Math.sqrt(b.pueblos.length)) * 3.3 + 1.2));
   const cell = Math.max(6, ...sides) + 2.6;
-  const cols = Math.ceil(Math.sqrt(m.barrios.length));
-  m.barrios.forEach((b, i) => {
+  const cols = Math.ceil(Math.sqrt(order.length));
+  order.forEach((b, i) => {
     const side = sides[i];
     const x0 = (i % cols) * cell + (cell - 2.6 - side) / 2, y0 = Math.floor(i / cols) * cell + (cell - 2.6 - side) / 2;
     const decor: Decor[] = [];
@@ -902,7 +1024,66 @@ export function placeWorld(m: MapModel) {
       decor.push({ kind: "tree", gx, gy, s: 0.5 + ((h >> 16) % 25) / 100 });
     }
   });
-  return { barrios, pueblos };
+  return { barrios, pueblos, wall: wallAround(order.filter((b) => b.tone >= 0).length, cols, cell) };
+}
+
+type Spot = { gx: number; gy: number };
+/** One side of the wall: whether it is behind the barrios (drawn first), and its pieces between gaps (x0, y0, x1, y1). */
+export interface WallSide { back: boolean; pieces: [number, number, number, number][] }
+export interface WallPlan {
+  sides: WallSide[];
+  gates: (MapBarda["gates"][number] & { at: Spot })[];
+  trancas: (MapBarda["trancas"][number] & { at: Spot })[];
+  /** Where the xolo lies: by the first tranca, or the first zaguán. */
+  xolo?: Spot;
+}
+
+/**
+ * Where everything of the wall goes, for both maquetas: zaguanes along its left side counted from the corner nearest the
+ * internet, trancas along its top side, each in a gap of the wall.
+ */
+export function wallPlan(wall: Spot[], b: MapBarda): WallPlan {
+  if (wall.length < 3) return { sides: [], gates: [], trancas: [] };
+  const raw = wall.map((a, i) => ({ a, b: wall[(i + 1) % wall.length] }));
+  const left = raw[raw.length - 1], top = raw[0];
+  const spots = (s: typeof left, n: number, fromEnd: boolean): Spot[] => {
+    const len = Math.hypot(s.b.gx - s.a.gx, s.b.gy - s.a.gy), step = Math.min(2.4, (len - 2) / Math.max(n, 1));
+    return Array.from({ length: n }, (_, i) => {
+      const k = (1.6 + i * step) / len, u = fromEnd ? 1 - k : k;
+      return { gx: s.a.gx + (s.b.gx - s.a.gx) * u, gy: s.a.gy + (s.b.gy - s.a.gy) * u };
+    });
+  };
+  const gs = spots(left, b.gates.length, true), ts = spots(top, b.trancas.length, false);
+  const gates = b.gates.map((g, i) => ({ ...g, at: gs[i] })), trancas = b.trancas.map((g, i) => ({ ...g, at: ts[i] }));
+  const gaps = [...gs, ...ts];
+  const minX = Math.min(...wall.map((p) => p.gx)), minY = Math.min(...wall.map((p) => p.gy));
+  const sides: WallSide[] = raw.map((s) => {
+    const len = Math.hypot(s.b.gx - s.a.gx, s.b.gy - s.a.gy), ux = (s.b.gx - s.a.gx) / len, uy = (s.b.gy - s.a.gy) / len;
+    const cut = gaps.filter((g) => Math.abs((g.gx - s.a.gx) * uy - (g.gy - s.a.gy) * ux) < 0.01)
+      .map((g) => (g.gx - s.a.gx) * ux + (g.gy - s.a.gy) * uy).filter((k) => k > 0 && k < len).sort((x, y) => x - y);
+    const pieces: WallSide["pieces"] = [];
+    let from = 0;
+    for (const c of cut) { if (c - 0.55 > from) pieces.push([s.a.gx + ux * from, s.a.gy + uy * from, s.a.gx + ux * (c - 0.55), s.a.gy + uy * (c - 0.55)]); from = c + 0.55; }
+    if (from < len) pieces.push([s.a.gx + ux * from, s.a.gy + uy * from, s.b.gx, s.b.gy]);
+    const back = (s.a.gx === s.b.gx && s.a.gx === minX) || (s.a.gy === s.b.gy && s.a.gy === minY);
+    return { back, pieces };
+  });
+  const near = ts[0] ?? gs[0];
+  return { sides, gates, trancas, xolo: near && { gx: near.gx + 0.9, gy: near.gy + 0.9 } };
+}
+
+/**
+ * The wall around the first n barrios of the grid (the organization's): a rectangle, or an L when the last row is not full.
+ * Corners in tiles, going round.
+ */
+export function wallAround(n: number, cols: number, cell: number): { gx: number; gy: number }[] {
+  if (n === 0) return [];
+  const m = 0.9, end = (k: number) => k * cell - 2.6 + m;
+  const full = Math.floor(n / cols), rem = n % cols;
+  if (full === 0) return [{ gx: -m, gy: -m }, { gx: end(rem), gy: -m }, { gx: end(rem), gy: end(1) }, { gx: -m, gy: end(1) }];
+  if (rem === 0) return [{ gx: -m, gy: -m }, { gx: end(cols), gy: -m }, { gx: end(cols), gy: end(full) }, { gx: -m, gy: end(full) }];
+  return [{ gx: -m, gy: -m }, { gx: end(cols), gy: -m }, { gx: end(cols), gy: end(full) }, { gx: end(rem), gy: end(full) },
+    { gx: end(rem), gy: end(full + 1) }, { gx: -m, gy: end(full + 1) }];
 }
 
 /** Inside a pueblo: its houses in a ring around the plaza, the arch, and one signpost per app called. */

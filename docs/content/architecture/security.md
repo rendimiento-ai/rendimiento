@@ -43,7 +43,7 @@ What the wall is not:
 
 - **One service account.** The `rendimiento` service account still manages every organization's namespaces; what keeps them apart is the platform's code, not Kubernetes permissions. A service account per organization is not built.
 - **Shared builds.** Builds are not per organization: every CI step runs in `rendimiento-builds`, on the same privileged BuildKit daemons, and pushes to the same registry, which every node pulls from without credentials.
-- **Only where the network enforces it.** A NetworkPolicy holds only where the cluster's network plugin enforces it (Calico, Cilium, k3s's own network policy controller). Plain flannel, or k3s started with `--disable-network-policy`, accepts the object and enforces nothing.
+- **Only where the network enforces it.** A NetworkPolicy holds only where the cluster's network plugin enforces it (Calico, Cilium, k3s's own network policy controller). Plain flannel, or k3s started with `--disable-network-policy`, accepts the object and enforces nothing. A node whose kernel cannot enforce it can be marked `rendimiento.ai/network-policy=no`; its apps then show outside the wall in [the Universe](../guide/universe.md#the-wall), on their page and in Environment.
 
 ### Turning it on {#turning-the-boundary-on}
 

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"slices"
@@ -46,6 +47,11 @@ type SettingsView struct {
 	// IngressNamespace is where the boundary lets the ingress in from now.
 	IngressNamespace string `json:"ingressNamespace"`
 	PlatformNS       string `json:"platformNamespace"`
+	// Apps is how many apps the platform runs, and Outside those the
+	// boundary does not cover, with why (as on the app's page).
+	Apps    int                 `json:"apps"`
+	Outside map[string]string   `json:"outside,omitempty"`
+	Nodes   map[string][]string `json:"nodes,omitempty"`
 }
 
 // fixedSettings are shown with their values; fixedSecrets only as set or not.
@@ -54,7 +60,7 @@ var (
 	fixedSecrets  = []string{"DATABASE_URL", "CLOUDFLARE_API_TOKEN", "SECRETS_KEY_FILE", "AI_PLATFORM_KEY", "SMTP_PASSWORD"}
 )
 
-func (s *Server) settingsView(w http.ResponseWriter) {
+func (s *Server) settingsView(w http.ResponseWriter, r *http.Request) {
 	if s.Settings == nil {
 		httpError(w, http.StatusServiceUnavailable, "the platform's settings are not read in this process")
 		return
@@ -76,11 +82,17 @@ func (s *Server) settingsView(w http.ResponseWriter) {
 		v.Fixed = append(v.Fixed, FixedSetting{Key: k, Secret: true, Set: os.Getenv(k) != ""})
 	}
 	v.IngressNamespace = ajustes.IngressNamespaceOf(eff, s.Settings.IngressClass)
+	if apps, err := s.Store.ListApps(r.Context()); err == nil {
+		v.Apps = len(apps)
+		if b, err := s.barda(r.Context(), store.DefaultOrg, apps); err == nil && b != nil {
+			v.Outside, v.Nodes = b.Outside, b.Nodes
+		}
+	}
 	writeJSON(w, v)
 }
 
 // getSettings is every setting, live and fixed, with where its value comes from.
-func (s *Server) getSettings(w http.ResponseWriter, _ *http.Request, _ string) { s.settingsView(w) }
+func (s *Server) getSettings(w http.ResponseWriter, r *http.Request, _ string) { s.settingsView(w, r) }
 
 // putSetting saves a live setting: it wins over the environment's value in
 // every process within 15 seconds, this one at once. It is checked with
@@ -122,7 +134,7 @@ func (s *Server) putSetting(w http.ResponseWriter, r *http.Request, login string
 	anotarDetalle(r, "despues", value)
 	_ = s.Settings.Refresh(r.Context())
 	s.Log.Info("platform setting saved", "setting", key, "value", value, "by", login)
-	s.settingsView(w)
+	s.settingsView(w, r)
 }
 
 // deleteSetting forgets a saved setting: the environment's value holds again.
@@ -150,7 +162,7 @@ func (s *Server) deleteSetting(w http.ResponseWriter, r *http.Request, login str
 	anotarDetalle(r, "despues", s.Settings.Boot[key])
 	_ = s.Settings.Refresh(r.Context())
 	s.Log.Info("platform setting back to the environment's value", "setting", key, "by", login)
-	s.settingsView(w)
+	s.settingsView(w, r)
 }
 
 // liveSetting finds a live setting that can be changed in this process.
@@ -238,6 +250,21 @@ func (s *Server) boundaryCheck(w http.ResponseWriter, r *http.Request, _ string)
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if out.Callers, err = s.boundaryCallers(ctx, apps, 0); err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, out)
+}
+
+// boundaryCallers are the namespaces whose workloads point at the apps'
+// services from outside each app's organization (only those of org, when
+// it is not 0), from the services catalog.
+func (s *Server) boundaryCallers(ctx context.Context, apps []*store.App, org int64) ([]BoundaryCaller, error) {
+	out := []BoundaryCaller{}
+	if s.Settings == nil || s.Catalog == nil {
+		return out, nil
+	}
 	// The namespaces with the boundary, by their organization.
 	orgOfNS := map[string]int64{}
 	for _, a := range apps {
@@ -248,20 +275,19 @@ func (s *Server) boundaryCheck(w http.ResponseWriter, r *http.Request, _ string)
 	allowed := s.Settings.Network().Namespaces
 	cat, err := s.Catalog.Get(ctx, false)
 	if err != nil {
-		httpError(w, http.StatusInternalServerError, err.Error())
-		return
+		return nil, err
 	}
 	byNS := map[string]*BoundaryCaller{}
 	for _, e := range cat.Entries {
-		org, ok := orgOfNS[e.Namespace]
-		if !ok {
+		o, ok := orgOfNS[e.Namespace]
+		if !ok || (org != 0 && o != org) {
 			continue
 		}
 		for _, c := range e.UsedBy {
 			if c.Namespace == e.Namespace {
 				continue
 			}
-			if o, mine := orgOfNS[c.Namespace]; mine && o == org {
+			if co, mine := orgOfNS[c.Namespace]; mine && co == o {
 				continue // its own organization: always in
 			}
 			bc := byNS[c.Namespace]
@@ -280,8 +306,8 @@ func (s *Server) boundaryCheck(w http.ResponseWriter, r *http.Request, _ string)
 	}
 	for _, bc := range byNS {
 		sort.Strings(bc.Calls)
-		out.Callers = append(out.Callers, *bc)
+		out = append(out, *bc)
 	}
-	sort.Slice(out.Callers, func(i, j int) bool { return out.Callers[i].Namespace < out.Callers[j].Namespace })
-	writeJSON(w, out)
+	sort.Slice(out, func(i, j int) bool { return out[i].Namespace < out[j].Namespace })
+	return out, nil
 }
