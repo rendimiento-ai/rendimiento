@@ -1813,8 +1813,8 @@ export const es: Record<string, string> = {
   "The day's summary": "El resumen del día",
   "Writing the summary of the last days…": "Escribiendo el resumen de los últimos días…",
   "Written by the platform's AI from what was recorded; it can be wrong.": "Lo escribió la IA de la plataforma con lo que quedó registrado; puede equivocarse.",
-  "Only the numbers: no model could write it.": "Solo los números: ningún modelo pudo escribirlo.",
   "Written from what was recorded.": "Escrito con lo que quedó registrado.",
   "Redo": "Rehacer",
   "Hide for today": "Ocultar por hoy",
+  "Only the numbers: the AI's answer could not be used this time. Redo tries again.": "Solo los números: esta vez no se pudo usar la respuesta de la IA. Rehacer lo intenta otra vez.",
 };

@@ -1,0 +1,1 @@
+- **AI:** the day's summary gives the model room to answer (its answer was being cut, and then only the numbers showed), keeps the lines that came whole if an answer is cut anyway, and writes the numbers properly ("7 releases, 1 failed run", only what is not zero).
