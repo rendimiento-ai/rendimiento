@@ -10,7 +10,8 @@ flowchart TB
     top --> env[Environment /environment]
     top --> new[New app /new]
     apps --> app[App page /apps/:name]
-    app --> ov[Overview]
+    app --> gl[At a glance]
+    app --> ov[Overview /apps/:name/overview]
     app --> runs[Runs] --> run[Run page /apps/:name/runs/:id]
     app --> rel[Releases]
     app --> set[Settings]
@@ -30,6 +31,9 @@ One screen, in three moves:
 3. **Deploy**: for a new repository, rendimiento opens a pull request adding `rendimiento.yaml` (and a Dockerfile if you chose one); the PR is built and checked, and **merging it deploys**. For a repository that already has `rendimiento.yaml`, the first build starts immediately.
 
 ## The app page
+
+**At a glance**
+:   What most people need, opened first: a cempasúchil that is open and breathing while the app runs, draws its petals in when it is slow or fails now and then, and withers when it does not answer (a green bud before its first release). A hummingbird flies by while an agent works on the app. Beside it, a sentence from [the day's summary](../guide/ai.md#the-days-summary), the share of the week the app was in line (a ring), one dot per day of the week (green, amber when it was slow, red when it did not answer for a while), its visits of the last seven days as bars and against the week before, how fast it answers and how many changes the week had. **For you** shows only when something needs a person: a publication that failed, work of agents waiting for review. **See the details** goes to the overview; **Show me the technical side first** makes the overview open first on this device. With movement off, the flower, the bird and the bars hold still.
 
 **Overview**
 :   One card per service: ready replicas, public URL, DNS and certificate status, the running image. **Provided for this app** shows the database and cache from `needs:`, which services use them and how to connect from your machine. **Dependency updates** is the per-app Renovate switch. **Resources** is a live tree of the Kubernetes objects (Deployments, pods, Services, Ingresses) with their health.

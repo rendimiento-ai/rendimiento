@@ -10,7 +10,8 @@ flowchart TB
     top --> env[Entorno /environment]
     top --> new[Nueva aplicación /new]
     apps --> app[Página de la aplicación /apps/:name]
-    app --> ov[Resumen]
+    app --> gl[De un vistazo]
+    app --> ov[Resumen /apps/:name/overview]
     app --> runs[Ejecuciones] --> run[Página de la ejecución /apps/:name/runs/:id]
     app --> rel[Versiones]
     app --> set[Configuración]
@@ -30,6 +31,9 @@ Una sola pantalla, en tres movimientos:
 3. **Desplegar**: para un repositorio nuevo, rendimiento abre una solicitud de incorporación que agrega `rendimiento.yaml` (y un Dockerfile si eligió uno); la solicitud se construye y se comprueba, e **integrarla despliega**. Para un repositorio que ya tiene `rendimiento.yaml`, la primera construcción empieza de inmediato.
 
 ## La página de la aplicación {#the-app-page}
+
+**De un vistazo**
+:   Lo que la mayoría necesita, y lo primero que se abre: un cempasúchil abierto y respirando mientras la aplicación corre, que cierra sus pétalos cuando va lenta o falla a veces y se marchita cuando no responde (un brote verde antes de su primera versión). Un colibrí revolotea mientras un agente trabaja en la aplicación. A un lado, una frase del [resumen del día](../guide/ai.md#the-days-summary), cuánto de la semana estuvo en línea (un anillo), un punto por cada día de la semana (verde, ámbar cuando estuvo lenta, rojo cuando no respondió un rato), sus visitas de los últimos siete días en barras y contra la semana anterior, qué tan rápido responde y cuántos cambios tuvo la semana. **Para usted** aparece solo cuando algo necesita a una persona: una publicación que falló, trabajo de los agentes que espera revisión. **Ver los detalles** lleva al resumen técnico; **Mostrarme lo técnico primero** hace que en este dispositivo se abra primero el resumen. Con el movimiento apagado, la flor, el colibrí y las barras se quedan quietos.
 
 **Resumen**
 :   Una tarjeta por servicio: réplicas listas, URL pública, estado del DNS y del certificado, y la imagen en ejecución. **Provisto para esta aplicación** muestra la base de datos y la caché de `needs:`, qué servicios las usan y cómo conectarse desde su computadora. **Actualizaciones de dependencias** es el interruptor de Renovate por aplicación. **Recursos** es un árbol en vivo de los objetos de Kubernetes (Deployments, pods, Services, Ingresses) con su salud.
