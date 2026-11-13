@@ -610,4 +610,9 @@ var catalog = map[string]string{
 	"%s holds at most %d address ranges":                                        "%s admite como máximo %s rangos de direcciones",
 	"%s must be address ranges such as 192.168.1.0/24, got %q":                  "%s debe tener rangos de direcciones como 192.168.1.0/24, y dice %s",
 	"%s must be a quantity such as 4 or 8Gi, got %q":                            "%s debe ser una cantidad como 4 u 8Gi, y dice %s",
+	"Nothing new: everything kept running.": "Sin novedades: todo siguió funcionando.",
+	"%d releases, %d rollbacks, %d failed runs, %d new problems": "%s versiones, %s reversiones, %s ejecuciones fallidas, %s problemas nuevos",
+	"%d things were done; no releases, failures or problems.": "Se hicieron %s cosas; sin versiones, fallas ni problemas.",
+	"a past day, as 2006-01-02": "un día pasado, como 2006-01-02",
+	"the summary is not written in this process": "este proceso no escribe el resumen",
 }

@@ -882,7 +882,22 @@ export interface BranchKinds {
   github: boolean;
 }
 
+/** One day of the home page's summary (api.SummaryView): its lines, each about an app ("" for the organization). */
+export interface DaySummary {
+  day: string;
+  lines: { app: string; text: string }[];
+  source: "ia" | "counts" | "empty";
+  provider?: string;
+}
+export interface SummaryView {
+  days: DaySummary[];
+  pending: boolean;
+  timeZone: string;
+}
+
 export const api = {
+  summary: () => request<SummaryView>("GET", "/api/summary"),
+  redoSummary: (day: string) => request<void>("POST", "/api/summary/redo", { day }),
   me: () => request<Me>("GET", "/api/me"),
   orgs: () => request<Org[]>("GET", "/api/orgs"),
   createOrg: (slug: string, name: string) => request<Org>("POST", "/api/orgs", { slug, name }),

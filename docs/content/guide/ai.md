@@ -25,6 +25,14 @@ Spending is measured from the tokens each provider reports and the model's list 
 
 The cheapest setup is the local model plus the Ruta's known failures, which the diagnostician reads first. For failures the Ruta knows nothing like, an organization may escalate to a stronger model (its own key, or the platform's within its allowance), at most a number of times a month (10 by default); it is off unless turned on. What the stronger model answers becomes an unconfirmed known failure, so the next time the local model knows it. See [Agents inside the platform](agents.md#agents-inside-the-platform).
 
+## The day's summary {#the-days-summary}
+
+At the top of the home page, a few lines tell what happened each day since your last visit (yesterday, and up to three days back): new releases and whether they were healthy, rollbacks, failures and fixes, what people and agents did, and the encargos waiting for review. Each line is about one app, linked to it, or about the whole organization.
+
+- **How it is written.** Each day, rendimiento gathers what it recorded (releases, runs, problems, the bitácora, encargos) and the platform's AI tells it, once per organization, day and language, through the same gateway and [caps](#caps) as everything else. When the platform's share is spent, the local model writes it; with no model at all, it shows only the numbers. A day without anything new is one line, written without a model. Commit messages and logs never go to the model; what does is data, never instructions, and the model has no tools.
+- **Who sees what.** A line about an app shows only to people who may see that app ([who enters](members.md#who-enters-an-app)).
+- **Redo** writes the latest day again (collaborators and administrators); **Hide for today** hides it on this device until tomorrow. Days begin and end in `PUBLIC_STATS_TZ` (UTC when unset).
+
 ## The AI page {#the-ai-page}
 
 - **At the top, how things stand:** who answers now (and, if the chosen one cannot, why the local model answers instead), whether failed runs are explained and how many new failures went to a stronger model this month, what was spent of each cap, and who changed it last.

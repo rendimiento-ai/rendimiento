@@ -98,6 +98,8 @@ type Server struct {
 	// Translator puts diagnoses in the reader's language (nil: shown as
 	// written), and AgentLang is the language agents write in.
 	Translator *agentes.Translator
+	// Summarizer writes the day's summary on the home page (nil: none).
+	Summarizer *agentes.Summarizer
 	AgentLang  string
 	routes     []route // authenticated routes and their roles (see Handler)
 	SetupToken string  // guards the one-time GitHub App setup
@@ -317,6 +319,8 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/apps/{app}/caminos", s.appCaminos)
 	auth(store.MemberCollaborator, "POST /api/apps/{app}/runs", s.triggerRun)
 	auth(store.MemberGuest, "GET /api/universe", s.universe)
+	auth(store.MemberGuest, "GET /api/summary", s.getSummary)
+	auth(store.MemberCollaborator, "POST /api/summary/redo", s.redoSummary)
 	auth(store.MemberGuest, "GET /api/universe/spans", s.universeSpans)
 	auth(store.MemberGuest, "GET /api/universe/traces", s.universeTraces)
 	auth(store.MemberGuest, "GET /api/universe/traces/{id}", s.universeTrace)

@@ -1799,4 +1799,12 @@ export const es: Record<string, string> = {
   "Outside the wall": "Fuera de la barda",
   "Yellow postigos are ports open to the local network: {list}.": "Los postigos amarillos son puertos abiertos a la red local: {list}.",
   "Change it in Environment → Platform settings": "Cámbiela en Entorno → Ajustes de la plataforma",
+  "Yesterday, {day}": "Ayer, {day}",
+  "The day's summary": "El resumen del día",
+  "Writing the summary of the last days…": "Escribiendo el resumen de los últimos días…",
+  "Written by the platform's AI from what was recorded; it can be wrong.": "Lo escribió la IA de la plataforma con lo que quedó registrado; puede equivocarse.",
+  "Only the numbers: no model could write it.": "Solo los números: ningún modelo pudo escribirlo.",
+  "Written from what was recorded.": "Escrito con lo que quedó registrado.",
+  "Redo": "Rehacer",
+  "Hide for today": "Ocultar por hoy",
 };
