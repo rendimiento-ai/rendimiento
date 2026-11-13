@@ -1809,4 +1809,12 @@ export const es: Record<string, string> = {
   "Retry what failed": "Reintentar lo que falló",
   "retried once": "reintentada una vez",
   "retried {n} times": "reintentada {n} veces",
+  "Yesterday, {day}": "Ayer, {day}",
+  "The day's summary": "El resumen del día",
+  "Writing the summary of the last days…": "Escribiendo el resumen de los últimos días…",
+  "Written by the platform's AI from what was recorded; it can be wrong.": "Lo escribió la IA de la plataforma con lo que quedó registrado; puede equivocarse.",
+  "Only the numbers: no model could write it.": "Solo los números: ningún modelo pudo escribirlo.",
+  "Written from what was recorded.": "Escrito con lo que quedó registrado.",
+  "Redo": "Rehacer",
+  "Hide for today": "Ocultar por hoy",
 };

@@ -617,4 +617,9 @@ var catalog = map[string]string{
 	"the last time in run #%d; retrying hides it, fixing it does not":                    "la última vez, en la ejecución n.º %s; reintentar lo esconde, arreglarlo no",
 	"only administrators retry a run of the main branch: it deploys":                     "solo los administradores reintentan una ejecución de la rama principal: despliega",
 	"retrying what failed":                                                               "reintentando lo que falló",
+	"Nothing new: everything kept running.": "Sin novedades: todo siguió funcionando.",
+	"%d releases, %d rollbacks, %d failed runs, %d new problems": "%s versiones, %s reversiones, %s ejecuciones fallidas, %s problemas nuevos",
+	"%d things were done; no releases, failures or problems.": "Se hicieron %s cosas; sin versiones, fallas ni problemas.",
+	"a past day, as 2006-01-02": "un día pasado, como 2006-01-02",
+	"the summary is not written in this process": "este proceso no escribe el resumen",
 }
