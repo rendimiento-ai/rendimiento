@@ -1,66 +1,58 @@
 package main
 
 import (
-	"fmt"
-	"net"
+	"context"
+	"log/slog"
+	"os"
+	"time"
 
-	"k8s.io/apimachinery/pkg/api/resource"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
+	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
 	"github.com/rendimiento-ai/rendimiento/internal/platform"
-	"github.com/rendimiento-ai/rendimiento/internal/render"
+	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
-// ingressNamespaces are where the usual ingress controllers run, by
-// ingress class, when INGRESS_NAMESPACE does not say.
-var ingressNamespaces = map[string]string{"nginx": "ingress-nginx", "traefik": "kube-system"}
-
-// orgNetwork reads the network boundary between organizations: off unless
-// ORG_NETWORK_POLICY is true. On, each app namespace lets in its
-// organization's namespaces, the platform's own namespace (its uptime and
-// release checks), the ingress controller's (INGRESS_NAMESPACE, or the
-// usual one for the ingress class), ORG_NETWORK_POLICY_NAMESPACES and the
-// address ranges in ORG_NETWORK_POLICY_CIDRS.
-func orgNetwork(platformNS, ingressClass string) (render.OrgNetwork, error) {
-	var o render.OrgNetwork
-	switch v := env("ORG_NETWORK_POLICY", "false"); v {
-	case "true":
-		o.Enabled = true
-	case "false":
-	default:
-		return o, fmt.Errorf("ORG_NETWORK_POLICY must be true or false, got %q", v)
-	}
-	ingressNS := env("INGRESS_NAMESPACE", ingressNamespaces[ingressClass])
-	if o.Enabled && ingressNS == "" {
-		return o, fmt.Errorf("ORG_NETWORK_POLICY needs INGRESS_NAMESPACE, the namespace the ingress controller of class %q runs in", ingressClass)
-	}
-	o.Namespaces = append([]string{platformNS, ingressNS}, splitList(env("ORG_NETWORK_POLICY_NAMESPACES", ""))...)
-	o.CIDRs = splitList(env("ORG_NETWORK_POLICY_CIDRS", ""))
-	for _, c := range o.CIDRs {
-		if _, _, err := net.ParseCIDR(c); err != nil {
-			return o, fmt.Errorf("ORG_NETWORK_POLICY_CIDRS must be address ranges such as 192.168.1.0/24, got %q", c)
-		}
-	}
-	return o, nil
+// liveSettings reads the platform's live settings (the boundary between
+// organizations and its quota, see internal/ajustes): the environment's
+// values at boot, checked as always, then whatever is saved on the
+// Environment page over them.
+func liveSettings(st *store.Store, platformNS, ingressClass string, log *slog.Logger) (*ajustes.Holder, error) {
+	h := &ajustes.Holder{Store: st, Boot: ajustes.FromEnv(os.Getenv), PlatformNS: platformNS, IngressClass: ingressClass, Log: log}
+	return h, h.Start()
 }
 
-// orgQuota reads the most CPU and memory an organization other than the
-// platform's may ask for across its apps (ORG_QUOTA_CPU, ORG_QUOTA_MEMORY;
-// unset: no limit).
-func orgQuota() (platform.OrgQuota, error) {
-	var q platform.OrgQuota
-	for _, s := range []struct {
-		key string
-		to  *resource.Quantity
-	}{{"ORG_QUOTA_CPU", &q.CPU}, {"ORG_QUOTA_MEMORY", &q.Memory}} {
-		v := env(s.key, "")
-		if v == "" {
-			continue
-		}
-		n, err := resource.ParseQuantity(v)
-		if err != nil || n.Sign() <= 0 {
-			return q, fmt.Errorf("%s must be a quantity such as 4 or 8Gi, got %q", s.key, v)
-		}
-		*s.to = n
+// liveQuota is the organizations' quota in force now.
+func liveQuota(h *ajustes.Holder) func() platform.OrgQuota {
+	return func() platform.OrgQuota {
+		b := h.Boundary()
+		return platform.OrgQuota{CPU: b.QuotaCPU, Memory: b.QuotaMemory}
 	}
-	return q, nil
+}
+
+// AnnotationSettings marks an App when the boundary changed, so the
+// controller reconciles it at once instead of at its next resync.
+const AnnotationSettings = "rendimiento.ai/ajustes"
+
+// nudgeApps has every app reconciled again: the boundary changed.
+func nudgeApps(ctx context.Context, c client.Client, log *slog.Logger) {
+	var list v1alpha1.AppList
+	if err := c.List(ctx, &list); err != nil {
+		log.Warn("the boundary changed, but the apps could not be listed; they follow at their next resync", "err", err)
+		return
+	}
+	stamp := time.Now().UTC().Format(time.RFC3339)
+	for i := range list.Items {
+		app := &list.Items[i]
+		patch := client.MergeFrom(app.DeepCopy())
+		if app.Annotations == nil {
+			app.Annotations = map[string]string{}
+		}
+		app.Annotations[AnnotationSettings] = stamp
+		if err := c.Patch(ctx, app, patch); err != nil {
+			log.Warn("could not mark an app for the new boundary", "app", app.Name, "err", err)
+		}
+	}
+	log.Info("the boundary changed: every app is reconciled again", "apps", len(list.Items))
 }

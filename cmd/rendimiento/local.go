@@ -178,6 +178,14 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 		Store: st, GitHub: holder, Generator: generate.Templates{}, Hub: events.NewHub(), Log: log,
 		Config: platform.Config{Registry: registry, BaseURL: baseURL, Zone: os.Getenv("DNS_ZONE"), Railpack: os.Getenv("RAILPACK_IMAGE") != ""},
 	}
+	// One computer has no network boundary, but the organizations' quota
+	// holds here too, from the environment or the Environment page.
+	settings, err := liveSettings(st, "", "", log)
+	if err != nil {
+		return err
+	}
+	go settings.Run(ctx)
+	p.LiveQuota = liveQuota(settings)
 	executor := &pipeline.LocalExecutor{
 		Motor: m, BuildkitAddr: buildkit, BuildImage: os.Getenv("BUILDKIT_IMAGE"), GitImage: os.Getenv("GIT_IMAGE"),
 		InsecureRegistry: env("REGISTRY_INSECURE", "true") == "true", Token: p.CloneToken, Timeout: stepTimeout,
@@ -204,7 +212,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	srv := &api.Server{
 		Platform: p, Store: st, GitHub: holder, Credentials: creds, DNS: dns.Noop{}, Log: log,
 		BaseURL: baseURL, AllowedUsers: users, SetupToken: setupToken, SetupTokenCommand: "cat " + filepath.Join(dir, "ficha-configuracion"),
-		AppName: env("GITHUB_APP_NAME", "rendimiento"), UI: web.Dist(),
+		AppName: env("GITHUB_APP_NAME", "rendimiento"), UI: web.Dist(), Settings: settings,
 	}
 	aiCap, err := strconv.ParseFloat(env("AI_PLATFORM_CAP", "5"), 64)
 	if err != nil || aiCap < 0 {

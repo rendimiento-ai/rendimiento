@@ -48,11 +48,11 @@ What the wall is not:
 ### Turning it on {#turning-the-boundary-on}
 
 1. Deploy the release that brings it (`make deploy`, or `helm upgrade`): the platform's service account gets the right to write network policies.
-2. Find what calls apps from other namespaces: the ingress controller (`INGRESS_NAMESPACE`; empty, `ingress-nginx` for the `nginx` class and `kube-system` for `traefik`), a metrics scraper, an add-on. List them in `ORG_NETWORK_POLICY_NAMESPACES`. If the ingress controller uses the host network, add the nodes' range to `ORG_NETWORK_POLICY_CIDRS`.
-3. Set `ORG_NETWORK_POLICY=true` and restart the platform's services (`kubectl rollout restart deployment -n rendimiento-system`). Each app gets its policy at its next reconcile, within five minutes, before its workloads are touched.
+2. Open **Environment → Platform settings** (administrators of the platform's organization). Check the ingress controller's namespace (`INGRESS_NAMESPACE`; empty, `ingress-nginx` for the `nginx` class and `kube-system` for `traefik`). If the ingress controller uses the host network, add the nodes' range to `ORG_NETWORK_POLICY_CIDRS`.
+3. Press **Review and turn it on**. The page lists the namespaces whose workloads point at an app's service in their environment (from the services catalog), each with **Let it in**, which adds it to `ORG_NETWORK_POLICY_NAMESPACES`. rendimiento does not see traffic, so the list is a guide: a metrics scraper or anything that calls an app without naming it in its environment is not on it; add those by hand. Then **Turn it on**. Every app is reconciled at once and gets its policy within a minute, before its workloads are touched.
 4. Check one app of each organization still answers at its address and on its Uptime tab, and that a pod in another organization's namespace cannot reach it.
 
-To back out, set `ORG_NETWORK_POLICY=false` and restart again: each app's policies are removed at its next reconcile. In a hurry, after that, `kubectl delete networkpolicy -A -l rendimiento.ai/org` removes them all at once (the builds' policy does not carry that label).
+To back out, press **Turn it off** on the same page: the policies are removed within a minute. In a hurry, after that, `kubectl delete networkpolicy -A -l rendimiento.ai/org` removes them all at once (the builds' policy does not carry that label). The same settings can still be set as variables in the ConfigMap ([Configuration](../reference/config.md#organizations-in-the-cluster)); a value saved on the page wins over the variable.
 
 ## Secrets
 

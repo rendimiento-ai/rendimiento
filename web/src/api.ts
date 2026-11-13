@@ -1107,6 +1107,38 @@ export interface CapacityView {
   defaultBusyPercent: number;
 }
 
+// A platform setting that changes live (api.SettingView): the value in
+// force, the ConfigMap's, and the one saved on this page, which wins.
+export interface LiveSetting {
+  key: string;
+  group: "boundary" | "quota";
+  cluster: boolean;
+  value: string;
+  env: string;
+  saved?: { value: string; updatedBy: string; updatedAt: string };
+  applies: boolean;
+}
+export interface FixedSetting {
+  key: string;
+  value?: string;
+  secret?: boolean;
+  set: boolean;
+}
+export interface SettingsView {
+  live: LiveSetting[];
+  invalid?: string;
+  fixed: FixedSetting[];
+  ingressNamespace: string;
+  platformNamespace: string;
+}
+// Who calls apps across the boundary (api.BoundaryCheck): a guide, from
+// the workloads' environment, not from traffic.
+export interface BoundaryCheck {
+  callers: { namespace: string; calls: string[]; in: boolean }[];
+  ingressNamespace: string;
+  ingressFound: boolean;
+}
+
 export interface EnvProblem {
   kind: string;
   namespace: string;
@@ -1135,6 +1167,10 @@ export const envApi = {
   update: (release: number) => request<PlatformRelease>("POST", "/api/platform/update", { release }),
   capacity: () => request<CapacityView>("GET", "/api/environment/capacity"),
   saveCapacity: (c: Capacity) => request<CapacityView>("PUT", "/api/environment/capacity", c),
+  settings: () => request<SettingsView>("GET", "/api/environment/settings"),
+  saveSetting: (key: string, value: string) => request<SettingsView>("PUT", `/api/environment/settings/${key}`, { value }),
+  forgetSetting: (key: string) => request<SettingsView>("DELETE", `/api/environment/settings/${key}`),
+  boundaryCheck: () => request<BoundaryCheck>("GET", "/api/environment/settings/boundary-check"),
 };
 
 // rendimiento's own versions: the images its repository's builds made.

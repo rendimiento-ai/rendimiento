@@ -59,9 +59,13 @@ func (q OrgQuota) overQuota(cpu, mem resource.Quantity) string {
 
 // checkOrgQuota refuses a release of an app of an organization other than
 // the platform's when, with the latest release of each of the
-// organization's other apps, it would ask for more than Config.OrgQuota.
+// organization's other apps, it would ask for more than the quota now
+// (LiveQuota, or Config.OrgQuota).
 func (p *Platform) checkOrgQuota(ctx context.Context, app *store.App, sp spec.Spec) error {
 	q := p.Config.OrgQuota
+	if p.LiveQuota != nil {
+		q = p.LiveQuota()
+	}
 	if (q.CPU.IsZero() && q.Memory.IsZero()) || app.OrgID == 0 || app.OrgID == store.DefaultOrg || !sp.Runs() {
 		return nil
 	}

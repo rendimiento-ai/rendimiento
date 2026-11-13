@@ -48,11 +48,11 @@ Lo que la barda no es:
 ### Encenderla {#turning-the-boundary-on}
 
 1. Despliegue la versión que la trae (`make deploy`, o `helm upgrade`): la cuenta de servicio de la plataforma recibe el permiso de escribir políticas de red.
-2. Averigüe qué llama a las aplicaciones desde otros espacios de nombres: el controlador de entrada (`INGRESS_NAMESPACE`; vacío, `ingress-nginx` para la clase `nginx` y `kube-system` para `traefik`), un recolector de métricas, un complemento. Anótelos en `ORG_NETWORK_POLICY_NAMESPACES`. Si el controlador de entrada usa la red del nodo, agregue el rango de los nodos a `ORG_NETWORK_POLICY_CIDRS`.
-3. Ponga `ORG_NETWORK_POLICY=true` y reinicie los servicios de la plataforma (`kubectl rollout restart deployment -n rendimiento-system`). Cada aplicación recibe su política en su siguiente reconciliación, en menos de cinco minutos, antes de que se toquen sus cargas de trabajo.
+2. Abra **Entorno → Ajustes de la plataforma** (administradores de la organización de la plataforma). Revise el espacio de nombres del controlador de entrada (`INGRESS_NAMESPACE`; vacío, `ingress-nginx` para la clase `nginx` y `kube-system` para `traefik`). Si el controlador de entrada usa la red del nodo, agregue el rango de los nodos a `ORG_NETWORK_POLICY_CIDRS`.
+3. Presione **Revisar y encenderla**. La página lista los espacios de nombres cuyas cargas de trabajo apuntan en su entorno al servicio de una aplicación (según el catálogo de servicios), cada uno con **Dejarlo entrar**, que lo agrega a `ORG_NETWORK_POLICY_NAMESPACES`. rendimiento no ve el tráfico, así que la lista es una guía: un recolector de métricas, o cualquier cosa que llame a una aplicación sin nombrarla en su entorno, no aparece; agréguelos a mano. Luego, **Encenderla**. Todas las aplicaciones se reconcilian de inmediato y reciben su política en menos de un minuto, antes de que se toquen sus cargas de trabajo.
 4. Revise que una aplicación de cada organización siga respondiendo en su dirección y en su pestaña de disponibilidad, y que un pod en el espacio de nombres de otra organización no pueda alcanzarla.
 
-Para dar marcha atrás, ponga `ORG_NETWORK_POLICY=false` y reinicie otra vez: las políticas de cada aplicación se quitan en su siguiente reconciliación. Con prisa, después de eso, `kubectl delete networkpolicy -A -l rendimiento.ai/org` las quita todas de una vez (la política de las construcciones no lleva esa etiqueta).
+Para dar marcha atrás, presione **Apagarla** en la misma página: las políticas se quitan en menos de un minuto. Con prisa, después de eso, `kubectl delete networkpolicy -A -l rendimiento.ai/org` las quita todas de una vez (la política de las construcciones no lleva esa etiqueta). Los mismos ajustes se pueden seguir poniendo como variables en el ConfigMap ([Configuración](../reference/config.md#organizations-in-the-cluster)); un valor guardado en la página gana sobre la variable.
 
 ## Secretos {#secrets}
 

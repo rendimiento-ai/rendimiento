@@ -30,6 +30,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/instalar"
 	"github.com/rendimiento-ai/rendimiento/internal/addon"
 	"github.com/rendimiento-ai/rendimiento/internal/agentes"
+	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
 	"github.com/rendimiento-ai/rendimiento/internal/analytics"
 	"github.com/rendimiento-ai/rendimiento/internal/catalog"
 	"github.com/rendimiento-ai/rendimiento/internal/destino"
@@ -109,6 +110,9 @@ type Server struct {
 	Environment       *environment.Checker
 	// Capacity is the capacity set on the Environment page, as this process follows it.
 	Capacity *platform.CapacityHolder
+	// Settings are the platform's live settings (the boundary between
+	// organizations and its quota), as this process follows them.
+	Settings *ajustes.Holder
 	Catalog  *catalog.Builder
 	Renovate *renovate.Runner
 	Addons   *addon.Syncer
@@ -221,6 +225,12 @@ func (s *Server) Handler() http.Handler {
 	plat(store.MemberGuest, "GET /api/environment", s.environment)
 	plat(store.MemberGuest, "GET /api/environment/capacity", s.getCapacity)
 	plat(store.MemberAdmin, "PUT /api/environment/capacity", s.putCapacity)
+	// The platform's live settings show how the cluster is laid out: its
+	// administrators only, to read them too.
+	plat(store.MemberAdmin, "GET /api/environment/settings", s.getSettings)
+	plat(store.MemberAdmin, "GET /api/environment/settings/boundary-check", s.boundaryCheck)
+	plat(store.MemberAdmin, "PUT /api/environment/settings/{key}", s.putSetting)
+	plat(store.MemberAdmin, "DELETE /api/environment/settings/{key}", s.deleteSetting)
 	plat(store.MemberGuest, "GET /api/platform/version", s.platformVersion)
 	plat(store.MemberAdmin, "POST /api/platform/update", s.updatePlatform)
 	plat(store.MemberGuest, "GET /api/services", s.services)

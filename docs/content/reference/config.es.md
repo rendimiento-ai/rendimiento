@@ -74,7 +74,9 @@ rendimiento se configura solo con **variables de entorno**, que se leen una vez 
 
 ## Las organizaciones en el clúster {#organizations-in-the-cluster}
 
-La barda entre las aplicaciones de las organizaciones en un clúster; vea [Modelo de seguridad](../architecture/security.md#organizations-in-the-cluster). Apagada de forma predeterminada; cambiarla requiere reiniciar, y la política de red requiere los permisos (RBAC) de la versión (`make deploy` o `helm upgrade`). En Helm: `ingress.namespace` y `orgBoundary`.
+La barda entre las aplicaciones de las organizaciones en un clúster; vea [Modelo de seguridad](../architecture/security.md#organizations-in-the-cluster). Apagada de forma predeterminada; la política de red requiere los permisos (RBAC) de la versión (`make deploy` o `helm upgrade`). En Helm: `ingress.namespace` y `orgBoundary`.
+
+Estas seis son **ajustes en vivo**: un administrador de la organización de la plataforma las cambia en **Entorno → Ajustes de la plataforma**, sin reiniciar. La variable es el valor inicial; **un valor guardado en la página gana sobre ella**, ajuste por ajuste, hasta que **Volver al valor del ConfigMap** lo olvida (la página muestra cuando los dos no coinciden). Los valores guardados se guardan en la base de datos (`platform_settings`, junto a la capacidad), cada proceso los vuelve a leer en menos de 15 segundos, y cada cambio queda como una fila en la [bitácora](../architecture/security.md#the-bitacora) con su valor de antes y de después. Un valor guardado que ya no es válido (un espacio de nombres que se borró, por ejemplo) se hace a un lado, rigen los valores de las variables, y la página dice por qué. Una variable incorrecta sigue deteniendo la plataforma al arrancar, como antes. En una sola computadora (`MODE=local`) los ajustes de red no aplican; la cuota sí, desde sus variables.
 
 | Variable | Predeterminado | Significado |
 |---|---|---|
