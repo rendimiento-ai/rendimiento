@@ -45,7 +45,7 @@ func TestPreviewCopies(t *testing.T) {
 	if err := kube.Get(ctx, client.ObjectKey{Name: "copias-pr-7"}, &cr); err != nil {
 		t.Fatal(err)
 	}
-	if cr.Spec.Preview != 7 || cr.Labels[render.LabelPreview] != "7" || cr.Spec.Services[0].Domain != "pr-7.copias.example.com" || cr.Spec.Images["web"] != images["web"] {
+	if cr.Spec.Preview != 7 || cr.Labels[render.LabelPreview] != "7" || cr.Spec.Services[0].Domain != "copias-pr-7.example.com" || cr.Spec.Images["web"] != images["web"] {
 		t.Fatalf("copy %+v %v", cr.Spec, cr.Labels)
 	}
 	var check gh.CheckRun
@@ -54,8 +54,16 @@ func TestPreviewCopies(t *testing.T) {
 			check = c
 		}
 	}
-	if check.DetailsURL != "https://pr-7.copias.example.com" || check.Conclusion != "success" {
+	if check.DetailsURL != "https://copias-pr-7.example.com" || check.Conclusion != "success" {
 		t.Fatalf("check %+v", check)
+	}
+	// One comment, kept in the App object and edited on the next push.
+	if len(fake.said) != 1 || !strings.Contains(fake.said[1], "#7 **Preview of #7:** https://copias-pr-7.example.com") || cr.Annotations[annotationComment] != "1" {
+		t.Fatalf("comments %v, annotation %q", fake.said, cr.Annotations[annotationComment])
+	}
+	p.deployPreview(ctx, app, &store.Run{ID: 45, SHA: sha, Branch: "propina"}, *sp, images)
+	if len(fake.said) != 1 || !strings.Contains(fake.said[1], "run [#45]") {
+		t.Fatalf("after a second push: %v", fake.said)
 	}
 
 	// A branch with no open pull request gets no copy.
@@ -69,9 +77,15 @@ func TestPreviewCopies(t *testing.T) {
 	if !gone(ctx, kube, "copias-pr-7") {
 		t.Fatal("the older copy stayed past max")
 	}
+	if !strings.Contains(fake.said[1], "deleted, to make room") {
+		t.Fatalf("the replaced copy's comment: %q", fake.said[1])
+	}
 	p.ClosePreview(ctx, "o/copias", 8)
 	if !gone(ctx, kube, "copias-pr-8") {
 		t.Fatal("closing the pull request left its copy")
+	}
+	if !strings.Contains(fake.said[2], "#8 **Preview of #8:** deleted, the pull request was closed") {
+		t.Fatalf("the closed copy's comment: %q", fake.said[2])
 	}
 
 	// The sweep deletes a copy whose pull request closed meanwhile.

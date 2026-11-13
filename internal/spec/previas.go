@@ -92,9 +92,22 @@ func (p *Previews) validate(s *Spec) []error {
 	return errs
 }
 
-// PreviewHost is a host of the copy for pull request number.
+// PreviewHost is a host of the copy for pull request number (a route's
+// path, after the host, is kept). A domain's own host gets the prefix
+// (tienda.com → pr-7.tienda.com); a subdomain gets the number in its first
+// label (tienda.example.com → tienda-pr-7.example.com), so the copy stays
+// one level under the zone: a proxy's wildcard certificate (Cloudflare's
+// *.example.com) covers it, where pr-7.tienda.example.com would not.
 func PreviewHost(number int, host string) string {
-	return fmt.Sprintf("pr-%d.%s", number, host)
+	name, path, cut := strings.Cut(host, "/")
+	if cut {
+		path = "/" + path
+	}
+	first, rest, ok := strings.Cut(name, ".")
+	if !ok || !strings.Contains(rest, ".") {
+		return fmt.Sprintf("pr-%d.%s%s", number, name, path)
+	}
+	return fmt.Sprintf("%s-pr-%d.%s%s", first, number, rest, path)
 }
 
 // PreviewOf is the spec of the copy for pull request number: every service

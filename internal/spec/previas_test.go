@@ -56,7 +56,7 @@ previews: {}
 	}
 	p := PreviewOf(*s, 42)
 	w := p.Services[0]
-	if w.Domain != "pr-42.propinas.example.com" || len(w.Aliases) != 0 || w.Routes[0] != "pr-42.propinas.example.com/api" {
+	if w.Domain != "propinas-pr-42.example.com" || len(w.Aliases) != 0 || w.Routes[0] != "propinas-pr-42.example.com/api" {
 		t.Fatalf("hosts %q %q %q", w.Domain, w.Aliases, w.Routes)
 	}
 	if w.Replicas != 1 || w.TLSSecret != "" || w.Ingress.Name != "" || w.Volume.ExistingClaim != "" || w.Volume.Size != "1Gi" {
@@ -74,5 +74,18 @@ previews: {}
 	}
 	if err := p.Validate(); err != nil {
 		t.Fatalf("the copy's spec is not valid: %v", err)
+	}
+}
+
+func TestPreviewHost(t *testing.T) {
+	for host, want := range map[string]string{
+		"tienda.com":                          "pr-7.tienda.com",
+		"rendimiento-propinas.rendimiento.ai": "rendimiento-propinas-pr-7.rendimiento.ai",
+		"tienda.example.com/api":              "tienda-pr-7.example.com/api",
+		"tienda.com/":                         "pr-7.tienda.com/",
+	} {
+		if got := PreviewHost(7, host); got != want {
+			t.Errorf("PreviewHost(7, %q) = %q, want %q", host, got, want)
+		}
 	}
 }

@@ -45,7 +45,7 @@ func TestEjemplos(t *testing.T) {
 		}
 		for _, in := range out.Ingresses {
 			for _, rule := range in.Spec.Rules {
-				if !strings.HasPrefix(rule.Host, "pr-7.") {
+				if !strings.HasPrefix(rule.Host, "pr-7.") && !strings.Contains(rule.Host, "-pr-7.") {
 					t.Errorf("%s, preview: host %s", e.Nombre, rule.Host)
 				}
 			}

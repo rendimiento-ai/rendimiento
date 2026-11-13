@@ -8,7 +8,6 @@ import (
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
@@ -30,8 +29,9 @@ import (
 
 // Labels and annotations of a copy's App object.
 const (
-	labelPreviewOf   = "rendimiento.ai/preview-of" // the app it copies
-	annotationPushed = "rendimiento.ai/pushed-at"  // when its branch last ran
+	labelPreviewOf    = "rendimiento.ai/preview-of" // the app it copies
+	annotationPushed  = "rendimiento.ai/pushed-at"  // when its branch last ran
+	annotationComment = "rendimiento.ai/comment"    // the pull request's comment kept for it
 )
 
 // previewSweep is how often copies of closed or idle pull requests are
@@ -89,6 +89,20 @@ func (p *Platform) deployPreview(ctx context.Context, app *store.App, run *store
 		log.Warn("preview: the app's organization", "err", err)
 		return
 	}
+	// One comment on the pull request, edited on each push: the address,
+	// the commit and when the copy goes.
+	url := previewURL(copy)
+	var before v1alpha1.App
+	_ = p.Kube.Get(ctx, client.ObjectKey{Name: name}, &before)
+	commentID, _ := strconv.ParseInt(before.Annotations[annotationComment], 10, 64)
+	if p.GitHub != nil {
+		body := previewComment(number, url, run, p.Config.BaseURL, app.Name, time.Now().AddDate(0, 0, sp.Previews.KeepDays()))
+		if id, err := p.GitHub.Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err == nil {
+			commentID = id
+		} else {
+			log.Warn("preview: its comment", "err", err)
+		}
+	}
 	for attempt := 0; ; attempt++ {
 		var cr v1alpha1.App
 		err := p.Kube.Get(ctx, client.ObjectKey{Name: name}, &cr)
@@ -101,6 +115,9 @@ func (p *Platform) deployPreview(ctx context.Context, app *store.App, run *store
 		cr.Labels = map[string]string{"rendimiento.ai/app-id": strconv.FormatInt(app.ID, 10), render.LabelOrg: org,
 			render.LabelPreview: strconv.Itoa(number), labelPreviewOf: app.Name}
 		cr.Annotations = map[string]string{annotationPushed: time.Now().UTC().Format(time.RFC3339)}
+		if commentID != 0 {
+			cr.Annotations[annotationComment] = strconv.FormatInt(commentID, 10)
+		}
 		cr.Spec = v1alpha1.AppSpec{Repo: app.Repo, Services: copy.Services, Postgres: copy.Postgres, Redis: copy.Redis,
 			Observe: copy.Observe, Images: images, Release: run.ID, Preview: number}
 		if creating {
@@ -117,7 +134,6 @@ func (p *Platform) deployPreview(ctx context.Context, app *store.App, run *store
 		}
 		break
 	}
-	url := previewURL(copy)
 	log.Info("preview deployed", "run", run.ID, "url", url)
 	if len(run.SHA) == 40 && p.GitHub != nil {
 		_, err := p.GitHub.CreateCheck(ctx, app.InstallationID, app.Repo, gh.CheckRun{
@@ -129,6 +145,36 @@ func (p *Platform) deployPreview(ctx context.Context, app *store.App, run *store
 			log.Warn("preview: its check", "err", err)
 		}
 	}
+}
+
+// previewComment is the pull request's comment about its copy.
+func previewComment(number int, url string, run *store.Run, baseURL, app string, until time.Time) string {
+	sha := run.SHA
+	if len(sha) > 7 {
+		sha = sha[:7]
+	}
+	return M("**Preview of #%d:** %s\n\nIt shows commit `%s` (run [#%d](%s/apps/%s/runs/%d)). It is deleted when this pull request is closed or merged, or on %s if nothing is pushed before.",
+		number, url, sha, run.ID, baseURL, app, run.ID, until.Format(time.DateOnly))
+}
+
+// deletePreview deletes a copy and says why in its pull request's comment.
+func (p *Platform) deletePreview(ctx context.Context, cr *v1alpha1.App, why string) error {
+	if err := p.Kube.Delete(ctx, cr); err != nil {
+		return err
+	}
+	id, _ := strconv.ParseInt(cr.Annotations[annotationComment], 10, 64)
+	if id == 0 || p.GitHub == nil {
+		return nil
+	}
+	app, err := p.Store.GetApp(ctx, cr.Labels[labelPreviewOf])
+	if err != nil {
+		return nil
+	}
+	body := M("**Preview of #%d:** deleted, %s.", cr.Spec.Preview, why)
+	if _, err := p.GitHub.Comment(ctx, app.InstallationID, app.Repo, cr.Spec.Preview, id, body); err != nil {
+		p.Log.Warn("preview: its comment", "copy", cr.Name, "err", err)
+	}
+	return nil
 }
 
 // makeRoom deletes the copies of the app idle longest until a new one fits
@@ -146,7 +192,7 @@ func (p *Platform) makeRoom(ctx context.Context, app *store.App, keep string, ma
 	}
 	sort.Slice(others, func(i, j int) bool { return pushedAt(others[i]).Before(pushedAt(others[j])) })
 	for len(others) >= max {
-		if err := p.Kube.Delete(ctx, &others[0]); err != nil && !apierrors.IsNotFound(err) {
+		if err := p.deletePreview(ctx, &others[0], M("to make room for a newer pull request's copy")); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 		p.Log.Info("preview deleted to make room", "app", app.Name, "copy", others[0].Name)
@@ -194,8 +240,11 @@ func (p *Platform) ClosePreview(ctx context.Context, repo string, number int) {
 		return
 	}
 	for _, a := range apps {
-		cr := &v1alpha1.App{ObjectMeta: metav1.ObjectMeta{Name: PreviewName(a.Name, number)}}
-		if err := p.Kube.Delete(ctx, cr); err == nil {
+		cr := &v1alpha1.App{}
+		if err := p.Kube.Get(ctx, client.ObjectKey{Name: PreviewName(a.Name, number)}, cr); err != nil {
+			continue
+		}
+		if err := p.deletePreview(ctx, cr, M("the pull request was closed")); err == nil {
 			p.Log.Info("preview deleted: its pull request closed", "app", a.Name, "pull", number)
 		} else if !apierrors.IsNotFound(err) {
 			p.Log.Warn("preview: deleting", "app", a.Name, "pull", number, "err", err)
@@ -231,7 +280,7 @@ func (p *Platform) sweepPreviews(ctx context.Context, now time.Time) {
 	for i := range copies {
 		c := &copies[i]
 		if why := p.previewGone(ctx, c, now); why != "" {
-			if err := p.Kube.Delete(ctx, c); err != nil && !apierrors.IsNotFound(err) {
+			if err := p.deletePreview(ctx, c, why); err != nil && !apierrors.IsNotFound(err) {
 				p.Log.Warn("previews: deleting", "copy", c.Name, "err", err)
 				continue
 			}
@@ -244,13 +293,13 @@ func (p *Platform) sweepPreviews(ctx context.Context, now time.Time) {
 func (p *Platform) previewGone(ctx context.Context, c *v1alpha1.App, now time.Time) string {
 	app, err := p.Store.GetApp(ctx, c.Labels[labelPreviewOf])
 	if err != nil {
-		return "its app is gone"
+		return M("its app is gone")
 	}
 	if app.Spec.Previews == nil {
-		return "the app no longer asks for previews"
+		return M("the app no longer asks for previews")
 	}
 	if now.Sub(pushedAt(*c)) > time.Duration(app.Spec.Previews.KeepDays())*24*time.Hour {
-		return "no push for longer than the app keeps a copy"
+		return M("no push for longer than the app keeps a copy")
 	}
 	got, ok := p.recentPulls(ctx, app)
 	if !ok {
@@ -259,7 +308,7 @@ func (p *Platform) previewGone(ctx context.Context, c *v1alpha1.App, now time.Ti
 	for _, pr := range got.prs {
 		if pr.Number == c.Spec.Preview {
 			if pr.State != "open" {
-				return "its pull request is closed"
+				return M("the pull request was closed")
 			}
 			return ""
 		}

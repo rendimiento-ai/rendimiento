@@ -1,0 +1,2 @@
+- **Preview environments:** each pull request with a copy gets one comment, edited on every push, with its address, the commit it shows and the day it will be deleted; when the copy goes, the comment says why.
+- **Preview environments:** a copy of an app on a subdomain answers one level under the zone (`tienda.example.com` → `tienda-pr-7.example.com`), so a proxy's wildcard certificate such as Cloudflare's covers it; a domain's own host keeps `pr-7.tienda.com`.
