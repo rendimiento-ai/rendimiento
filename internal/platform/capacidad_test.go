@@ -48,7 +48,10 @@ func TestBusyNodes(t *testing.T) {
 	h.Set(store.Capacity{NodesOff: []string{"colorpi"}})
 	busy := []string{"colorpi", "worker1"}
 	h.busy.Store(&busy)
-	if off, _ := h.Limits(); len(off) != 2 || off[0] != "colorpi" || off[1] != "worker1" {
-		t.Fatalf("limits %v", off)
+	if off, _ := h.Limits(); len(off) != 1 || off[0] != "colorpi" {
+		t.Fatalf("limits %v: only the node turned off, the busy ones are only avoided", off)
+	}
+	if b := h.Busy(); len(b) != 2 {
+		t.Fatalf("busy %v", b)
 	}
 }

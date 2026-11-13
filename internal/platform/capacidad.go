@@ -78,17 +78,12 @@ func (h *CapacityHolder) Runs() (workers, perApp int) {
 // Caches is how many caches each test keeps (zero: the default).
 func (h *CapacityHolder) Caches() int { return h.Get().TestCaches }
 
-// Limits are the nodes that take nothing new (turned off, or busy now) and
-// the most CPU a step asks for.
+// Limits are the nodes turned off on the Environment page, which take
+// nothing, and the most CPU a step asks for. The busy ones (Busy) are only
+// avoided.
 func (h *CapacityHolder) Limits() ([]string, int64) {
 	c := h.Get()
-	off := append([]string{}, c.NodesOff...)
-	for _, n := range h.Busy() {
-		if !slices.Contains(off, n) {
-			off = append(off, n)
-		}
-	}
-	return off, c.StepCPUMillis
+	return append([]string{}, c.NodesOff...), c.StepCPUMillis
 }
 
 // NodeLoad is how full a node is: its CPU reserved by its pods' requests,
