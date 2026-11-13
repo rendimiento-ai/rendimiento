@@ -30,4 +30,25 @@ func TestCapacityLimits(t *testing.T) {
 	if (&KubeExecutor{}).affinity() != nil {
 		t.Fatal("no nodes off, yet an affinity")
 	}
+
+	// Busy nodes are only avoided: the pod may still go there when nothing
+	// else has room, instead of waiting on a node it does not fit.
+	k.Busy = func() []string { return []string{"colorpi", "worker1", "worker3"} }
+	a := k.affinity().NodeAffinity
+	if off := a.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[0].Values; len(off) != 2 {
+		t.Fatalf("required off %v, want only the nodes turned off", off)
+	}
+	if len(a.PreferredDuringSchedulingIgnoredDuringExecution) != 1 {
+		t.Fatalf("preferred %+v", a.PreferredDuringSchedulingIgnoredDuringExecution)
+	}
+	if avoid := a.PreferredDuringSchedulingIgnoredDuringExecution[0].Preference.MatchExpressions[0].Values; len(avoid) != 2 || avoid[0] != "worker1" || avoid[1] != "worker3" {
+		t.Fatalf("avoided %v, want the busy ones not already off", avoid)
+	}
+	if got := k.avoided(); len(got) != 4 {
+		t.Fatalf("a BuildKit daemon avoids %v", got)
+	}
+	only := (&KubeExecutor{Busy: func() []string { return []string{"worker1"} }}).affinity().NodeAffinity
+	if only.RequiredDuringSchedulingIgnoredDuringExecution != nil || len(only.PreferredDuringSchedulingIgnoredDuringExecution) != 1 {
+		t.Fatalf("busy only: %+v", only)
+	}
 }

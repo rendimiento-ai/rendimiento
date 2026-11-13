@@ -1,0 +1,1 @@
+- **Capacity:** a busy node is now only avoided, not forbidden. A step's pod made while most nodes were busy could wait forever (its log said "No output yet") for the one node left, though the others were free a minute later; now it goes to whichever node has room first. Nodes turned off on the Environment page still take nothing.

@@ -425,7 +425,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 	// nodes too full then take no new steps or builds.
 	capacity := &platform.CapacityHolder{Store: st, Kube: clientset, Exclude: executor.ExcludeNodes}
 	go capacity.Run(ctx)
-	executor.Limits, p.Capacity = capacity.Limits, capacity.Runs
+	executor.Limits, executor.Busy, p.Capacity = capacity.Limits, capacity.Busy, capacity.Runs
 	executor.Caches = capacity.Caches
 	p.Runner = pipeline.NewRunner(executor, p, parallel)
 	// Runs of different apps go side by side (one per app, so an app's

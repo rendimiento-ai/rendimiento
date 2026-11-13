@@ -53,6 +53,11 @@ type KubeExecutor struct {
 	// Limits is what the Environment page sets now (nil: nothing): more
 	// nodes that take no runs, and the most CPU a step asks for.
 	Limits func() (nodesOff []string, stepCPUMillis int64)
+	// Busy are the nodes too full right now (nil: none). A step's pod
+	// prefers the others, but may still go to one: a pod's affinity is
+	// fixed when it is made, and a node busy then is often free a minute
+	// later.
+	Busy func() []string
 	// RailpackImage has the railpack CLI; it writes the build plan for
 	// services without a Dockerfile. Empty disables Railpack builds.
 	RailpackImage string
@@ -435,7 +440,7 @@ func (k *KubeExecutor) buildkitFor(ctx context.Context, key string) (string, str
 	if err != nil || len(srvs) == 0 {
 		return k.BuildkitAddr, ""
 	}
-	if off := k.nodesOff(); len(off) > 0 {
+	if off := k.avoided(); len(off) > 0 {
 		var on []*net.SRV
 		for _, s := range srvs {
 			if !slices.Contains(off, k.daemonNode(ctx, s.Target)) {
@@ -1096,19 +1101,54 @@ func (k *KubeExecutor) nodesOff() []string {
 	return out
 }
 
-// affinity keeps step pods off the nodes that take no runs.
+// avoided are the nodes that take no runs and those busy now: the ones a
+// BuildKit daemon is not picked from while another is ready.
+func (k *KubeExecutor) avoided() []string {
+	out := k.nodesOff()
+	if k.Busy != nil {
+		for _, n := range k.Busy() {
+			if !slices.Contains(out, n) {
+				out = append(out, n)
+			}
+		}
+	}
+	return out
+}
+
+// affinity keeps step pods off the nodes that take no runs, and away from
+// the busy ones when another node has room. Busy is only a preference: as
+// a rule, a pod made while most nodes were busy waited forever for the one
+// left, though the others eased a minute later.
 func (k *KubeExecutor) affinity() *corev1.Affinity {
 	off := k.nodesOff()
-	if len(off) == 0 {
+	var busy []string
+	if k.Busy != nil {
+		for _, n := range k.Busy() {
+			if !slices.Contains(off, n) {
+				busy = append(busy, n)
+			}
+		}
+	}
+	if len(off) == 0 && len(busy) == 0 {
 		return nil
 	}
-	return &corev1.Affinity{NodeAffinity: &corev1.NodeAffinity{
-		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+	na := &corev1.NodeAffinity{}
+	if len(off) > 0 {
+		na.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{NodeSelectorTerms: []corev1.NodeSelectorTerm{{
 			MatchExpressions: []corev1.NodeSelectorRequirement{{
 				Key: "kubernetes.io/hostname", Operator: corev1.NodeSelectorOpNotIn, Values: off,
 			}},
-		}}},
-	}}
+		}}}
+	}
+	if len(busy) > 0 {
+		na.PreferredDuringSchedulingIgnoredDuringExecution = []corev1.PreferredSchedulingTerm{{
+			Weight: 100,
+			Preference: corev1.NodeSelectorTerm{MatchExpressions: []corev1.NodeSelectorRequirement{{
+				Key: "kubernetes.io/hostname", Operator: corev1.NodeSelectorOpNotIn, Values: busy,
+			}}},
+		}}
+	}
+	return &corev1.Affinity{NodeAffinity: na}
 }
 
 // transientRetry retries API calls that failed for reasons that pass on
