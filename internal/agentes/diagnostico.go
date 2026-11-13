@@ -34,6 +34,8 @@ type Store interface {
 	LinkDiagnosisRuta(ctx context.Context, runID, entry int64) error
 	EncargoForRun(ctx context.Context, runID int64) (store.Encargo, error)
 	CreateEncargo(ctx context.Context, e store.Encargo) (store.Encargo, error)
+	OpenEncargoOnBranch(ctx context.Context, app *store.App, branch string) (store.Encargo, error)
+	NoteEncargo(ctx context.Context, id int64, who, note string) (store.Encargo, error)
 }
 
 // KnownTag marks the Ruta's known failures: what people confirmed or
@@ -180,7 +182,9 @@ const DiagnosticianName = "agente diagnosticador"
 // openEncargo opens an encargo for an explained failure when the
 // organization asked for it (branches, or all), the way "Ask an agent"
 // does by hand: the failed steps and the explanation, for an agent to fix.
-// Never a second one for the same run.
+// Never a second one for the same run, nor for the same branch: a failure
+// on a branch that has an open encargo (the one it was made for, or one
+// about an earlier run) is noted on that one.
 func (d *Diagnostician) openEncargo(ctx context.Context, app *store.App, run *store.Run, diag store.Diagnosis) error {
 	set, err := d.Store.AISettingsOf(ctx, app.OrgID)
 	if err != nil {
@@ -217,6 +221,14 @@ func (d *Diagnostician) openEncargo(ctx context.Context, app *store.App, run *st
 	}
 	lines = append(lines, say("Averigüe por qué (ejecucion_leer, paso_registro), arréglelo en una rama, pruébelo ahí y entréguelo con el enlace.",
 		"Find out why (ejecucion_leer, paso_registro), fix it on a branch, test it there and hand it over with the link."))
+	if run.Branch != app.DefaultBranch {
+		if open, err := d.Store.OpenEncargoOnBranch(ctx, app, run.Branch); err == nil {
+			_, err = d.Store.NoteEncargo(ctx, open.ID, DiagnosticianName, strings.Join(lines, "\n"))
+			return err
+		} else if !errors.Is(err, store.ErrNotFound) {
+			return err
+		}
+	}
 	id := run.ID
 	_, err = d.Store.CreateEncargo(ctx, store.Encargo{Title: say("Arreglar la ejecución #%d de %s", "Fix run #%d of %s", run.ID, app.Name),
 		Body: strings.Join(lines, "\n"), App: app.Name, RunID: &id, CreatedBy: DiagnosticianName, ByAgent: true, OrgID: app.OrgID})

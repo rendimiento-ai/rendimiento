@@ -54,6 +54,7 @@ type GitHub interface {
 	Pull(ctx context.Context, installation int64, repo string, number int) (*gh.PullInfo, error)
 	MergePull(ctx context.Context, installation int64, repo string, number int, sha string) error
 	DeleteBranch(ctx context.Context, installation int64, repo, branch string) error
+	ClosePull(ctx context.Context, installation int64, repo string, number int) error
 	CreatePull(ctx context.Context, installation int64, repo, base, branch, title, body string) (int, error)
 	CommitSubject(ctx context.Context, installation int64, repo, sha string) (string, error)
 	MergeBase(ctx context.Context, installation int64, repo, base, head string) (string, time.Time, error)

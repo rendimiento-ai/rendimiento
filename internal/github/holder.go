@@ -183,6 +183,15 @@ func (h *Holder) CommitSubject(ctx context.Context, installation int64, repo, sh
 	return c.CommitSubject(ctx, repo, sha)
 }
 
+// ClosePull closes a pull request without merging it.
+func (h *Holder) ClosePull(ctx context.Context, installation int64, repo string, number int) error {
+	c, err := h.client(installation)
+	if err != nil {
+		return err
+	}
+	return c.ClosePull(ctx, repo, number)
+}
+
 // DeleteBranch deletes a branch; one already gone is not an error.
 func (h *Holder) DeleteBranch(ctx context.Context, installation int64, repo, branch string) error {
 	c, err := h.client(installation)

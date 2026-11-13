@@ -34,6 +34,8 @@ type EstimatorStore interface {
 	EncargosToEstimate(ctx context.Context, limit int) ([]store.Encargo, error)
 	SaveEstimate(ctx context.Context, id int64, difficulty int, micros int64, reason, route string) error
 	AISettingsOf(ctx context.Context, orgID int64) (store.AISettings, error)
+	RunBranch(ctx context.Context, runID int64) (branch, defaultBranch string, err error)
+	Encargo(ctx context.Context, id int64) (store.Encargo, error)
 }
 
 // Estimator rates each new encargo: how hard it is (1 to 10), what the
@@ -114,10 +116,33 @@ func (e *Estimator) Estimate(ctx context.Context, enc store.Encargo) error {
 	}
 	reason, _ := strconv.Unquote(`"` + m[2] + `"`)
 	cost, route := e.Cost(d), store.RouteLocal
-	if cost <= set.EncargoAutoMicros {
+	if cost <= set.EncargoAutoMicros && e.platformMay(ctx, enc) {
 		route = store.RoutePlatform
 	}
 	return e.Store.SaveEstimate(ctx, enc.ID, d, cost, truncate(strings.TrimSpace(reason), 300), route)
+}
+
+// platformMay says whether the platform's coding agent may take an encargo
+// about a failed run, by whose branch it failed on: a person's branch is
+// theirs, so the encargo goes to their own agent; an encargo's branch goes
+// first to the kind of agent that made it (the coding agent, or a person's).
+func (e *Estimator) platformMay(ctx context.Context, enc store.Encargo) bool {
+	if enc.RunID == nil {
+		return true
+	}
+	branch, def, err := e.Store.RunBranch(ctx, *enc.RunID)
+	if err != nil || branch == def {
+		return true
+	}
+	n := store.EncargoOfBranch(branch)
+	if n == 0 {
+		return false
+	}
+	made, err := e.Store.Encargo(ctx, n)
+	if err != nil {
+		return true
+	}
+	return made.KeyName == CoderName || (made.KeyName == "" && made.Route != store.RouteLocal)
 }
 
 func truncate(s string, n int) string {

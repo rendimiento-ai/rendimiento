@@ -50,8 +50,10 @@ func (s *Server) createEncargo(w http.ResponseWriter, r *http.Request, login str
 		httpError(w, http.StatusBadRequest, "this looks like it contains a secret; say where it lives instead of its value")
 		return
 	}
+	var run *store.Run
 	if in.RunID != nil {
-		run, err := s.Store.GetRun(r.Context(), *in.RunID)
+		var err error
+		run, err = s.Store.GetRun(r.Context(), *in.RunID)
 		if err != nil {
 			httpError(w, http.StatusBadRequest, "no such run")
 			return
@@ -74,6 +76,27 @@ func (s *Server) createEncargo(w http.ResponseWriter, r *http.Request, login str
 		if store.RoleRank(accessOf(r).Role(a)) < store.RoleRank(store.MemberCollaborator) {
 			httpError(w, http.StatusForbidden, "your role here does not allow this; ask an administrator")
 			return
+		}
+	}
+	// One open encargo per branch: a run of a branch that already has one
+	// (the encargo it was made for, or one about another of its runs) is
+	// added to that one, for whoever has it to read.
+	if run != nil {
+		if a, err := s.Store.GetAppByID(r.Context(), run.AppID); err == nil && run.Branch != a.DefaultBranch {
+			if open, err := s.Store.OpenEncargoOnBranch(r.Context(), a, run.Branch); err == nil {
+				note := in.Title
+				if strings.TrimSpace(in.Body) != "" {
+					note += "\n\n" + in.Body
+				}
+				e, err := s.Store.NoteEncargo(r.Context(), open.ID, login, note)
+				if err != nil {
+					httpError(w, http.StatusInternalServerError, err.Error())
+					return
+				}
+				s.Log.Info("encargo noted", "id", e.ID, "app", e.App, "run", run.ID, "by", login)
+				writeJSON(w, e)
+				return
+			}
 		}
 	}
 	e, err := s.Store.CreateEncargo(r.Context(), store.Encargo{Title: in.Title, Body: in.Body, App: in.App, RunID: in.RunID, CreatedBy: login, OrgID: orgOf(r)})

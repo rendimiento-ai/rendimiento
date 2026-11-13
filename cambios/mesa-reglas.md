@@ -1,0 +1,3 @@
+- **Work board:** a spare line (a copy of another pull request, or a branch forgotten for a week) has **Close**: the pull request is closed without merging and its branch deleted, after asking. rendimiento never closes anything by itself.
+- **Encargos:** one open encargo per branch. A new failure on a branch that has one, by itself or with **Ask an agent**, is added to that encargo; a delivered one whose branch fails again goes back to pending with the note.
+- **Coding agent:** it fixes an encargo's branch on that same branch instead of a copy of it, and leaves a person's branch to the person's own agent.

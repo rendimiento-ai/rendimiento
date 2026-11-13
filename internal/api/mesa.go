@@ -1,7 +1,11 @@
 package api
 
 import (
+	"errors"
 	"net/http"
+	"strings"
+
+	"github.com/rendimiento-ai/rendimiento/internal/platform"
 )
 
 // appMesa is the app's work board: what is open on each branch and who it
@@ -48,4 +52,29 @@ func (s *Server) mesaCounts(w http.ResponseWriter, r *http.Request, _ string) {
 		}
 	}
 	writeJSON(w, out)
+}
+
+// closeSpare closes a branch the work board calls spare (a copy, or
+// forgotten): its pull request without merging, and the branch itself.
+func (s *Server) closeSpare(w http.ResponseWriter, r *http.Request, login string) {
+	a := s.app(w, r)
+	if a == nil {
+		return
+	}
+	var in struct {
+		Branch string `json:"branch"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	err := s.Platform.CloseSpare(r.Context(), a, strings.TrimSpace(in.Branch), login)
+	var no *platform.NotApprovable
+	switch {
+	case errors.As(err, &no):
+		httpError(w, http.StatusConflict, no.Why)
+	case err != nil:
+		httpError(w, http.StatusInternalServerError, err.Error())
+	default:
+		w.WriteHeader(http.StatusNoContent)
+	}
 }

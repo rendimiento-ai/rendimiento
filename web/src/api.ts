@@ -994,6 +994,7 @@ export const api = {
   caminos: (app: string) => request<Caminos>("GET", `/api/apps/${app}/caminos`),
   branchKinds: (app: string) => request<BranchKinds>("GET", `/api/apps/${app}/branch-kinds`),
   mesa: (app: string) => request<Mesa>("GET", `/api/apps/${app}/mesa`),
+  closeSpare: (app: string, branch: string) => request<void>("POST", `/api/apps/${app}/mesa/close`, { branch }),
   mesaCounts: () => request<{ app: string; you: number }[]>("GET", "/api/mesa"),
   triggerRun: (app: string, branch?: string) => request<Run>("POST", `/api/apps/${app}/runs`, { branch }),
   releases: (app: string) => request<Release[]>("GET", `/api/apps/${app}/releases`),

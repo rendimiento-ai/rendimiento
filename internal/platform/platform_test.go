@@ -63,6 +63,8 @@ type fakeGitHub struct {
 	base    string            // what MergeBase answers
 	merges  []map[string][]byte
 	removed [][]string
+	closed  []int         // the pull requests closed without merging
+	recent  []gh.PullInfo // what RecentPullRequests answers
 }
 
 func (f *fakeGitHub) tree(ref string) fstest.MapFS {
@@ -108,7 +110,9 @@ func (f *fakeGitHub) UpdateCheck(_ context.Context, _ int64, _ string, id int64,
 }
 func (f *fakeGitHub) CloneToken(context.Context, int64) (string, error) { return "ghs_x", nil }
 func (f *fakeGitHub) RecentPullRequests(context.Context, int64, string) ([]gh.PullInfo, error) {
-	return nil, nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]gh.PullInfo(nil), f.recent...), nil
 }
 func (f *fakeGitHub) OpenPulls(context.Context, int64, string) ([]gh.PullInfo, error) {
 	f.mu.Lock()
@@ -153,6 +157,17 @@ func (f *fakeGitHub) DeleteBranch(_ context.Context, _ int64, _, branch string) 
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.deleted = append(f.deleted, branch)
+	return nil
+}
+func (f *fakeGitHub) ClosePull(_ context.Context, _ int64, _ string, number int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i := range f.pulls {
+		if f.pulls[i].Number == number {
+			f.pulls[i].State = "closed"
+		}
+	}
+	f.closed = append(f.closed, number)
 	return nil
 }
 func (f *fakeGitHub) MergeBase(context.Context, int64, string, string, string) (string, time.Time, error) {

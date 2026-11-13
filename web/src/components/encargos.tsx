@@ -15,6 +15,7 @@ const statusClass: Record<EncargoStatus, string> = {
 const eventLabel: Record<string, string> = {
   created: "created", taken: "taken", waiting: "waiting", resumed: "done waiting", delivered: "delivered",
   reviewed: "reviewed", routed: "routed", estimate: "asked to estimate it again", sent: "sent it to the coding agent", returned: "sent back", released: "let go", cancelled: "dropped",
+  noted: "added to it",
 };
 
 const routeLabel = { platform: "For the platform's AI", local: "For your own agent" };
