@@ -50,4 +50,7 @@ tasks:
     watch: [web, internal, api, hack/interfaz, hack/ci-interfaz.sh, go.mod, go.sum]
     postgres: true
     cache: true
-    resources: { cpu: "1", memory: 1Gi, memoryLimit: 3Gi }
+    # Chromium, the test server and Postgres share it: with one core they
+    # starved when the cluster was busy and waits ran out (runs 1263, 1275
+    # and 1276 of 12-13 Nov failed so, never on the code).
+    resources: { cpu: "2", memory: 1Gi, memoryLimit: 3Gi }
