@@ -589,6 +589,9 @@ type Release struct {
 	VerifiedAt    *time.Time `json:"verifiedAt,omitempty"`
 	// Tasks are its post-deploy tasks (filled in by the API, not scanned).
 	Tasks []ReleaseTask `json:"tasks,omitempty"`
+	// Tests are the app's own tests' results in this release (filled in by
+	// the API, not scanned).
+	Tests []ReleaseTest `json:"tests,omitempty"`
 }
 
 // Release verification states.

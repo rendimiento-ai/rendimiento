@@ -99,6 +99,32 @@ verify:
 
 La ventana de toda la plataforma es `VERIFY_WINDOW` (de forma predeterminada `5m`; `0` desactiva la verificación). La verificación se ejecuta en el líder. Si la plataforma se reinicia a media ventana, la versión se vuelve a vigilar desde el principio, a menos que una más nueva la haya reemplazado.
 
+### Las pruebas de la propia aplicación {#the-apps-own-tests}
+
+Una aplicación puede traer sus propias pruebas de navegador (Playwright) y que cada versión se juzgue con ellas. Viven en una imagen que se construye con cada versión: una entrada de `builds:` cuyo Dockerfile parte de la imagen de Playwright y copia las pruebas. `tests:` la nombra:
+
+```yaml
+builds:
+  - name: e2e
+    path: e2e            # FROM mcr.microsoft.com/playwright:…, COPY . ., RUN npm ci
+tests:
+  build: e2e
+  # command: npx playwright test      (lo predeterminado)
+  # url: https://tienda.example.com   (si no: el dominio del primer servicio, como BASE_URL)
+  # blockingAfter: 5                  (versiones limpias antes de que una prueba pueda revertir una)
+  secretEnv: { TEST_PASSWORD: tienda-pruebas/password }
+```
+
+Cuando la versión ya está en vivo, corren como una tarea posterior al despliegue (`pruebas`), con un reintento, y cada prueba se juzga sola:
+
+| Una prueba que… | cuando falla |
+|---|---|
+| **solo avisa** (toda prueba nueva) | lo dice en la versión; no se revierte nada |
+| **bloquea** (pasó `blockingAfter` versiones seguidas) | falla la verificación, así que la versión se revierte |
+| **queda aparte** (falló y luego pasó al reintentarla 3 veces) | no cuenta hasta que vuelva a pasar `blockingAfter` versiones seguidas |
+
+Una prueba que falla y luego pasa al reintentarla nunca revierte una versión: una prueba que da falsas alarmas es peor que ninguna. Cada versión, en la pestaña **Versiones**, lista sus pruebas, primero las que fallaron, con lo que cada una puede hacer ahora. La primera versión no tiene a dónde regresar: una falla ahí solo se reporta.
+
 ## Estadísticas públicas {#public-stats}
 
 Con `PUBLIC_STATS=true`, rendimiento publica **cifras agregadas** en `GET /api/public/stats` para una página pública. Un portafolio puede mostrarlas, por ejemplo, en una sección *En vivo desde el laboratorio de casa*.

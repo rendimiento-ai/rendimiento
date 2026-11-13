@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { addonsApi, api, appSecretNames, duration, isLibrary, session, subscribe, timeAgo, universeApi, type App, type AppAccess, type AutoEncargo, type BranchKind, type MemberRole, type Release, type ReleaseTask } from "../api";
+import { addonsApi, api, appSecretNames, duration, isLibrary, session, subscribe, timeAgo, universeApi, type App, type AppAccess, type AutoEncargo, type BranchKind, type MemberRole, type Release, type ReleaseTask, type ReleaseTest } from "../api";
 import { memberRoleLabel } from "./Members";
 import { autoEncargoName } from "./IA";
 import { ErrorBox, PhaseBadge, ResourceTree, RunBadge, Switch, usePoll } from "../components/ui";
@@ -533,6 +533,7 @@ function Releases({ name, current }: { name: string; current?: number }) {
                   {r.tasks!.map((task) => <PostDeployTask key={task.name} app={name} release={r.number} task={task} />)}
                 </div>
               )}
+              {(r.tests?.length ?? 0) > 0 && <ReleaseTests tests={r.tests!} />}
               {r.verifyMessage && r.verifyStatus !== "skipped" && r.verifyStatus !== "superseded" && (
                 <div className="small" style={{ color: r.verifyStatus === "failed" || r.verifyStatus === "failed-kept" || r.verifyStatus === "blocked" ? "var(--bad)" : "var(--muted)" }}>{r.verifyMessage}</div>
               )}
@@ -733,6 +734,28 @@ function WhoEnters({ name }: { name: string }) {
         </>
       )}
     </div>
+  );
+}
+
+const testStatus: Record<ReleaseTest["status"], [string, string]> = {
+  expected: ["passed", "ok"], unexpected: ["failed", "bad"], flaky: ["failed, then passed", "warn"], skipped: ["skipped", "idle"],
+};
+const testState: Record<ReleaseTest["state"], string> = { advisory: "only reports", blocking: "blocks", quarantined: "set aside" };
+
+/** A release's own tests: how each went, and whether it only reports, blocks a release, or is set aside. Failures first. */
+function ReleaseTests({ tests }: { tests: ReleaseTest[] }) {
+  const passed = tests.filter((x) => x.status === "expected").length;
+  return (
+    <details className="release-tests">
+      <summary className="small">{t("Tests: {ok} of {n} passed", { ok: passed, n: tests.length })}</summary>
+      <ul className="small">
+        {tests.map((x) => (
+          <li key={x.name}>
+            <span className={`badge ${testStatus[x.status][1]}`}>{t(testStatus[x.status][0])}</span> {x.name} <span className="muted">· {t(testState[x.state])}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
