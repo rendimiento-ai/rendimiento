@@ -45,7 +45,7 @@ func TestPreviewCopies(t *testing.T) {
 	if err := kube.Get(ctx, client.ObjectKey{Name: "copias-pr-7"}, &cr); err != nil {
 		t.Fatal(err)
 	}
-	if cr.Spec.Preview != 7 || cr.Labels[render.LabelPreview] != "7" || cr.Spec.Services[0].Domain != "pr-7.copias.example.com" || cr.Spec.Images["web"] != images["web"] {
+	if cr.Spec.Preview != 7 || cr.Labels[render.LabelPreview] != "7" || cr.Spec.Services[0].Domain != "copias-pr-7.example.com" || cr.Spec.Images["web"] != images["web"] {
 		t.Fatalf("copy %+v %v", cr.Spec, cr.Labels)
 	}
 	var check gh.CheckRun
@@ -54,11 +54,11 @@ func TestPreviewCopies(t *testing.T) {
 			check = c
 		}
 	}
-	if check.DetailsURL != "https://pr-7.copias.example.com" || check.Conclusion != "success" {
+	if check.DetailsURL != "https://copias-pr-7.example.com" || check.Conclusion != "success" {
 		t.Fatalf("check %+v", check)
 	}
 	// One comment, kept in the App object and edited on the next push.
-	if len(fake.said) != 1 || !strings.Contains(fake.said[1], "#7 **Preview of #7:** https://pr-7.copias.example.com") || cr.Annotations[annotationComment] != "1" {
+	if len(fake.said) != 1 || !strings.Contains(fake.said[1], "#7 **Preview of #7:** https://copias-pr-7.example.com") || cr.Annotations[annotationComment] != "1" {
 		t.Fatalf("comments %v, annotation %q", fake.said, cr.Annotations[annotationComment])
 	}
 	p.deployPreview(ctx, app, &store.Run{ID: 45, SHA: sha, Branch: "propina"}, *sp, images)
