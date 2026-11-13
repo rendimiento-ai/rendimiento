@@ -51,7 +51,7 @@ export function ResumenDelDia() {
       ))}
       {data.pending && <p className="small muted" style={{ margin: 0 }}>{t("Writing the summary of the last days…")}</p>}
       <div className="resumen-dia-pie small muted">
-        <span>{data.days.some((d) => d.source === "ia") ? t("Written by the platform's AI from what was recorded; it can be wrong.") : data.days.some((d) => d.source === "counts") ? t("Only the numbers: no model could write it.") : t("Written from what was recorded.")}</span>
+        <span>{data.days.some((d) => d.source === "ia") ? t("Written by the platform's AI from what was recorded; it can be wrong.") : data.days.some((d) => d.source === "counts") ? t("Only the numbers: the AI's answer could not be used this time. Redo tries again.") : t("Written from what was recorded.")}</span>
         {session.role !== "guest" && data.days[0] && <button className="link small" disabled={redoing} onClick={() => redo(data.days[0])}>{t("Redo")}</button>}
         <button className="link small" onClick={hide}>{t("Hide for today")}</button>
       </div>
