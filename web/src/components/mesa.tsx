@@ -53,7 +53,11 @@ function Fila({ app, l }: { app: App; l: MesaLine }) {
       </div>
       <div className="mesa-como small">
         {porque(l, app)}
-        {encargos.length > 0 && <div className="muted">{encargos.map((e) => t("encargo {n}", { n: e.id })).join(" · ")}</div>}
+        {encargos.length > 0 && (
+          <div className="muted">
+            {encargos.map((e, i) => <span key={e.id}>{i > 0 && " · "}<Link to={`/ruta?tab=encargos#encargo-${e.id}`}>{t("encargo {n}", { n: e.id })}</Link></span>)}
+          </div>
+        )}
       </div>
       <div className="mesa-accion">{accion(l, app, repo)}</div>
     </div>
@@ -89,7 +93,7 @@ function accion(l: MesaLine, app: App, repo: string) {
       if (l.pull) return <a className="btn small" href={`${repo}/pull/${l.pull}`} target="_blank" rel="noreferrer">{t("Merge")}</a>;
       return <a className="btn small" href={`${repo}/pull/new/${l.branch}`} target="_blank" rel="noreferrer">{t("Open the pull request")}</a>;
     case "review":
-      return <Link className="btn small" to="/ruta?tab=encargos">{t("Review")}</Link>;
+      return <Link className="btn small" to={`/ruta?tab=encargos${l.encargos?.length ? `#encargo-${l.encargos[0].id}` : ""}`}>{t("Review")}</Link>;
     case "copy":
       return <a className="btn small" href={`${repo}/pull/${l.pull}`} target="_blank" rel="noreferrer">{t("Close it on GitHub")}</a>;
     case "stale":

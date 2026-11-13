@@ -77,6 +77,7 @@ var catalog = map[string]string{
 	"only a run that passed is merged": "solo se integra una ejecución que pasó",
 	"the branch has a newer commit: approve its run": "la rama tiene una confirmación más nueva: apruebe su ejecución",
 	"GitHub did not open the pull request: %s": "GitHub no abrió la solicitud de incorporación: %s",
+	"the branch is already in %s: there is nothing left to merge": "la rama ya está en %s: no queda nada que integrar",
 	"at least one service, build or task is required": "se necesita al menos un servicio, una construcción o una tarea",
 	"this computer has no cluster: this page is for rendimiento on Kubernetes": "esta computadora no tiene clúster: esta página es para rendimiento en Kubernetes",
 	"this computer cannot deploy yet: its apps are built and tested, but not run": "esta computadora todavía no puede desplegar: sus aplicaciones se construyen y se prueban, pero no se corren",
