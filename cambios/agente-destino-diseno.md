@@ -1,0 +1,1 @@
+- **Destinations:** the book has a design page for the destination agent (the hosted panel with an outbound-only agent on each computer or cluster): protocol, credentials per agent, `org_id`, version skew and what stays on the agent. It is a design only; the prototype is still to do.

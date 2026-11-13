@@ -11,3 +11,4 @@ Cómo está armado rendimiento, del todo a cada subsistema. Cada capítulo liga 
 7. **[API, autenticación e interfaz](api-ui.md)**: la API HTTP, el inicio de sesión, los avisos web, las actualizaciones en vivo y la aplicación de React.
 8. **[Datos y estado](data.md)**: qué vive en Postgres, qué en Kubernetes y qué en git, y por qué.
 9. **[Modelo de seguridad](security.md)**: las identidades, el aislamiento, los secretos y los huecos.
+10. **[El agente de destino](agente-destino.md)**: el diseño del agente de solo salida que corre aplicaciones en otra computadora o clúster.
