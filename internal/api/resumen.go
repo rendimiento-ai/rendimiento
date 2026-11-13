@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/rendimiento-ai/rendimiento/internal/i18n"
+	"github.com/rendimiento-ai/rendimiento/internal/marcador"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -19,6 +20,9 @@ type SummaryView struct {
 	Days     []store.DaySummary `json:"days"`
 	Pending  bool               `json:"pending"`
 	TimeZone string             `json:"timeZone"`
+	// Boards are each day's scoreboard, by day, counted from what was
+	// recorded (no AI): it shows while the day's lines are being written.
+	Boards map[string]marcador.Board `json:"boards"`
 }
 
 // summaryTZ is where days begin and end: the public stats' time zone, or UTC.
@@ -65,13 +69,30 @@ func (s *Server) getSummary(w http.ResponseWriter, r *http.Request, login string
 	for _, a := range apps {
 		sees[a.Name] = accessOf(r).Role(a) != ""
 	}
-	out := SummaryView{Days: []store.DaySummary{}, TimeZone: tz.String()}
+	out := SummaryView{Days: []store.DaySummary{}, TimeZone: tz.String(), Boards: map[string]marcador.Board{}}
+	toReview, err := s.Store.EncargosToReview(ctx, org)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	for _, day := range summaryDays(now, last) {
+		from, _ := time.ParseInLocation(time.DateOnly, day, tz)
+		counted, err := s.Store.DayBoard(ctx, org, from, from.AddDate(0, 0, 1))
+		if err != nil {
+			httpError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		var mine []store.AppDay
+		for _, a := range counted {
+			if sees[a.App] {
+				mine = append(mine, a)
+			}
+		}
+		out.Boards[day] = marcador.Build(mine, toReview)
 		d, err := s.Store.GetDaySummary(ctx, org, day, string(lang))
 		if err != nil {
 			out.Pending = true
 			if s.Summarizer != nil {
-				from, _ := time.ParseInLocation(time.DateOnly, day, tz)
 				s.Summarizer.Start(org, day, from, from.AddDate(0, 0, 1), lang)
 			}
 			continue

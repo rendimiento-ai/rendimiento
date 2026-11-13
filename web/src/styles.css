@@ -1460,6 +1460,59 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .resumen-dia li { margin: 2px 0; }
 .resumen-dia-fecha { font-weight: 700; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .resumen-dia-pie { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; border-top: 1px solid var(--border); padding-top: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* The day's scoreboard (components/resumen.tsx): numbers that count up, the runs by hour, a ring per app and the day's lotería card. */
+.marcador { gap: 14px; }
+.marcador-cabeza { display: flex; justify-content: space-between; align-items: flex-end; gap: 8px 16px; flex-wrap: wrap; }
+.marcador-titulo { margin: 2px 0 0; font: 700 1.6rem/1.15 var(--display); }
+.marcador-insignias { display: flex; gap: 6px; flex-wrap: wrap; }
+.marcador-cifras { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.marcador-cifra { display: flex; flex-direction: column; gap: 2px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; min-width: 0; }
+.marcador-numero { font: 700 2.6rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.marcador-que { font-weight: 700; }
+.marcador-medio { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: start; }
+.marcador-horas { margin: 0; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; min-width: 0; }
+.marcador-horas figcaption { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.marcador-leyenda { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+.marcador-leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+.marcador-leyenda i.ok { background: var(--ok); } .marcador-leyenda i.bad { background: var(--bad); margin-left: 6px; }
+.marcador-horas-caja { overflow-x: auto; }
+.marcador-horas svg { display: block; width: 100%; min-width: 336px; height: auto; }
+.marcador-barra { transform-origin: bottom; transform-box: fill-box; animation: barra-crece .8s cubic-bezier(.2,.8,.2,1) both; }
+.marcador-apps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 10px 16px; }
+.marcador-apps li { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.marcador-apps li > div { min-width: 0; }
+.marcador-app { font-weight: 800; }
+.marcador-anillo { width: 52px; height: 52px; flex: none; }
+.marcador-anillo.vacio { display: inline-block; border: 7px solid var(--border); border-radius: 50%; box-sizing: border-box; }
+.marcador-anillo .llena { transition: stroke-dashoffset 1.2s ease-out; }
+.marcador-org { margin: 0; }
+.marcador-carta-lugar { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.marcador-carta { position: relative; width: 150px; height: 214px; padding: 0; border: 5px solid var(--surface); outline: 2px solid var(--carta); outline-offset: -10px; border-radius: 12px;
+  background: var(--surface); color: var(--text); box-shadow: 0 8px 20px rgba(43, 27, 18, .25); cursor: pointer; transform: rotate(-2deg);
+  transition: transform .5s cubic-bezier(.2,.8,.2,1); transform-style: preserve-3d; animation: carta-llega .6s cubic-bezier(.2,1.3,.4,1) both; }
+.marcador-carta:hover { transform: rotate(0deg) translateY(-3px); }
+.marcador-carta.vuelta { transform: rotateY(180deg); }
+.marcador-carta:focus-visible { outline: 3px solid var(--link); outline-offset: 3px; }
+.marcador-carta-cara, .marcador-carta-dorso { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 12px 10px 8px; backface-visibility: hidden; }
+.marcador-carta-dorso { transform: rotateY(180deg); justify-content: center; gap: 12px; text-align: center; font-size: .9rem; }
+.marcador-carta-arriba { align-self: stretch; display: flex; justify-content: space-between; align-items: baseline; font-size: .7rem; color: var(--muted); font-weight: 700; }
+.marcador-carta-arriba b { font: 700 1.1rem var(--display); color: var(--carta); }
+.marcador-dibujo { width: 82px; height: 82px; }
+.marcador-late { transform-origin: center; transform-box: fill-box; animation: carta-late 2.6s ease-in-out infinite; }
+.marcador-carta-cifra { font: 700 1.7rem/1 var(--display); color: var(--carta); }
+.marcador-carta-nombre { align-self: stretch; border-top: 2px solid var(--carta); padding-top: 4px; text-align: center; font: 700 .85rem var(--display); letter-spacing: .06em; text-transform: uppercase; }
+@keyframes carta-llega { from { transform: translateY(-30px) rotate(-12deg); opacity: 0; } to { transform: rotate(-2deg); opacity: 1; } }
+@keyframes carta-late { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@media (max-width: 720px) {
+  .marcador-cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .marcador-medio { grid-template-columns: minmax(0, 1fr); }
+  .marcador-numero { font-size: 2.1rem; }
+}
+@media (prefers-reduced-motion: reduce) { .marcador-barra, .marcador-carta, .marcador-late { animation: none; } .marcador-carta, .marcador-anillo .llena { transition: none; } }
+:root[data-motion="off"] .marcador-barra, :root[data-motion="off"] .marcador-carta, :root[data-motion="off"] .marcador-late { animation: none; }
+:root[data-motion="off"] .marcador-carta, :root[data-motion="off"] .marcador-anillo .llena { transition: none; }
 
 /* The glance at an app (components/vistazo.tsx): a big cempasúchil and the week, for whoever does not need the technical side. */
 .vistazo { display: flex; flex-direction: column; gap: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 22px; padding: 18px; }

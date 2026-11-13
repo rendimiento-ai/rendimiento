@@ -24,6 +24,9 @@ type AppSpec struct {
 	// Observe mirrors rendimiento.yaml's app-wide observe (traces for the
 	// Universe); a service's own observe still wins.
 	Observe bool `json:"observe,omitempty"`
+	// Preview is the pull request a copy shows, or 0.
+	// +kubebuilder:validation:Minimum=0
+	Preview int `json:"preview,omitempty"`
 	// Images maps service name to an image reference, ideally pinned by digest.
 	// Empty until the first successful build.
 	Images map[string]string `json:"images,omitempty"`

@@ -1,8 +1,10 @@
 package render
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/spec/ejemplos"
 )
 
@@ -26,6 +28,32 @@ func TestEjemplos(t *testing.T) {
 		}
 		if _, err := Render(Input{App: "ej-" + e.Nombre, Spec: *e.Spec, Images: images, ServiceURLs: urls}, DefaultOptions()); err != nil {
 			t.Errorf("%s: %v", e.Nombre, err)
+		}
+		// An app with previews renders its copy too: its own namespace,
+		// labeled with the pull request, at pr-<number>.<domain>.
+		if e.Spec.Previews == nil {
+			continue
+		}
+		copia := spec.PreviewOf(*e.Spec, 7)
+		out, err := Render(Input{App: "ej-" + e.Nombre + "-pr-7", Preview: 7, Spec: copia, Images: images, ServiceURLs: urls}, DefaultOptions())
+		if err != nil {
+			t.Errorf("%s, preview: %v", e.Nombre, err)
+			continue
+		}
+		if out.Namespace.Labels[LabelPreview] != "7" {
+			t.Errorf("%s, preview: namespace labels %v", e.Nombre, out.Namespace.Labels)
+		}
+		for _, in := range out.Ingresses {
+			for _, rule := range in.Spec.Rules {
+				if !strings.HasPrefix(rule.Host, "pr-7.") {
+					t.Errorf("%s, preview: host %s", e.Nombre, rule.Host)
+				}
+			}
+		}
+		for _, d := range out.Deployments {
+			if *d.Spec.Replicas != 1 {
+				t.Errorf("%s, preview: %s has %d replicas", e.Nombre, d.Name, *d.Spec.Replicas)
+			}
 		}
 	}
 }

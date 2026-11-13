@@ -56,7 +56,16 @@ export interface Spec {
   jobs?: Job[];
   tasks?: Task[];
   builds?: unknown[];
+  previews?: Previews;
   tests?: AppTests;
+}
+
+/** A live copy for each pull request, at pr-<number>.<domain> (spec.Previews); never a copy of production's data. */
+export interface Previews {
+  data?: "empty" | "seed";
+  seed?: string; // the task that loads sample data, with data: seed
+  keep?: number; // days without a push, 1 to 30 (7)
+  max?: number; // copies at once, 1 to 5 (3)
 }
 
 /** The app's own browser tests, run against each release once live (spec.Tests). */
@@ -944,10 +953,45 @@ export interface DaySummary {
   source: "ia" | "counts" | "empty";
   provider?: string;
 }
+/** One app's numbers of a day (store.AppDay); hours are [passed, failed] runs by the hour they started. */
+export interface AppDay {
+  app: string;
+  releases: number;
+  healthy: number;
+  rollbacks: number;
+  night: number;
+  runs: number;
+  failed: number;
+  merges: number;
+  problems: number;
+  hours: [number, number][];
+}
+/** The day's lotería card (marcador.Card): the most notable thing of the day. */
+export interface DayCard {
+  kind: "nube" | "tropiezo" | "flor" | "luna" | "colibri";
+  count: number;
+  of?: number;
+  app?: string;
+}
+/** A day's scoreboard (marcador.Board): the totals and hours are sums of apps. */
+export interface DayBoard {
+  releases: number;
+  healthy: number;
+  rollbacks: number;
+  runs: number;
+  failed: number;
+  merges: number;
+  problems: number;
+  toReview: number;
+  hours: [number, number][];
+  apps: AppDay[];
+  card?: DayCard;
+}
 export interface SummaryView {
   days: DaySummary[];
   pending: boolean;
   timeZone: string;
+  boards: Record<string, DayBoard>;
 }
 
 export const api = {
