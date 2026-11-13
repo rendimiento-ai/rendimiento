@@ -281,6 +281,11 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberCollaborator, "PUT /api/apps/{app}/addons/{addon}", s.putAppAddon)
 	auth(store.MemberAdmin, "PUT /api/apps/{app}/auto-encargo", s.putAppAutoEncargo)
 	auth(store.MemberAdmin, "PUT /api/apps/{app}/auto-merge", s.putAppAutoMerge)
+	// Who enters an app: its list, kept by the organization's administrators.
+	auth(store.MemberAdmin, "GET /api/apps/{app}/members", s.getAppMembers)
+	auth(store.MemberAdmin, "PUT /api/apps/{app}/members", s.putAppList)
+	auth(store.MemberAdmin, "PUT /api/apps/{app}/members/{login}", s.putAppMember)
+	auth(store.MemberAdmin, "DELETE /api/apps/{app}/members/{login}", s.deleteAppMember)
 	plat(store.MemberAdmin, "POST /api/dns/sync", s.dnsSync)
 	plat(store.MemberAdmin, "POST /api/notifications/test", s.testNotification)
 	auth(store.MemberAdmin, "POST /api/propose", s.propose)
@@ -456,7 +461,10 @@ func orgOf(r *http.Request) int64 {
 // requireRole wraps a handler for signed-in members: it reads the session
 // cookie, finds whose it is and their role in the organization, answers 401
 // without a session or membership and 403 below the route's role, and
-// passes the login on.
+// passes the login on. A route about one app (its {app}, a run's, an
+// encargo's) takes the role on that app (store.AppAccess.Role); an app the
+// person may not see is judged like one that does not exist (the
+// organization's role, then 404 from the handler).
 func (s *Server) requireRole(platform bool, min string, h func(http.ResponseWriter, *http.Request, string)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c, err := r.Cookie(sessionCookie)
@@ -493,22 +501,41 @@ func (s *Server) requireRole(platform bool, min string, h func(http.ResponseWrit
 			}
 			role = store.MemberGuest
 		}
-		need := role
+		acc, err := s.Store.AppAccessOf(ctx, org, login, role)
+		if err != nil {
+			httpError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if store.IsDemoLogin(login) {
+			acc = acc.Narrowed(store.MemberGuest)
+		}
+		need, appRole := role, ""
+		if app, ok := s.routeApp(r); ok {
+			appRole = acc.Role(app)
+		}
+		if appRole != "" {
+			need = appRole // the role on the app the route is about
+		}
 		if platform {
-			// The platform's own organization decides (not the current one).
-			if need, err = s.Store.MemberRole(ctx, store.DefaultOrg, login); errors.Is(err, store.ErrNotFound) {
+			// The platform's own organization decides (not the current
+			// one), and no more than the app's role when it is about one.
+			plat, err := s.Store.MemberRole(ctx, store.DefaultOrg, login)
+			if errors.Is(err, store.ErrNotFound) {
 				httpError(w, http.StatusForbidden, "this belongs to the platform's operators")
 				return
 			} else if err != nil {
 				httpError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
+			if appRole == "" || store.RoleRank(plat) < store.RoleRank(need) {
+				need = plat
+			}
 		}
 		if store.RoleRank(need) < store.RoleRank(min) {
 			httpError(w, http.StatusForbidden, "your role here does not allow this; ask an administrator")
 			return
 		}
-		ctx = context.WithValue(context.WithValue(ctx, roleKey{}, role), orgKey{}, org)
+		ctx = context.WithValue(context.WithValue(context.WithValue(ctx, roleKey{}, role), orgKey{}, org), accessKey{}, acc)
 		h(w, r.WithContext(ctx), login)
 	})
 }
@@ -937,7 +964,18 @@ func (s *Server) services(w http.ResponseWriter, r *http.Request, _ string) {
 // map is still served when the metrics store does not answer.
 func (s *Server) universe(w http.ResponseWriter, r *http.Request, _ string) {
 	ctx := r.Context()
-	apps, err := s.Store.ListAppsInOrg(ctx, orgOf(r))
+	all, err := s.Store.ListAppsInOrg(ctx, orgOf(r))
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	var apps []*store.App
+	for _, a := range all {
+		if accessOf(r).Role(a) != "" {
+			apps = append(apps, a)
+		}
+	}
+	hidden, err := s.hiddenApps(r)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -964,6 +1002,7 @@ func (s *Server) universe(w http.ResponseWriter, r *http.Request, _ string) {
 			metricsErr = err.Error()
 		}
 	}
+	visibleUniverse(&in, hidden)
 	writeJSON(w, struct {
 		universe.Universe
 		Window string `json:"window"`
@@ -1051,7 +1090,8 @@ func (s *Server) universeTraces(w http.ResponseWriter, r *http.Request, _ string
 	writeJSON(w, map[string]any{"traces": list})
 }
 
-// orgApps are the names of the apps in the person's organization.
+// orgApps are the names of the apps in the person's organization that
+// they may see.
 func (s *Server) orgApps(r *http.Request) (map[string]bool, error) {
 	apps, err := s.Store.ListAppsInOrg(r.Context(), orgOf(r))
 	if err != nil {
@@ -1059,7 +1099,9 @@ func (s *Server) orgApps(r *http.Request) (map[string]bool, error) {
 	}
 	out := map[string]bool{}
 	for _, a := range apps {
-		out[a.Name] = true
+		if accessOf(r).Role(a) != "" {
+			out[a.Name] = true
+		}
 	}
 	return out, nil
 }
@@ -1162,6 +1204,9 @@ type appView struct {
 	// Down lists the checks of this app in an outage right now, like
 	// "web (public)"; empty when everything answers.
 	Down []string `json:"down,omitempty"`
+	// Role is what the person reading may do on this app (its list's role,
+	// or the organization's).
+	Role string `json:"role,omitempty"`
 }
 
 // downChecks maps each app to its checks with an open outage.
@@ -1206,8 +1251,11 @@ func (s *Server) listApps(w http.ResponseWriter, r *http.Request, _ string) {
 	down := s.downChecks(r.Context())
 	out := make([]appView, 0, len(apps))
 	for _, a := range apps {
+		if accessOf(r).Role(a) == "" {
+			continue // its list leaves the person out
+		}
 		v := s.view(r.Context(), a)
-		v.Down = down[a.ID]
+		v.Down, v.Role = down[a.ID], accessOf(r).Role(a)
 		if u := uptime[a.ID]; u.Total > 0 {
 			ratio := float64(u.OK) / float64(u.Total)
 			v.Uptime24h = &ratio
@@ -1245,8 +1293,8 @@ func (s *Server) createApp(w http.ResponseWriter, r *http.Request, login string)
 // nil result means the answer was already written.
 func (s *Server) app(w http.ResponseWriter, r *http.Request) *store.App {
 	a, err := s.Store.GetApp(r.Context(), r.PathValue("app"))
-	if err == nil && a.OrgID != orgOf(r) {
-		err = store.ErrNotFound // another organization's app does not exist here
+	if err == nil && accessOf(r).Role(a) == "" {
+		err = store.ErrNotFound // another organization's app, or one whose list leaves the person out, does not exist here
 	}
 	if errors.Is(err, store.ErrNotFound) {
 		httpError(w, http.StatusNotFound, "no such app")
@@ -1263,7 +1311,7 @@ func (s *Server) app(w http.ResponseWriter, r *http.Request) *store.App {
 func (s *Server) getApp(w http.ResponseWriter, r *http.Request, _ string) {
 	if a := s.app(w, r); a != nil {
 		v := s.view(r.Context(), a)
-		v.Down = s.downChecks(r.Context())[a.ID]
+		v.Down, v.Role = s.downChecks(r.Context())[a.ID], accessOf(r).Role(a)
 		writeJSON(w, v)
 	}
 }
@@ -1545,9 +1593,10 @@ func (s *Server) runID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 		httpError(w, http.StatusBadRequest, "bad run id")
 		return 0, false
 	}
-	// A run of another organization's app does not exist here.
+	// A run of another organization's app, or of an app whose list leaves
+	// the person out, does not exist here.
 	if run, err := s.Store.GetRun(r.Context(), id); err == nil {
-		if a, err := s.Store.GetAppByID(r.Context(), run.AppID); err == nil && a.OrgID != orgOf(r) {
+		if a, err := s.Store.GetAppByID(r.Context(), run.AppID); err == nil && accessOf(r).Role(a) == "" {
 			httpError(w, http.StatusNotFound, "no such run")
 			return 0, false
 		}

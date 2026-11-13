@@ -120,7 +120,13 @@ func (s *Server) listBitacora(w http.ResponseWriter, r *http.Request, _ string) 
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, rows)
+	out := []store.Bitacora{}
+	for _, b := range rows {
+		if accessOf(r).Sees(bitacoraApp(b)) { // about an app whose list leaves the person out
+			out = append(out, b)
+		}
+	}
+	writeJSON(w, out)
 }
 
 // verifyBitacora walks the organization's chain and says whether it holds.
@@ -136,10 +142,16 @@ func (s *Server) verifyBitacora(w http.ResponseWriter, r *http.Request, _ string
 // listAprobaciones is the organization's requests from agents: those still
 // waiting with ?pendientes=1, else the last 50.
 func (s *Server) listAprobaciones(w http.ResponseWriter, r *http.Request, _ string) {
-	rows, err := s.Store.ListarAprobaciones(r.Context(), orgOf(r), r.URL.Query().Get("pendientes") == "1")
+	all, err := s.Store.ListarAprobaciones(r.Context(), orgOf(r), r.URL.Query().Get("pendientes") == "1")
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	rows := []store.Aprobacion{}
+	for _, a := range all {
+		if accessOf(r).Sees(a.App) {
+			rows = append(rows, a)
+		}
 	}
 	if want := r.URL.Query().Get("lang"); want != "" {
 		for i := range rows {

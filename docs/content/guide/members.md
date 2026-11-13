@@ -4,13 +4,26 @@ People sign in to rendimiento with GitHub, and only **members** get in. Each mem
 
 | Role | May |
 |---|---|
-| **Guest** | see everything: apps, runs and their logs, releases, the [Universe](universe.md), the [Ruta](ruta.md), encargos |
+| **Guest** | see everything (except apps whose [list](#who-enters-an-app) leaves them out): apps, runs and their logs, releases, the [Universe](universe.md), the [Ruta](ruta.md), encargos |
 | **Collaborator** | also: run CI, cancel runs, write the Ruta, [ask agents](agents.md#encargos) for things and review what they hand over, edit [Mercado](mercado.md) pages, turn Renovate on for an app |
 | **Administrator** | also: deploy and roll back, read and change secrets, onboard and remove apps, manage add-ons, agent keys, members, and update the platform |
 
 ## Adding someone {#adding-someone}
 
 On **Members** (your name in the top bar), people are listed by role on the left; choosing one shows their role and, line by line, **what they can do**. An administrator presses **Add someone**, writes the person's **GitHub username** and picks their role. They can sign in from then on, at the same address. Changing a role or removing someone takes effect on their next click; a removed person is signed out at once. An organization always keeps at least one administrator.
+
+## Who enters an app {#who-enters-an-app}
+
+A person's role holds on every app of the organization, unless the app has its own list. An administrator of the organization keeps it on the app's **Settings** tab, under **Who enters**:
+
+- **Without a list** (as every app starts), everyone in the organization enters the app with their role in the organization.
+- **Choose who enters** gives the app a list. Then only the people on it enter, each with the role the list gives them *for this app*, lower or higher than their role in the organization: a collaborator can be a guest on one app, a guest a collaborator on another. For everyone else the app does not exist: it is left out of their lists (apps, runs, encargos, requests, the Universe, the bitácora, the activity notices, problems) and its pages answer *not found*, as another organization's app does.
+- The organization's **administrators always enter** every app, as administrators, so a list can never lock them out; they are not put on lists.
+- **Let everyone in the organization enter** forgets the list, and the app goes back to the organization's roles.
+
+Only people of the organization can be put on a list. Someone taken out of the organization is taken off its apps' lists too: if they come back, they start off every list. A demo link's guest is treated as any guest: it does not see an app whose list leaves it out.
+
+An [agent key](agents.md) acts for the organization, not for a person, so people's lists do not apply to it; a key has its own list of apps, chosen when it is made, and its tools see and act on those apps only.
 
 ## The first administrators {#the-first-administrators}
 

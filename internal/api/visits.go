@@ -249,6 +249,9 @@ func (s *Server) visitsSummary(w http.ResponseWriter, r *http.Request, _ string)
 	to := time.Now()
 	from := to.AddDate(0, 0, -visitDays)
 	for _, a := range apps {
+		if accessOf(r).Role(a) == "" {
+			continue // its list leaves the person out
+		}
 		matched := analytics.Match(sites, appHosts(a))
 		if len(matched) == 0 {
 			continue

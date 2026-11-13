@@ -56,10 +56,16 @@ func (s *Server) listRuta(w http.ResponseWriter, r *http.Request, _ string) {
 		httpError(w, http.StatusBadRequest, "unknown kind")
 		return
 	}
-	list, err := s.Store.SearchRuta(r.Context(), orgOf(r), kind, strings.TrimSpace(q.Get("q")), 500)
+	all, err := s.Store.SearchRuta(r.Context(), orgOf(r), kind, strings.TrimSpace(q.Get("q")), 500)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	list := []store.RutaEntry{}
+	for _, e := range all {
+		if !rutaAboutHidden(accessOf(r), e) {
+			list = append(list, e)
+		}
 	}
 	writeJSON(w, list)
 }
@@ -103,7 +109,7 @@ func (s *Server) updateRuta(w http.ResponseWriter, r *http.Request, login string
 		return
 	}
 	e, err := s.Store.Ruta(r.Context(), id)
-	if err == nil && e.OrgID != orgOf(r) {
+	if err == nil && (e.OrgID != orgOf(r) || rutaAboutHidden(accessOf(r), e)) {
 		err = store.ErrNotFound
 	}
 	if errors.Is(err, store.ErrNotFound) {
@@ -133,7 +139,7 @@ func (s *Server) archiveRuta(w http.ResponseWriter, r *http.Request, login strin
 	if !ok {
 		return
 	}
-	if e, err := s.Store.Ruta(r.Context(), id); err != nil || e.OrgID != orgOf(r) {
+	if e, err := s.Store.Ruta(r.Context(), id); err != nil || e.OrgID != orgOf(r) || rutaAboutHidden(accessOf(r), e) {
 		httpError(w, http.StatusNotFound, "no such entry")
 		return
 	}
@@ -162,10 +168,16 @@ func (s *Server) rutaActivity(w http.ResponseWriter, r *http.Request, _ string) 
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	actions, err := s.Store.ListAgentActions(r.Context(), orgOf(r), 200)
+	all, err := s.Store.ListAgentActions(r.Context(), orgOf(r), 200)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	actions := []store.AgentActionRow{}
+	for _, a := range all {
+		if accessOf(r).Sees(argsApp(a.Args)) { // a call about an app whose list leaves the person out
+			actions = append(actions, a)
+		}
 	}
 	writeJSON(w, RutaActivity{Cargos: cargos, Actions: actions})
 }

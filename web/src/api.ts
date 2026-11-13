@@ -189,6 +189,8 @@ export interface App {
   /** Share of successful uptime checks in the last 24 hours (absent before the first check). */
   uptime24h?: number;
   down?: string[];
+  /** What the person reading may do on this app: the role its list gives them, or their organization's. */
+  role?: MemberRole;
 }
 
 // ---- el Mercado (pages made from a form; internal/mercado) ----
@@ -490,6 +492,14 @@ export interface Member {
   role: MemberRole;
   addedBy: string;
   createdAt: string;
+}
+
+/** Who enters an app: without a list, everyone in the organization with their role; with one, the people on it. */
+export interface AppAccess {
+  list: boolean;
+  members: Member[];
+  /** The organization's people, who can be added (administrators always enter). */
+  people: Member[];
 }
 
 export type EncargoStatus = "pending" | "taken" | "waiting" | "delivered" | "reviewed" | "cancelled";
@@ -973,6 +983,10 @@ export const api = {
   doEncargos: (ids: number[]) => request<{ sent: number }>("POST", "/api/encargos/do", { ids }),
   setAppAutoEncargo: (app: string, mode: AutoEncargo | "") => request<void>("PUT", `/api/apps/${app}/auto-encargo`, { mode }),
   setAppAutoMerge: (app: string, on: boolean, any: boolean) => request<void>("PUT", `/api/apps/${app}/auto-merge`, { on, any }),
+  appAccess: (app: string) => request<AppAccess>("GET", `/api/apps/${app}/members`),
+  setAppList: (app: string, list: boolean) => request<AppAccess>("PUT", `/api/apps/${app}/members`, { list }),
+  setAppMember: (app: string, login: string, role: MemberRole) => request<AppAccess>("PUT", `/api/apps/${app}/members/${encodeURIComponent(login)}`, { role }),
+  removeAppMember: (app: string, login: string) => request<AppAccess>("DELETE", `/api/apps/${app}/members/${encodeURIComponent(login)}`),
   reestimateEncargo: (id: number) => request<Encargo>("POST", `/api/encargos/${id}/estimate`),
   comentarios: () => request<Comentario[]>("GET", "/api/comentarios"),
   comentar: (c: { cargoId?: number; encargoId?: number; body: string }) => request<Comentario>("POST", "/api/comentarios", c),
