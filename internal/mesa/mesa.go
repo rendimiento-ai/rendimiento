@@ -64,6 +64,16 @@ type Run struct {
 	At      time.Time // when it finished, or was created
 }
 
+// Heads is what GitHub says of the repository's branches now: the commit
+// each one points at, and which commits are already in the default branch.
+// With Known false (GitHub not asked, or too many branches to list) the
+// board keeps every branch it sees in the runs.
+type Heads struct {
+	Known  bool
+	SHA    map[string]string // branch → its commit
+	InMain map[string]bool   // commit → it is in the default branch
+}
+
 // Encargo is an encargo about the app.
 type Encargo struct {
 	ID     int64
@@ -138,7 +148,7 @@ type line struct {
 
 // Build makes the board from the app's pull requests (the most recently
 // updated first), its recent runs (any order) and its open encargos.
-func Build(defaultBranch string, pulls []Pull, github bool, runs []Run, encargos []Encargo, now time.Time) Board {
+func Build(defaultBranch string, pulls []Pull, github bool, heads Heads, runs []Run, encargos []Encargo, now time.Time) Board {
 	byBranch := map[string]*line{}
 	get := func(b string) *line {
 		l := byBranch[b]
@@ -217,7 +227,7 @@ func Build(defaultBranch string, pulls []Pull, github bool, runs []Run, encargos
 
 	var out []Line
 	for _, l := range byBranch {
-		if ln, ok := l.judge(original, now); ok {
+		if ln, ok := l.judge(original, heads, now); ok {
 			out = append(out, ln)
 		}
 	}
@@ -251,7 +261,7 @@ func Build(defaultBranch string, pulls []Pull, github bool, runs []Run, encargos
 
 // judge says where a branch's line goes, and false when it is not on the
 // board (closed, or merged more than a day ago).
-func (l *line) judge(original map[string]*Pull, now time.Time) (Line, bool) {
+func (l *line) judge(original map[string]*Pull, heads Heads, now time.Time) (Line, bool) {
 	ln := Line{Branch: l.branch}
 	if p := l.pull; p != nil {
 		ln.Pull, ln.PullTitle, ln.PullOpen = p.Number, p.Title, p.Open
@@ -279,8 +289,13 @@ func (l *line) judge(original map[string]*Pull, now time.Time) (Line, bool) {
 	}
 
 	p, r := l.pull, l.run
-	merged := (p != nil && p.MergedAt != nil) || (r != nil && r.Merge == "merged")
-	if merged {
+	open := p != nil && p.Open
+	head, exists := heads.SHA[l.branch]
+	// A branch already in the default branch is merged, by its own pull
+	// request or by another built on it.
+	inMain := heads.Known && exists && heads.InMain[head]
+	merged := (p != nil && p.MergedAt != nil) || (r != nil && r.Merge == "merged") || inMain
+	if merged && !open {
 		at := ln.At
 		if p != nil && p.MergedAt != nil {
 			at = *p.MergedAt
@@ -293,6 +308,9 @@ func (l *line) judge(original map[string]*Pull, now time.Time) (Line, bool) {
 	}
 	if p != nil && !p.Open && !taken && !delivered {
 		return ln, false // closed without merging
+	}
+	if heads.Known && !exists && !open && !taken {
+		return ln, false // the branch is gone
 	}
 	if p != nil && p.Open {
 		if first := original[p.SHA]; first != nil && first.Number != p.Number {

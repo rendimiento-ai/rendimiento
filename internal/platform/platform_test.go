@@ -65,6 +65,7 @@ type fakeGitHub struct {
 	removed [][]string
 	closed  []int         // the pull requests closed without merging
 	recent  []gh.PullInfo // what RecentPullRequests answers
+	listed  []gh.Branch   // what Branches answers (nil: an error)
 }
 
 func (f *fakeGitHub) tree(ref string) fstest.MapFS {
@@ -169,6 +170,14 @@ func (f *fakeGitHub) ClosePull(_ context.Context, _ int64, _ string, number int)
 	}
 	f.closed = append(f.closed, number)
 	return nil
+}
+func (f *fakeGitHub) Branches(context.Context, int64, string) ([]gh.Branch, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.listed == nil {
+		return nil, errors.New("no branches in this fake")
+	}
+	return append([]gh.Branch(nil), f.listed...), nil
 }
 func (f *fakeGitHub) MergeBase(context.Context, int64, string, string, string) (string, time.Time, error) {
 	return f.base, time.Time{}, nil
