@@ -59,6 +59,7 @@ var toolsEN = map[string]string{
 	"solicitud_leer":     "A kept request with all its spans (the waterfall): service, name, duration, error, attributes and events of each step.",
 	"ejecucion_lanzar":   "Queues a CI run of a branch, to test it (tests and build). The main branch is not allowed, because it deploys to production: a person does that. Needs an open cargo.",
 	"ejecucion_cancelar": "Cancels a queued or running run. Needs an open cargo.",
+	"ejecucion_reintentar": "Runs again what did not pass in a failed run of a branch (a stumble, not a mistake in the code): what passed is kept. Not on the main branch, which deploys. Needs an open cargo.",
 
 	"encargos_listar":  "The encargos: work a person (or another agent) asked for. The open ones, or all. You can take an open one with encargo_tomar.",
 	"encargo_leer":     "A whole encargo: what is asked, who has it, what was handed over, the person's comment if they sent it back, what people commented on it (with agents' answers), and its history.",

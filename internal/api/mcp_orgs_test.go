@@ -37,6 +37,11 @@ func (p plataformaDePrueba) QueueRun(_ context.Context, a *store.App, branch str
 	return nil, nil
 }
 
+func (p plataformaDePrueba) RetryRun(_ context.Context, id int64) (*store.Run, error) {
+	*p.hechos = append(*p.hechos, "retried a run")
+	return nil, nil
+}
+
 func (p plataformaDePrueba) CancelRun(_ context.Context, id int64) error {
 	*p.hechos = append(*p.hechos, "cancelled a run")
 	return nil
@@ -203,14 +208,15 @@ func TestEveryToolStaysInItsOrg(t *testing.T) {
 		"ruta_actualizar": {{map[string]any{"id": 1, "titulo": "cambiado por ana", "hecho": true}, "no existe la entrada 1"}},
 		"cargo_entregar":  {{args: map[string]any{"entrega": "nada ajeno"}}},
 
-		"apps_listar":        {{}},
-		"app_estado":         {{map[string]any{"app": "tienda"}, sinApp}},
-		"ejecucion_leer":     {{uno, sinCorrida}},
-		"paso_registro":      {{map[string]any{"ejecucion": 1, "paso": "web:build"}, sinCorrida}},
-		"solicitudes_listar": {{}, {map[string]any{"servicio": "tienda/web"}, "no tiene acceso a la aplicación tienda"}},
-		"solicitud_leer":     {{map[string]any{"id": "traza-principal"}, "no tiene acceso a las aplicaciones de esa solicitud"}},
-		"ejecucion_lanzar":   {{map[string]any{"app": "tienda", "rama": "de-ana"}, sinApp}},
-		"ejecucion_cancelar": {{uno, sinCorrida}},
+		"apps_listar":          {{}},
+		"app_estado":           {{map[string]any{"app": "tienda"}, sinApp}},
+		"ejecucion_leer":       {{uno, sinCorrida}},
+		"paso_registro":        {{map[string]any{"ejecucion": 1, "paso": "web:build"}, sinCorrida}},
+		"solicitudes_listar":   {{}, {map[string]any{"servicio": "tienda/web"}, "no tiene acceso a la aplicación tienda"}},
+		"solicitud_leer":       {{map[string]any{"id": "traza-principal"}, "no tiene acceso a las aplicaciones de esa solicitud"}},
+		"ejecucion_lanzar":     {{map[string]any{"app": "tienda", "rama": "de-ana"}, sinApp}},
+		"ejecucion_cancelar":   {{uno, sinCorrida}},
+		"ejecucion_reintentar": {{uno, sinCorrida}},
 
 		"encargos_listar":  {{args: map[string]any{"todos": true}}},
 		"encargo_leer":     {{uno, sinEncargo}},

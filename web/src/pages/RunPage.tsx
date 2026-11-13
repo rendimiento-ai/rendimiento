@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, dollars, duration, session, subscribe, timeAgo, type App, type Diagnosis, type Run, type Step } from "../api";
 import { ErrorBox, RunBadge } from "../components/ui";
-import { lang, t } from "../i18n";
+import { lang, t, tn } from "../i18n";
 import { TextoConFormato } from "../components/texto";
 
 /** A run's page: why it failed, its steps with when each ran, live as they go, and the log of the step chosen. */
@@ -64,13 +64,19 @@ export function RunPage() {
         {(run.status === "running" || run.status === "queued") && (
           <button className="danger" onClick={() => api.cancelRun(run.id).catch((e) => alert(e.message))}>{t("Cancel")}</button>
         )}
-        {run.status === "failed" && <AskAgent run={run} app={name} diagnosis={diagnosis?.status === "done" ? diagnosis.text : undefined} />}
+        {run.status === "failed" && (
+          <div className="row" style={{ gap: 8 }}>
+            <Retry run={run} app={app} onRetried={(r) => setRun((cur) => ({ ...cur, ...r }))} />
+            <AskAgent run={run} app={name} diagnosis={diagnosis?.status === "done" ? diagnosis.text : undefined} />
+          </div>
+        )}
       </div>
       <p className="sub">
         <span className="mono">{run.sha.slice(0, 7)}</span> {t("on")} <strong>{run.branch}</strong> · {t(run.event)}
         {run.deploy ? ` · ${t("deploys on success")}` : ` · ${t("build only")}`} · {timeAgo(run.createdAt)}
         {run.startedAt && ` · ${duration(run.startedAt, run.finishedAt)}`}
         {run.message && ` · ${run.message}`}
+        {!!run.retries && ` · ${tn(run.retries, "retried once", "retried {n} times")}`}
       </p>
 
       {run.status === "failed" && <WhyFailed run={run} d={diagnosis} setD={setDiagnosis} />}
@@ -86,6 +92,10 @@ export function RunPage() {
                 <strong>{step.id}</strong>
                 <RunBadge status={step.status} />
                 <span className="small muted">{duration(step.startedAt, step.finishedAt)}</span>
+                {(step.tries ?? 1) > 1 && <span className="badge">{t("try {n}", { n: step.tries! })}</span>}
+                {(run.stumbles?.[step.id] ?? 0) >= (run.flakyAfter ?? 3) && (
+                  <span className="badge warn" title={t("It failed and then passed on the same commit {n} times in 30 days: retrying hides it, fixing it does not.", { n: run.stumbles![step.id] })}>{t("flaky")}</span>
+                )}
                 {step.digest && <span className="mono small muted" title={step.digest}>{step.digest.slice(0, 19)}…</span>}
                 <span style={{ flex: 1 }} />
                 {firstError(logs[step.id]) >= 0 && (
@@ -107,6 +117,25 @@ export function RunPage() {
         <p className="muted">{t("Waiting to start…")}</p>
       )}
     </>
+  );
+}
+
+/**
+ * Retry what failed: runs again, in this same run, the steps that failed or were skipped; those that passed keep their
+ * result and their image. A run of the main branch deploys, so only the app's administrators retry it.
+ */
+function Retry({ run, app, onRetried }: { run: Run; app?: App; onRetried: (r: Run) => void }) {
+  const [busy, setBusy] = useState(false);
+  if (session.role === "guest" || (run.retries ?? 0) >= (run.maxRetries ?? 2)) return null;
+  if (run.deploy && app?.role !== "admin") return null;
+  const go = () => {
+    setBusy(true);
+    api.retryRun(run.id).then((r) => { setBusy(false); onRetried(r); }, (e) => { setBusy(false); alert(e.message); });
+  };
+  return (
+    <button disabled={busy} onClick={go} title={t("Runs again only what did not pass; what passed keeps its result and its image.")}>
+      {busy ? t("Retrying…") : t("Retry what failed")}
+    </button>
   );
 }
 
