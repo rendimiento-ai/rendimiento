@@ -18,20 +18,24 @@ export function semana(r: Reliability | undefined, now = new Date()): { enLinea?
   }
   if (!r) return { dias };
   let total = 0, ok = 0, p50 = 0;
-  const porDia = new Map<string, { total: number; ok: number; lenta: boolean }>();
+  const porDia = new Map<string, { total: number; ok: number; cubetas: number; lentas: number }>();
   for (const s of r.series) {
     total += s.total; ok += s.ok; p50 += s.p50Ms * s.total;
     for (const b of s.buckets) {
       const k = new Date(b.at).toDateString();
-      const v = porDia.get(k) ?? { total: 0, ok: 0, lenta: false };
-      v.total += b.total; v.ok += b.ok; v.lenta ||= b.p95Ms >= 1000;
+      const v = porDia.get(k) ?? { total: 0, ok: 0, cubetas: 0, lentas: 0 };
+      v.total += b.total; v.ok += b.ok;
+      if (b.total > 0) { v.cubetas++; if (b.p95Ms >= 1000) v.lentas++; }
       porDia.set(k, v);
     }
   }
   for (const d of dias) {
     const v = porDia.get(d.day);
     if (!v || v.total === 0) continue;
-    d.estado = v.ok / v.total < 0.9 ? "caida" : v.ok < v.total || v.lenta ? "lenta" : "ok";
+    // A blip is not a slow day: each release restarts the app and may miss a check or two. A day is slow when more
+    // than 1 in 200 checks failed, or when a tenth of its stretches answered in a second or more (p95).
+    const parte = v.ok / v.total;
+    d.estado = parte < 0.9 ? "caida" : parte < 0.995 || v.lentas > v.cubetas / 10 ? "lenta" : "ok";
   }
   return { enLinea: total ? ok / total : undefined, respuestaMs: total ? p50 / total : undefined, dias };
 }
