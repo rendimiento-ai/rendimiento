@@ -47,7 +47,7 @@ make itest                                       # construcciones reales en el g
 4. `hack/ci-test.sh` corre `controller-gen`, `go vet` y `go test -p 1 ./...`, y después el módulo de la aplicación de Windows (`escritorio/`); luego corre `npm run typecheck`, y su salida llega aquí en vivo:
 
     ```bash
-    --8<-- "hack/ci-test.sh:25:37"
+    --8<-- "hack/ci-test.sh:25:47"
     ```
 
 5. Los archivos regenerados se copian de vuelta, así el repositorio coincide con lo que se probó.

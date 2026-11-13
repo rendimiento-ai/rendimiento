@@ -47,7 +47,7 @@ make itest                                       # real builds on the BuildKit p
 4. `hack/ci-test.sh` runs `controller-gen`, `go vet` and `go test -p 1 ./...`, then the Windows app's module (`escritorio/`); then `npm run typecheck` runs, their output streamed here:
 
     ```bash
-    --8<-- "hack/ci-test.sh:25:37"
+    --8<-- "hack/ci-test.sh:25:47"
     ```
 
 5. Regenerated files are copied back, so the repository matches what was tested.

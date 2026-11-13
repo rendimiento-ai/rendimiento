@@ -26,6 +26,16 @@ section() { echo "== $1 ($(($(date +%s) - start))s)"; }
 heartbeat=$!
 trap 'kill $heartbeat 2>/dev/null || true' EXIT
 
+# The kept cache is a volume of its own (10Gi): Go's build cache only
+# drops what went unused for days, so busy days fill it, and a full volume
+# fails every step ("no space left on device"). Past 85%, the build cache
+# is emptied; the modules and the tools stay, so the next compile only
+# takes longer.
+if [ -d /cache ] && used=$(df -P /cache 2>/dev/null | awk 'NR==2 {print $5+0}') && [ "${used:-0}" -ge 85 ]; then
+  echo "== the cache is ${used}% full: emptying Go's build cache"
+  go clean -cache || rm -rf "$(go env GOCACHE)"
+fi
+
 section tools
 if ! controller-gen --version 2>/dev/null | grep -q "$CONTROLLER_GEN"; then
   echo "   installing controller-gen $CONTROLLER_GEN (the cache is empty or old)"
