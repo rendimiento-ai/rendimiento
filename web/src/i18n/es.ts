@@ -1799,4 +1799,12 @@ export const es: Record<string, string> = {
   "Outside the wall": "Fuera de la barda",
   "Yellow postigos are ports open to the local network: {list}.": "Los postigos amarillos son puertos abiertos a la red local: {list}.",
   "Change it in Environment → Platform settings": "Cámbiela en Entorno → Ajustes de la plataforma",
+  "try {n}": "intento {n}",
+  "It failed and then passed on the same commit {n} times in 30 days: retrying hides it, fixing it does not.": "Falló y luego pasó con el mismo commit {n} veces en 30 días: reintentar lo esconde, arreglarlo no.",
+  "flaky": "inestable",
+  "Runs again only what did not pass; what passed keeps its result and its image.": "Vuelve a correr solo lo que no pasó; lo que pasó conserva su resultado y su imagen.",
+  "Retrying…": "Reintentando…",
+  "Retry what failed": "Reintentar lo que falló",
+  "retried once": "reintentada una vez",
+  "retried {n} times": "reintentada {n} veces",
 };

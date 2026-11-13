@@ -426,7 +426,45 @@ func TestOnboardPushDeployRollback(t *testing.T) {
 	if len(runs) != 1 {
 		t.Fatalf("branch at a commit that failed on main: %v", runs)
 	}
-	waitRun(t, p, runs[0].ID)
+	failed := waitRun(t, p, runs[0].ID)
+
+	// 7b. Retrying what failed: the build that passed keeps its image and
+	// does not run again; only the test does, and when it passes this time
+	// it counts as a stumble. A run that did not fail is not retried.
+	if failed.Status != store.RunFailed {
+		t.Fatalf("encargo-8 run = %+v", failed)
+	}
+	exec.mu.Lock()
+	exec.failSHA, exec.ran = "", nil
+	exec.mu.Unlock()
+	if _, err := p.RetryRun(ctx, failed.ID); err != nil {
+		t.Fatal(err)
+	}
+	again := waitRun(t, p, failed.ID)
+	if again.Status != store.RunSucceeded || again.Retries != 1 {
+		t.Fatalf("retried run = %+v", again)
+	}
+	exec.mu.Lock()
+	ran := strings.Join(exec.ran, ",")
+	exec.mu.Unlock()
+	if ran != "hello:test" {
+		t.Fatalf("a retry ran %q, want only the test", ran)
+	}
+	for _, st := range again.Steps {
+		if st.ID == "hello:build" && (st.Tries != 1 || st.Digest != "sha256:"+sha3[:8]) {
+			t.Fatalf("kept build = %+v", st)
+		}
+		if st.ID == "hello:test" && (st.Tries != 2 || st.Status != store.RunSucceeded) {
+			t.Fatalf("retried test = %+v", st)
+		}
+	}
+	if n, _ := p.Store.Stumbles(ctx, failed.AppID); n["hello:test"] != 1 {
+		t.Fatalf("stumbles = %v", n)
+	}
+	var no *NotRetryable
+	if _, err := p.RetryRun(ctx, failed.ID); !errors.As(err, &no) {
+		t.Fatalf("retrying a run that passed: %v", err)
+	}
 	if runs, err := p.HandlePush(ctx, PushEvent{Installation: 7, Repo: "p0dxD/hello", Branch: "encargo-9", SHA: "9999999999999999999999999999999999999999", SkipCI: true}); err != nil || len(runs) != 0 {
 		t.Fatalf("[skip ci] push: %v %v", runs, err)
 	}

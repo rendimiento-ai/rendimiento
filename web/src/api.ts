@@ -132,6 +132,8 @@ export interface Step {
   message?: string;
   startedAt?: string;
   finishedAt?: string;
+  /** How often it ran: more than 1 when it failed and was retried. */
+  tries?: number;
 }
 
 export interface Run {
@@ -152,6 +154,12 @@ export interface Run {
   merge?: "merged" | "conflict" | "blocked";
   /** Who said in rendimiento that this commit is to be merged. */
   approvedBy?: string;
+  /** How often what failed was run again, and at most how often it may be. */
+  retries?: number;
+  maxRetries?: number;
+  /** The app's steps that stumbled lately (failed, then passed on the same commit), and from how many a step is flaky. */
+  stumbles?: Record<string, number>;
+  flakyAfter?: number;
 }
 
 export interface ServiceStatus {
@@ -1004,6 +1012,7 @@ export const api = {
     request<void>("PUT", `/api/apps/${app}/secrets/${secret}`, data),
   run: (id: number) => request<Run>("GET", `/api/runs/${id}`),
   cancelRun: (id: number) => request<void>("POST", `/api/runs/${id}/cancel`),
+  retryRun: (id: number) => request<Run>("POST", `/api/runs/${id}/retry`),
   approveMerge: (id: number) => request<Run>("POST", `/api/runs/${id}/merge`),
   stepLog: (id: number, step: string) => request<string>("GET", `/api/runs/${id}/steps/${encodeURIComponent(step)}/log`),
 };
