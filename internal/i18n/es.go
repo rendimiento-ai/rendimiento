@@ -77,6 +77,8 @@ var catalog = map[string]string{
 	"only a run that passed is merged": "solo se integra una ejecución que pasó",
 	"the branch has a newer commit: approve its run": "la rama tiene una confirmación más nueva: apruebe su ejecución",
 	"GitHub did not open the pull request: %s": "GitHub no abrió la solicitud de incorporación: %s",
+	"Live at %s": "En vivo en %s",
+	"This pull request's copy. It is deleted when the pull request is closed, or after %d days without a push.": "La copia de esta solicitud. Se borra cuando la solicitud se cierra, o después de %d días sin un envío.",
 	"the branch is already in %s: there is nothing left to merge": "la rama ya está en %s: no queda nada que integrar",
 	"the main branch is never closed": "la rama principal nunca se cierra",
 	"GitHub is not connected": "GitHub no está conectado",
