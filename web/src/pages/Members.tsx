@@ -289,8 +289,12 @@ function GitHubOfOrgs() {
   const act = (p: Promise<void>) => { setErr(undefined); p.then(reload, setErr); };
   return (
     <div className="card stack github-orgs" style={{ marginTop: 16 }}>
-      <strong>{t("GitHub accounts of the organizations")}</strong>
-      <p className="small muted" style={{ margin: 0 }}>{t("The platform's organization creates apps from every account the GitHub App is installed on; any other, only from the accounts given to it here, and from the App on its administrator's own GitHub account, which they connect themselves in New app. A GitHub organization's account is given here.")}</p>
+      <strong>{t("Which GitHub accounts each organization can use")}</strong>
+      <ul className="small muted" style={{ margin: 0, paddingLeft: 18 }}>
+        <li>{t("Your organization can create apps from every GitHub account where the GitHub App is installed.")}</li>
+        <li>{t("Other organizations can use only the accounts you give them below.")}</li>
+        <li>{t("Their administrators can also connect their own personal GitHub account themselves, in New app. A GitHub organization's account can only be given here.")}</li>
+      </ul>
       <ErrorBox error={err} />
       {data.installations.length === 0 && <p className="small muted" style={{ margin: 0 }}>{t("The GitHub App is not installed on any account yet.")}</p>}
       <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>
@@ -300,7 +304,7 @@ function GitHubOfOrgs() {
           return (
             <li key={i.id} className="row" style={{ gap: 8, flexWrap: "wrap" }}>
               <strong className="mono">{i.account.login}</strong>
-              {given.length === 0 && <span className="muted">{t("only the platform's organization")}</span>}
+              {given.length === 0 && <span className="muted">{t("only your organization uses it")}</span>}
               {given.map((g) => (
                 <span key={g.orgId} className="chip">
                   {orgName(g.orgId)}{" "}
