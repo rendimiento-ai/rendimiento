@@ -332,6 +332,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/apps/{app}/events", s.appEvents)
 	auth(store.MemberGuest, "GET /api/runs/{id}", s.getRun)
 	auth(store.MemberCollaborator, "POST /api/runs/{id}/cancel", s.cancelRun)
+	auth(store.MemberCollaborator, "POST /api/runs/{id}/retry", s.retryRun)
 	auth(store.MemberCollaborator, "POST /api/runs/{id}/merge", s.approveMerge)
 	auth(store.MemberGuest, "GET /api/runs/{id}/steps/{step}/log", s.stepLog)
 	auth(store.MemberGuest, "GET /api/runs/{id}/events", s.runEvents)
@@ -1644,7 +1645,48 @@ func (s *Server) getRun(w http.ResponseWriter, r *http.Request, _ string) {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, run)
+	// The steps of this app that stumbled lately (failed, then passed on
+	// the same commit), for the run page to call them flaky.
+	stumbles, _ := s.Store.Stumbles(r.Context(), run.AppID)
+	writeJSON(w, struct {
+		*store.Run
+		Stumbles   map[string]int `json:"stumbles,omitempty"`
+		FlakyAfter int            `json:"flakyAfter"`
+		MaxRetries int            `json:"maxRetries"`
+	}{run, stumbles, platform.FlakyAfter, platform.MaxRetries})
+}
+
+// retryRun runs again what did not pass in a failed run (see
+// platform.RetryRun). A run of the default branch deploys when it passes,
+// so retrying one is for the app's administrators.
+func (s *Server) retryRun(w http.ResponseWriter, r *http.Request, _ string) {
+	id, ok := s.runID(w, r)
+	if !ok {
+		return
+	}
+	run, err := s.Store.GetRun(r.Context(), id)
+	if err != nil {
+		httpError(w, http.StatusNotFound, "no such run")
+		return
+	}
+	if run.Deploy {
+		app, err := s.Store.GetAppByID(r.Context(), run.AppID)
+		if err != nil || accessOf(r).Role(app) != store.MemberAdmin {
+			httpError(w, http.StatusForbidden, "only administrators retry a run of the main branch: it deploys")
+			return
+		}
+	}
+	run, err = s.Platform.RetryRun(r.Context(), id)
+	var no *platform.NotRetryable
+	switch {
+	case errors.As(err, &no):
+		httpError(w, http.StatusConflict, no.Why)
+	case err != nil:
+		httpError(w, http.StatusInternalServerError, err.Error())
+	default:
+		anotarDetalle(r, "reintento", run.Retries)
+		writeJSON(w, run)
+	}
 }
 
 // cancelRun stops a run: one going is cancelled in this process (its pods

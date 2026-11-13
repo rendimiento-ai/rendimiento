@@ -100,6 +100,15 @@ La primera construcción de un servicio es la más lenta: se descargan las imág
 
 La página de la ejecución muestra el registro de cada paso. En las construcciones, la salida de BuildKit muestra cada paso del Dockerfile (o de Railpack), su estado de caché (`CACHED` o el tiempo que tardó) y, si falla, la salida del comando. La comprobación de GitHub lleva a la ejecución.
 
+## Reintentar lo que falló {#retrying-what-failed}
+
+A veces un paso falla por el clúster y no por el código: un entorno de pruebas que se pasó de tiempo con el clúster cargado, una prueba de navegador que se quedó sin tiempo. **Reintentar lo que falló**, en la página de una ejecución que falló, vuelve a correr en la **misma ejecución** solo los pasos que fallaron y los que se saltaron por eso; los que pasaron conservan su resultado, y una construcción conserva su imagen, así que nada se vuelve a construir. Si pasa, la ejecución termina como si hubiera pasado a la primera: en una rama, su comprobación de GitHub se pone verde y la integración por sí sola la toma; en la rama principal, la versión se hace con las imágenes ya construidas.
+
+- **Quién:** los colaboradores, en una rama. Una ejecución de la rama principal despliega, así que solo la reintentan los administradores de la aplicación, y solo la última de esa rama (una anterior desplegaría un commit más viejo). Los agentes reintentan ejecuciones de ramas con `ejecucion_reintentar`, nunca de la principal. Cada reintento queda en la bitácora.
+- **Dos veces como máximo** por ejecución; después, envíe un commit o constrúyala otra vez.
+- **El registro** de un paso reintentado conserva el intento anterior, bajo una línea `=== retry 1: running again what did not pass ===`, y el paso dice qué intento es.
+- **Pasos inestables:** un paso que falló y luego pasó con el mismo commit tropezó. Tres tropiezos en 30 días lo hacen **inestable**: la página de la ejecución lo marca y aparece como problema. Reintentar esconde una prueba inestable; arreglarla no.
+
 ## Tipos de rama {#kinds-of-branch}
 
 La pestaña **Ejecuciones** de la aplicación ordena sus últimas 50 ejecuciones por el tipo de su rama, con cuántas hay de cada uno: **Todas**, **Rama principal** (las que despliegan), **Con solicitud de incorporación** (una abierta), **Arreglos**, **Funciones**, **Versiones**, **Dependencias** y **Otras ramas**. Solo aparecen los tipos que tienen ejecuciones. El filtro queda en la dirección (`?tipo=fix`), así que un enlace lo abre.

@@ -873,8 +873,26 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 	files, prev := p.changes(ctx, app, run)
 	reuse, reuseNote := reusable(sp, files, prev)
 	skip := skippedTasks(sp, run.Deploy, files, prev)
+	// A retried run keeps what already passed: its steps are not run
+	// again, and their results (a build's digest) go on to the release.
+	kept, tried := map[string]pipeline.StepResult{}, map[string]int{}
+	var keptSteps []pipeline.Step
+	if run.Retries > 0 {
+		if before, err := p.Store.GetRun(ctx, run.ID); err == nil {
+			for _, st := range before.Steps {
+				tried[st.ID] = st.Tries
+				if st.Status == string(pipeline.StatusSucceeded) {
+					kept[st.ID] = pipeline.StepResult{Status: pipeline.StatusSucceeded, Digest: st.Digest}
+				}
+			}
+		}
+	}
 	var toRun []pipeline.Step
 	for _, st := range steps {
+		if _, ok := kept[st.ID]; ok {
+			keptSteps = append(keptSteps, st)
+			continue
+		}
 		if img, ok := reuse[st.Service]; ok && img != "" {
 			p.StepUpdate(strconv.FormatInt(run.ID, 10), st.ID, pipeline.StepResult{
 				Status: pipeline.StatusReused, Message: reuseNote, Started: time.Now(), Finished: time.Now()})
@@ -904,6 +922,13 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 	}
 	src := pipeline.Source{Repo: app.Repo, SHA: run.SHA, Branch: run.Branch, Deploy: run.Deploy}
 	results, err := p.Runner.Run(withInstallation(runCtx, app.InstallationID), strconv.FormatInt(run.ID, 10), src, toRun)
+	for id, r := range kept {
+		if results == nil {
+			results = map[string]pipeline.StepResult{}
+		}
+		results[id] = r
+	}
+	p.noteStumbles(ctx, app, run, toRun, results, tried)
 
 	status, msg := store.RunSucceeded, ""
 	switch {
@@ -936,7 +961,7 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 	if status == store.RunSucceeded && run.Deploy && len(sp.Services) == 0 && len(sp.Builds) == 0 {
 		msg = M("tested; there is nothing to deploy") // a library: its tasks are its checks
 	} else if status == store.RunSucceeded && run.Deploy {
-		rel, err := p.release(ctx, app, run, sp, toRun, results, reuse)
+		rel, err := p.release(ctx, app, run, sp, append(toRun, keptSteps...), results, reuse)
 		var blocked errPreDeploy
 		switch {
 		case errors.As(err, &blocked):

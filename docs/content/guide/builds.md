@@ -100,6 +100,15 @@ The first build of a service is the slowest: base images and dependencies are do
 
 The run page shows each step's log. For builds, BuildKit's output shows each Dockerfile (or Railpack) step, its cache status (`CACHED` or the time it took) and, on failure, the command's output. The GitHub check links to the run.
 
+## Retrying what failed {#retrying-what-failed}
+
+Sometimes a step fails for the cluster, not for the code: a test environment that timed out under load, a browser test that ran out of time. **Retry what failed**, on the page of a failed run, runs again in the **same run** only the steps that failed and those skipped because of them; the steps that passed keep their result, and a build keeps its image, so nothing is rebuilt. When it passes, the run ends as if it had passed the first time: on a branch its GitHub check turns green and merging by itself takes it; on the main branch the release is made with the images already built.
+
+- **Who:** collaborators on a branch. A run of the main branch deploys, so only the app's administrators retry it, and only the branch's latest run (an older one would deploy an older commit). Agents retry runs of branches with `ejecucion_reintentar`, never the main branch's. Each retry is in the bitácora.
+- **At most twice** per run; after that, push a commit or build it again.
+- **The log** of a retried step keeps the earlier attempt, under a line `=== retry 1: running again what did not pass ===`, and the step says which try it is.
+- **Flaky steps:** a step that failed and then passed on the same commit stumbled. Three stumbles in 30 days make it **flaky**: the run page marks it, and it shows as a problem. Retrying hides a flaky test; fixing it does not.
+
 ## Kinds of branch {#kinds-of-branch}
 
 The app's **Runs** tab sorts its last 50 runs by the kind of their branch, with how many of each: **All**, **Main branch** (the runs that deploy), **With a pull request** (an open one), **Fixes**, **Features**, **Releases**, **Dependencies** and **Other branches**. Only the kinds that have runs show. The filter stays in the address (`?tipo=fix`), so a link opens it.

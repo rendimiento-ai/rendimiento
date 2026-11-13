@@ -30,6 +30,8 @@ type Plataforma interface {
 	// QueueRun puts a run of a branch in the CI queue.
 	QueueRun(ctx context.Context, app *store.App, branch string) (*store.Run, error)
 	CancelRun(ctx context.Context, id int64) error
+	// RetryRun runs again what did not pass in a failed run.
+	RetryRun(ctx context.Context, id int64) (*store.Run, error)
 	// WaitRun returns a run once it has finished, or as it stands when ctx
 	// ends (with ctx's error).
 	WaitRun(ctx context.Context, id int64) (*store.Run, error)
@@ -184,6 +186,7 @@ func (s *Server) addPlataformaTools(srv herramientas, write bool) {
 	if write {
 		addTool(s, srv, &mcp.Tool{Name: "ejecucion_lanzar", Description: "Pone en la cola de CI una ejecución de una rama, para probarla (pruebas y construcción). No se permite la rama principal, porque despliega a producción: eso lo hace una persona. Necesita un cargo abierto."}, s.ejecucionLanzar)
 		addTool(s, srv, &mcp.Tool{Name: "ejecucion_cancelar", Description: "Cancela una ejecución en cola o en curso. Necesita un cargo abierto."}, s.ejecucionCancelar)
+		addTool(s, srv, &mcp.Tool{Name: "ejecucion_reintentar", Description: "Vuelve a correr lo que no pasó en una ejecución de una rama que falló (un tropiezo, no un error del código): lo que pasó se conserva. No en la rama principal, que despliega. Necesita un cargo abierto."}, s.ejecucionReintentar)
 	}
 }
 
@@ -441,6 +444,26 @@ func (s *Server) ejecucionLanzar(ctx context.Context, k store.AgentKey, in lanza
 	}
 	if r == nil {
 		return Corrida{}, fmt.Errorf("no se puso en cola: la rama %s no tiene un rendimiento.yaml válido", branch)
+	}
+	return corrida(r, a.Name), nil
+}
+
+// ejecucionReintentar (ejecucion_reintentar) runs again what did not pass
+// in a failed run of a branch; a run of the main branch deploys, and that
+// is a person's.
+func (s *Server) ejecucionReintentar(ctx context.Context, k store.AgentKey, in ejecucionIn) (Corrida, error) {
+	if _, err := s.cargoFor(ctx, k); err != nil {
+		return Corrida{}, err
+	}
+	r, a, err := s.runFor(ctx, k, in.ID)
+	if err != nil {
+		return Corrida{}, err
+	}
+	if r.Deploy {
+		return Corrida{}, fmt.Errorf("la ejecución %d es de la rama principal de %s: reintentarla despliega, y eso lo hace una persona", in.ID, a.Name)
+	}
+	if r, err = s.Plataforma.RetryRun(ctx, in.ID); err != nil {
+		return Corrida{}, err
 	}
 	return corrida(r, a.Name), nil
 }

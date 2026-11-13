@@ -113,6 +113,14 @@ func (f *fakePlataforma) finish(id int64, status string) {
 	f.mu.Unlock()
 }
 
+func (f *fakePlataforma) RetryRun(_ context.Context, id int64) (*store.Run, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.runs[id].Status = store.RunQueued
+	f.runs[id].Retries++
+	return f.runs[id], nil
+}
+
 func (f *fakePlataforma) CancelRun(_ context.Context, id int64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -146,7 +154,7 @@ func TestPlataformaTools(t *testing.T) {
 			{ID: 2, Name: "blog", Repo: "o/blog", DefaultBranch: "main"},
 		},
 		runs: map[int64]*store.Run{
-			10: {ID: 10, AppID: 1, Branch: "main", SHA: "1234567890", Status: store.RunFailed, Steps: []store.Step{{ID: "web:test", Kind: "test", Status: "failed"}}},
+			10: {ID: 10, AppID: 1, Branch: "main", SHA: "1234567890", Deploy: true, Status: store.RunFailed, Steps: []store.Step{{ID: "web:test", Kind: "test", Status: "failed"}}},
 			20: {ID: 20, AppID: 2, Branch: "main", Status: store.RunSucceeded},
 		},
 	}
@@ -209,6 +217,15 @@ func TestPlataformaTools(t *testing.T) {
 	out, msg = call(t, col, "ejecucion_cancelar", map[string]any{"id": 99})
 	if msg != "" || out["estado"] != store.RunCancelled || len(fp.cancelled) != 1 {
 		t.Fatalf("cancel = %v %s", out, msg)
+	}
+	// Retrying what failed: on a branch, yes; on the main branch, which
+	// deploys, a person does it.
+	if _, msg := call(t, col, "ejecucion_reintentar", map[string]any{"id": 10}); !strings.Contains(msg, "rama principal") {
+		t.Fatalf("retry on the main branch: %q", msg)
+	}
+	out, msg = call(t, col, "ejecucion_reintentar", map[string]any{"id": 99})
+	if msg != "" || out["estado"] != store.RunQueued {
+		t.Fatalf("retry = %v %s", out, msg)
 	}
 
 	// A key limited to shop sees and acts on shop only.
