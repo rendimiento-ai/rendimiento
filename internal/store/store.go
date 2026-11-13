@@ -230,7 +230,10 @@ type Run struct {
 const (
 	MergeMerged   = "merged"
 	MergeConflict = "conflict" // it conflicts with the default branch
-	MergeBlocked  = "blocked"  // GitHub refuses it: a review, a required check
+	// MergeResolved: it conflicted only where both sides added lines, and
+	// rendimiento merged the default branch into it (a new commit, tested).
+	MergeResolved = "resolved"
+	MergeBlocked  = "blocked" // GitHub refuses it: a review, a required check
 )
 
 // Step is one test or build step of a run, with its result.

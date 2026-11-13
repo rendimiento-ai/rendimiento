@@ -79,7 +79,7 @@ func (p *Platform) MergeReady(ctx context.Context, app *store.App) {
 		if run.ApprovedBy == "" && (!app.MergeAny || depsPull(pr, app)) {
 			continue // nobody said yes in rendimiento
 		}
-		if run.Merge == store.MergeMerged || run.Merge == store.MergeConflict {
+		if run.Merge == store.MergeMerged || run.Merge == store.MergeConflict || run.Merge == store.MergeResolved {
 			continue // a conflict only goes away with a new commit, which runs again
 		}
 		if !p.othersPassed(ctx, app, pr.Head.Ref, pr.Head.SHA) {
@@ -135,7 +135,21 @@ func (p *Platform) mergePull(ctx context.Context, app *store.App, run *store.Run
 	state, msg := store.MergeMerged, M("merged pull request #%d", number)
 	switch {
 	case pr.Mergeable != nil && !*pr.Mergeable:
-		state, msg = store.MergeConflict, M("pull request #%d conflicts with %s: not merged", number, app.DefaultBranch)
+		// Where both sides only added lines, rendimiento joins them itself
+		// and tests the merge; anything else is a person's (or their agent's).
+		sha, joined, conflicts, err := p.resolveAddOnly(ctx, app, run, pr.Head.Ref)
+		switch {
+		case err == nil && sha != "":
+			state, msg = store.MergeResolved, M("pull request #%d conflicted with %s only where both sides added lines: rendimiento joined them in %s (%s), and tests it now", number, app.DefaultBranch, shortSHA(sha), strings.Join(joined, ", "))
+			p.queueResolved(ctx, app, run, pr.Head.Ref, sha)
+		case len(conflicts) > 0:
+			state, msg = store.MergeConflict, M("pull request #%d conflicts with %s in %s: not merged", number, app.DefaultBranch, strings.Join(conflicts, ", "))
+		default:
+			if err != nil {
+				p.Log.Info("merge: could not join the conflict", "app", app.Name, "pull", number, "err", err)
+			}
+			state, msg = store.MergeConflict, M("pull request #%d conflicts with %s: not merged", number, app.DefaultBranch)
+		}
 	case pr.Mergeable == nil:
 		return // GitHub is still working it out: the next look decides
 	case pr.MergeableState == "blocked":

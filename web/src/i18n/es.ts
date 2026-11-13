@@ -1799,4 +1799,5 @@ export const es: Record<string, string> = {
   "Outside the wall": "Fuera de la barda",
   "Yellow postigos are ports open to the local network: {list}.": "Los postigos amarillos son puertos abiertos a la red local: {list}.",
   "Change it in Environment → Platform settings": "Cámbiela en Entorno → Ajustes de la plataforma",
+  "It goes to your own agent, which has git: the platform's agent cannot merge branches.": "Va a su propio agente, que tiene git: el agente de la plataforma no puede unir ramas.",
 };

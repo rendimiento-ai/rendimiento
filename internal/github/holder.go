@@ -255,3 +255,12 @@ func (h *Holder) ForOwner(ctx context.Context, owner string) (*Client, int64, er
 	}
 	return nil, 0, fmt.Errorf("the GitHub App is not installed on %s", owner)
 }
+
+// CommitMerge makes a merge commit on branch (see Client.CommitMerge).
+func (h *Holder) CommitMerge(ctx context.Context, installation int64, repo, branch, head, other, message string, files map[string][]byte, remove []string) (string, error) {
+	c, err := h.client(installation)
+	if err != nil {
+		return "", err
+	}
+	return c.CommitMerge(ctx, repo, branch, head, other, message, files, remove)
+}

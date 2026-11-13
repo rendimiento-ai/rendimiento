@@ -149,7 +149,7 @@ export interface Run {
   steps?: Step[];
   /** The pull request rendimiento tried to merge when this run passed, and what became of it. */
   pull?: number;
-  merge?: "merged" | "conflict" | "blocked";
+  merge?: "merged" | "conflict" | "blocked" | "resolved";
   /** Who said in rendimiento that this commit is to be merged. */
   approvedBy?: string;
 }

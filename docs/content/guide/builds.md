@@ -25,7 +25,8 @@ Either way:
 - A pull request from a fork is never merged by rendimiento.
 - In a repository with several apps, the commit must pass in every one that ran it.
 - What GitHub asks of the pull request still holds: when a rule of the branch wants a review or a check, the run says it waits for that, and merges when it is given.
-- **A conflict is never merged.** The run says so, and its page offers **Ask an agent to resolve it**: that makes an [encargo](agents.md), which says how hard it is and about what it would cost with the platform's AI before anyone does it. An agent of yours, working in a clone with git, resolves it well; the platform's own agent edits through GitHub without merging the two sides, so it suits small conflicts only. The new commit runs, and is merged if it passes.
+- **A conflict where both sides only added lines is joined by rendimiento.** Two branches that each add a line after the same one (a page to the book's menu, a phrase to the translations) conflict for git, though nothing needs deciding. rendimiento merges the default branch into the branch with a three-way merge: when, in every file both changed, the two sides only added lines at the same places, it keeps both (the default branch's first), commits the merge on the branch through GitHub, and tests it. The run says which files it joined. The yes given to the branch carries over to that commit, since it holds nothing new: it is merged when it passes. If anything else conflicts (a line both changed, a file one deleted and the other changed), nothing is committed.
+- **Any other conflict is never merged.** The run names the files, and its page offers **Ask an agent to resolve it**: that makes an [encargo](agents.md) for your own agent, which has git; the platform's agent cannot merge branches. The new commit runs, and is merged if it passes.
 
 ## Dockerfile or Railpack
 

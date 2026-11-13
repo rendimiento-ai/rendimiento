@@ -639,9 +639,26 @@ func (c *Client) CreateOrgRepo(ctx context.Context, org, name, description strin
 // commit's SHA. It fails if the branch moved meanwhile, rather than
 // overwrite a commit it has not seen.
 func (c *Client) CommitFiles(ctx context.Context, repo, branch, message string, files map[string][]byte, remove []string) (string, error) {
+	return c.commitOn(ctx, repo, branch, "", "", message, files, remove)
+}
+
+// CommitMerge makes a merge commit on branch: its parents are the branch's
+// head, which must still be at head, and other (the default branch's
+// head, say); its tree is the branch's with files written and remove
+// deleted, the merge already worked out. The branch then points at it.
+func (c *Client) CommitMerge(ctx context.Context, repo, branch, head, other, message string, files map[string][]byte, remove []string) (string, error) {
+	return c.commitOn(ctx, repo, branch, head, other, message, files, remove)
+}
+
+// commitOn commits files and removals on branch's head (which must be
+// want, unless want is ""), with other as a second parent when set.
+func (c *Client) commitOn(ctx context.Context, repo, branch, want, other, message string, files map[string][]byte, remove []string) (string, error) {
 	head, err := c.BranchSHA(ctx, repo, branch)
 	if err != nil {
 		return "", err
+	}
+	if want != "" && head != want {
+		return "", fmt.Errorf("%s moved to %s while it was being merged", branch, head)
 	}
 	var parent struct {
 		Tree struct {
@@ -688,8 +705,12 @@ func (c *Client) CommitFiles(ctx context.Context, repo, branch, message string, 
 	var commit struct {
 		SHA string `json:"sha"`
 	}
+	parents := []string{head}
+	if other != "" {
+		parents = append(parents, other)
+	}
 	if err := c.do(ctx, http.MethodPost, "/repos/"+repo+"/git/commits", map[string]any{
-		"message": message, "tree": tree.SHA, "parents": []string{head},
+		"message": message, "tree": tree.SHA, "parents": parents,
 	}, &commit); err != nil {
 		return "", err
 	}

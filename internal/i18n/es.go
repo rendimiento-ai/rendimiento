@@ -610,4 +610,6 @@ var catalog = map[string]string{
 	"%s holds at most %d address ranges":                                        "%s admite como máximo %s rangos de direcciones",
 	"%s must be address ranges such as 192.168.1.0/24, got %q":                  "%s debe tener rangos de direcciones como 192.168.1.0/24, y dice %s",
 	"%s must be a quantity such as 4 or 8Gi, got %q":                            "%s debe ser una cantidad como 4 u 8Gi, y dice %s",
+	"pull request #%d conflicted with %s only where both sides added lines: rendimiento joined them in %s (%s), and tests it now": "la solicitud n.º %s chocaba con %s solo donde los dos lados agregaron líneas: rendimiento las juntó en %s (%s), y ahora lo prueba",
+	"pull request #%d conflicts with %s in %s: not merged": "la solicitud n.º %s choca con %s en %s: no se integró",
 }
