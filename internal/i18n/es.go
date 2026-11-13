@@ -85,6 +85,8 @@ var catalog = map[string]string{
 	"test %s failed (it only reports until it passes %d releases in a row)": "falló la prueba %s (solo avisa hasta que pase %d versiones seguidas)",
 	"test %s set aside: it failed and then passed on its own %d times": "la prueba %s queda aparte: falló y luego pasó sola %d veces",
 	"test %s failed and then passed on its retry": "la prueba %s falló y luego pasó al reintentarla",
+	"Live at %s": "En vivo en %s",
+	"This pull request's copy. It is deleted when the pull request is closed, or after %d days without a push.": "La copia de esta solicitud. Se borra cuando la solicitud se cierra, o después de %d días sin un envío.",
 	"the branch is already in %s: there is nothing left to merge": "la rama ya está en %s: no queda nada que integrar",
 	"the main branch is never closed": "la rama principal nunca se cierra",
 	"GitHub is not connected": "GitHub no está conectado",

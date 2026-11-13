@@ -782,6 +782,8 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var payload struct {
+		Action     string `json:"action"` // pull_request: opened, closed...
+		Number     int    `json:"number"`
 		Ref        string `json:"ref"`
 		After      string `json:"after"`
 		Deleted    bool   `json:"deleted"`
@@ -808,9 +810,13 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 				SkipCI: payload.HeadCommit != nil && platform.SaysSkipCI(payload.HeadCommit.Message)}
 		}
 	}
-	// Pull requests need no event of their own: the branch push already ran
+	// Pull requests need no run of their own: the branch push already ran
 	// and its check run shows on the PR. PRs from forks are never built,
-	// since their code would run with our clone token.
+	// since their code would run with our clone token. A closed one takes
+	// its preview copy with it.
+	if event == "pull_request" && payload.Action == "closed" && payload.Number > 0 && app.Allows(strings.Split(payload.Repository.FullName, "/")[0]) {
+		s.Platform.ClosePreview(r.Context(), payload.Repository.FullName, payload.Number)
+	}
 	if push == nil {
 		w.WriteHeader(http.StatusAccepted)
 		return

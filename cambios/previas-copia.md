@@ -1,0 +1,1 @@
+- **Preview environments:** an app with `previews:` gets a live copy of each open pull request from its own repository once the branch's run passes, at `pr-<number>.<domain>`, with a **preview** check linking to it. Copies are deleted when the pull request closes, after `keep` days without a push, or to stay under `max`. Clusters only.
