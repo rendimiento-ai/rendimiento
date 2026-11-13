@@ -16,6 +16,7 @@ Las tareas están ordenadas por valor según el esfuerzo, primero para este clú
 | **Respaldos fuera de casa**: copiar la cubeta de respaldos de Garage a una cubeta en la nube (Cloudflare R2, Backblaze B2) | los respaldos sobreviven a perder todo el clúster |
 | **Versiones canario y A/B** con los pesos canario de ingress-nginx | publicar primero al 10 %; reversión automática ante errores |
 | **Contrato de extensiones**: un contenedor que recibe JSON y devuelve un veredicto en JSON, en los ganchos *antes del despliegue*, *después del despliegue* y *análisis* | compuertas de rendimiento con k6, experimentos de caos (Chaos Mesh), revisiones con IA, todo sin cambiar el núcleo |
+| **Pruebas generadas por IA**: descubrir la aplicación (un recorrido con Playwright, OpenAPI), generar pruebas, proponerlas como solicitud de incorporación, correrlas tras el despliegue y revertir si fallan; vea el [diseño](ai-tests.md) | las aplicaciones tienen pruebas sin escribirlas; ping-demo es el primer caso |
 | **Generador con IA** detrás de `generate.Generator` | mejores `rendimiento.yaml` y Dockerfiles para repositorios poco comunes |
 | **Secretos desde un almacén externo** (SOPS en git, Vault, 1Password) | los secretos se vuelven reproducibles y auditables |
 | **Roles y bitácora de auditoría** | más de una persona lo puede usar sin riesgo |
