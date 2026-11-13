@@ -99,6 +99,32 @@ verify:
 
 The platform-wide window is `VERIFY_WINDOW` (default `5m`, `0` turns verification off). Verification runs on the leader. If the platform restarts mid-window, the release is watched again from the start, unless a newer one replaced it.
 
+### The app's own tests {#the-apps-own-tests}
+
+An app can bring its own browser tests (Playwright) and have every release judged by them. They live in an image built with each release: a `builds:` entry whose Dockerfile starts from the Playwright image and copies the tests in. `tests:` names it:
+
+```yaml
+builds:
+  - name: e2e
+    path: e2e            # FROM mcr.microsoft.com/playwright:…, COPY . ., RUN npm ci
+tests:
+  build: e2e
+  # command: npx playwright test      (the default)
+  # url: https://tienda.example.com   (default: the first service's domain, as BASE_URL)
+  # blockingAfter: 5                  (clean releases before a test may roll one back)
+  secretEnv: { TEST_PASSWORD: tienda-pruebas/password }
+```
+
+Once the release is live they run as a post-deploy task (`pruebas`), with one retry, and every test is judged on its own:
+
+| A test that is… | when it fails |
+|---|---|
+| **only reporting** (every new test) | says so on the release; nothing is rolled back |
+| **blocking** (it passed `blockingAfter` releases in a row) | fails verification, so the release is rolled back |
+| **set aside** (it failed and then passed on its retry 3 times) | counts for nothing until it passes `blockingAfter` releases in a row again |
+
+A test that fails and then passes on its retry never rolls a release back: a test that cries wolf is worse than none. Each release in the **Releases** tab lists its tests, failures first, with what each may do now. The first release has nothing to go back to: a failure there is only reported.
+
 ## Public stats
 
 With `PUBLIC_STATS=true`, rendimiento publishes **aggregate numbers** at `GET /api/public/stats` for a public page. A portfolio can show them, for example in a *Live from the Home Lab* section.

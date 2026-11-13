@@ -1,0 +1,14 @@
+# A web service with its own browser tests: a build makes an image with
+# them (from the Playwright image), and once each release is live they run
+# against it. A test only reports until it passes five releases in a row;
+# then a failure of it rolls the release back.
+services:
+  - name: web
+    port: 3000
+    domain: tienda.example.com
+builds:
+  - name: e2e
+    path: e2e
+tests:
+  build: e2e
+  env: { TEST_USER: prueba@example.com }
