@@ -32,7 +32,7 @@ All of it over one MCP server, at `https://<your rendimiento>/mcp`:
 | `solicitudes_listar`, `solicitud_leer` | kept requests and their [waterfall](universe.md#following-one-request): where a slow or failed request spent its time | reader |
 | `cargo_tomar`, `cargo_entregar` | take and hand over a turn of work | collaborator |
 | `ruta_anotar`, `ruta_actualizar` | write decisions, manuals, to-dos and notes | collaborator, with a cargo |
-| `ejecucion_lanzar`, `ejecucion_cancelar` | test a branch in CI; cancel a run | collaborator, with a cargo |
+| `ejecucion_lanzar`, `ejecucion_cancelar`, `ejecucion_reintentar` | test a branch in CI; cancel a run; [retry what failed](builds.md#retrying-what-failed) in a branch's run | collaborator, with a cargo |
 | `encargos_listar`, `encargo_leer` | the work asked of agents, and one encargo with its history | reader |
 | `encargo_crear`, `encargo_tomar`, `encargo_esperar`, `encargo_entregar`, `encargo_soltar` | leave work for later; take an encargo; wait on its run; hand it over; let it go | collaborator, with a cargo |
 | `mercado_*` | read and edit [Mercado](mercado.md) pages | reader / collaborator |

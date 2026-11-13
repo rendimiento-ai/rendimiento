@@ -224,6 +224,8 @@ type Run struct {
 	// ApprovedBy is who said in rendimiento that this commit is to be
 	// merged ("" when nobody did).
 	ApprovedBy string `json:"approvedBy,omitempty"`
+	// Retries is how often a person or an agent had what failed run again.
+	Retries int `json:"retries,omitempty"`
 }
 
 // What became of the pull request of a run that passed.
@@ -244,6 +246,9 @@ type Step struct {
 	Message    string     `json:"message,omitempty"`
 	StartedAt  *time.Time `json:"startedAt,omitempty"`
 	FinishedAt *time.Time `json:"finishedAt,omitempty"`
+	// Tries is how often the step ran: more than 1 when it failed and was
+	// retried.
+	Tries int `json:"tries,omitempty"`
 }
 
 const (
@@ -254,12 +259,12 @@ const (
 	RunCancelled = "cancelled"
 )
 
-const runCols = `id, app_id, sha, branch, event, deploy, status, message, check_run, created_at, started_at, finished_at, pull_number, merge_state, approved_by`
+const runCols = `id, app_id, sha, branch, event, deploy, status, message, check_run, created_at, started_at, finished_at, pull_number, merge_state, approved_by, retries`
 
 // scanRun reads a run row, without its steps.
 func scanRun(row pgx.Row) (*Run, error) {
 	var r Run
-	err := row.Scan(&r.ID, &r.AppID, &r.SHA, &r.Branch, &r.Event, &r.Deploy, &r.Status, &r.Message, &r.CheckRun, &r.CreatedAt, &r.StartedAt, &r.FinishedAt, &r.Pull, &r.Merge, &r.ApprovedBy)
+	err := row.Scan(&r.ID, &r.AppID, &r.SHA, &r.Branch, &r.Event, &r.Deploy, &r.Status, &r.Message, &r.CheckRun, &r.CreatedAt, &r.StartedAt, &r.FinishedAt, &r.Pull, &r.Merge, &r.ApprovedBy, &r.Retries)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -450,7 +455,7 @@ func (s *Store) GetRun(ctx context.Context, id int64) (*Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.pool.Query(ctx, `SELECT step_id, service, kind, depends_on, status, digest, message, started_at, finished_at
+	rows, err := s.pool.Query(ctx, `SELECT step_id, service, kind, depends_on, status, digest, message, started_at, finished_at, tries
 		FROM steps WHERE run_id = $1 ORDER BY step_id`, id)
 	if err != nil {
 		return nil, err
@@ -458,7 +463,7 @@ func (s *Store) GetRun(ctx context.Context, id int64) (*Run, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var st Step
-		if err := rows.Scan(&st.ID, &st.Service, &st.Kind, &st.DependsOn, &st.Status, &st.Digest, &st.Message, &st.StartedAt, &st.FinishedAt); err != nil {
+		if err := rows.Scan(&st.ID, &st.Service, &st.Kind, &st.DependsOn, &st.Status, &st.Digest, &st.Message, &st.StartedAt, &st.FinishedAt, &st.Tries); err != nil {
 			return nil, err
 		}
 		r.Steps = append(r.Steps, st)

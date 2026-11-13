@@ -873,6 +873,10 @@ func (m plataformaMCP) QueueRun(ctx context.Context, app *store.App, branch stri
 
 func (m plataformaMCP) CancelRun(ctx context.Context, id int64) error { return m.p.CancelRun(ctx, id) }
 
+func (m plataformaMCP) RetryRun(ctx context.Context, id int64) (*store.Run, error) {
+	return m.p.RetryRun(ctx, id)
+}
+
 // WaitRun wakes on the run's live events (from whichever process runs it)
 // and checks the database every 20 seconds too, in case an event is lost.
 func (m plataformaMCP) WaitRun(ctx context.Context, id int64) (*store.Run, error) {
