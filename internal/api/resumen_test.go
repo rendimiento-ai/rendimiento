@@ -50,6 +50,12 @@ func TestTheDaysSummary(t *testing.T) {
 	if err != nil || len(facts) < 2 {
 		t.Fatalf("facts = %+v %v", facts, err)
 	}
+	// The scoreboard of today counts each app's release; the view has one
+	// board per day shown, with only the apps the reader sees.
+	board, err := e.store.DayBoard(ctx, store.DefaultOrg, from, from.AddDate(0, 0, 1))
+	if err != nil || len(board) != 2 || board[0].Releases != 1 || board[1].Releases != 1 {
+		t.Fatalf("board = %+v %v", board, err)
+	}
 	yesterday := from.AddDate(0, 0, -1).Format(time.DateOnly)
 	s := &agentes.Summarizer{Store: e.store, Model: modeloResumen{`[{"app": "resumen-a", "text": "a: release #1"}, {"app": "resumen-b", "text": "b: release #1"}, {"app": "", "text": "all good"}]`}}
 	if _, err := s.Write(ctx, store.DefaultOrg, yesterday, from, from.AddDate(0, 0, 1), i18n.English); err != nil {
@@ -69,6 +75,9 @@ func TestTheDaysSummary(t *testing.T) {
 	v := read("p0dxD")
 	if len(v.Days) != 1 || v.Days[0].Day != yesterday || len(v.Days[0].Lines) != 3 || v.Days[0].Source != store.SummaryIA {
 		t.Fatalf("admin = %+v", v)
+	}
+	if _, ok := v.Boards[yesterday]; !ok {
+		t.Fatalf("no scoreboard for %s: %+v", yesterday, v.Boards)
 	}
 	v = read("fuera")
 	if len(v.Days) != 1 || len(v.Days[0].Lines) != 2 || v.Days[0].Lines[0].App != "resumen-a" || v.Days[0].Lines[1].App != "" {
