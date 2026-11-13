@@ -415,6 +415,16 @@ func (s *Store) RunAt(ctx context.Context, appID int64, branch, sha string) (*Ru
 	return scanRun(s.pool.QueryRow(ctx, `SELECT `+runCols+` FROM runs WHERE app_id = $1 AND branch = $2 AND sha = $3 ORDER BY id DESC LIMIT 1`, appID, branch, sha))
 }
 
+// TriedOn reports whether the app has a run of the commit on the branch
+// that is queued, running or passed: a failed or cancelled one does not
+// count, so trying again still runs.
+func (s *Store) TriedOn(ctx context.Context, appID int64, branch, sha string) (bool, error) {
+	var ok bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM runs WHERE app_id = $1 AND branch = $2 AND sha = $3 AND status IN ($4, $5, $6))`,
+		appID, branch, sha, RunQueued, RunRunning, RunSucceeded).Scan(&ok)
+	return ok, err
+}
+
 // SetRunMerge records what became of the pull request of a run that
 // passed, in its message too. A run whose pull request was merged stays so.
 func (s *Store) SetRunMerge(ctx context.Context, runID int64, pull int, state, message string) error {

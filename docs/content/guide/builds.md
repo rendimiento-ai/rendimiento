@@ -6,6 +6,8 @@
 |---|---|---|---|
 | push to the default branch | changed services (see below) | yes, if everything succeeds | yes |
 | push to any other branch (including PR branches and Renovate's) | every service | no | yes, shown on the PR |
+| a new branch at a commit the default branch already ran (an agent's branch for an [encargo](agents.md), before its first commit) | nothing: that commit's check is already there | — | — |
+| push to another branch whose last commit says `[skip ci]`, `[ci skip]` or `[no ci]` (the unfinished work an agent leaves when it gives an encargo back) | nothing | — | — |
 | **Build now** button (default branch) | every service | yes | yes |
 | **▾ Test a branch**, beside it: one that ran lately, or any by name | every service | no | yes |
 | pull request from a fork | nothing | — | — |
