@@ -64,7 +64,7 @@ func TestSummaryOfADay(t *testing.T) {
 	// No model answers (no key, no local model): the counts, in the reader's language.
 	m.err = errors.New("no model is available")
 	d, err = s.Write(ctx, 1, "2026-11-12", day, day.AddDate(0, 0, 1), i18n.Spanish)
-	if err != nil || d.Source != store.SummaryCounts || d.Lines[0].App != "tienda" || !strings.Contains(d.Lines[0].Text, "1 versiones") {
+	if err != nil || d.Source != store.SummaryCounts || d.Lines[0].App != "tienda" || d.Lines[0].Text != "1 versión" {
 		t.Fatalf("counts = %+v %v", d, err)
 	}
 	// An answer that is not lines: the counts too.
@@ -72,7 +72,18 @@ func TestSummaryOfADay(t *testing.T) {
 	if d, _ = s.Write(ctx, 1, "2026-11-12", day, day.AddDate(0, 0, 1), i18n.English); d.Source != store.SummaryCounts {
 		t.Fatalf("not lines = %+v", d)
 	}
-	if len(h.saved) != 4 {
+	// An answer cut at the token cap: the lines that came whole stay.
+	m.text = `[{"app": "tienda", "text": "Una versión nueva."}, {"app": "", "text": "Dos encargos esperan su rev`
+	if d, _ = s.Write(ctx, 1, "2026-11-12", day, day.AddDate(0, 0, 1), i18n.Spanish); d.Source != store.SummaryIA || len(d.Lines) != 1 || d.Lines[0].Text != "Una versión nueva." {
+		t.Fatalf("a cut answer = %+v", d)
+	}
+	// The numbers name only what is not zero, in the singular when it is one.
+	h.counts = []store.DayCounts{{App: "rendimiento-ai", Releases: 7, Failed: 1}}
+	m.err = errors.New("no model")
+	if d, _ = s.Write(ctx, 1, "2026-11-12", day, day.AddDate(0, 0, 1), i18n.English); d.Lines[0].Text != "7 releases, 1 failed run" {
+		t.Fatalf("counts in English = %+v", d)
+	}
+	if len(h.saved) != 6 {
 		t.Fatalf("saved %d summaries", len(h.saved))
 	}
 }
