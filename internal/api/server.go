@@ -763,9 +763,12 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var payload struct {
-		Ref          string `json:"ref"`
-		After        string `json:"after"`
-		Deleted      bool   `json:"deleted"`
+		Ref        string `json:"ref"`
+		After      string `json:"after"`
+		Deleted    bool   `json:"deleted"`
+		HeadCommit *struct {
+			Message string `json:"message"`
+		} `json:"head_commit"`
 		Installation struct {
 			ID int64 `json:"id"`
 		} `json:"installation"`
@@ -782,7 +785,8 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 	switch event {
 	case "push":
 		if branch, ok := strings.CutPrefix(payload.Ref, "refs/heads/"); ok {
-			push = &platform.PushEvent{Installation: payload.Installation.ID, Repo: payload.Repository.FullName, Branch: branch, SHA: payload.After, Deleted: payload.Deleted}
+			push = &platform.PushEvent{Installation: payload.Installation.ID, Repo: payload.Repository.FullName, Branch: branch, SHA: payload.After, Deleted: payload.Deleted,
+				SkipCI: payload.HeadCommit != nil && platform.SaysSkipCI(payload.HeadCommit.Message)}
 		}
 	}
 	// Pull requests need no event of their own: the branch push already ran

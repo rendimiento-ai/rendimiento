@@ -281,7 +281,9 @@ func (j *job) commitLeft(ctx context.Context) {
 	if len(j.changed) == 0 && len(j.removed) == 0 {
 		return
 	}
-	_, _ = j.commit(context.WithoutCancel(ctx), j.c.say("Encargo %d: trabajo sin terminar", "Encargo %d: unfinished work", j.e.ID))
+	// [skip ci]: unfinished work is not worth a run; whoever goes on from it
+	// pushes a commit of their own, and that one runs.
+	_, _ = j.commit(context.WithoutCancel(ctx), j.c.say("Encargo %d: trabajo sin terminar [skip ci]", "Encargo %d: unfinished work [skip ci]", j.e.ID))
 }
 
 // brief is the first message: the encargo, the app, and the repository's
