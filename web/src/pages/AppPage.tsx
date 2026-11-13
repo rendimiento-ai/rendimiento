@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { addonsApi, api, appSecretNames, duration, isLibrary, session, subscribe, timeAgo, type App, type AppAccess, type AutoEncargo, type BranchKind, type MemberRole, type Release, type ReleaseTask } from "../api";
+import { addonsApi, api, appSecretNames, duration, isLibrary, session, subscribe, timeAgo, universeApi, type App, type AppAccess, type AutoEncargo, type BranchKind, type MemberRole, type Release, type ReleaseTask } from "../api";
 import { memberRoleLabel } from "./Members";
 import { autoEncargoName } from "./IA";
 import { ErrorBox, PhaseBadge, ResourceTree, RunBadge, Switch, usePoll } from "../components/ui";
@@ -8,6 +8,7 @@ import { fmtPct, ReliabilityTab } from "../components/reliability";
 import { VisitsTab } from "../components/visits";
 import { CaminosTab } from "../components/caminos-tab";
 import { AppProblems } from "./Problems";
+import { outsideWhy } from "../components/barda";
 import { Flor, LluviaDePetalos } from "../components/ambiente";
 import { t, tn } from "../i18n";
 
@@ -263,6 +264,7 @@ function Overview({ name, app }: { name: string; app: Awaited<ReturnType<typeof 
         <div className="stack">
           <ProvidedNeeds name={name} app={app} />
           <DependencyUpdates name={name} />
+          {session.cluster && <Barda name={name} />}
         </div>
       </div>
       <details className="card">
@@ -270,6 +272,37 @@ function Overview({ name, app }: { name: string; app: Awaited<ReturnType<typeof 
         <ErrorBox error={error} />
         {tree && <ResourceTree node={tree} />}
       </details>
+    </div>
+  );
+}
+
+/**
+ * The wall: whether the boundary between organizations covers this app, who can reach it, what calls it from outside, and
+ * why it is outside when it is. The same as the Universe draws.
+ */
+function Barda({ name }: { name: string }) {
+  const { data: b } = usePoll(() => universeApi.barda(name), [name], 60000);
+  if (!b) return null;
+  const blocked = b.callers.filter((c) => !c.in);
+  const lan = b.lan[name] ?? [];
+  return (
+    <div className="card stack" style={{ gap: 8 }}>
+      <div className="row between">
+        <strong>{t("The wall")}</strong>
+        <span className={`badge ${b.inside ? "ok" : b.why === "off" ? "" : "warn"}`}>{b.inside ? t("inside the wall of {org}", { org: b.org }) : t("outside the wall")}</span>
+      </div>
+      {b.inside
+        ? <span className="small muted">{t("Only {org}'s apps reach it, besides the ingress ({ingress}), rendimiento ({platform}){more}.", {
+          org: b.org, ingress: b.ingress || "—", platform: b.platform, more: b.namespaces.length || b.cidrs.length ? t(" and {list}", { list: [...b.namespaces, ...b.cidrs].join(", ") }) : "",
+        })}</span>
+        : <span className="small muted">{outsideWhy(b.why, b.nodes[name])}</span>}
+      {lan.length > 0 && <span className="small muted">{t("Open to the local network: {list}.", { list: lan.join(", ") })}</span>}
+      {blocked.map((c) => (
+        <span key={c.namespace} className="small" style={{ color: "var(--bad)" }}>
+          {b.state === "on" ? t("{ns} calls it from outside and is stopped.", { ns: c.namespace }) : t("{ns} calls it from outside and would be stopped.", { ns: c.namespace })}
+        </span>
+      ))}
+      <Link className="small" to={`/universe?pueblo=${encodeURIComponent(name)}`}>{t("See it in the Universe")}</Link>
     </div>
   );
 }

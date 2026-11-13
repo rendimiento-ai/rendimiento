@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { envApi, session, timeAgo, type BoundaryCheck, type Capacity, type EnvCheck, type EnvNode, type EnvProvider, type EnvReport, type EnvStatus, type LiveSetting, type SettingsView } from "../api";
+import { Link } from "react-router-dom";
 import { ErrorBox, usePoll } from "../components/ui";
+import { outsideWhy } from "../components/barda";
 import { locale, t, tn } from "../i18n";
 import { PlatformVersion } from "./Version";
 
@@ -530,6 +532,14 @@ function Ajustes() {
       </div>
       {v.invalid && <div className="badge bad" style={{ whiteSpace: "normal" }}>{t("A saved value does not check out, so the ConfigMap's are in force: {why}", { why: v.invalid })}</div>}
       {group("boundary", t("Boundary between organizations"), t("Which namespaces may reach each app. Public traffic comes in through {ns}; rendimiento ({platform}) is always let in.", { ns: v.ingressNamespace || "—", platform: v.platformNamespace }))}
+      {session.cluster && v.apps > 0 && (
+        <div className="small stack" style={{ gap: 4 }}>
+          <span>{on
+            ? t("{inside} of {n} apps are inside the wall.", { inside: v.apps - Object.keys(v.outside ?? {}).length, n: v.apps })
+            : t("The wall is down: none of the {n} apps is walled.", { n: v.apps })}{" "}<Link to="/universe">{t("See it in the Universe")}</Link></span>
+          {Object.entries(v.outside ?? {}).map(([app, why]) => <span key={app} className="muted"><Link to={`/apps/${app}`}>{app}</Link>: {outsideWhy(why, v.nodes?.[app])}</span>)}
+        </div>
+      )}
       {check && (
         <div className="card stack" style={{ background: "var(--surface-2, transparent)" }}>
           <strong>{t("Before turning it on")}</strong>
