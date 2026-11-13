@@ -11,6 +11,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/rendimiento-ai/rendimiento/internal/mesa"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -113,6 +114,11 @@ func (f *fakePlataforma) finish(id int64, status string) {
 	f.mu.Unlock()
 }
 
+func (f *fakePlataforma) Mesa(_ context.Context, a *store.App) (mesa.Board, error) {
+	return mesa.Board{Lines: []mesa.Line{{Group: mesa.GroupYou, Why: mesa.WhyPassed, Branch: "lista", Pull: 7, Run: 1,
+		Encargos: []mesa.LineEncargo{{ID: 3}}}}}, nil
+}
+
 func (f *fakePlataforma) RetryRun(_ context.Context, id int64) (*store.Run, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -188,6 +194,10 @@ func TestPlataformaTools(t *testing.T) {
 	out, msg := call(t, col, "apps_listar", map[string]any{})
 	if msg != "" || len(out["apps"].([]any)) != 2 {
 		t.Fatalf("apps = %v %s", out, msg)
+	}
+	out, msg = call(t, col, "mesa_leer", map[string]any{"app": "shop"})
+	if lineas, _ := out["lineas"].([]any); msg != "" || len(lineas) != 1 || lineas[0].(map[string]any)["grupo"] != "usted" {
+		t.Fatalf("mesa = %v %s", out, msg)
 	}
 	out, msg = call(t, col, "app_estado", map[string]any{"app": "shop"})
 	if msg != "" || len(out["servicios"].([]any)) != 1 || len(out["problemas"].([]any)) != 1 {

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -98,6 +99,7 @@ type branchPull struct {
 
 type branchPullsEntry struct {
 	at    time.Time
+	prs   []gh.PullInfo         // as GitHub answered, the most recently updated first
 	pulls map[string]branchPull // by head branch
 }
 
@@ -128,21 +130,28 @@ func (p *Platform) BranchKinds(ctx context.Context, a *store.App, branches []str
 // branchPulls is the pull request of each branch of the app (the open one,
 // or else the latest), from GitHub, kept for branchPullsTTL.
 func (p *Platform) branchPulls(ctx context.Context, a *store.App) (map[string]branchPull, bool) {
+	e, ok := p.recentPulls(ctx, a)
+	return e.pulls, ok
+}
+
+// recentPulls is the app's most recently updated pull requests, asked of
+// GitHub at most once per branchPullsTTL.
+func (p *Platform) recentPulls(ctx context.Context, a *store.App) (branchPullsEntry, bool) {
 	c := &p.branchPullsCache
 	now := time.Now()
 	c.mu.Lock()
 	if e, ok := c.byApp[a.ID]; ok && now.Sub(e.at) < branchPullsTTL {
 		c.mu.Unlock()
-		return e.pulls, true
+		return e, true
 	}
 	c.mu.Unlock()
 	if p.GitHub == nil {
-		return nil, false
+		return branchPullsEntry{}, false
 	}
 	prs, err := p.GitHub.RecentPullRequests(ctx, a.InstallationID, a.Repo)
 	if err != nil {
 		p.Log.Warn("branch kinds: pull requests", "app", a.Name, "err", err)
-		return nil, false
+		return branchPullsEntry{}, false
 	}
 	pulls := map[string]branchPull{}
 	for _, pr := range prs { // the most recently updated first
@@ -159,11 +168,12 @@ func (p *Platform) branchPulls(ctx context.Context, a *store.App) (map[string]br
 		}
 		pulls[pr.Head.Ref] = branchPull{number: pr.Number, open: open, labels: labels}
 	}
+	e := branchPullsEntry{at: now, prs: prs, pulls: pulls}
 	c.mu.Lock()
 	if c.byApp == nil {
 		c.byApp = map[int64]branchPullsEntry{}
 	}
-	c.byApp[a.ID] = branchPullsEntry{at: now, pulls: pulls}
+	c.byApp[a.ID] = e
 	c.mu.Unlock()
-	return pulls, true
+	return e, true
 }

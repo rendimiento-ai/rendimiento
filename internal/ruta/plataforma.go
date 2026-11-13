@@ -9,6 +9,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/rendimiento-ai/rendimiento/internal/mesa"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -35,6 +36,9 @@ type Plataforma interface {
 	// WaitRun returns a run once it has finished, or as it stands when ctx
 	// ends (with ctx's error).
 	WaitRun(ctx context.Context, id int64) (*store.Run, error)
+	// Mesa is the app's work board: each branch, how it stands and who it
+	// waits for.
+	Mesa(ctx context.Context, app *store.App) (mesa.Board, error)
 }
 
 // ---- inputs and outputs ----
@@ -131,6 +135,33 @@ type estadoOut struct {
 	Problemas   []Problema `json:"problemas"`
 }
 
+// LineaMesa is a line of the work board as agents see it.
+type LineaMesa struct {
+	// Grupo: usted (espera a una persona), trabajando, sobra (se puede
+	// cerrar) u hoy (entró hoy).
+	Grupo     string   `json:"grupo"`
+	Motivo    string   `json:"motivo"`
+	Rama      string   `json:"rama,omitempty"`
+	Solicitud int      `json:"solicitud,omitempty"`
+	Titulo    string   `json:"titulo,omitempty"`
+	Ejecucion int64    `json:"ejecucion,omitempty"`
+	Estado    string   `json:"estado,omitempty"`
+	Fallaron  []string `json:"fallaron,omitempty"`
+	Encargos  []int64  `json:"encargos,omitempty"`
+	Agente    string   `json:"agente,omitempty"`
+	CopiaDe   int      `json:"copia_de,omitempty"`
+}
+
+type mesaOut struct {
+	App string `json:"app"`
+	// GitHub es falso si no se pudo preguntar: faltan las solicitudes.
+	GitHub bool        `json:"github"`
+	Lineas []LineaMesa `json:"lineas"`
+}
+
+// gruposMesa are the board's groups in the agents' words.
+var gruposMesa = map[string]string{mesa.GroupYou: "usted", mesa.GroupWorking: "trabajando", mesa.GroupSpare: "sobra", mesa.GroupToday: "hoy"}
+
 type registroOut struct {
 	Ejecucion int64  `json:"ejecucion"`
 	Paso      string `json:"paso"`
@@ -179,6 +210,7 @@ func short(sha string) string {
 func (s *Server) addPlataformaTools(srv herramientas, write bool) {
 	addTool(s, srv, &mcp.Tool{Name: "apps_listar", Description: "Las aplicaciones que despliega la plataforma, con su última ejecución y su versión en producción."}, s.appsListar)
 	addTool(s, srv, &mcp.Tool{Name: "app_estado", Description: "El estado de una aplicación: sus servicios, sus últimas ejecuciones y versiones (con su verificación) y los problemas abiertos."}, s.appEstado)
+	addTool(s, srv, &mcp.Tool{Name: "mesa_leer", Description: "La mesa de trabajo de una aplicación: cada rama con su solicitud de integración, su última ejecución y sus encargos, y a quién le toca (usted: una persona; trabajando; sobra: se puede cerrar; hoy: entró hoy). Léala antes de abrir una rama nueva: si ya hay una para lo mismo, siga en esa."}, s.mesaLeer)
 	addTool(s, srv, &mcp.Tool{Name: "ejecucion_leer", Description: "Una ejecución de CI con sus pasos y el estado de cada uno. Para ver por qué falló un paso, use paso_registro."}, s.ejecucionLeer)
 	addTool(s, srv, &mcp.Tool{Name: "paso_registro", Description: "El final del registro de un paso de una ejecución (200 líneas si no se piden más)."}, s.pasoRegistro)
 	addTool(s, srv, &mcp.Tool{Name: "solicitudes_listar", Description: "Las solicitudes que guardó el servicio de trazas (las que fallaron, las lentas y una muestra), de la más nueva a la más vieja; por servicio o solo las que fallaron."}, s.solicitudesListar)
@@ -188,6 +220,28 @@ func (s *Server) addPlataformaTools(srv herramientas, write bool) {
 		addTool(s, srv, &mcp.Tool{Name: "ejecucion_cancelar", Description: "Cancela una ejecución en cola o en curso. Necesita un cargo abierto."}, s.ejecucionCancelar)
 		addTool(s, srv, &mcp.Tool{Name: "ejecucion_reintentar", Description: "Vuelve a correr lo que no pasó en una ejecución de una rama que falló (un tropiezo, no un error del código): lo que pasó se conserva. No en la rama principal, que despliega. Necesita un cargo abierto."}, s.ejecucionReintentar)
 	}
+}
+
+// mesaLeer (mesa_leer) is an app's work board.
+func (s *Server) mesaLeer(ctx context.Context, k store.AgentKey, in appIn) (mesaOut, error) {
+	a, err := s.appFor(ctx, k, in.App)
+	if err != nil {
+		return mesaOut{}, err
+	}
+	b, err := s.Plataforma.Mesa(ctx, a)
+	if err != nil {
+		return mesaOut{}, err
+	}
+	out := mesaOut{App: a.Name, GitHub: b.GitHub, Lineas: []LineaMesa{}}
+	for _, l := range b.Lines {
+		ln := LineaMesa{Grupo: gruposMesa[l.Group], Motivo: l.Why, Rama: l.Branch, Solicitud: l.Pull, Titulo: l.PullTitle,
+			Ejecucion: l.Run, Estado: l.RunStatus, Fallaron: l.Failed, Agente: l.Agent, CopiaDe: l.CopyOf}
+		for _, e := range l.Encargos {
+			ln.Encargos = append(ln.Encargos, e.ID)
+		}
+		out.Lineas = append(out.Lineas, ln)
+	}
+	return out, nil
 }
 
 // appFor finds an app the key may use.

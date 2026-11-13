@@ -14,6 +14,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/rendimiento-ai/rendimiento/internal/mercado"
+	"github.com/rendimiento-ai/rendimiento/internal/mesa"
 	"github.com/rendimiento-ai/rendimiento/internal/ruta"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
@@ -45,6 +46,10 @@ func (p plataformaDePrueba) RetryRun(_ context.Context, id int64) (*store.Run, e
 func (p plataformaDePrueba) CancelRun(_ context.Context, id int64) error {
 	*p.hechos = append(*p.hechos, "cancelled a run")
 	return nil
+}
+
+func (p plataformaDePrueba) Mesa(ctx context.Context, a *store.App) (mesa.Board, error) {
+	return p.s.Platform.Mesa(ctx, a)
 }
 
 func (p plataformaDePrueba) WaitRun(ctx context.Context, id int64) (*store.Run, error) {
@@ -210,6 +215,7 @@ func TestEveryToolStaysInItsOrg(t *testing.T) {
 
 		"apps_listar":          {{}},
 		"app_estado":           {{map[string]any{"app": "tienda"}, sinApp}},
+		"mesa_leer":            {{map[string]any{"app": "tienda"}, sinApp}},
 		"ejecucion_leer":       {{uno, sinCorrida}},
 		"paso_registro":        {{map[string]any{"ejecucion": 1, "paso": "web:build"}, sinCorrida}},
 		"solicitudes_listar":   {{}, {map[string]any{"servicio": "tienda/web"}, "no tiene acceso a la aplicación tienda"}},

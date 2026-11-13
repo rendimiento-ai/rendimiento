@@ -105,7 +105,7 @@ export function Vistazo({ app }: { app: App }) {
       )}
 
       <div className="vistazo-pie">
-        <Link to={`/apps/${name}/overview`} className="vistazo-mas">{t("See the details →")}</Link>
+        <Link to={`/apps/${name}/mesa`} className="vistazo-mas">{t("See the details →")}</Link>
         <label className="small muted"><input type="checkbox" checked={tecnicoPrimero()} onChange={(e) => ponerTecnico(e.target.checked)} /> {t("Show me the technical side first")}</label>
       </div>
     </section>
@@ -125,10 +125,10 @@ export function tecnicoPrimero(): boolean {
 function ponerTecnico(on: boolean) {
   try { if (on) localStorage.setItem(TECNICO, "1"); else localStorage.removeItem(TECNICO); } catch { /* this visit only */ }
   const app = location.pathname.split("/").slice(0, 3).join("/");
-  location.assign(on ? app + "/overview" : app);
+  location.assign(on ? app + "/mesa" : app);
 }
 
-/** On the overview, for whoever chose the technical side first: the way back to the glance. */
+/** On the work board, for whoever chose the technical side first: the way back to the glance. */
 export function VolverAlVistazo() {
   if (!tecnicoPrimero()) return null;
   return (

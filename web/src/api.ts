@@ -890,6 +890,33 @@ export interface BranchKinds {
   github: boolean;
 }
 
+/** Who a line of the work board waits for (mesa.Group*). */
+export type MesaGroup = "you" | "working" | "spare" | "today";
+
+/** A line of an app's work board (mesa.Line): a branch with its pull request, its last run and its encargos. */
+export interface MesaLine {
+  group: MesaGroup;
+  why: "passed" | "blocked" | "conflict" | "failed" | "cancelled" | "untested" | "review" | "running" | "taken" | "copy" | "stale" | "merged";
+  branch?: string;
+  pull?: number;
+  pullTitle?: string;
+  pullOpen?: boolean;
+  run?: number;
+  runStatus?: string;
+  failed?: string[];
+  release?: number;
+  encargos?: { id: number; title: string; status: string }[];
+  agent?: string;
+  copyOf?: number;
+  at: string;
+}
+
+/** An app's work board; github is false when GitHub did not answer. */
+export interface Mesa {
+  lines: MesaLine[];
+  github: boolean;
+}
+
 /** One day of the home page's summary (api.SummaryView): its lines, each about an app ("" for the organization). */
 export interface DaySummary {
   day: string;
@@ -966,6 +993,8 @@ export const api = {
   runs: (app: string) => request<Run[]>("GET", `/api/apps/${app}/runs`),
   caminos: (app: string) => request<Caminos>("GET", `/api/apps/${app}/caminos`),
   branchKinds: (app: string) => request<BranchKinds>("GET", `/api/apps/${app}/branch-kinds`),
+  mesa: (app: string) => request<Mesa>("GET", `/api/apps/${app}/mesa`),
+  mesaCounts: () => request<{ app: string; you: number }[]>("GET", "/api/mesa"),
   triggerRun: (app: string, branch?: string) => request<Run>("POST", `/api/apps/${app}/runs`, { branch }),
   releases: (app: string) => request<Release[]>("GET", `/api/apps/${app}/releases`),
   releaseTaskLog: (app: string, release: number, task: string) => request<string>("GET", `/api/apps/${app}/releases/${release}/tasks/${encodeURIComponent(task)}/log`),

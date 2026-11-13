@@ -35,7 +35,7 @@ test("two organizations: neither sees the other's", async ({ page, browser, base
     // An address of prueba's app, typed: it does not exist for her.
     for (const app of suyas.slice(0, 3)) {
       await test.step(`/apps/${app.name}`, async () => {
-        for (const ruta of ["", "/runs", "/releases", "/caminos"]) {
+        for (const ruta of ["", "/runs", "/releases", "/caminos", "/mesa"]) {
           expect((await suya.request.get(`/api/apps/${app.name}${ruta}`)).status(), `GET /api/apps/${app.name}${ruta}`).toBe(404);
         }
         await suya.goto(`/apps/${app.name}`);

@@ -49,6 +49,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
 	"github.com/rendimiento-ai/rendimiento/internal/logarchive"
 	"github.com/rendimiento-ai/rendimiento/internal/mercado"
+	"github.com/rendimiento-ai/rendimiento/internal/mesa"
 	"github.com/rendimiento-ai/rendimiento/internal/notify"
 	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/platform"
@@ -872,6 +873,10 @@ func (m plataformaMCP) QueueRun(ctx context.Context, app *store.App, branch stri
 }
 
 func (m plataformaMCP) CancelRun(ctx context.Context, id int64) error { return m.p.CancelRun(ctx, id) }
+
+func (m plataformaMCP) Mesa(ctx context.Context, a *store.App) (mesa.Board, error) {
+	return m.p.Mesa(ctx, a)
+}
 
 func (m plataformaMCP) RetryRun(ctx context.Context, id int64) (*store.Run, error) {
 	return m.p.RetryRun(ctx, id)

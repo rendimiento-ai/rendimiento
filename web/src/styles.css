@@ -1502,3 +1502,21 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 @keyframes barra-crece { from { transform: scaleY(0); } }
 @media (prefers-reduced-motion: reduce) { .flor-grande .corola, .flor-grande .colibri, .flor-grande .ala, .vistazo-visitas .barra { animation: none; } .flor-grande .colibri { transform: translate(160px, 20px); } }
 :root[data-motion="off"] .flor-grande .colibri { transform: translate(160px, 20px); }
+
+/* The work board (components/mesa.tsx): one row per line of work, grouped by who it waits for. */
+.mesa { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.mesa-grupo { padding: 10px 16px; border-top: 1px solid var(--border); }
+.mesa-grupo:first-child { border-top: 0; }
+.mesa-grupo h3 { margin: 0 0 4px; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; }
+.mesa-you h3 { color: var(--bad); }
+.mesa-working h3 { color: var(--link); }
+.mesa-spare h3 { color: var(--muted); }
+.mesa-today h3 { color: var(--ok); }
+.mesa-grupo h3 .muted { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.mesa-fila { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; gap: 6px 12px; align-items: baseline; padding: 7px 0; border-top: 1px dashed var(--border); }
+.mesa-grupo h3 + .mesa-fila { border-top: 0; }
+.mesa-que b { overflow-wrap: anywhere; }
+.mesa-que, .mesa-como { min-width: 0; }
+.mesa-accion .btn { white-space: nowrap; }
+.mesa-aviso { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; border-left: 4px solid var(--bad); margin-bottom: 16px; }
+@media (max-width: 560px) { .mesa-fila { grid-template-columns: 1fr; } }

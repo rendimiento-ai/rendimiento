@@ -1,0 +1,1 @@
+- **Work board:** each app has a Work board tab (after At a glance): every branch with its pull request, its last run and its encargos, grouped by who it waits for (you, working, spare, merged today). The home page says how many things wait for you in each app, and agents read the board with the `mesa_leer` tool.
