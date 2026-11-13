@@ -1,0 +1,2 @@
+- **Merging:** **Merge this branch** on a branch whose commits are already in the main branch (another branch built on it brought them in) now says so, instead of GitHub's bare "Validation Failed"; other refusals from GitHub say what they were about.
+- **Encargos:** each encargo shows its number, and a link to `#encargo-N` on the Encargos tab brings it into view (the work board's encargo links use it).
