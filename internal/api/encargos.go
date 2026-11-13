@@ -26,10 +26,13 @@ func (s *Server) listEncargos(w http.ResponseWriter, r *http.Request, _ string) 
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if list == nil {
-		list = []store.Encargo{}
+	out := []store.Encargo{}
+	for _, e := range list {
+		if accessOf(r).Sees(e.App) { // an app whose list leaves the person out
+			out = append(out, e)
+		}
 	}
-	writeJSON(w, list)
+	writeJSON(w, out)
 }
 
 // createEncargo leaves work for agents, pending until one takes it.
@@ -54,7 +57,7 @@ func (s *Server) createEncargo(w http.ResponseWriter, r *http.Request, login str
 			return
 		}
 		a, err := s.Store.GetAppByID(r.Context(), run.AppID)
-		if err != nil || a.OrgID != orgOf(r) {
+		if err != nil || accessOf(r).Role(a) == "" {
 			httpError(w, http.StatusBadRequest, "no such run")
 			return
 		}
@@ -63,8 +66,13 @@ func (s *Server) createEncargo(w http.ResponseWriter, r *http.Request, login str
 		}
 	}
 	if in.App != "" {
-		if a, err := s.Store.GetApp(r.Context(), in.App); err != nil || a.OrgID != orgOf(r) {
+		a, err := s.Store.GetApp(r.Context(), in.App)
+		if err != nil || accessOf(r).Role(a) == "" {
 			httpError(w, http.StatusBadRequest, "no such app: "+in.App)
+			return
+		}
+		if store.RoleRank(accessOf(r).Role(a)) < store.RoleRank(store.MemberCollaborator) {
+			httpError(w, http.StatusForbidden, "your role here does not allow this; ask an administrator")
 			return
 		}
 	}
@@ -85,7 +93,7 @@ func (s *Server) encargoID(w http.ResponseWriter, r *http.Request) (int64, bool)
 		httpError(w, http.StatusBadRequest, "bad encargo id")
 		return 0, false
 	}
-	if e, err := s.Store.Encargo(r.Context(), id); err == nil && e.OrgID != orgOf(r) {
+	if e, err := s.Store.Encargo(r.Context(), id); err == nil && (e.OrgID != orgOf(r) || !accessOf(r).Sees(e.App)) {
 		httpError(w, http.StatusNotFound, "no such encargo")
 		return 0, false
 	}
@@ -171,7 +179,22 @@ func (s *Server) doEncargos(w http.ResponseWriter, r *http.Request, login string
 		httpError(w, http.StatusConflict, "the coding agent is off; an administrator turns it on on the AI page")
 		return
 	}
-	n, err := s.Store.DoEncargos(r.Context(), orgOf(r), in.IDs, login)
+	// Only encargos of apps the person may act on (collaborator there).
+	ids := in.IDs[:0:0]
+	for _, id := range in.IDs {
+		e, err := s.Store.Encargo(r.Context(), id)
+		if err != nil || e.OrgID != orgOf(r) {
+			continue
+		}
+		if e.App != "" {
+			if a, err := s.Store.GetApp(r.Context(), e.App); err != nil ||
+				store.RoleRank(accessOf(r).Role(a)) < store.RoleRank(store.MemberCollaborator) {
+				continue
+			}
+		}
+		ids = append(ids, id)
+	}
+	n, err := s.Store.DoEncargos(r.Context(), orgOf(r), ids, login)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return

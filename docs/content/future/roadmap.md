@@ -16,6 +16,7 @@ Items are ordered by value per effort for this cluster first, and for other user
 | **Off-site backups**: copy Garage's backup bucket to a cloud bucket (Cloudflare R2, Backblaze B2) | the backups survive losing the whole cluster |
 | **Canary and A/B releases** with ingress-nginx canary weights | ship to 10% first; automatic rollback on errors |
 | **Plugin contract**: a container that takes JSON in and returns a JSON verdict, at hooks *pre-deploy*, *post-deploy* and *analysis* | k6 performance gates, chaos experiments (Chaos Mesh), AI checks, all without changing the core |
+| **AI-generated tests**: discover the app (a Playwright walk, OpenAPI), generate tests, propose them as a pull request, run them after the deploy and roll back on failure; see the [design](ai-tests.md) | apps get tests without writing them; ping-demo is the first case |
 | **AI generator** behind `generate.Generator` | better `rendimiento.yaml` and Dockerfiles for unusual repos |
 | **Secrets from an external store** (SOPS in git, Vault, 1Password) | secrets become reproducible and auditable |
 | **Roles and audit log** | more than one person can use it safely |

@@ -189,6 +189,8 @@ export interface App {
   /** Share of successful uptime checks in the last 24 hours (absent before the first check). */
   uptime24h?: number;
   down?: string[];
+  /** What the person reading may do on this app: the role its list gives them, or their organization's. */
+  role?: MemberRole;
 }
 
 // ---- el Mercado (pages made from a form; internal/mercado) ----
@@ -490,6 +492,14 @@ export interface Member {
   role: MemberRole;
   addedBy: string;
   createdAt: string;
+}
+
+/** Who enters an app: without a list, everyone in the organization with their role; with one, the people on it. */
+export interface AppAccess {
+  list: boolean;
+  members: Member[];
+  /** The organization's people, who can be added (administrators always enter). */
+  people: Member[];
 }
 
 export type EncargoStatus = "pending" | "taken" | "waiting" | "delivered" | "reviewed" | "cancelled";
@@ -973,6 +983,10 @@ export const api = {
   doEncargos: (ids: number[]) => request<{ sent: number }>("POST", "/api/encargos/do", { ids }),
   setAppAutoEncargo: (app: string, mode: AutoEncargo | "") => request<void>("PUT", `/api/apps/${app}/auto-encargo`, { mode }),
   setAppAutoMerge: (app: string, on: boolean, any: boolean) => request<void>("PUT", `/api/apps/${app}/auto-merge`, { on, any }),
+  appAccess: (app: string) => request<AppAccess>("GET", `/api/apps/${app}/members`),
+  setAppList: (app: string, list: boolean) => request<AppAccess>("PUT", `/api/apps/${app}/members`, { list }),
+  setAppMember: (app: string, login: string, role: MemberRole) => request<AppAccess>("PUT", `/api/apps/${app}/members/${encodeURIComponent(login)}`, { role }),
+  removeAppMember: (app: string, login: string) => request<AppAccess>("DELETE", `/api/apps/${app}/members/${encodeURIComponent(login)}`),
   reestimateEncargo: (id: number) => request<Encargo>("POST", `/api/encargos/${id}/estimate`),
   comentarios: () => request<Comentario[]>("GET", "/api/comentarios"),
   comentar: (c: { cargoId?: number; encargoId?: number; body: string }) => request<Comentario>("POST", "/api/comentarios", c),
@@ -1093,6 +1107,42 @@ export interface CapacityView {
   defaultBusyPercent: number;
 }
 
+// A platform setting that changes live (api.SettingView): the value in
+// force, the ConfigMap's, and the one saved on this page, which wins.
+export interface LiveSetting {
+  key: string;
+  group: "boundary" | "quota";
+  cluster: boolean;
+  value: string;
+  env: string;
+  saved?: { value: string; updatedBy: string; updatedAt: string };
+  applies: boolean;
+}
+export interface FixedSetting {
+  key: string;
+  value?: string;
+  secret?: boolean;
+  set: boolean;
+}
+export interface SettingsView {
+  live: LiveSetting[];
+  invalid?: string;
+  fixed: FixedSetting[];
+  ingressNamespace: string;
+  platformNamespace: string;
+  /** How many apps the platform runs, and those the boundary leaves out, with why. */
+  apps: number;
+  outside?: Record<string, "shared" | "node">;
+  nodes?: Record<string, string[]>;
+}
+// Who calls apps across the boundary (api.BoundaryCheck): a guide, from
+// the workloads' environment, not from traffic.
+export interface BoundaryCheck {
+  callers: { namespace: string; calls: string[]; in: boolean }[];
+  ingressNamespace: string;
+  ingressFound: boolean;
+}
+
 export interface EnvProblem {
   kind: string;
   namespace: string;
@@ -1121,6 +1171,10 @@ export const envApi = {
   update: (release: number) => request<PlatformRelease>("POST", "/api/platform/update", { release }),
   capacity: () => request<CapacityView>("GET", "/api/environment/capacity"),
   saveCapacity: (c: Capacity) => request<CapacityView>("PUT", "/api/environment/capacity", c),
+  settings: () => request<SettingsView>("GET", "/api/environment/settings"),
+  saveSetting: (key: string, value: string) => request<SettingsView>("PUT", `/api/environment/settings/${key}`, { value }),
+  forgetSetting: (key: string) => request<SettingsView>("DELETE", `/api/environment/settings/${key}`),
+  boundaryCheck: () => request<BoundaryCheck>("GET", "/api/environment/settings/boundary-check"),
 };
 
 // rendimiento's own versions: the images its repository's builds made.
@@ -1239,7 +1293,31 @@ export interface UniverseEdge {
   metrics?: { perMinute: number; errors: number; p50Ms?: number; p95Ms?: number; trend?: number[]; p50Trend?: number[]; p95Trend?: number[] };
 }
 
+/**
+ * The boundary between organizations as this organization's apps see it (api.Barda): on or off, who is let in, the apps it
+ * leaves out and why ("shared": a shared namespace; "node": a pod on a node that does not enforce it), the ports open to the
+ * LAN, and who calls in from outside.
+ */
+export interface UniverseBarda {
+  state: "on" | "off";
+  org: string;
+  ingress: string;
+  platform: string;
+  namespaces: string[];
+  cidrs: string[];
+  outside: Record<string, "shared" | "node">;
+  nodes: Record<string, string[]>;
+  lan: Record<string, string[]>;
+  callers: { namespace: string; calls: string[]; in: boolean }[];
+}
+/** One app's place in the boundary, for its page (api.AppBarda). */
+export interface AppBarda extends UniverseBarda {
+  inside: boolean;
+  why?: "shared" | "node" | "off";
+}
+
 export interface Universe {
+  barda?: UniverseBarda;
   barrios: UniverseBarrio[];
   systems: UniverseSystem[];
   nodes: UniverseNode[];
@@ -1306,6 +1384,8 @@ export const universeApi = {
   traces: (service: string, errorsOnly = false) =>
     request<{ traces: KeptTrace[] }>("GET", `/api/universe/traces?service=${encodeURIComponent(service)}${errorsOnly ? "&errors=1" : ""}`),
   trace: (id: string) => request<{ trace: KeptTrace; spans: TraceSpan[] }>("GET", `/api/universe/traces/${encodeURIComponent(id)}`),
+  /** The boundary as one app sees it; undefined with no cluster. */
+  barda: (app: string) => request<AppBarda | undefined>("GET", `/api/apps/${app}/barda`),
 };
 
 export const catalogApi = {

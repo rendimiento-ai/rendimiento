@@ -29,7 +29,7 @@ type mercadoView struct {
 
 // listMercado is the Mercado page: whether it is on, and every stall with
 // its app's state.
-func (s *Server) listMercado(w http.ResponseWriter, r *http.Request, _ string) {
+func (s *Server) listMercado(w http.ResponseWriter, r *http.Request, login string) {
 	out := mercadoView{Puestos: []puestoView{}}
 	if s.Mercado != nil {
 		out.Enabled, out.Org = true, s.Mercado.Org
@@ -39,10 +39,15 @@ func (s *Server) listMercado(w http.ResponseWriter, r *http.Request, _ string) {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	hidden, err := s.platformHidden(r.Context(), login)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	down := s.downChecks(r.Context())
 	for _, p := range puestos {
 		a, err := s.Store.GetAppByID(r.Context(), p.AppID)
-		if err != nil {
+		if err != nil || hidden[a.Name] {
 			continue
 		}
 		v := s.view(r.Context(), a)

@@ -6,8 +6,9 @@
 // reads like a market board: calls per minute, a small trend, latency.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { timeAgo, universeApi, type KeptTrace, type Universe as UniverseData, type UniverseBarrio, type UniverseEdge, type UniverseNode, type UniverseSpan, type UniverseSystem, type UniverseWindow } from "../api";
-import { Maqueta, ms, rate, worst, type Engine, type MapModel, type MapRoad, type MapView, type Pick, type Status } from "../components/maqueta";
+import { envApi, session, timeAgo, universeApi, type KeptTrace, type Universe as UniverseData, type UniverseBarda, type UniverseBarrio, type UniverseEdge, type UniverseNode, type UniverseSpan, type UniverseSystem, type UniverseWindow } from "../api";
+import { Maqueta, ms, rate, worst, type Engine, type MapBarda, type MapModel, type MapRoad, type MapView, type Pick, type Status } from "../components/maqueta";
+import { outsideWhy } from "../components/barda";
 import { ErrorBox, usePoll } from "../components/ui";
 import { t, tn } from "../i18n";
 
@@ -168,8 +169,22 @@ function build(u: UniverseData, showOther: boolean, showInfra: boolean): World {
     barrioRoads, puebloRoads,
     nodeRoads: edgeList.map((e) => ({ id: edgeId(e), from: e.from, to: e.to, perMinute: e.metrics?.perMinute ?? 0, p50: e.metrics?.p50Ms, status: edgeStatus(e) })),
     puebloOf: systemOf,
+    barda: u.barda && bardaModel(u.barda, [...systems.values()]),
   };
   return { model, barrios, systems, nodes, edges, roads, systemOf, fromInternet: edgeList.filter((e) => e.from === "internet") };
+}
+
+/** The wall around the organization's apps: its zaguanes, its trancas and the fence of each pueblo. */
+function bardaModel(b: UniverseBarda, systems: SystemInfo[]): MapBarda {
+  const gates: MapBarda["gates"] = [];
+  if (b.ingress) gates.push({ id: b.ingress, title: b.ingress, sub: t("public traffic") });
+  gates.push({ id: b.platform, title: "rendimiento", sub: b.platform });
+  for (const ns of b.namespaces) gates.push({ id: ns, title: ns, sub: t("let in") });
+  for (const c of b.cidrs) gates.push({ id: c, title: c, sub: t("address range") });
+  const trancas = b.callers.filter((c) => !c.in).map((c) => ({ id: c.namespace, title: c.namespace, sub: b.state === "on" ? t("stopped") : t("would be stopped") }));
+  const fences = new Map<string, { inside: boolean; lan: number }>();
+  for (const s of systems) if (s.kind === "app" && s.app) fences.set(s.id, { inside: !b.outside[s.app], lan: b.lan[s.app]?.length ?? 0 });
+  return { on: b.state === "on", gates, trancas, fences };
 }
 
 /** A barrio's name: its own, or what it is. */
@@ -355,7 +370,8 @@ export function Universe() {
           </div>
         </div>
         <aside className="universe-side card stack" aria-live="polite">
-          <Panel world={world} data={data} win={win} level={level} barrio={here} town={town} sel={sel} setSel={setSel} go={go} goApp={goApp} />
+          <Panel world={world} data={data} win={win} level={level} barrio={here} town={town} sel={sel} setSel={setSel} go={go} goApp={goApp}
+            reload={() => universeApi.get(win).then(setData, () => undefined)} />
         </aside>
       </div>
 
@@ -382,10 +398,11 @@ export function Universe() {
 
 type Go = (to: { barrio?: string; pueblo?: string; sel?: Pick }) => void;
 
-function Panel({ world, data, win, level, barrio, town, sel, setSel, go, goApp }: {
+function Panel({ world, data, win, level, barrio, town, sel, setSel, go, goApp, reload }: {
   world: World; data: UniverseData; win: UniverseWindow; level: string; barrio?: BarrioInfo; town?: SystemInfo;
-  sel?: Pick; setSel: (p?: Pick) => void; go: Go; goApp: (id: string) => void;
+  sel?: Pick; setSel: (p?: Pick) => void; go: Go; goApp: (id: string) => void; reload: () => void;
 }) {
+  if (data.barda && (sel?.kind === "barda" || sel?.kind === "zaguan" || sel?.kind === "tranca")) return <BardaPanel b={data.barda} world={world} sel={sel} goApp={goApp} reload={reload} />;
   if (sel?.kind === "pueblo" && world.systems.has(sel.id)) return <SystemPanel s={world.systems.get(sel.id)!} world={world} enter={() => go({ barrio: world.systems.get(sel.id)!.barrio, pueblo: sel.id })} goApp={goApp} />;
   if (sel?.kind === "node" && world.nodes.has(sel.id)) return <NodePanel n={world.nodes.get(sel.id)!} world={world} setSel={setSel} traces={data.traces} win={win} />;
   if (sel?.kind === "road" && world.edges.has(sel.id)) return <EdgePanel e={world.edges.get(sel.id)!} world={world} goApp={goApp} />;
@@ -572,6 +589,71 @@ function Attention({ list, goApp }: { list: SystemInfo[]; goApp: (id: string) =>
         </div>
       ) : <p className="small muted" style={{ margin: 0 }}>{t("Nothing needs attention in this period.")}</p>}
     </div>
+  );
+}
+
+/**
+ * The wall: on or off, who comes in through its zaguanes, the trancas where calls from outside are stopped (with Let it in
+ * for the platform's administrators), and the apps it leaves out with why.
+ */
+function BardaPanel({ b, world, sel, goApp, reload }: { b: UniverseBarda; world: World; sel?: Pick; goApp: (id: string) => void; reload: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>();
+  const on = b.state === "on";
+  const blocked = b.callers.filter((c) => !c.in);
+  const outside = Object.entries(b.outside);
+  const letIn = (ns: string) => {
+    setBusy(true); setErr(undefined);
+    envApi.saveSetting("ORG_NETWORK_POLICY_NAMESPACES", [...b.namespaces, ns].join(",")).then(() => { setBusy(false); reload(); }, (e) => { setBusy(false); setErr(e); });
+  };
+  const appOf = (sys: string) => [...world.systems.values()].find((s) => s.app === sys)?.id ?? sys;
+  return (
+    <>
+      <div>
+        <h3 className="u-h">{t("The wall of {org}", { org: b.org })}</h3>
+        <h2 className="u-title">{on ? t("The wall is up") : t("The land is marked, the wall is down")}</h2>
+        <p className="small muted" style={{ margin: 0 }}>{on
+          ? t("Each app's namespace lets in only its own organization's apps and what comes through a zaguán. It holds where the cluster's network enforces it.")
+          : t("The boundary between organizations is off: any namespace reaches the apps. The stones mark where the wall would stand.")}</p>
+      </div>
+      <div>
+        <h3 className="u-h">{t("Zaguanes: who comes in")}</h3>
+        <div className="u-ticks">
+          {b.ingress && <div className={sel?.kind === "zaguan" && sel.id === b.ingress ? "u-pick" : undefined}><b className="mono">{b.ingress}</b> <span className="small muted">{t("the ingress: public traffic")}</span></div>}
+          <div className={sel?.kind === "zaguan" && sel.id === b.platform ? "u-pick" : undefined}><b className="mono">{b.platform}</b> <span className="small muted">{t("rendimiento: release and uptime checks")}</span></div>
+          {b.namespaces.map((ns) => <div key={ns} className={sel?.kind === "zaguan" && sel.id === ns ? "u-pick" : undefined}><b className="mono">{ns}</b> <span className="small muted">{t("listed")}</span></div>)}
+          {b.cidrs.map((c) => <div key={c}><b className="mono">{c}</b> <span className="small muted">{t("address range")}</span></div>)}
+        </div>
+      </div>
+      <div>
+        <h3 className="u-h">{t("Trancas: calls from outside")}</h3>
+        {blocked.length === 0 && <p className="small muted" style={{ margin: 0 }}>{t("Nothing outside points at these apps. rendimiento reads it from the workloads' environment, not from traffic.")}</p>}
+        <div className="u-ticks">
+          {blocked.map((c) => (
+            <div key={c.namespace} className={sel?.kind === "tranca" && sel.id === c.namespace ? "u-pick" : undefined}>
+              <b className="mono">{c.namespace}</b> <span className="small" style={{ color: "var(--bad)" }}>{on ? t("stopped") : t("would be stopped")}</span>
+              <div className="small muted">{t("calls {what}", { what: c.calls.join(", ") })}</div>
+              {session.operator && <button disabled={busy} onClick={() => letIn(c.namespace)}>{t("Let it in")}</button>}
+            </div>
+          ))}
+        </div>
+        <ErrorBox error={err} />
+      </div>
+      {outside.length > 0 && (
+        <div>
+          <h3 className="u-h">{t("Outside the wall")}</h3>
+          <div className="u-ticks">
+            {outside.map(([app, why]) => (
+              <div key={app}><button className="link" onClick={() => goApp(appOf(app))}>{app}</button> <span className="small muted">{outsideWhy(why, b.nodes[app])}</span></div>
+            ))}
+          </div>
+        </div>
+      )}
+      {Object.keys(b.lan).length > 0 && (
+        <p className="small muted" style={{ margin: 0 }}>{t("Yellow postigos are ports open to the local network: {list}.", { list: Object.entries(b.lan).map(([a, s]) => `${a} (${s.join(", ")})`).join("; ") })}</p>
+      )}
+      {session.operator && <Link className="small" to="/environment">{t("Change it in Environment → Platform settings")}</Link>}
+    </>
   );
 }
 

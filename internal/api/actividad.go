@@ -48,6 +48,9 @@ func (s *Server) activityStream(w http.ResponseWriter, r *http.Request, _ string
 		}
 		since, last = now, last2
 		for _, a := range items {
+			if !accessOf(r).Sees(a.App) {
+				continue // an app whose list leaves the person out
+			}
 			b, _ := json.Marshal(a)
 			fmt.Fprintf(w, "event: activity\ndata: %s\n\n", b)
 		}

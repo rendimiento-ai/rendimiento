@@ -2,7 +2,10 @@ package store
 
 import (
 	"context"
+	"errors"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // Problem is one of the platform's own warnings or errors, with its repeats
@@ -75,12 +78,28 @@ func (s *Store) ListProblems(ctx context.Context, app string, since time.Time, w
 }
 
 // OpenProblems counts problems that happened within ProblemOpenFor and are
-// neither dismissed nor resolved.
-func (s *Store) OpenProblems(ctx context.Context) (int, error) {
+// neither dismissed nor resolved, leaving out those of the apps in hide
+// (apps the reader may not see).
+func (s *Store) OpenProblems(ctx context.Context, hide ...string) (int, error) {
 	var n int
-	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM problems WHERE dismissed_at IS NULL AND resolved_at IS NULL AND last_at >= $1`,
-		time.Now().Add(-ProblemOpenFor)).Scan(&n)
+	if hide == nil {
+		hide = []string{}
+	}
+	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM problems WHERE dismissed_at IS NULL AND resolved_at IS NULL AND last_at >= $1
+		AND NOT (app = ANY($2::text[]))`,
+		time.Now().Add(-ProblemOpenFor), hide).Scan(&n)
 	return n, err
+}
+
+// ProblemApp is the app a problem is about ("" for none; ErrNotFound when
+// there is no such problem).
+func (s *Store) ProblemApp(ctx context.Context, id int64) (string, error) {
+	var app string
+	err := s.pool.QueryRow(ctx, `SELECT app FROM problems WHERE id = $1`, id).Scan(&app)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return app, err
 }
 
 // DismissProblem hides a problem until it happens again.

@@ -41,7 +41,7 @@ type addonApp struct {
 
 // renovateView is the Renovate add-on as its page shows it: on or off, its
 // settings (or the defaults), its last run and when the next one is.
-func (s *Server) renovateView(r *http.Request) (*addonView, error) {
+func (s *Server) renovateView(r *http.Request, login string) (*addonView, error) {
 	ctx := r.Context()
 	enabled, set, row, err := renovate.Load(ctx, s.Store)
 	if err != nil {
@@ -85,7 +85,14 @@ func (s *Server) renovateView(r *http.Request) (*addonView, error) {
 	for _, a := range on {
 		isOn[a.ID] = true
 	}
+	hidden, err := s.platformHidden(ctx, login)
+	if err != nil {
+		return nil, err
+	}
 	for _, a := range apps {
+		if hidden[a.Name] {
+			continue // its list leaves the person out
+		}
 		v.Apps = append(v.Apps, addonApp{Name: a.Name, Repo: a.Repo, Enabled: isOn[a.ID]})
 	}
 	if runs, err := s.Store.ListAddonRuns(ctx, renovate.Name, 1); err == nil && len(runs) > 0 {
@@ -95,8 +102,8 @@ func (s *Server) renovateView(r *http.Request) (*addonView, error) {
 }
 
 // listAddons is the built-in add-ons (Renovate).
-func (s *Server) listAddons(w http.ResponseWriter, r *http.Request, _ string) {
-	v, err := s.renovateView(r)
+func (s *Server) listAddons(w http.ResponseWriter, r *http.Request, login string) {
+	v, err := s.renovateView(r, login)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -105,12 +112,12 @@ func (s *Server) listAddons(w http.ResponseWriter, r *http.Request, _ string) {
 }
 
 // getAddon is one built-in add-on's page.
-func (s *Server) getAddon(w http.ResponseWriter, r *http.Request, _ string) {
+func (s *Server) getAddon(w http.ResponseWriter, r *http.Request, login string) {
 	if r.PathValue("addon") != renovate.Name {
 		httpError(w, http.StatusNotFound, "no such add-on")
 		return
 	}
-	v, err := s.renovateView(r)
+	v, err := s.renovateView(r, login)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return

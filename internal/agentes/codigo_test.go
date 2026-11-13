@@ -107,7 +107,7 @@ func (r *repos) CreateBranch(_ context.Context, _ int64, _, _, sha string) error
 	return nil
 }
 func (r *repos) CommitFiles(_ context.Context, _ int64, _, branch, _ string, files map[string][]byte, remove []string) (string, error) {
-	if branch != "encargo-12" {
+	if branch != "encargo-12-saludar-en-espanol" {
 		return "", fmt.Errorf("committed to %s", branch)
 	}
 	r.commits, r.removed = append(r.commits, files), append(r.removed, remove)
@@ -196,7 +196,7 @@ func TestCoderDelivers(t *testing.T) {
 		t.Fatalf("commits %q, removed %v", r.commits, r.removed)
 	}
 	if !strings.Contains(st.delivered, "Saludo en español.") || !strings.Contains(st.delivered, "Gastó $0.35") ||
-		len(st.links) != 2 || st.links[0] != "https://github.com/o/tienda/pull/new/encargo-12" || st.links[1] != "https://rendimiento.example.com/apps/tienda/runs/902" {
+		len(st.links) != 2 || st.links[0] != "https://github.com/o/tienda/pull/new/encargo-12-saludar-en-espanol" || st.links[1] != "https://rendimiento.example.com/apps/tienda/runs/902" {
 		t.Fatalf("delivered %q %v", st.delivered, st.links)
 	}
 	if st.spent != 350_000 || st.gaveBack != "" || len(st.waited) != 2 || !strings.Contains(st.handover, "lo entregó") {
@@ -243,7 +243,23 @@ func TestCoderWorksFromTheFailedRunsBranch(t *testing.T) {
 	if r.from != "head-of-propina-redonda" {
 		t.Fatalf("made from %q, want the failed run's branch", r.from)
 	}
-	if len(st.links) == 0 || st.links[0] != "https://github.com/o/tienda/compare/propina-redonda...encargo-12?expand=1" {
+	if len(st.links) == 0 || st.links[0] != "https://github.com/o/tienda/compare/propina-redonda...encargo-12-saludar-en-espanol?expand=1" {
 		t.Fatalf("links %v", st.links)
+	}
+}
+
+func TestBranchFor(t *testing.T) {
+	for _, c := range []struct {
+		title, want string
+	}{
+		{"Cambiar la configuración de la plataforma desde rendimiento", "encargo-25-cambiar-la-configuracion-de-la"},
+		{"YC 9: multiusuario (org_id en cada ruta)", "encargo-25-yc-9-multiusuario-org-id-en-cada-ruta"},
+		{"Añadir «Quién entra»", "encargo-25-anadir-quien-entra"},
+		{"", "encargo-25"},
+		{"¡¿?!", "encargo-25"},
+	} {
+		if got := branchFor(25, c.title); got != c.want {
+			t.Errorf("branchFor(%q) = %q, want %q", c.title, got, c.want)
+		}
 	}
 }

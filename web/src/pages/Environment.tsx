@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { envApi, session, timeAgo, type Capacity, type EnvCheck, type EnvNode, type EnvProvider, type EnvReport, type EnvStatus } from "../api";
+import { envApi, session, timeAgo, type BoundaryCheck, type Capacity, type EnvCheck, type EnvNode, type EnvProvider, type EnvReport, type EnvStatus, type LiveSetting, type SettingsView } from "../api";
+import { Link } from "react-router-dom";
 import { ErrorBox, usePoll } from "../components/ui";
+import { outsideWhy } from "../components/barda";
 import { locale, t, tn } from "../i18n";
 import { PlatformVersion } from "./Version";
 
@@ -97,6 +99,7 @@ export function Environment() {
       <p className="small muted calle-leyenda">{t("Lit windows are the processor; the red skirting rises with memory. A note on the door says the node is missing something. The parroquia is the node in charge.")}</p>
       {nodo && <div className="calle-nodo"><NodeCard n={nodo} /></div>}
       <Capacidad nodes={r.nodes} />
+      {session.operator && <Ajustes />}
 
       <div className="letreros">
         {letreros.map((l, i) => (
@@ -468,6 +471,148 @@ function Capacidad({ nodes }: { nodes: EnvNode[] }) {
       ) : <p className="small muted" style={{ margin: 0 }}>{t("Only administrators change this.")}</p>}
       {v.saved.updatedBy && <span className="small muted">{t("changed by {who} {when}", { who: v.saved.updatedBy, when: timeAgo(v.saved.updatedAt!) })}</span>}
     </section>
+  );
+}
+
+/** What each live setting does, in a sentence. */
+const settingHelp: Record<string, () => string> = {
+  ORG_NETWORK_POLICY: () => t("On: each app's namespace lets in only its own organization's namespaces, the ingress, rendimiento and the ones listed below. It holds only where the cluster's network plugin enforces network policies."),
+  INGRESS_NAMESPACE: () => t("Where the ingress controller runs: public traffic comes in from there. Empty: the usual one for the ingress class."),
+  ORG_NETWORK_POLICY_NAMESPACES: () => t("Other namespaces always let in, such as monitoring, separated by commas."),
+  ORG_NETWORK_POLICY_CIDRS: () => t("Address ranges always let in, such as the nodes' network when the ingress runs on the host network."),
+  ORG_QUOTA_CPU: () => t("The most CPU the apps of one organization other than the platform's may ask for together, such as 4. Empty: no limit."),
+  ORG_QUOTA_MEMORY: () => t("The most memory they may ask for together, such as 8Gi. Empty: no limit."),
+};
+
+/**
+ * The platform's settings that change while it runs: the boundary between organizations and its quota. A value saved here
+ * wins over the ConfigMap's until it is taken back; every process follows it within 15 seconds, with no restart.
+ */
+function Ajustes() {
+  const { data: v, setData, error } = usePoll(envApi.settings, [], 60000);
+  const [edits, setEdits] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState<string>();
+  const [err, setErr] = useState<unknown>();
+  const [check, setCheck] = useState<BoundaryCheck>();
+  if (error) return <section className="card"><ErrorBox error={error} /></section>;
+  if (!v) return null;
+  const run = (key: string, p: Promise<SettingsView>) => {
+    setBusy(key); setErr(undefined);
+    p.then((nv) => { setBusy(undefined); setData(nv); setEdits((e) => { const n = { ...e }; delete n[key]; return n; }); },
+      (e) => { setBusy(undefined); setErr(e); });
+  };
+  const save = (key: string, value: string) => run(key, envApi.saveSetting(key, value));
+  const on = v.live.find((s) => s.key === "ORG_NETWORK_POLICY")?.value === "true";
+  const listed = v.live.find((s) => s.key === "ORG_NETWORK_POLICY_NAMESPACES")?.value ?? "";
+  const review = () => { setErr(undefined); envApi.boundaryCheck().then(setCheck, setErr); };
+  const letIn = (ns: string) => {
+    const next = [...listed.split(/[,\s]+/).filter(Boolean), ns].join(",");
+    run("ORG_NETWORK_POLICY_NAMESPACES", envApi.saveSetting("ORG_NETWORK_POLICY_NAMESPACES", next).then((nv) => {
+      setCheck((c) => c && { ...c, callers: c.callers.map((x) => (x.namespace === ns ? { ...x, in: true } : x)) });
+      return nv;
+    }));
+  };
+  const group = (g: LiveSetting["group"], title: string, intro: string) => (
+    <div className="stack" style={{ gap: 10 }}>
+      <div>
+        <h3 style={{ margin: 0 }}>{title}</h3>
+        <p className="small muted" style={{ margin: 0 }}>{intro}</p>
+      </div>
+      {v.live.filter((s) => s.group === g).map((s) => <AjusteRow key={s.key} s={s} edit={edits[s.key]} busy={busy === s.key}
+        onEdit={(x) => setEdits({ ...edits, [s.key]: x })} onSave={(x) => save(s.key, x)} onForget={() => run(s.key, envApi.forgetSetting(s.key))}
+        onTurnOn={s.key === "ORG_NETWORK_POLICY" && !on ? review : undefined} />)}
+    </div>
+  );
+  const blocked = check?.callers.filter((c) => !c.in) ?? [];
+  return (
+    <section className="card stack ajustes">
+      <div>
+        <h2 style={{ margin: 0 }}>{t("Platform settings")}</h2>
+        <p className="small muted" style={{ margin: 0 }}>{t("A value saved here wins over the ConfigMap's until you take it back. Every part of the platform follows it within 15 seconds, with no restart, and each change goes to the bitácora.")}</p>
+      </div>
+      {v.invalid && <div className="badge bad" style={{ whiteSpace: "normal" }}>{t("A saved value does not check out, so the ConfigMap's are in force: {why}", { why: v.invalid })}</div>}
+      {group("boundary", t("Boundary between organizations"), t("Which namespaces may reach each app. Public traffic comes in through {ns}; rendimiento ({platform}) is always let in.", { ns: v.ingressNamespace || "—", platform: v.platformNamespace }))}
+      {session.cluster && v.apps > 0 && (
+        <div className="small stack" style={{ gap: 4 }}>
+          <span>{on
+            ? t("{inside} of {n} apps are inside the wall.", { inside: v.apps - Object.keys(v.outside ?? {}).length, n: v.apps })
+            : t("The wall is down: none of the {n} apps is walled.", { n: v.apps })}{" "}<Link to="/universe">{t("See it in the Universe")}</Link></span>
+          {Object.entries(v.outside ?? {}).map(([app, why]) => <span key={app} className="muted"><Link to={`/apps/${app}`}>{app}</Link>: {outsideWhy(why, v.nodes?.[app])}</span>)}
+        </div>
+      )}
+      {check && (
+        <div className="card stack" style={{ background: "var(--surface-2, transparent)" }}>
+          <strong>{t("Before turning it on")}</strong>
+          {!check.ingressFound && <span className="badge warn" style={{ whiteSpace: "normal" }}>{t("The ingress namespace {ns} does not exist: public traffic would be stopped.", { ns: check.ingressNamespace || "—" })}</span>}
+          <p className="small muted" style={{ margin: 0 }}>{t("Namespaces whose workloads point at an app's service in their environment. rendimiento does not see traffic, so this is a guide, not a proof: something that calls an app without saying so in its environment is not listed.")}</p>
+          {check.callers.length === 0 && <span className="small">{t("Nothing outside an app's organization points at its services.")}</span>}
+          {check.callers.map((c) => (
+            <div key={c.namespace} className="row between" style={{ gap: 8 }}>
+              <span><strong className="mono">{c.namespace}</strong> <span className="small muted">{t("calls {what}", { what: c.calls.join(", ") })}</span></span>
+              {c.in ? <span className="badge ok">{t("let in")}</span> : <button disabled={!!busy} onClick={() => letIn(c.namespace)}>{t("Let it in")}</button>}
+            </div>
+          ))}
+          <div className="row" style={{ gap: 8 }}>
+            <button className="primary" disabled={!!busy || !check.ingressFound} onClick={() => { setCheck(undefined); save("ORG_NETWORK_POLICY", "true"); }}>
+              {blocked.length ? t("Turn it on anyway") : t("Turn it on")}
+            </button>
+            <button disabled={!!busy} onClick={() => setCheck(undefined)}>{t("Cancel")}</button>
+          </div>
+          <span className="small muted">{t("If an app stops answering, turn it off here: the policies go within a minute.")}</span>
+        </div>
+      )}
+      {group("quota", t("Quota of each organization"), t("Checked before each release of an app of another organization; the platform's own apps have no quota."))}
+      <ErrorBox error={err} />
+      <details>
+        <summary className="small">{t("Settings that change only with a deploy")}</summary>
+        <p className="small muted">{t("The platform needs these to start, or they change what already exists (addresses, volumes, records): change them in the ConfigMap and deploy. Secrets show only whether they are set.")}</p>
+        <div className="form-grid">
+          {v.fixed.map((f) => (
+            <div key={f.key} className="small"><span className="mono">{f.key}</span>: {f.secret ? (f.set ? t("set") : t("not set")) : (f.value || <span className="muted">{t("not set")}</span>)}</div>
+          ))}
+        </div>
+      </details>
+    </section>
+  );
+}
+
+/** One live setting: its value, where it comes from, and a control to change it or take it back. */
+function AjusteRow({ s, edit, busy, onEdit, onSave, onForget, onTurnOn }: {
+  s: LiveSetting; edit?: string; busy: boolean; onEdit: (v: string) => void; onSave: (v: string) => void; onForget: () => void; onTurnOn?: () => void;
+}) {
+  const value = edit ?? s.value;
+  const differs = !!s.saved && s.saved.value !== s.env;
+  const source = s.saved
+    ? t("saved here by {who} {when}", { who: s.saved.updatedBy, when: timeAgo(s.saved.updatedAt) })
+    : s.env ? t("from the ConfigMap") : t("not set");
+  return (
+    <div className="field">
+      <span className="row between" style={{ gap: 8 }}>
+        <span className="mono">{s.key}</span>
+        <span className="small muted">{source}</span>
+      </span>
+      {!s.applies ? <span className="small muted">{t("Does not apply on one computer.")}</span> : s.key === "ORG_NETWORK_POLICY" ? (
+        <span className="row" style={{ gap: 8 }}>
+          <span className={`badge ${s.value === "true" ? "ok" : ""}`}>{s.value === "true" ? t("on") : t("off")}</span>
+          {s.value === "true"
+            ? <button disabled={busy} onClick={() => onSave("false")}>{t("Turn it off")}</button>
+            : <button disabled={busy} onClick={onTurnOn}>{t("Review and turn it on")}</button>}
+        </span>
+      ) : (
+        <span className="row" style={{ gap: 8 }}>
+          <input id={`ajuste-${s.key}`} value={value} onChange={(e) => onEdit(e.target.value)} placeholder={t("not set")} style={{ flex: 1, minWidth: 0 }} />
+          {edit !== undefined && edit !== s.value && <button className="primary" disabled={busy} onClick={() => onSave(edit)}>{busy ? t("Saving…") : t("Save")}</button>}
+        </span>
+      )}
+      <span className="small muted">{settingHelp[s.key]?.()}</span>
+      {differs && (
+        <span className="small">
+          {t("The ConfigMap says {env}, and is ignored while this is saved.", { env: s.env || t("nothing") })}{" "}
+          <button className="link" disabled={busy} onClick={onForget}>{t("Back to the ConfigMap's value")}</button>
+        </span>
+      )}
+      {s.saved && !differs && <button className="link small" disabled={busy} onClick={onForget}>{t("Back to the ConfigMap's value")}</button>}
+    </div>
   );
 }
 

@@ -44,7 +44,10 @@ type AppReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Render render.Options
-	DNS    dns.Provider
+	// OrgNetwork is the boundary between organizations now (the Environment
+	// page may change it while the platform runs); nil: Render's.
+	OrgNetwork func() render.OrgNetwork
+	DNS        dns.Provider
 	// Uncached reads network policies straight from the API server
 	// (mgr.GetAPIReader()), so the controller needs no watch on them;
 	// nil: the Client.
@@ -137,7 +140,11 @@ func (r *AppReconciler) sync(ctx context.Context, app *v1alpha1.App, st *v1alpha
 			in.Selectors[svc.Name] = live.Spec.Selector.MatchLabels
 		}
 	}
-	objs, err := render.Render(in, r.Render)
+	opts := r.Render
+	if r.OrgNetwork != nil {
+		opts.OrgNetwork = r.OrgNetwork()
+	}
+	objs, err := render.Render(in, opts)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

@@ -65,8 +65,8 @@ func (s *Server) produccionEsperar(ctx context.Context, k store.AgentKey, in esp
 	deadline := time.Now().Add(wait)
 	for {
 		a, err := s.Produccion.GetAprobacion(ctx, in.ID)
-		if err == nil && a.OrgID != k.OrgID {
-			err = store.ErrNotFound
+		if err == nil && (a.OrgID != k.OrgID || !k.AllowsApp(a.App)) {
+			err = store.ErrNotFound // another organization's, or about an app the key may not use
 		}
 		if errors.Is(err, store.ErrNotFound) {
 			return a, fmt.Errorf("no existe la solicitud %d", in.ID)

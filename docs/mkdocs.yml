@@ -81,6 +81,7 @@ plugins:
             Data and state: Datos y estado
             API, auth and the UI: API, autenticación e interfaz
             Security model: Modelo de seguridad
+            The destination agent: El agente de destino
             Using it: Uso
             rendimiento.yaml reference: Referencia de rendimiento.yaml
             Apps day to day: Las aplicaciones en el día a día
@@ -114,6 +115,7 @@ plugins:
             Scaling: Escalar
             Roadmap: Hoja de ruta
             Preview environments: Entornos de vista previa
+            AI-generated tests (design): Pruebas generadas por IA (diseño)
             Becoming an open-source project: Convertirse en un proyecto de código abierto
             Reference: Referencia
             Configuration: Configuración
@@ -174,6 +176,7 @@ nav:
       - API, auth and the UI: architecture/api-ui.md
       - Data and state: architecture/data.md
       - Security model: architecture/security.md
+      - The destination agent: architecture/agente-destino.md
   - Using it:
       - guide/index.md
       - rendimiento.yaml reference: guide/spec.md
@@ -210,6 +213,7 @@ nav:
       - Scaling: future/scaling.md
       - Roadmap: future/roadmap.md
       - Preview environments: future/previews.md
+      - AI-generated tests (design): future/ai-tests.md
       - Becoming an open-source project: future/open-source.md
   - Reference:
       - reference/index.md

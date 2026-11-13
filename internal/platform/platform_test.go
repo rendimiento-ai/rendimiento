@@ -416,7 +416,22 @@ func TestOnboardPushDeployRollback(t *testing.T) {
 			strings.HasSuffix(d.Spec.Template.Spec.Containers[0].Image, "@sha256:aaaaaaaa")
 	})
 
-	// 7. Pushes to repos that are not onboarded are ignored.
+	// 7. A branch made from a commit the default branch already ran (an
+	// agent's new branch) does not run it again; after a failure it does,
+	// and a commit that says [skip ci] does not run.
+	if runs, err := p.HandlePush(ctx, PushEvent{Installation: 7, Repo: "p0dxD/hello", Branch: "encargo-7", SHA: sha2}); err != nil || len(runs) != 0 {
+		t.Fatalf("branch at a commit main ran: %v %v", runs, err)
+	}
+	runs, _ = p.HandlePush(ctx, PushEvent{Installation: 7, Repo: "p0dxD/hello", Branch: "encargo-8", SHA: sha3})
+	if len(runs) != 1 {
+		t.Fatalf("branch at a commit that failed on main: %v", runs)
+	}
+	waitRun(t, p, runs[0].ID)
+	if runs, err := p.HandlePush(ctx, PushEvent{Installation: 7, Repo: "p0dxD/hello", Branch: "encargo-9", SHA: "9999999999999999999999999999999999999999", SkipCI: true}); err != nil || len(runs) != 0 {
+		t.Fatalf("[skip ci] push: %v %v", runs, err)
+	}
+
+	// 8. Pushes to repos that are not onboarded are ignored.
 	if runs, err := p.HandlePush(ctx, PushEvent{Repo: "p0dxD/other", Branch: "main", SHA: sha1}); err != nil || len(runs) != 0 {
 		t.Fatalf("unknown repo: %v %v", runs, err)
 	}

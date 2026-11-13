@@ -114,6 +114,9 @@ type Platform struct {
 	// Capacity is what the Environment page sets now, overriding Workers
 	// and PerApp (nil, or a zero: keep them). Up to MaxWorkers run at once.
 	Capacity func() (workers, perApp int)
+	// LiveQuota is the organizations' quota now, as the Environment page
+	// may set it (nil: Config.OrgQuota).
+	LiveQuota func() OrgQuota
 
 	claimMu sync.Mutex
 	going   map[int64]*appGoing // apps with runs going
@@ -479,10 +482,21 @@ type PushEvent struct {
 	Branch       string
 	SHA          string
 	Deleted      bool
+	// SkipCI: the head commit's message asks not to run ([skip ci]).
+	SkipCI bool
+}
+
+// SaysSkipCI reports whether a commit message asks for no run, the way
+// GitHub Actions reads it: [skip ci], [ci skip] or [no ci], in any case.
+func SaysSkipCI(message string) bool {
+	m := strings.ToLower(message)
+	return strings.Contains(m, "[skip ci]") || strings.Contains(m, "[ci skip]") || strings.Contains(m, "[no ci]")
 }
 
 // HandlePush queues a run for every app deployed from the repo. Pushes to
-// the app's default branch deploy; other branches only build.
+// the app's default branch deploy; other branches only build, and not
+// when there is nothing new to learn: a commit the default branch already
+// ran (a branch just made from it), or one whose message says [skip ci].
 func (p *Platform) HandlePush(ctx context.Context, e PushEvent) ([]*store.Run, error) {
 	if e.Deleted || e.SHA == "" || strings.Trim(e.SHA, "0") == "" {
 		return nil, nil
@@ -496,6 +510,14 @@ func (p *Platform) HandlePush(ctx context.Context, e PushEvent) ([]*store.Run, e
 		event := "push"
 		if e.Branch != app.DefaultBranch {
 			event = "branch"
+			if e.SkipCI {
+				p.Log.Info("push not run: its commit says [skip ci]", "app", app.Name, "branch", e.Branch, "sha", shortSHA(e.SHA))
+				continue
+			}
+			if tried, err := p.Store.TriedOn(ctx, app.ID, app.DefaultBranch, e.SHA); err == nil && tried {
+				p.Log.Info("push not run: the default branch already ran this commit", "app", app.Name, "branch", e.Branch, "sha", shortSHA(e.SHA))
+				continue
+			}
 		}
 		run, err := p.QueueRun(ctx, app, e.Branch, e.SHA, event)
 		if err != nil {
