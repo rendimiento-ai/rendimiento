@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { api, timeAgo, type App, type MesaGroup, type MesaLine } from "../api";
+import { api, session, timeAgo, type App, type MesaGroup, type MesaLine } from "../api";
 import { ErrorBox, usePoll } from "./ui";
 import { t, tn } from "../i18n";
 import { VolverAlVistazo } from "./vistazo";
@@ -16,7 +17,7 @@ const grupos: { id: MesaGroup; title: string; hint: string }[] = [
  * grouped by who it waits for, so what is open is in one place instead of five.
  */
 export function MesaTab({ app }: { app: App }) {
-  const { data, error } = usePoll(() => api.mesa(app.name), [app.name], 30000);
+  const { data, error, reload } = usePoll(() => api.mesa(app.name), [app.name], 30000);
   return (
     <>
       <VolverAlVistazo />
@@ -31,7 +32,7 @@ export function MesaTab({ app }: { app: App }) {
             return (
               <section key={g.id} className={`mesa-grupo mesa-${g.id}`} aria-label={t(g.title)}>
                 <h3>{t(g.title)} <span className="muted small">· {lines.length}{g.hint && ` · ${t(g.hint)}`}</span></h3>
-                {lines.map((l) => <Fila key={(l.branch || "") + (l.encargos?.[0]?.id ?? "")} app={app} l={l} />)}
+                {lines.map((l) => <Fila key={(l.branch || "") + (l.encargos?.[0]?.id ?? "")} app={app} l={l} onClosed={reload} />)}
               </section>
             );
           })}
@@ -41,7 +42,7 @@ export function MesaTab({ app }: { app: App }) {
   );
 }
 
-function Fila({ app, l }: { app: App; l: MesaLine }) {
+function Fila({ app, l, onClosed }: { app: App; l: MesaLine; onClosed: () => void }) {
   const repo = `https://github.com/${app.repo}`;
   const encargos = l.encargos ?? [];
   return (
@@ -59,7 +60,7 @@ function Fila({ app, l }: { app: App; l: MesaLine }) {
           </div>
         )}
       </div>
-      <div className="mesa-accion">{accion(l, app, repo)}</div>
+      <div className="mesa-accion">{l.group === "spare" && session.role !== "guest" ? <Cerrar app={app} l={l} onClosed={onClosed} /> : accion(l, app, repo)}</div>
     </div>
   );
 }
@@ -106,6 +107,22 @@ function accion(l: MesaLine, app: App, repo: string) {
     default:
       return run ? <Link className="btn small" to={run}>{l.why === "merged" ? t("See it") : t("See the run")}</Link> : null;
   }
+}
+
+/**
+ * Closing a spare line: its pull request without merging, and its branch. A person's choice, as merging is; it asks
+ * once more before it does it.
+ */
+function Cerrar({ app, l, onClosed }: { app: App; l: MesaLine; onClosed: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const close = () => {
+    const what = l.pull ? t("Close pull request #{n} without merging it, and delete the branch {branch}?", { n: l.pull, branch: l.branch ?? "" })
+      : t("Delete the branch {branch}?", { branch: l.branch ?? "" });
+    if (!confirm(what)) return;
+    setBusy(true);
+    api.closeSpare(app.name, l.branch ?? "").then(onClosed, (e: Error) => alert(e.message)).finally(() => setBusy(false));
+  };
+  return <button className="btn small" disabled={busy} onClick={close}>{l.pull ? t("Close") : t("Delete the branch")}</button>;
 }
 
 /** On the home page: how many things wait for the person, per app, each a door to that app's board. */

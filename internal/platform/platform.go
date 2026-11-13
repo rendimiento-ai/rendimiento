@@ -54,6 +54,8 @@ type GitHub interface {
 	Pull(ctx context.Context, installation int64, repo string, number int) (*gh.PullInfo, error)
 	MergePull(ctx context.Context, installation int64, repo string, number int, sha string) error
 	DeleteBranch(ctx context.Context, installation int64, repo, branch string) error
+	ClosePull(ctx context.Context, installation int64, repo string, number int) error
+	Branches(ctx context.Context, installation int64, repo string) ([]gh.Branch, error)
 	CreatePull(ctx context.Context, installation int64, repo, base, branch, title, body string) (int, error)
 	CommitSubject(ctx context.Context, installation int64, repo, sha string) (string, error)
 	MergeBase(ctx context.Context, installation int64, repo, base, head string) (string, time.Time, error)
@@ -88,6 +90,9 @@ type Platform struct {
 	// branchPullsCache keeps what GitHub said of each app's pull requests,
 	// for the kinds of branch on the Runs tab.
 	branchPullsCache branchPullsCache
+	// mesaInMain keeps whether each branch commit the work board asked
+	// about is in its app's default branch.
+	mesaInMain inMainCache
 	// Verify configures release verification and automatic rollback.
 	Verify VerifySettings
 	// VerifyElsewhere, in a process that does not watch releases (the CI

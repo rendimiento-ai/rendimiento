@@ -22,6 +22,24 @@ type fakeStore struct {
 	escalated int
 	links     map[int64]int64
 	encargos  []store.Encargo
+	branchOf  map[int64]string // each run's branch, for OpenEncargoOnBranch
+	notes     map[int64][]string
+}
+
+func (f *fakeStore) OpenEncargoOnBranch(_ context.Context, _ *store.App, branch string) (store.Encargo, error) {
+	for _, e := range f.encargos {
+		if e.ID == store.EncargoOfBranch(branch) || (e.RunID != nil && f.branchOf[*e.RunID] == branch) {
+			return e, nil
+		}
+	}
+	return store.Encargo{}, store.ErrNotFound
+}
+func (f *fakeStore) NoteEncargo(_ context.Context, id int64, _, note string) (store.Encargo, error) {
+	if f.notes == nil {
+		f.notes = map[int64][]string{}
+	}
+	f.notes[id] = append(f.notes[id], note)
+	return store.Encargo{ID: id}, nil
 }
 
 func (f *fakeStore) EncargoForRun(_ context.Context, run int64) (store.Encargo, error) {
@@ -276,7 +294,7 @@ func TestEscalation(t *testing.T) {
 // which wins) asks for it: on branches only, or everywhere; never twice.
 func TestOpenEncargo(t *testing.T) {
 	ctx := context.Background()
-	st := &fakeStore{settings: store.AISettings{AutoEncargo: store.AutoEncargoBranches}}
+	st := &fakeStore{settings: store.AISettings{AutoEncargo: store.AutoEncargoBranches}, branchOf: map[int64]string{30: "propina-redonda"}}
 	d := &Diagnostician{Store: st, Lang: "es"}
 	app := &store.App{ID: 4, Name: "propinas", DefaultBranch: "main", OrgID: 1}
 	branch := &store.Run{ID: 30, Branch: "propina-redonda", SHA: "abcdef123", Steps: []store.Step{{ID: "web:test", Status: store.RunFailed, Message: "exited with code 1"}}}
@@ -299,5 +317,20 @@ func TestOpenEncargo(t *testing.T) {
 	_ = d.openEncargo(ctx, app, &store.Run{ID: 32, Branch: "otra"}, diag)
 	if len(st.encargos) != 2 || *st.encargos[1].RunID != 31 {
 		t.Fatalf("with the app's own choice: %d encargos", len(st.encargos))
+	}
+
+	// One open encargo per branch: a later failure on the same branch, or on
+	// the branch an encargo was made for, is noted on that encargo.
+	app.AutoEncargo = ""
+	_ = d.openEncargo(ctx, app, &store.Run{ID: 33, Branch: "propina-redonda", SHA: "fedcba987"}, diag)
+	_ = d.openEncargo(ctx, app, &store.Run{ID: 34, Branch: "encargo-2-arreglar-main", SHA: "aaaaaaa11"}, diag)
+	if len(st.encargos) != 2 {
+		t.Fatalf("%d encargos: a branch with an open one got another", len(st.encargos))
+	}
+	if n := st.notes[1]; len(n) != 1 || !strings.Contains(n[0], "#33") {
+		t.Fatalf("notes on encargo 1: %q", n)
+	}
+	if n := st.notes[2]; len(n) != 1 || !strings.Contains(n[0], "encargo-2-arreglar-main") {
+		t.Fatalf("notes on encargo 2: %q", n)
 	}
 }

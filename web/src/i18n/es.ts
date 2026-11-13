@@ -1879,4 +1879,8 @@ export const es: Record<string, string> = {
   "See the branches": "Ver las ramas",
   "See it": "Ver",
   "See the run": "Ver la ejecución",
+  "Close pull request #{n} without merging it, and delete the branch {branch}?": "¿Cerrar la solicitud #{n} sin integrarla y borrar la rama {branch}?",
+  "Delete the branch {branch}?": "¿Borrar la rama {branch}?",
+  "Delete the branch": "Borrar la rama",
+  "added to it": "se le agregó",
 };

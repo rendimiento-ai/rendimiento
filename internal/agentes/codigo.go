@@ -184,6 +184,7 @@ type job struct {
 	key      store.AgentKey
 	branch   string
 	from     string // the branch it was made from: the default one, or the failed run's
+	same     bool   // it works on the failed run's branch itself: an encargo's branch
 	files    map[string][]byte
 	changed  map[string][]byte
 	removed  map[string]bool
@@ -260,12 +261,19 @@ func (j *job) work(ctx context.Context) error {
 			j.from = run.Branch
 		}
 	}
-	base, err := c.Repos.BranchSHA(ctx, app.InstallationID, app.Repo, j.from)
-	if err != nil {
-		return err
-	}
-	if err := c.Repos.CreateBranch(ctx, app.InstallationID, app.Repo, j.branch, base); err != nil {
-		return err
+	// A fix of an encargo's branch goes on that branch, not on a copy of it:
+	// its pull request is the one to merge. A person's branch is theirs; the
+	// fix goes on a branch of its own, made from it.
+	if j.from != app.DefaultBranch && store.EncargoOfBranch(j.from) != 0 {
+		j.branch, j.same = j.from, true
+	} else {
+		base, err := c.Repos.BranchSHA(ctx, app.InstallationID, app.Repo, j.from)
+		if err != nil {
+			return err
+		}
+		if err := c.Repos.CreateBranch(ctx, app.InstallationID, app.Repo, j.branch, base); err != nil {
+			return err
+		}
 	}
 	if j.files, err = c.Repos.Files(ctx, app.InstallationID, app.Repo, j.branch, maxFileSize); err != nil {
 		return err
@@ -327,7 +335,10 @@ func (j *job) brief() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Encargo %d: %s\n\nApp: %s (repository %s, default branch %s). You work on branch %s, made from %s.\n",
 		j.e.ID, j.e.Title, j.app.Name, j.app.Repo, j.app.DefaultBranch, j.branch, j.from)
-	if j.from != j.app.DefaultBranch {
+	switch {
+	case j.same:
+		fmt.Fprintf(&b, "That is the branch where run #%d failed, an encargo's branch: you commit on it directly, and its pull request is what gets merged.\n", *j.e.RunID)
+	case j.from != j.app.DefaultBranch:
 		fmt.Fprintf(&b, "That is the branch where run #%d failed: the code to fix is there, and your branch will be merged into it.\n", *j.e.RunID)
 	}
 	if j.e.Body != "" {
@@ -703,7 +714,7 @@ func (j *job) deliver(ctx context.Context, summary string) (string, bool) {
 	result := strings.TrimSpace(summary) + "\n\n" + c.say("Gastó %s (estimado: %s).", "Spent %s (estimated: %s).", ia.Dollars(j.spent), ia.Dollars(j.budget/2))
 	// The pull request goes into the branch it was made from.
 	links := []string{fmt.Sprintf("https://github.com/%s/pull/new/%s", j.app.Repo, j.branch)}
-	if j.from != j.app.DefaultBranch {
+	if j.from != j.app.DefaultBranch && !j.same {
 		links[0] = fmt.Sprintf("https://github.com/%s/compare/%s...%s?expand=1", j.app.Repo, j.from, j.branch)
 	}
 	if c.BaseURL != "" {

@@ -278,7 +278,7 @@ function Conflict({ run, app }: { run: Run; app: string }) {
             // A conflict of code needs git: it goes to the person's own agent, not the platform's.
             api.createEncargo({ title: t("Resolve the conflict of {branch} in {app}", { branch: run.branch, app }), body, app, runId: run.id })
               .then((e) => api.routeEncargo(e.id, "local").catch(() => e))
-              .then(() => navigate("/ruta?tab=encargos"), (e) => { setBusy(false); alert(e.message); });
+              .then((e) => navigate(`/ruta?tab=encargos#encargo-${e.id}`), (e) => { setBusy(false); alert(e.message); });
           }}>{t("Ask an agent to resolve it")}</button>
           <span className="small muted">{t("It goes to your own agent, which has git: the platform's agent cannot merge branches.")}</span>
         </div>
@@ -305,8 +305,9 @@ function AskAgent({ run, app, diagnosis }: { run: Run; app: string; diagnosis?: 
   return (
     <button disabled={busy} title={t("Creates an encargo for an agent to take")} onClick={() => {
       setBusy(true);
+      // A branch with an open encargo gets this one added to it, not a second encargo.
       api.createEncargo({ title: t("Fix run #{n} of {app}", { n: run.id, app }), body, app, runId: run.id })
-        .then(() => navigate("/ruta?tab=encargos"), (e) => { setBusy(false); alert(e.message); });
+        .then((e) => navigate(`/ruta?tab=encargos#encargo-${e.id}`), (e) => { setBusy(false); alert(e.message); });
     }}>{t("Ask an agent")}</button>
   );
 }

@@ -522,6 +522,11 @@ func (c *Client) CommitSubject(ctx context.Context, repo, sha string) (string, e
 	return strings.TrimSpace(subject), nil
 }
 
+// ClosePull closes a pull request without merging it.
+func (c *Client) ClosePull(ctx context.Context, repo string, number int) error {
+	return c.do(ctx, http.MethodPatch, fmt.Sprintf("/repos/%s/pulls/%d", repo, number), map[string]any{"state": "closed"}, nil)
+}
+
 // DeleteBranch deletes a branch. One that is already gone (GitHub deletes
 // merged branches itself where the repository says so) is not an error.
 func (c *Client) DeleteBranch(ctx context.Context, repo, branch string) error {

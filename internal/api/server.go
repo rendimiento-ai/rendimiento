@@ -318,6 +318,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/apps/{app}/branch-kinds", s.branchKinds)
 	auth(store.MemberGuest, "GET /api/apps/{app}/caminos", s.appCaminos)
 	auth(store.MemberGuest, "GET /api/apps/{app}/mesa", s.appMesa)
+	auth(store.MemberCollaborator, "POST /api/apps/{app}/mesa/close", s.closeSpare)
 	auth(store.MemberGuest, "GET /api/mesa", s.mesaCounts)
 	auth(store.MemberCollaborator, "POST /api/apps/{app}/runs", s.triggerRun)
 	auth(store.MemberGuest, "GET /api/universe", s.universe)

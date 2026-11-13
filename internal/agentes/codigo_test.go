@@ -248,6 +248,31 @@ func TestCoderWorksFromTheFailedRunsBranch(t *testing.T) {
 	}
 }
 
+// A failure on an encargo's own branch is fixed on that branch: no copy of
+// it, and the link is its own pull request.
+func TestCoderFixesAnEncargosBranchInPlace(t *testing.T) {
+	run := int64(809)
+	st := &coderStore{runID: &run, runs: []*store.Run{{ID: 809, AppID: 4, Branch: "encargo-12-saludar-en-espanol", SHA: "abc", Status: store.RunFailed}}}
+	r := &repos{st: st, files: map[string][]byte{"saludo.go": []byte("const Saludo = \"Hi\"\n")}, results: []string{store.RunSucceeded}}
+	m := &script{t: t, cost: 10_000, turns: [][]ia.ToolCall{
+		{call("edit_file", map[string]string{"path": "saludo.go", "old_text": "Hi", "new_text": "Hola"})},
+		{call("commit_and_test", map[string]string{"message": "Saludo"})},
+		{call("deliver", map[string]string{"summary": "Listo."})},
+	}}
+	if err := newCoder(st, r, m).Do(context.Background(), store.Encargo{ID: 12, OrgID: 1, App: "tienda", RunID: &run}); err != nil {
+		t.Fatal(err)
+	}
+	if r.from != "" {
+		t.Fatalf("made a branch from %q, want none", r.from)
+	}
+	if len(r.commits) != 1 {
+		t.Fatalf("%d commits on the encargo's branch", len(r.commits))
+	}
+	if len(st.links) == 0 || st.links[0] != "https://github.com/o/tienda/pull/new/encargo-12-saludar-en-espanol" {
+		t.Fatalf("links %v", st.links)
+	}
+}
+
 func TestBranchFor(t *testing.T) {
 	for _, c := range []struct {
 		title, want string

@@ -36,7 +36,8 @@ func TestBuild(t *testing.T) {
 		{ID: 36, Title: "Mesa", Status: "delivered", At: ago(time.Minute)},
 		{ID: 37, Title: "Sin tomar", Status: "pending"},
 	}
-	b := Build("main", pulls, true, runs, encargos, now)
+	heads := Heads{} // not known: every branch stays
+	b := Build("main", pulls, true, heads, runs, encargos, now)
 
 	want := map[string][2]string{
 		"choques-solos":          {GroupYou, WhyPassed},
@@ -102,8 +103,37 @@ func TestBuild(t *testing.T) {
 }
 
 func TestBuildEmpty(t *testing.T) {
-	b := Build("main", nil, false, nil, nil, time.Now())
+	b := Build("main", nil, false, Heads{}, nil, nil, time.Now())
 	if b.Lines == nil || len(b.Lines) != 0 || b.GitHub {
 		t.Fatalf("%+v", b)
+	}
+}
+
+// With GitHub's branches known, a branch that is gone leaves the board, and
+// one whose commit is already in main (merged with another built on it)
+// is merged, today or not at all.
+func TestBuildHeads(t *testing.T) {
+	now := time.Date(2026, 11, 13, 12, 0, 0, 0, time.UTC)
+	runs := []Run{
+		{ID: 1, Branch: "borrada", SHA: "a", Status: "succeeded", At: now.Add(-48 * time.Hour)},
+		{ID: 2, Branch: "dentro-vieja", SHA: "b", Status: "succeeded", At: now.Add(-48 * time.Hour)},
+		{ID: 3, Branch: "dentro-hoy", SHA: "c", Status: "succeeded", At: now.Add(-2 * time.Hour)},
+		{ID: 4, Branch: "lista", SHA: "d", Status: "succeeded", At: now.Add(-time.Hour)},
+	}
+	heads := Heads{Known: true, SHA: map[string]string{"main": "m", "dentro-vieja": "b", "dentro-hoy": "c", "lista": "d"},
+		InMain: map[string]bool{"b": true, "c": true}}
+	b := Build("main", nil, true, heads, runs, nil, now)
+	got := map[string]string{}
+	for _, l := range b.Lines {
+		got[l.Branch] = l.Group + "/" + l.Why
+	}
+	want := map[string]string{"dentro-hoy": GroupToday + "/" + WhyMerged, "lista": GroupYou + "/" + WhyPassed}
+	if len(got) != len(want) {
+		t.Fatalf("board %v, want %v", got, want)
+	}
+	for br, w := range want {
+		if got[br] != w {
+			t.Errorf("%s: %s, want %s", br, got[br], w)
+		}
 	}
 }
