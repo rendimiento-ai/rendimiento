@@ -230,6 +230,9 @@ services:
 		"services:\n  - name: a\n    domain: a.example.com\n    ingress: {tlsSecrets: {b.example.com: s}}":           "not one of the service's hosts",
 		"services:\n  - name: a\n    resources: {memory: lots}":                                                      "not a valid quantity",
 		"services:\n  - name: a\n    resources: {cpu: none}":                                                         "not a valid quantity",
+		"services:\n  - name: a\n    size: medium\n    resources: {cpu: \"2\"}":                                      "cpu 2 is more than its limit 1",
+		"services:\n  - name: a\n    resources: {memory: 2Gi, memoryLimit: 1024Mi}":                                  "memory 2Gi is more than its limit 1024Mi",
+		"tasks:\n  - name: t\n    image: x\n    command: y\n    size: medium\n    resources: {cpu: \"2\"}":           "more than its limit",
 	} {
 		if _, err := Parse([]byte(in)); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("Parse(%q) = %v, want %q", in, err, want)

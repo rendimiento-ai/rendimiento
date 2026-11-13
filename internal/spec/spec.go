@@ -11,6 +11,7 @@ import (
 	"net"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"sigs.k8s.io/yaml"
@@ -677,6 +678,7 @@ func (t Test) validate(p string) []error {
 		errs = append(errs, fmt.Errorf("%s.size %q must be small, medium or large", p, t.Size))
 	}
 	errs = append(errs, validateResources(p, t.Resources)...)
+	errs = append(errs, validateFit(p, t.Requests())...)
 	if t.Timeout < 0 {
 		errs = append(errs, fmt.Errorf("%s.timeout must be a number of seconds", p))
 	}
@@ -908,6 +910,7 @@ func (s *Spec) Validate() error {
 			}
 		}
 		errs = append(errs, validateResources(p, svc.Resources)...)
+		errs = append(errs, validateFit(p, ResourcesFor(svc.Size, svc.Resources))...)
 		if in := svc.Ingress; in != nil {
 			if in.Name != "" && !dnsLabel.MatchString(in.Name) {
 				errs = append(errs, fmt.Errorf("%s.ingress.name %q must be a lowercase DNS label", p, in.Name))
@@ -1151,6 +1154,7 @@ func (s *Spec) validateTasks() []error {
 			errs = append(errs, fmt.Errorf("%s.size %q must be small, medium or large", p, t.Size))
 		}
 		errs = append(errs, validateResources(p, t.Resources)...)
+		errs = append(errs, validateFit(p, ResourcesFor(t.Size, t.Resources))...)
 		if t.Timeout < 0 {
 			errs = append(errs, fmt.Errorf("%s.timeout must be a number of seconds", p))
 		}
@@ -1269,6 +1273,7 @@ func (s *Spec) validateNeeds(services map[string]bool) []error {
 			errs = append(errs, fmt.Errorf("postgres.size %q must look like 5Gi", o.Size))
 		}
 		errs = append(errs, validateResources("postgres", o.Resources)...)
+		errs = append(errs, validateFit("postgres", override(Resources{}, o.Resources))...)
 	}
 	if o := s.Redis; o != nil {
 		if o.Version != "" && !majorVersion.MatchString(o.Version) {
@@ -1278,6 +1283,7 @@ func (s *Spec) validateNeeds(services map[string]bool) []error {
 			errs = append(errs, fmt.Errorf("redis.maxMemory %q must look like 64mb", o.MaxMemory))
 		}
 		errs = append(errs, validateResources("redis", o.Resources)...)
+		errs = append(errs, validateFit("redis", override(Resources{}, o.Resources))...)
 	}
 	return errs
 }
@@ -1298,6 +1304,44 @@ func validateResources(p string, o *ResourceOverride) []error {
 		}
 	}
 	return errs
+}
+
+// validateFit checks that what is asked for fits under the limit, after
+// the size's values and the overrides are put together: Kubernetes refuses
+// a pod whose request is over its limit, so a CPU of 2 on a medium task
+// (whose limit is 1) failed only when the run made its pod.
+func validateFit(p string, r Resources) []error {
+	var errs []error
+	for _, q := range []struct{ field, request, limit, limitField string }{
+		{"cpu", r.CPURequest, r.CPULimit, "cpuLimit"}, {"memory", r.MemRequest, r.MemLimit, "memoryLimit"},
+	} {
+		if q.request == "" || q.limit == "" {
+			continue
+		}
+		req, okR := quantityValue(q.request)
+		lim, okL := quantityValue(q.limit)
+		if okR && okL && req > lim {
+			errs = append(errs, fmt.Errorf("%s.resources.%s %s is more than its limit %s: raise %s.resources.%s or set it to none",
+				p, q.field, q.request, q.limit, p, q.limitField))
+		}
+	}
+	return errs
+}
+
+// quantityValue reads a quantity as a number (cores, or bytes), to compare
+// two of the same kind.
+func quantityValue(v string) (float64, bool) {
+	m := quantityRe.FindStringSubmatch(v)
+	if m == nil {
+		return 0, false
+	}
+	n, err := strconv.ParseFloat(m[1], 64)
+	if err != nil {
+		return 0, false
+	}
+	scale := map[string]float64{"": 1, "m": 1e-3, "k": 1e3, "M": 1e6, "G": 1e9, "T": 1e12,
+		"Ki": 1 << 10, "Mi": 1 << 20, "Gi": 1 << 30, "Ti": 1 << 40}
+	return n * scale[m[3]], true
 }
 
 // resourceQuantity checks a Kubernetes quantity like 250m, 1Gi or 2.
@@ -1386,6 +1430,7 @@ func (s *Spec) validateJobs(services map[string]bool) []error {
 			errs = append(errs, fmt.Errorf("%s.size %q must be small, medium or large", p, j.Size))
 		}
 		errs = append(errs, validateResources(p, j.Resources)...)
+		errs = append(errs, validateFit(p, ResourcesFor(j.Size, j.Resources))...)
 		if j.Path != "" {
 			errs = append(errs, j.Build.validate(p)...)
 		}
