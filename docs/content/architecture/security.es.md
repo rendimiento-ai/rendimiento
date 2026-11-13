@@ -43,7 +43,7 @@ Lo que la barda no es:
 
 - **Una sola cuenta de servicio.** La cuenta de servicio `rendimiento` sigue administrando los espacios de nombres de todas las organizaciones; lo que las separa es el código de la plataforma, no los permisos de Kubernetes. No hay una cuenta de servicio por organización.
 - **Construcciones compartidas.** Las construcciones no son por organización: cada paso de integración continua corre en `rendimiento-builds`, en los mismos demonios privilegiados de BuildKit, y sube sus imágenes al mismo registro, del que cada nodo descarga sin credenciales.
-- **Solo donde la red la aplica.** Una NetworkPolicy solo se cumple donde el complemento de red del clúster la aplica (Calico, Cilium, el controlador de políticas de red propio de k3s). Flannel solo, o k3s iniciado con `--disable-network-policy`, acepta el objeto y no aplica nada.
+- **Solo donde la red la aplica.** Una NetworkPolicy solo se cumple donde el complemento de red del clúster la aplica (Calico, Cilium, el controlador de políticas de red propio de k3s). Flannel solo, o k3s iniciado con `--disable-network-policy`, acepta el objeto y no aplica nada. Un nodo cuyo kernel no puede aplicarla se puede marcar con `rendimiento.ai/network-policy=no`; sus aplicaciones aparecen entonces fuera de la barda en [el Universo](../guide/universe.md#the-wall), en su página y en Entorno.
 
 ### Encenderla {#turning-the-boundary-on}
 

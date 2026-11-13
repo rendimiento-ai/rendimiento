@@ -310,6 +310,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/apps/{app}", s.getApp)
 	auth(store.MemberAdmin, "DELETE /api/apps/{app}", s.deleteApp)
 	auth(store.MemberGuest, "GET /api/apps/{app}/impact", s.deleteImpact)
+	auth(store.MemberGuest, "GET /api/apps/{app}/barda", s.appBarda)
 	auth(store.MemberAdmin, "POST /api/apps/{app}/disconnect", s.disconnectApp)
 	auth(store.MemberGuest, "GET /api/apps/{app}/runs", s.listRuns)
 	auth(store.MemberGuest, "GET /api/apps/{app}/branch-kinds", s.branchKinds)
@@ -1017,6 +1018,15 @@ func (s *Server) universe(w http.ResponseWriter, r *http.Request, _ string) {
 		}
 	}
 	visibleUniverse(&in, hidden)
+	// The boundary between organizations, drawn as a wall around them.
+	b, err := s.barda(ctx, orgOf(r), apps)
+	if err != nil {
+		s.Log.Info("universe: the boundary could not be worked out", "err", err)
+		b = nil
+	}
+	if b != nil {
+		b.Callers = callersOf(b.Callers, apps)
+	}
 	writeJSON(w, struct {
 		universe.Universe
 		Window string `json:"window"`
@@ -1024,7 +1034,8 @@ func (s *Server) universe(w http.ResponseWriter, r *http.Request, _ string) {
 		// could not this time.
 		Traces       bool   `json:"traces"`
 		MetricsError string `json:"metricsError,omitempty"`
-	}{universe.Build(in), window, s.Metrics != nil, metricsErr})
+		Barda        *Barda `json:"barda,omitempty"`
+	}{universe.Build(in), window, s.Metrics != nil, metricsErr, b})
 }
 
 // universeSpans lists what one observed service does, from its traces:

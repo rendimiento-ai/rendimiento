@@ -49,6 +49,19 @@ Cada aplicación queda en un barrio:
 - **Las solicitudes recientes de un servicio.** Debajo de sus momentos, el panel enlista las solicitudes que pasaron por ese servicio y que guardó el [servicio de trazas](#following-one-request), de la más nueva a la más vieja: si **falló**, **fue lenta** o es **de muestra**, cuánto tardó y cuándo. **Solo las que fallaron** acota la lista. Toque una para seguirla paso a paso.
 - **Actualizar** reconstruye el catálogo desde el clúster en ese momento (si no, tiene a lo más 30 segundos, y la página se recarga cada minuto).
 
+## La barda {#the-wall}
+
+En un clúster, el mapa también muestra la [frontera entre organizaciones](../architecture/security.md#organizations-in-the-cluster) como una barda alrededor de los barrios de su organización:
+
+- **Una barda de adobe** con una hilera de teja encima cuando la frontera está encendida; **mojoneras** cuando está apagada: el terreno es suyo, pero cualquiera entra.
+- **Los zaguanes** a lo largo de un costado son lo que deja entrar: el controlador de ingress (el tráfico público), rendimiento (sus revisiones de versiones y de disponibilidad), y cada espacio de nombres o rango de direcciones de la lista de los ajustes.
+- **Una tranca roja** en el lado de arriba es un espacio de nombres que llama a una de sus aplicaciones desde fuera (sus cargas de trabajo apuntan en su entorno al servicio de la aplicación): *detenido* con la frontera encendida, *se detendría* con ella apagada. rendimiento no ve el tráfico, así que lo que llama a una aplicación sin decirlo en su entorno no se dibuja.
+- **Una cerca baja de piedra** alrededor de cada pueblo que la frontera cubre; **una roja y rota** alrededor de una aplicación que deja fuera: una aplicación con `sharedNamespace`, o una con un pod en un nodo cuya red no aplica las políticas. Marque ese nodo una vez, `kubectl label node <nodo> rendimiento.ai/network-policy=no`, y sus aplicaciones aparecen fuera.
+- **Los postigos amarillos** en una cerca son servicios con `lan:`, abiertos a la red local.
+- **Un xoloitzcuintle** está echado junto al primer zaguán: dormido cuando nada se detiene, de pie y ladrando cuando hay una tranca. Con el movimiento apagado, se queda quieto.
+
+Toque la barda, un zaguán o una tranca para leer lo mismo en palabras. Un administrador de la organización de la plataforma puede usar **Dejarlo entrar** desde una tranca, que agrega el espacio de nombres a la lista de la frontera ([Configuración](../reference/config.md#organizations-in-the-cluster)). El **Resumen** de cada aplicación dice lo mismo para ella, y **Entorno → Ajustes de la plataforma** cuenta las aplicaciones que están dentro y lista las que están fuera.
+
 ## La latencia en cada camino {#latency-on-every-line}
 
 Con las trazas activadas, cada camino lleva también lo medido en el **Periodo** que se elige arriba (15 minutos, una hora, 24 horas): **llamadas por minuto**, la proporción que **falló** y cuánto tardaron (**p50**, la mitad fue más rápida; **p95**, el 5 % más lento), cada una con su tendencia a lo largo del periodo. Los caminos se vuelven **más anchos** con más llamadas, **rojos** cuando falla el 5 % o más y **ámbar** cuando el 5 % más lento tarda medio segundo o más. Por los caminos medidos van luciérnagas (de noche) o confeti (de día) del que llama al que responde: más mientras más llamadas, y más rápido mientras más rápidas sean. Si desactiva el movimiento en la barra superior, se quedan quietos.
