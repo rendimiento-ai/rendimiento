@@ -107,7 +107,7 @@ func (r *repos) CreateBranch(_ context.Context, _ int64, _, _, sha string) error
 	return nil
 }
 func (r *repos) CommitFiles(_ context.Context, _ int64, _, branch, _ string, files map[string][]byte, remove []string) (string, error) {
-	if branch != "encargo-12" {
+	if branch != "encargo-12-saludar-en-espanol" {
 		return "", fmt.Errorf("committed to %s", branch)
 	}
 	r.commits, r.removed = append(r.commits, files), append(r.removed, remove)
