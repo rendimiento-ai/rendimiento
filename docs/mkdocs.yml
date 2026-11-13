@@ -113,6 +113,7 @@ plugins:
             Growing it: Crecimiento
             Scaling: Escalar
             Roadmap: Hoja de ruta
+            Platform settings from the page (design): Ajustes de la plataforma desde la página (diseño)
             Becoming an open-source project: Convertirse en un proyecto de código abierto
             Reference: Referencia
             Configuration: Configuración
@@ -208,6 +209,7 @@ nav:
       - future/index.md
       - Scaling: future/scaling.md
       - Roadmap: future/roadmap.md
+      - Platform settings from the page (design): future/platform-settings.md
       - Becoming an open-source project: future/open-source.md
   - Reference:
       - reference/index.md
