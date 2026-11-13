@@ -247,3 +247,19 @@ func TestCoderWorksFromTheFailedRunsBranch(t *testing.T) {
 		t.Fatalf("links %v", st.links)
 	}
 }
+
+func TestBranchFor(t *testing.T) {
+	for _, c := range []struct {
+		title, want string
+	}{
+		{"Cambiar la configuración de la plataforma desde rendimiento", "encargo-25-cambiar-la-configuracion-de-la"},
+		{"YC 9: multiusuario (org_id en cada ruta)", "encargo-25-yc-9-multiusuario-org-id-en-cada-ruta"},
+		{"Añadir «Quién entra»", "encargo-25-anadir-quien-entra"},
+		{"", "encargo-25"},
+		{"¡¿?!", "encargo-25"},
+	} {
+		if got := branchFor(25, c.title); got != c.want {
+			t.Errorf("branchFor(%q) = %q, want %q", c.title, got, c.want)
+		}
+	}
+}
