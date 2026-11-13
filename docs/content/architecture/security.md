@@ -24,6 +24,36 @@ Code from repositories runs in CI: tests and Dockerfile `RUN` lines. It is conta
 
 BuildKit daemons themselves run **privileged** (they create containers); build pods talk to them over TCP. A malicious `RUN` executes inside BuildKit's sandbox, not in the daemon's own container, but a BuildKit escape would reach that node. Rootless BuildKit is on the [roadmap](../future/roadmap.md).
 
+## Organizations in the cluster {#organizations-in-the-cluster}
+
+On a cluster, each organization's apps get a wall made for the teams of one company: it stops accidents and curiosity, not a determined attacker. Its network part and its quota are **off by default**, so an update changes nothing until the operator turns them on.
+
+- **Labels, always.** Each App object carries its organization's address in the label `rendimiento.ai/org`, and so does the namespace rendimiento makes for it. An App made before carries none and counts as the platform's (`principal`) until its next release writes the label. The namespace of an app with `sharedNamespace` belongs to someone else and is never labeled.
+- **A network policy, when turned on** (`ORG_NETWORK_POLICY=true`; Helm `orgBoundary.networkPolicy`). Each app namespace rendimiento owns gets the NetworkPolicy `rendimiento-org`, which lets traffic in only from:
+    - its own pods (a service and its `needs:` database, deploy tasks);
+    - the namespaces of the same organization (one app calling another's service);
+    - the platform's namespace: uptime checks and release verification call each service at its cluster address;
+    - the ingress controller's namespace (`INGRESS_NAMESPACE`): everything that comes by a domain, including public uptime checks and cert-manager's challenges;
+    - the namespaces and address ranges the operator lists (`ORG_NETWORK_POLICY_NAMESPACES`, `ORG_NETWORK_POLICY_CIDRS`): Prometheus or another scraper, or the nodes' network when the ingress controller runs on the host network.
+
+    A service with `lan:` gets a second policy, `<service>-lan`, that opens its own port to everyone, since the LAN reaches it through the load balancer from addresses no namespace matches. Egress stays open: apps still reach the internet, the traces collector and services of other organizations that let them in. A namespace with `sharedNamespace` gets no policy.
+- **A quota, when set** (`ORG_QUOTA_CPU`, `ORG_QUOTA_MEMORY`; Helm `orgBoundary.quota`). A Kubernetes ResourceQuota counts one namespace, and an organization has many, so the platform counts instead: before it makes a release of an app of any organization but the platform's, it adds that release's requests (each service and each `needs:` database or cache, times its replicas) to those of the latest release of each other app of the organization, and refuses the release when the total passes the quota. The run says why. Cron jobs and deploy tasks come and go and are not counted, rollbacks are not checked, and nothing stops someone with `kubectl` from going past it.
+
+What the wall is not:
+
+- **One service account.** The `rendimiento` service account still manages every organization's namespaces; what keeps them apart is the platform's code, not Kubernetes permissions. A service account per organization is not built.
+- **Shared builds.** Builds are not per organization: every CI step runs in `rendimiento-builds`, on the same privileged BuildKit daemons, and pushes to the same registry, which every node pulls from without credentials.
+- **Only where the network enforces it.** A NetworkPolicy holds only where the cluster's network plugin enforces it (Calico, Cilium, k3s's own network policy controller). Plain flannel, or k3s started with `--disable-network-policy`, accepts the object and enforces nothing.
+
+### Turning it on {#turning-the-boundary-on}
+
+1. Deploy the release that brings it (`make deploy`, or `helm upgrade`): the platform's service account gets the right to write network policies.
+2. Find what calls apps from other namespaces: the ingress controller (`INGRESS_NAMESPACE`; empty, `ingress-nginx` for the `nginx` class and `kube-system` for `traefik`), a metrics scraper, an add-on. List them in `ORG_NETWORK_POLICY_NAMESPACES`. If the ingress controller uses the host network, add the nodes' range to `ORG_NETWORK_POLICY_CIDRS`.
+3. Set `ORG_NETWORK_POLICY=true` and restart the platform's services (`kubectl rollout restart deployment -n rendimiento-system`). Each app gets its policy at its next reconcile, within five minutes, before its workloads are touched.
+4. Check one app of each organization still answers at its address and on its Uptime tab, and that a pod in another organization's namespace cannot reach it.
+
+To back out, set `ORG_NETWORK_POLICY=false` and restart again: each app's policies are removed at its next reconcile. In a hurry, after that, `kubectl delete networkpolicy -A -l rendimiento.ai/org` removes them all at once (the builds' policy does not carry that label).
+
 ## Secrets
 
 - **Never in git in plain text.** Apps reference secrets by name in `rendimiento.yaml`; values are set in the UI (**Settings → Secrets**) or committed as **sealed secrets** (encrypted to the cluster's key).
@@ -58,7 +88,7 @@ Collaborators and administrators read it on the **Bitácora** page: whether the 
 
 These are the honest weak points, in rough order of importance for a multi-user or public deployment:
 
-1. **Organizations are a boundary in the API, not yet below it.** People have roles (guest, collaborator, administrator) within organizations, and each app belongs to one. Every API route is called in a test by another organization's administrator with the first one's names and numbers, and finds nothing of it (`TestEveryRouteStaysInItsOrg`, which walks the routes as they are registered, so a new one is checked too). The MCP tools check the key's organization and its apps. An app can have its own list of who enters it, with a role per person for that app ([Who enters an app](../guide/members.md#who-enters-an-app)); one function decides a person's role on an app (`store.AppAccess.Role`), every route about one app asks it before its role check, and an app the list leaves someone out of answers *not found*. A second test walks every route as a member left off an app's list and finds nothing of that app (`TestEveryRouteKeepsToTheAppsList`). What is missing: on a cluster one service account manages every app's namespace, so the boundary is the platform's code, not Kubernetes. That is needed before strangers share a cluster. See [Becoming an open-source project](../future/open-source.md).
+1. **Organizations are a boundary in the API, not yet below it.** People have roles (guest, collaborator, administrator) within organizations, and each app belongs to one. Every API route is called in a test by another organization's administrator with the first one's names and numbers, and finds nothing of it (`TestEveryRouteStaysInItsOrg`, which walks the routes as they are registered, so a new one is checked too). The MCP tools check the key's organization and its apps. An organization other than the platform's creates apps only from the GitHub installations it was given (by an operator, or by its administrator connecting the App on their own GitHub account, whose login their sign-in proves), and the server checks it on every route that takes an installation ([GitHub accounts](../guide/members.md#github-accounts)). An app can have its own list of who enters it, with a role per person for that app ([Who enters an app](../guide/members.md#who-enters-an-app)); one function decides a person's role on an app (`store.AppAccess.Role`), every route about one app asks it before its role check, and an app the list leaves someone out of answers *not found*. A second test walks every route as a member left off an app's list and finds nothing of that app (`TestEveryRouteKeepsToTheAppsList`). What is missing: on a cluster one service account manages every app's namespace, so the boundary is the platform's code, not Kubernetes; the optional network boundary only limits which namespaces reach an app ([Organizations in the cluster](#organizations-in-the-cluster)). That is needed before strangers share a cluster. See [Becoming an open-source project](../future/open-source.md).
 2. **Cluster-wide permissions** for the platform (to create namespaces for any app). A more restricted mode would give each app a namespace that an administrator pre-creates.
 3. **Privileged BuildKit** daemons.
 4. **Plain-HTTP registry** on the LAN.

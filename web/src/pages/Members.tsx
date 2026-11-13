@@ -268,6 +268,60 @@ export function Orgs() {
           <p className="small muted" style={{ margin: 0 }}>{t("You become its first administrator; switch to it at the top and add its people under Members.")}</p>
         </div>
       )}
+      {session.operator && <GitHubOfOrgs key={data?.length} />}
     </>
+  );
+}
+
+/**
+ * For the operators: which GitHub accounts each organization creates apps
+ * from. The platform's own uses every account the GitHub App is installed
+ * on; any other, only those given to it here, plus the App on its
+ * administrator's own account, which they connect themselves (a GitHub
+ * organization's account has no such proof: it is given here).
+ */
+function GitHubOfOrgs() {
+  const { data, error, reload } = usePoll(api.orgInstallations, [], 0);
+  const [pick, setPick] = useState<Record<number, number>>({});
+  const [err, setErr] = useState<unknown>();
+  if (error || !data || data.orgs.length === 0) return null; // no GitHub App yet, or no other organization
+  const orgName = (id: number) => data.orgs.find((o) => o.id === id)?.name ?? `#${id}`;
+  const act = (p: Promise<void>) => { setErr(undefined); p.then(reload, setErr); };
+  return (
+    <div className="card stack github-orgs" style={{ marginTop: 16 }}>
+      <strong>{t("GitHub accounts of the organizations")}</strong>
+      <p className="small muted" style={{ margin: 0 }}>{t("The platform's organization creates apps from every account the GitHub App is installed on; any other, only from the accounts given to it here, and from the App on its administrator's own GitHub account, which they connect themselves in New app. A GitHub organization's account is given here.")}</p>
+      <ErrorBox error={err} />
+      {data.installations.length === 0 && <p className="small muted" style={{ margin: 0 }}>{t("The GitHub App is not installed on any account yet.")}</p>}
+      <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>
+        {data.installations.map((i) => {
+          const given = data.given.filter((g) => g.installation === i.id);
+          const left = data.orgs.filter((o) => !given.some((g) => g.orgId === o.id));
+          return (
+            <li key={i.id} className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+              <strong className="mono">{i.account.login}</strong>
+              {given.length === 0 && <span className="muted">{t("only the platform's organization")}</span>}
+              {given.map((g) => (
+                <span key={g.orgId} className="chip">
+                  {orgName(g.orgId)}{" "}
+                  <button type="button" className="small" aria-label={t("Take {account} away from {org}", { account: i.account.login, org: orgName(g.orgId) })}
+                    onClick={() => act(api.takeInstallation(i.id, g.orgId))}>×</button>
+                </span>
+              ))}
+              {left.length > 0 && (
+                <>
+                  <select aria-label={t("Give {account} to an organization", { account: i.account.login })} value={pick[i.id] ?? ""}
+                    onChange={(e) => setPick({ ...pick, [i.id]: Number(e.target.value) })}>
+                    <option value="">{t("Give to…")}</option>
+                    {left.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                  </select>
+                  <button type="button" className="small" disabled={!pick[i.id]} onClick={() => { const org = pick[i.id]; setPick({ ...pick, [i.id]: 0 }); act(api.giveInstallation(i.id, org)); }}>{t("Give")}</button>
+                </>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

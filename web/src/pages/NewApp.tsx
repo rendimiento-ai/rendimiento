@@ -20,7 +20,7 @@ type Result = Awaited<ReturnType<typeof api.createApp>>;
  */
 export function NewApp() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [installs, setInstalls] = useState<{ installations: Installation[]; installURL: string }>();
+  const [installs, setInstalls] = useState<{ installations: Installation[]; connectable: Installation[]; installURL: string }>();
   const [inst, setInst] = useState<number>();
   const [repos, setRepos] = useState<Repo[]>();
   const [filter, setFilter] = useState("");
@@ -37,13 +37,31 @@ export function NewApp() {
   // gives full control over the image, at the cost of maintaining it.
   const [keepDockerfiles, setKeepDockerfiles] = useState(false);
 
+  const loadInstalls = () => api.installations().then((r) => {
+    setInstalls(r);
+    if (r.installations.length > 0) setInst((i) => i ?? r.installations[0].id);
+  }, setError);
   useEffect(() => {
-    api.installations().then((r) => {
-      setInstalls(r);
-      if (r.installations.length > 0) setInst(r.installations[0].id);
-    }, setError);
+    loadInstalls();
     api.zones().then(setZones, () => setZones([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // An administrator of an organization other than the platform's connects
+  // the GitHub App installed on their own GitHub account (the server checks
+  // it is theirs).
+  const connect = async (i: Installation) => {
+    setBusy(true);
+    setError(undefined);
+    try {
+      await api.connectInstallation(i.id);
+      setInst(i.id);
+      await loadInstalls();
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!inst) return;
@@ -129,10 +147,23 @@ export function NewApp() {
 
       <div className="lista-detalle">
         <aside className="ld-lista">
-          {installs && installs.installations.length === 0 && (
+          {installs && installs.connectable.map((i) => (
+            <div key={i.id} className="alert info conectar-github">
+              {t("The GitHub App is installed on your GitHub account {login}. Connect it to this organization to create apps from its repositories.", { login: i.account.login })}{" "}
+              <button type="button" className="primary" disabled={busy} onClick={() => connect(i)}>{t("Connect {login}", { login: i.account.login })}</button>
+            </div>
+          ))}
+          {installs && installs.installations.length === 0 && installs.connectable.length === 0 && !session.appPrefix && (
             <div className="alert info">
               {t("The GitHub App is not installed on any account yet.")}{" "}
               <a href={installs.installURL} target="_blank" rel="noreferrer">{t("Install it on your repos")}</a>{t(", then reload this page.")}
+            </div>
+          )}
+          {installs && installs.installations.length === 0 && installs.connectable.length === 0 && session.appPrefix && (
+            <div className="alert info sin-github">
+              {t("This organization has no GitHub account to create apps from yet.")}{" "}
+              <a href={installs.installURL} target="_blank" rel="noreferrer">{t("Install the GitHub App on your own GitHub account")}</a>
+              {t(", then reload this page and connect it here. For the repositories of a GitHub organization, ask the platform's operators to give its account to this organization.")}
             </div>
           )}
           {installs && installs.installations.length > 1 && (

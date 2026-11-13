@@ -956,10 +956,15 @@ func TestOrgIsolation(t *testing.T) {
 			t.Errorf("%s from the other organization: %d, want 404", path, r.StatusCode)
 		}
 	}
-	for _, path := range []string{"/api/environment", "/api/problems", "/api/mercado", "/api/installed"} {
+	for _, path := range []string{"/api/environment", "/api/problems", "/api/mercado", "/api/installed", "/api/org-installations"} {
 		if r, _ := e.do(t, "GET", path, "", ana, nil); r.StatusCode != 403 {
 			t.Errorf("platform route %s for another organization's admin: %d, want 403", path, r.StatusCode)
 		}
+	}
+	// Nor do they give their organization a GitHub installation; that is
+	// TestAppsFromAnOrganizationsOwnGitHub.
+	if r, _ := e.do(t, "PUT", "/api/org-installations/1", fmt.Sprintf(`{"org":%d}`, otra.ID), ana, nil); r.StatusCode != 403 {
+		t.Fatalf("an installation given by another organization's admin: %d", r.StatusCode)
 	}
 	if r, _ := e.do(t, "POST", "/api/orgs", `{"slug":"tercera","name":"Tercera"}`, ana, nil); r.StatusCode != 403 {
 		t.Fatalf("only operators make organizations: %d", r.StatusCode)

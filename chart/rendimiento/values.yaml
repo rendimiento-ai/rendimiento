@@ -61,6 +61,24 @@ ingress:
   # plain HTTP, as on a cluster on your own computer).
   clusterIssuer: ""
   annotations: {}
+  # The namespace the ingress controller runs in, which the boundary
+  # between organizations lets in ("": ingress-nginx for the nginx class,
+  # kube-system for traefik).
+  namespace: ""
+
+# The boundary between organizations in the cluster. Off, nothing changes.
+# networkPolicy: each app namespace lets in only its organization's
+# namespaces, this platform, the ingress controller and the lists below
+# (it holds only where the cluster's network plugin enforces NetworkPolicy).
+# quota: the most CPU and memory one organization's apps may ask for
+# together ("": no limit; the platform's organization has none).
+orgBoundary:
+  networkPolicy: false
+  namespaces: []     # more namespaces always let in, e.g. monitoring
+  cidrs: []          # address ranges always let in, e.g. the nodes' network
+  quota:
+    cpu: ""          # e.g. "4"
+    memory: ""       # e.g. 8Gi
 
 # Replicas of each service; the API serves the UI and webhooks.
 replicas:

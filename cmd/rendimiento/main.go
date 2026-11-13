@@ -285,8 +285,15 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 		}
 		renderOpts.Telemetry.Agents[k] = v
 	}
+	if renderOpts.OrgNetwork, err = orgNetwork(ns, renderOpts.IngressClass); err != nil {
+		return err
+	}
+	quota, err := orgQuota()
+	if err != nil {
+		return err
+	}
 	if runs("control") {
-		if err := (&controller.AppReconciler{Client: mgr.GetClient(), Scheme: scheme, Render: renderOpts, DNS: dnsProvider}).SetupWithManager(mgr); err != nil {
+		if err := (&controller.AppReconciler{Client: mgr.GetClient(), Scheme: scheme, Render: renderOpts, DNS: dnsProvider, Uncached: mgr.GetAPIReader()}).SetupWithManager(mgr); err != nil {
 			return err
 		}
 	}
@@ -360,7 +367,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 	}
 	p := &platform.Platform{
 		Store: st, Kube: kube, GitHub: holder, Generator: generate.Templates{}, Hub: events.NewHub(), Log: log,
-		Config: platform.Config{Registry: env("REGISTRY", "registry.example.lan:5000"), BaseURL: baseURL, Zone: os.Getenv("DNS_ZONE"), Railpack: os.Getenv("RAILPACK_IMAGE") != ""},
+		Config: platform.Config{Registry: env("REGISTRY", "registry.example.lan:5000"), BaseURL: baseURL, Zone: os.Getenv("DNS_ZONE"), Railpack: os.Getenv("RAILPACK_IMAGE") != "", OrgQuota: quota},
 	}
 	// Live events (log lines, step changes, cancels) cross between processes
 	// through Postgres: during an update the UI may be served by one version

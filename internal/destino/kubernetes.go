@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
+	"github.com/rendimiento-ai/rendimiento/internal/render"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -21,19 +22,40 @@ type Kubernetes struct {
 	// Clientset runs deploy tasks (Jobs in app namespaces) and reads their
 	// logs.
 	Clientset kubernetes.Interface
+	// Org is the address of an app's organization, by the app's id; the
+	// App object carries it (render.LabelOrg) to the cluster. Nil: every
+	// app is the platform's.
+	Org func(ctx context.Context, appID int64) (string, error)
+}
+
+// org is the address of the app's organization.
+func (k Kubernetes) org(ctx context.Context, appID int64) (string, error) {
+	if k.Org == nil {
+		return render.PlatformOrg, nil
+	}
+	o, err := k.Org(ctx, appID)
+	if err != nil {
+		return "", fmt.Errorf("the app's organization: %w", err)
+	}
+	return o, nil
 }
 
 // Nombre is "kubernetes".
 func (k Kubernetes) Nombre() string { return "kubernetes" }
 
-// Crear writes the app's App object, labeled with its id. An app with
+// Crear writes the app's App object, labeled with its id and its
+// organization. An app with
 // nothing to run (a library, or only builds) gets none.
 func (k Kubernetes) Crear(ctx context.Context, app *store.App, adopt bool) error {
 	if !app.Spec.Runs() {
 		return nil
 	}
+	org, err := k.org(ctx, app.ID)
+	if err != nil {
+		return err
+	}
 	cr := &v1alpha1.App{
-		ObjectMeta: metav1.ObjectMeta{Name: app.Name, Labels: map[string]string{"rendimiento.ai/app-id": strconv.FormatInt(app.ID, 10)}},
+		ObjectMeta: metav1.ObjectMeta{Name: app.Name, Labels: map[string]string{"rendimiento.ai/app-id": strconv.FormatInt(app.ID, 10), render.LabelOrg: org}},
 		Spec: v1alpha1.AppSpec{Repo: app.Repo, Services: app.Spec.Services, Jobs: app.Spec.Jobs, SharedNamespace: app.Spec.SharedNamespace,
 			Postgres: app.Spec.Postgres, Redis: app.Spec.Redis, Observe: app.Spec.Observe, Adopt: adopt},
 	}
@@ -44,13 +66,23 @@ func (k Kubernetes) Crear(ctx context.Context, app *store.App, adopt bool) error
 }
 
 // Aplicar writes the release into the App object; the controller does the
-// rest. A conflict (the controller wrote its status meanwhile) is retried.
+// rest. It also labels the App object with the app's organization, so
+// Apps made before organizations reached the cluster get it on their next
+// release. A conflict (the controller wrote its status meanwhile) is retried.
 func (k Kubernetes) Aplicar(ctx context.Context, app string, rel *store.Release) error {
+	org, err := k.org(ctx, rel.AppID)
+	if err != nil {
+		return err
+	}
 	for attempt := 0; ; attempt++ {
 		var cr v1alpha1.App
 		if err := k.Kube.Get(ctx, client.ObjectKey{Name: app}, &cr); err != nil {
 			return err
 		}
+		if cr.Labels == nil {
+			cr.Labels = map[string]string{}
+		}
+		cr.Labels[render.LabelOrg] = org
 		cr.Spec.Services = rel.Spec.Services
 		cr.Spec.Jobs = rel.Spec.Jobs
 		cr.Spec.SharedNamespace = rel.Spec.SharedNamespace
@@ -58,7 +90,7 @@ func (k Kubernetes) Aplicar(ctx context.Context, app string, rel *store.Release)
 		cr.Spec.Observe = rel.Spec.Observe
 		cr.Spec.Images = rel.Images
 		cr.Spec.Release = rel.Number
-		err := k.Kube.Update(ctx, &cr)
+		err = k.Kube.Update(ctx, &cr)
 		if apierrors.IsConflict(err) && attempt < 5 {
 			continue
 		}

@@ -22,6 +22,24 @@ data:
   {{- if .Values.ingress.enabled }}
   INGRESS_CLASS: {{ .Values.ingress.className | quote }}
   {{- end }}
+  {{- with .Values.ingress.namespace }}
+  INGRESS_NAMESPACE: {{ . | quote }}
+  {{- end }}
+  {{- with .Values.orgBoundary }}
+  ORG_NETWORK_POLICY: {{ .networkPolicy | quote }}
+  {{- with .namespaces }}
+  ORG_NETWORK_POLICY_NAMESPACES: {{ join "," . | quote }}
+  {{- end }}
+  {{- with .cidrs }}
+  ORG_NETWORK_POLICY_CIDRS: {{ join "," . | quote }}
+  {{- end }}
+  {{- with .quota.cpu }}
+  ORG_QUOTA_CPU: {{ . | quote }}
+  {{- end }}
+  {{- with .quota.memory }}
+  ORG_QUOTA_MEMORY: {{ . | quote }}
+  {{- end }}
+  {{- end }}
   # Empty: no issuer, and apps are published over plain HTTP.
   CLUSTER_ISSUER: {{ .Values.ingress.clusterIssuer | quote }}
   {{- range $k, $v := .Values.config }}

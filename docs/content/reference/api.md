@@ -30,6 +30,11 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | GET | `/api/me` | the signed-in login |
 | GET | `/api/installations` | GitHub App installations |
 | GET | `/api/installations/{id}/repos` | repositories of an installation |
+| POST | `/api/installations/{id}/connect` | connect the GitHub App on your own GitHub account to your organization ([GitHub accounts](../guide/members.md#github-accounts)) |
+| DELETE | `/api/installations/{id}` | stop your organization creating apps from an installation |
+| GET | `/api/org-installations` | operators: every installation and the organizations it is given to |
+| PUT | `/api/org-installations/{id}` | operators: give an installation to an organization: `{org}` |
+| DELETE | `/api/org-installations/{id}?org=` | operators: take it away |
 | GET | `/api/zones` | DNS zones the token can edit |
 | GET | `/api/environment` | the Environment page's checks |
 | GET | `/api/platform/version` | which release of rendimiento runs and whether a newer one is ready (`SELF_APP`) |

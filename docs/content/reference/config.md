@@ -72,6 +72,19 @@ rendimiento is configured only through **environment variables**, read once at s
 | `GPU_ENV` | *(empty)* | `KEY=value;KEY=value` added to GPU containers |
 | `GPU_SHARED_MEMORY` | *(empty)* | size of `/dev/shm` for GPU pods |
 
+## Organizations in the cluster {#organizations-in-the-cluster}
+
+The wall between organizations' apps on a cluster; see [Security model](../architecture/security.md#organizations-in-the-cluster). Off by default; changing it needs a restart, and the network policy needs the release's RBAC (`make deploy` or `helm upgrade`). Helm: `ingress.namespace` and `orgBoundary`.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `ORG_NETWORK_POLICY` | `false` | `true`: each app namespace rendimiento owns gets a NetworkPolicy that lets in only its own pods, its organization's namespaces, the platform's namespace, the ingress controller's and the lists below; `false` removes the ones it made. It holds only where the network plugin enforces NetworkPolicy |
+| `INGRESS_NAMESPACE` | `ingress-nginx` for `INGRESS_CLASS=nginx`, `kube-system` for `traefik` | the ingress controller's namespace, always let in; with another class it must be set to turn the policy on |
+| `ORG_NETWORK_POLICY_NAMESPACES` | *(empty)* | more namespaces always let in (comma-separated), e.g. `monitoring` for a metrics scraper |
+| `ORG_NETWORK_POLICY_CIDRS` | *(empty)* | address ranges always let in, e.g. the nodes' network when the ingress controller runs on the host network |
+| `ORG_QUOTA_CPU` | *(none)* | the most CPU (requests, as `4` or `2500m`) the apps of one organization other than the platform's may ask for together; a release that would pass it is refused |
+| `ORG_QUOTA_MEMORY` | *(none)* | the same for memory, as `8Gi` |
+
 ## DNS
 
 Taken from the optional Secret `rendimiento-dns`. Without a token, DNS automation is off (`dns.Noop`).

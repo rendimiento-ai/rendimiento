@@ -257,3 +257,60 @@ func (s *Store) AllOrgs(ctx context.Context) ([]Org, error) {
 		return o, err
 	})
 }
+
+// OrgInstallation is a GitHub installation an organization other than the
+// platform's may create apps from (the platform's uses every one the App
+// allows).
+type OrgInstallation struct {
+	OrgID          int64     `json:"orgId"`
+	InstallationID int64     `json:"installation"`
+	Account        string    `json:"account"`
+	AddedBy        string    `json:"addedBy"`
+	CreatedAt      time.Time `json:"createdAt"`
+}
+
+// OrgInstallations lists the installations given to an organization, or to
+// every organization when orgID is 0 (for the operators).
+func (s *Store) OrgInstallations(ctx context.Context, orgID int64) ([]OrgInstallation, error) {
+	rows, err := s.pool.Query(ctx, `SELECT org_id, installation_id, account, added_by, created_at FROM org_installations
+		WHERE $1::bigint = 0 OR org_id = $1 ORDER BY org_id, lower(account), installation_id`, orgID)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (OrgInstallation, error) {
+		var i OrgInstallation
+		err := r.Scan(&i.OrgID, &i.InstallationID, &i.Account, &i.AddedBy, &i.CreatedAt)
+		return i, err
+	})
+}
+
+// OrgHasInstallation reports whether the organization may use the
+// installation.
+func (s *Store) OrgHasInstallation(ctx context.Context, orgID, installationID int64) (bool, error) {
+	var ok bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM org_installations WHERE org_id = $1 AND installation_id = $2)`,
+		orgID, installationID).Scan(&ok)
+	return ok, err
+}
+
+// AddOrgInstallation lets an organization use an installation (giving it
+// again changes nothing).
+func (s *Store) AddOrgInstallation(ctx context.Context, orgID, installationID int64, account, by string) error {
+	_, err := s.pool.Exec(ctx, `INSERT INTO org_installations (org_id, installation_id, account, added_by) VALUES ($1, $2, $3, $4)
+		ON CONFLICT (org_id, installation_id) DO NOTHING`, orgID, installationID, account, by)
+	return err
+}
+
+// RemoveOrgInstallation takes an installation away from an organization
+// (ErrNotFound when it did not have it). Its apps keep building: they carry
+// their installation; it only stops new apps from it.
+func (s *Store) RemoveOrgInstallation(ctx context.Context, orgID, installationID int64) error {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM org_installations WHERE org_id = $1 AND installation_id = $2`, orgID, installationID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

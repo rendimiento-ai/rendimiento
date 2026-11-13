@@ -31,6 +31,11 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | GET | `/api/me` | la cuenta con la sesión iniciada |
 | GET | `/api/installations` | las instalaciones de la aplicación de GitHub |
 | GET | `/api/installations/{id}/repos` | los repositorios de una instalación |
+| POST | `/api/installations/{id}/connect` | conectar a su organización la aplicación de GitHub de su propia cuenta de GitHub ([Cuentas de GitHub](../guide/members.md#github-accounts)) |
+| DELETE | `/api/installations/{id}` | que su organización deje de crear aplicaciones desde una instalación |
+| GET | `/api/org-installations` | operadores: todas las instalaciones y las organizaciones a las que se dieron |
+| PUT | `/api/org-installations/{id}` | operadores: darle una instalación a una organización: `{org}` |
+| DELETE | `/api/org-installations/{id}?org=` | operadores: quitársela |
 | GET | `/api/zones` | las zonas DNS que el token puede editar |
 | GET | `/api/environment` | las comprobaciones de la página Entorno |
 | GET | `/api/platform/version` | qué versión de rendimiento se ejecuta y si hay una más reciente lista (`SELF_APP`) |
