@@ -63,9 +63,10 @@ type fakeGitHub struct {
 	base    string            // what MergeBase answers
 	merges  []map[string][]byte
 	removed [][]string
-	closed  []int         // the pull requests closed without merging
-	recent  []gh.PullInfo // what RecentPullRequests answers
-	listed  []gh.Branch   // what Branches answers (nil: an error)
+	closed  []int            // the pull requests closed without merging
+	recent  []gh.PullInfo    // what RecentPullRequests answers
+	said    map[int64]string // comment id → "#<pull> <body>"
+	listed  []gh.Branch      // what Branches answers (nil: an error)
 }
 
 func (f *fakeGitHub) tree(ref string) fstest.MapFS {
@@ -159,6 +160,18 @@ func (f *fakeGitHub) DeleteBranch(_ context.Context, _ int64, _, branch string) 
 	defer f.mu.Unlock()
 	f.deleted = append(f.deleted, branch)
 	return nil
+}
+func (f *fakeGitHub) Comment(_ context.Context, _ int64, _ string, number int, id int64, body string) (int64, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.said == nil {
+		f.said = map[int64]string{}
+	}
+	if id == 0 {
+		id = int64(len(f.said) + 1)
+	}
+	f.said[id] = fmt.Sprintf("#%d %s", number, body)
+	return id, nil
 }
 func (f *fakeGitHub) ClosePull(_ context.Context, _ int64, _ string, number int) error {
 	f.mu.Lock()

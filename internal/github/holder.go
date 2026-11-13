@@ -183,6 +183,15 @@ func (h *Holder) CommitSubject(ctx context.Context, installation int64, repo, sh
 	return c.CommitSubject(ctx, repo, sha)
 }
 
+// Comment writes or edits a comment on a pull request (see Client.Comment).
+func (h *Holder) Comment(ctx context.Context, installation int64, repo string, number int, id int64, body string) (int64, error) {
+	c, err := h.client(installation)
+	if err != nil {
+		return 0, err
+	}
+	return c.Comment(ctx, repo, number, id, body)
+}
+
 // ClosePull closes a pull request without merging it.
 func (h *Holder) ClosePull(ctx context.Context, installation int64, repo string, number int) error {
 	c, err := h.client(installation)

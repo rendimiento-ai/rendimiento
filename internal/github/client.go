@@ -522,6 +522,25 @@ func (c *Client) CommitSubject(ctx context.Context, repo, sha string) (string, e
 	return strings.TrimSpace(subject), nil
 }
 
+// Comment writes a comment on a pull request (or issue) and returns its id;
+// with id set, it edits that comment instead, so one comment is kept up to
+// date rather than one per push.
+func (c *Client) Comment(ctx context.Context, repo string, number int, id int64, body string) (int64, error) {
+	var out struct {
+		ID int64 `json:"id"`
+	}
+	if id != 0 {
+		err := c.do(ctx, http.MethodPatch, fmt.Sprintf("/repos/%s/issues/comments/%d", repo, id), map[string]any{"body": body}, &out)
+		var ae *APIError
+		if !errorsAs(err, &ae) || ae.Status != http.StatusNotFound {
+			return id, err
+		}
+		// Someone deleted it: write a new one.
+	}
+	err := c.do(ctx, http.MethodPost, fmt.Sprintf("/repos/%s/issues/%d/comments", repo, number), map[string]any{"body": body}, &out)
+	return out.ID, err
+}
+
 // ClosePull closes a pull request without merging it.
 func (c *Client) ClosePull(ctx context.Context, repo string, number int) error {
 	return c.do(ctx, http.MethodPatch, fmt.Sprintf("/repos/%s/pulls/%d", repo, number), map[string]any{"state": "closed"}, nil)

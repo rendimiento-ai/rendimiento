@@ -1,0 +1,1 @@
+- **Preview environments:** each pull request with a copy gets one comment, edited on every push, with its address, the commit it shows and the day it will be deleted; when the copy goes, the comment says why.
