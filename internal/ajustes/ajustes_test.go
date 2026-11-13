@@ -58,7 +58,8 @@ func TestHolderSavedWins(t *testing.T) {
 	if err := h.Start(); err != nil {
 		t.Fatal(err)
 	}
-	if h.Network().Enabled || h.Boundary().QuotaCPU.String() != "2" {
+	cpu := func() string { b := h.Boundary(); return b.QuotaCPU.String() }
+	if h.Network().Enabled || cpu() != "2" {
 		t.Fatalf("at boot: %+v", h.Boundary())
 	}
 	ctx := context.Background()
@@ -67,7 +68,7 @@ func TestHolderSavedWins(t *testing.T) {
 	if err := h.Refresh(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if !h.Network().Enabled || h.Boundary().QuotaCPU.String() != "2" || h.Effective()[OrgNetworkPolicy] != "true" || changes != 1 {
+	if !h.Network().Enabled || cpu() != "2" || h.Effective()[OrgNetworkPolicy] != "true" || changes != 1 {
 		t.Fatalf("saved: %+v, %d changes", h.Boundary(), changes)
 	}
 	// The same values again: nothing changed.
