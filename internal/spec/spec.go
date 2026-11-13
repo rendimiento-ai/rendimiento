@@ -52,6 +52,9 @@ type Spec struct {
 	// domain ("pagos", "clientes"). Apps without one are grouped by what
 	// they call.
 	Barrio string `json:"barrio,omitempty"`
+	// Tests are the app's own browser tests, run against each release once
+	// it is live, judged test by test (see Tests).
+	Tests *Tests `json:"tests,omitempty"`
 }
 
 // Observed reports whether svc sends traces: its own observe, else the app's.
@@ -1035,6 +1038,7 @@ func (s *Spec) Validate() error {
 	}
 	errs = append(errs, s.validateNeeds(seen)...)
 	errs = append(errs, s.validateRoutes()...)
+	errs = append(errs, s.Tests.validate(s)...)
 	errs = append(errs, s.validateJobs(seen)...)
 	errs = append(errs, s.validateBuilds()...)
 	errs = append(errs, s.validateTasks()...)

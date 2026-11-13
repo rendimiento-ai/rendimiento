@@ -56,6 +56,18 @@ export interface Spec {
   jobs?: Job[];
   tasks?: Task[];
   builds?: unknown[];
+  tests?: AppTests;
+}
+
+/** The app's own browser tests, run against each release once live (spec.Tests). */
+export interface AppTests {
+  build: string; // the build whose image holds the tests
+  command?: string;
+  url?: string;
+  env?: Record<string, string>;
+  secretEnv?: Record<string, string>;
+  blockingAfter?: number; // clean releases before a test may roll one back (5)
+  timeout?: number;
 }
 
 /** A library: nothing of it runs or is built to keep, so a run tests it and there is nothing to deploy. */
@@ -765,6 +777,14 @@ export interface Release {
   verifyMessage?: string;
   verifiedAt?: string;
   tasks?: ReleaseTask[];
+  tests?: ReleaseTest[];
+}
+
+/** One of the app's own tests in a release (store.ReleaseTest): its result, and what it may do now. */
+export interface ReleaseTest {
+  name: string;
+  status: "expected" | "unexpected" | "flaky" | "skipped";
+  state: "advisory" | "blocking" | "quarantined";
 }
 
 /** A post-deploy task of a release: a command run against it once live. */

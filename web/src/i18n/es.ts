@@ -1883,4 +1883,9 @@ export const es: Record<string, string> = {
   "Delete the branch {branch}?": "¿Borrar la rama {branch}?",
   "Delete the branch": "Borrar la rama",
   "added to it": "se le agregó",
+  "Tests: {ok} of {n} passed": "Pruebas: pasaron {ok} de {n}",
+  "failed, then passed": "falló y luego pasó",
+  "only reports": "solo avisa",
+  "blocks": "bloquea",
+  "set aside": "aparte",
 };

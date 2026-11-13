@@ -1498,6 +1498,11 @@ func (s *Server) listReleases(w http.ResponseWriter, r *http.Request, _ string) 
 			rel.Tasks = tasks[rel.ID]
 		}
 	}
+	if tests, err := s.Store.ReleaseTests(r.Context(), ids); err == nil {
+		for _, rel := range rels {
+			rel.Tests = tests[rel.ID]
+		}
+	}
 	writeJSON(w, rels)
 }
 
