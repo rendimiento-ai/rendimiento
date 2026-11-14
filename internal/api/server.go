@@ -782,8 +782,16 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var payload struct {
-		Action     string `json:"action"` // pull_request: opened, closed...
-		Number     int    `json:"number"`
+		Action      string `json:"action"` // pull_request: opened, closed...
+		Number      int    `json:"number"`
+		PullRequest *struct {
+			Head struct {
+				Ref  string `json:"ref"`
+				Repo *struct {
+					FullName string `json:"full_name"`
+				} `json:"repo"`
+			} `json:"head"`
+		} `json:"pull_request"`
 		Ref        string `json:"ref"`
 		After      string `json:"after"`
 		Deleted    bool   `json:"deleted"`
@@ -814,8 +822,20 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 	// and its check run shows on the PR. PRs from forks are never built,
 	// since their code would run with our clone token. A closed one takes
 	// its preview copy with it.
-	if event == "pull_request" && payload.Action == "closed" && payload.Number > 0 && app.Allows(strings.Split(payload.Repository.FullName, "/")[0]) {
-		s.Platform.ClosePreview(r.Context(), payload.Repository.FullName, payload.Number)
+	if event == "pull_request" && payload.Number > 0 && app.Allows(strings.Split(payload.Repository.FullName, "/")[0]) {
+		switch payload.Action {
+		case "closed":
+			s.Platform.ClosePreview(r.Context(), payload.Repository.FullName, payload.Number)
+		case "opened", "reopened":
+			// A branch that already passed gets its copy now, not on its next push.
+			if pr := payload.PullRequest; pr != nil {
+				head := ""
+				if pr.Head.Repo != nil {
+					head = pr.Head.Repo.FullName
+				}
+				go s.Platform.OpenedPreview(context.WithoutCancel(r.Context()), payload.Repository.FullName, payload.Number, pr.Head.Ref, head)
+			}
+		}
 	}
 	if push == nil {
 		w.WriteHeader(http.StatusAccepted)
