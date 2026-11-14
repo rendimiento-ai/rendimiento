@@ -55,6 +55,17 @@ jobs:
       # here, and the Windows app the distribution.
       - name: SHA256SUMS, of all of them
         run: cd dist && sha256sum rendimiento-linux-* rendimiento-wsl-* rendimiento-windows-* > SHA256SUMS
+      # Its signature (internal/firma): rendimiento updates itself only to a
+      # release whose SHA256SUMS checks out against the key it carries.
+      - name: The signature of SHA256SUMS
+        env:
+          FIRMA_VERSIONES: ${{ secrets.FIRMA_VERSIONES }}
+        run: |
+          if [ -z "$FIRMA_VERSIONES" ]; then
+            echo "::warning title=Not signed::the secret FIRMA_VERSIONES is not set: this release is not signed, and no rendimiento will update itself to it"
+            exit 0
+          fi
+          go run ./hack/firmar dist/SHA256SUMS
       - name: The Helm chart, with this release's version
         if: startsWith(github.ref, 'refs/tags/')
         run: |
@@ -71,6 +82,7 @@ jobs:
             dist/rendimiento-linux-amd64
             dist/rendimiento-linux-arm64
             dist/SHA256SUMS
+            dist/SHA256SUMS.sig
             dist/rendimiento-wsl-amd64.tar.gz
             dist/rendimiento-windows-amd64.exe
             dist/rendimiento-*.tgz

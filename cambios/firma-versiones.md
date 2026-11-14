@@ -1,0 +1,1 @@
+- **Releases:** each release's SHA256SUMS is signed (SHA256SUMS.sig), and rendimiento carries the key to check it: the first part of updating rendimiento from its own page (encargo 39).
