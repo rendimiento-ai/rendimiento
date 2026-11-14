@@ -15,11 +15,15 @@ func TestPreviewsValidate(t *testing.T) {
 		base + "previews: {seed: datos}":            "only used with data: seed",
 		base + "previews: {keep: 31}":               "1 to 30 days",
 		base + "previews: {max: 6}":                 "1 to 5 copies",
-		"services:\n  - name: web\npreviews: {}":    "need a service with a domain",
+		"tasks:\n  - name: test\n    image: node:22\n    command: npm test\npreviews: {}": "need a service with a port or a domain",
 	} {
 		if _, err := Parse([]byte(in)); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("Parse(%q) = %v, want %q", in, err, want)
 		}
+	}
+	// On a computer apps rarely have a domain: a service is enough.
+	if _, err := Parse([]byte("services:\n  - name: web\npreviews: {}")); err != nil {
+		t.Fatalf("a service without a domain: %v", err)
 	}
 	ok := base + "tasks:\n  - name: datos\n    image: node:22\n    command: npm run seed\npreviews: {data: seed, seed: datos, keep: 3, max: 2}"
 	s, err := Parse([]byte(ok))

@@ -202,6 +202,8 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	// back one that does not); its window has no public checks to run here.
 	loc := &destino.Local{Motor: m, Caja: caja}
 	p.Destino = loc
+	// A pull request's copy runs here too, at <app>-pr-<n>.localhost.
+	p.Copias = platform.LocalCopias{Local: loc}
 	p.Verify = platform.VerifySettings{Window: time.Minute, Every: 20 * time.Second,
 		Check: func(_ context.Context, t uptime.Target) store.Probe {
 			return store.Probe{Service: t.Service, Kind: t.Kind, At: time.Now(), OK: true}
@@ -265,6 +267,9 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	if err != nil || every < 15*time.Second {
 		return fmt.Errorf("POLL_INTERVAL must be a duration of at least 15s, got %q", os.Getenv("POLL_INTERVAL"))
 	}
+	// Without GitHub's events, pull requests' copies are made and removed
+	// as often as commits are asked for.
+	p.PreviewEvery = every
 	if gh.Local(baseURL) {
 		go (&platform.Vigia{P: p, Every: every, Branches: holder.Branches}).Run(ctx)
 	}

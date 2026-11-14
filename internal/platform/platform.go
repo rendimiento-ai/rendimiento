@@ -104,6 +104,12 @@ type Platform struct {
 	Notify *notify.Notifier
 	// Destino is where releases run (nil: the cluster, through Kube).
 	Destino destino.Destino
+	// Copias is where pull requests' copies run (nil: the cluster, through
+	// Kube; none without it).
+	Copias Copias
+	// PreviewEvery is how often copies are swept and caught up (0: every
+	// 10 minutes).
+	PreviewEvery time.Duration
 	// Clientset runs deploy tasks in the cluster (Jobs in app namespaces) and
 	// reads their logs.
 	Clientset kubernetes.Interface

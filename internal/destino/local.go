@@ -94,8 +94,15 @@ func (l *Local) Aplicar(ctx context.Context, app string, rel *store.Release) err
 		}
 	}
 	l.poner(app, estadoLocal{version: rel.Number, estado: Pendiente, mensaje: "starting"})
-	go l.desplegar(context.WithoutCancel(ctx), app, rel)
+	go l.desplegar(context.WithoutCancel(ctx), app, rel, despliegue{secretosDe: app})
 	return nil
+}
+
+// despliegue is what a release's containers take besides the release: whose
+// secrets they read (a copy reads its app's) and labels of their own.
+type despliegue struct {
+	secretosDe string
+	etiquetas  map[string]string
 }
 
 func (l *Local) poner(app string, e estadoLocal) {
@@ -112,7 +119,7 @@ func (l *Local) poner(app string, e estadoLocal) {
 
 // desplegar starts the release's services next to the running ones, waits
 // for them to answer, points the proxy at them and removes the old ones.
-func (l *Local) desplegar(ctx context.Context, app string, rel *store.Release) {
+func (l *Local) desplegar(ctx context.Context, app string, rel *store.Release, d despliegue) {
 	fail := func(format string, a ...any) {
 		l.poner(app, estadoLocal{version: rel.Number, estado: Fallida, mensaje: fmt.Sprintf(format, a...)})
 	}
@@ -146,7 +153,7 @@ func (l *Local) desplegar(ctx context.Context, app string, rel *store.Release) {
 		if image == "" {
 			image = svc.Image
 		}
-		env, err := l.entorno(ctx, app, svc, needs)
+		env, err := l.entorno(ctx, d.secretosDe, svc, needs)
 		if err != nil {
 			fail("%s: %v", svc.Name, err)
 			l.quitar(ctx, nuevos)
@@ -154,6 +161,9 @@ func (l *Local) desplegar(ctx context.Context, app string, rel *store.Release) {
 		}
 		c := motor.Contenedor{Nombre: name, Imagen: image, Env: env, Red: red(app), Siempre: true, Alias: svc.Name,
 			Etiquetas: map[string]string{etApp: app, etServicio: svc.Name, etVersion: strconv.FormatInt(rel.Number, 10), etParte: "service"}}
+		for k, v := range d.etiquetas {
+			c.Etiquetas[k] = v
+		}
 		if len(svc.Command) > 0 {
 			c.Comando = append(append([]string{}, svc.Command...), svc.Args...)
 		}
@@ -839,20 +849,32 @@ func (l *Local) Recargar(ctx context.Context, apps []*store.App) {
 		if len(a.Spec.Services) > 0 {
 			first[a.Spec.Services[0].Name] = true
 		}
-		for _, info := range l.servicios(ctx, a.Name) {
-			p := info.Etiquetas[etPuerto]
-			if info.Etiquetas[etParte] != "service" || p == "" || !info.Corriendo {
-				continue
-			}
-			name := info.Etiquetas[etServicio]
-			svc := spec.Service{Name: name}
-			for _, s := range a.Spec.Services {
-				if s.Name == name {
-					svc = s
+		// The app's own containers, and those of its pull requests' copies,
+		// which answer at their own names and never at the app's domains.
+		nombres := []string{a.Name}
+		copias, _ := l.Copias(ctx, a.Name)
+		for _, c := range copias {
+			nombres = append(nombres, NombreCopia(a.Name, c.Numero))
+		}
+		for _, nombre := range nombres {
+			for _, info := range l.servicios(ctx, nombre) {
+				p := info.Etiquetas[etPuerto]
+				if info.Etiquetas[etParte] != "service" || p == "" || !info.Corriendo {
+					continue
 				}
-			}
-			for _, h := range hosts(a.Name, svc, first[name]) {
-				rutas[h] = "127.0.0.1:" + p
+				name := info.Etiquetas[etServicio]
+				svc := spec.Service{Name: name}
+				for _, s := range a.Spec.Services {
+					if s.Name == name {
+						svc = s
+					}
+				}
+				if nombre != a.Name {
+					svc.Domain, svc.Routes = "", nil
+				}
+				for _, h := range hosts(nombre, svc, first[name]) {
+					rutas[h] = "127.0.0.1:" + p
+				}
 			}
 		}
 	}

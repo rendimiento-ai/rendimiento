@@ -1,0 +1,2 @@
+- **Preview copies on a computer:** rendimiento without a cluster (`MODE=local`) now gives each pull request of an app with `previews:` its own live copy, at `http://<app>-pr-<n>.localhost`, made once the branch passes and removed when the pull request closes.
+- **Preview copies:** a copy whose "opened" event was lost is made by the next sweep, when its branch already passed.

@@ -1,0 +1,7 @@
+# An app on a computer, without a domain, whose pull requests each get a
+# live copy at <app>-pr-<number>.localhost (in a cluster no copy is made
+# without a domain).
+services:
+  - name: web
+    port: 8080
+previews: {}

@@ -82,12 +82,15 @@ func (p *Previews) validate(s *Spec) []error {
 	if p.Max != 0 && (p.Max < 1 || p.Max > PreviewMaxCopy) {
 		errs = append(errs, fmt.Errorf("previews.max must be 1 to %d copies", PreviewMaxCopy))
 	}
-	hosts := 0
+	// A copy answers at its domain's pr-<number> host in a cluster, and at
+	// <app>-pr-<number>.localhost on a computer, where apps rarely have a
+	// domain: it needs a service that answers at all.
+	answers := false
 	for _, svc := range s.Services {
-		hosts += len(svc.Hosts())
+		answers = answers || svc.Port > 0 || len(svc.Hosts()) > 0
 	}
-	if hosts == 0 {
-		errs = append(errs, fmt.Errorf("previews need a service with a domain: the copy answers at pr-<number>.<domain>"))
+	if !answers {
+		errs = append(errs, fmt.Errorf("previews need a service with a port or a domain: the copy answers at pr-<number>.<domain> in a cluster, and at <app>-pr-<number>.localhost on a computer"))
 	}
 	return errs
 }
