@@ -71,6 +71,9 @@ type Coder struct {
 	Log  *slog.Logger
 	// Poll is how often it looks at a run it waits for (15 seconds).
 	Poll time.Duration
+	// AlEntregar opens the pull request of the branch it delivers (nil: the
+	// link to open one stays).
+	AlEntregar func(ctx context.Context, orgID, encargo int64, title, result string, links []string) []string
 }
 
 // Limits on the work: the turns, the most a run is waited for, and what a
@@ -719,6 +722,9 @@ func (j *job) deliver(ctx context.Context, summary string) (string, bool) {
 	}
 	if c.BaseURL != "" {
 		links = append(links, fmt.Sprintf("%s/apps/%s/runs/%d", strings.TrimRight(c.BaseURL, "/"), j.app.Name, j.lastRun.ID))
+	}
+	if c.AlEntregar != nil {
+		links = c.AlEntregar(context.WithoutCancel(ctx), j.e.OrgID, j.e.ID, j.e.Title, result, links)
 	}
 	if _, err := c.Store.DeliverEncargo(context.WithoutCancel(ctx), j.e.ID, j.key.ID, CoderName, result, links); err != nil {
 		return "could not deliver: " + err.Error(), true

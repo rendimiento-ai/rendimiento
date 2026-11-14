@@ -381,6 +381,11 @@ func (s *Server) encargoEntregar(ctx context.Context, k store.AgentKey, in entre
 	if LooksSecret(strings.Join(links, " ")) {
 		return EncargoOut{}, errSecret
 	}
+	if s.AlEntregar != nil {
+		// Its pull request opens now: the person sees it, its checks and its
+		// preview copy before deciding.
+		links = s.AlEntregar(ctx, e.OrgID, e.ID, e.Title, result, links)
+	}
 	d, err := s.Encargos.DeliverEncargo(ctx, e.ID, k.ID, k.Name, result, links)
 	if err != nil {
 		return EncargoOut{}, err

@@ -229,6 +229,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	rutaSrv := &ruta.Server{Store: st, Log: log.With("component", "ruta"), Lang: env("NOTIFY_LANG", "en")}
 	rutaSrv.Plataforma = plataformaMCP{Store: st, p: p, srv: srv}
 	rutaSrv.Encargos = st
+	rutaSrv.AlEntregar = p.PullsForDelivery // a delivered branch gets its pull request
 	rutaSrv.Comentarios = st
 	rutaSrv.Produccion = produccionMCP{Store: st, p: p}
 	srv.MCP = rutaSrv.Handler()
@@ -280,6 +281,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 		lang := env("NOTIFY_LANG", "en")
 		diag := &agentes.Diagnostician{Store: st, Model: srv.IA, Logs: srv.StepLogText, Changes: holder, Lang: lang, Log: log.With("component", "agents")}
 		coder := &agentes.Coder{Store: st, Repos: holder, Model: srv.IA, Logs: srv.StepLogText, BaseURL: baseURL, Lang: lang, Log: log.With("component", "agents")}
+		coder.AlEntregar = p.PullsForDelivery
 		est := &agentes.Estimator{Store: st, Model: srv.IA, Lang: lang, Log: log.With("component", "agents")}
 		go est.Run(ctx)
 		go coder.Run(ctx)

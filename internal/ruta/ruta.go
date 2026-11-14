@@ -110,6 +110,9 @@ type Server struct {
 	Plataforma Plataforma
 	// Encargos adds the encargo tools: work asked of agents (nil: off).
 	Encargos Encargos
+	// AlEntregar opens the pull request of each branch an encargo delivers
+	// and returns its links with theirs (nil: the links stay as given).
+	AlEntregar func(ctx context.Context, orgID, encargo int64, title, result string, links []string) []string
 	// Comentarios adds what people say about agents' work, and the tool to
 	// answer it (nil: off).
 	Comentarios Comentarios

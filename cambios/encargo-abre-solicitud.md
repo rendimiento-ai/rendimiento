@@ -1,0 +1,1 @@
+- **Encargos:** delivering an encargo with a branch link opens that branch's pull request at once (with the encargo's title and what was done), so its checks and its preview copy can be seen before merging; Merge this branch then merges that same pull request.

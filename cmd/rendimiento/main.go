@@ -498,6 +498,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 	rutaSrv.Plataforma = plataformaMCP{Store: st, p: p, srv: srv}
 	// Encargos: work asked of agents, taken, waited on and handed over.
 	rutaSrv.Encargos = st
+	rutaSrv.AlEntregar = p.PullsForDelivery // a delivered branch gets its pull request
 	// What people say about agents' work, and agents' answers.
 	rutaSrv.Comentarios = st
 	rutaSrv.Produccion = produccionMCP{Store: st, p: p}
@@ -686,6 +687,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 			Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "agents")}
 		coder := &agentes.Coder{Store: st, Repos: holder, Model: srv.IA, Logs: srv.StepLogText, BaseURL: env("BASE_URL", "http://localhost:8080"),
 			Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "agents")}
+		coder.AlEntregar = p.PullsForDelivery
 		est := &agentes.Estimator{Store: st, Model: srv.IA, Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "agents")}
 		go func() {
 			release, err := st.LockAgents(ctx, 5*time.Second)
