@@ -1,0 +1,1 @@
+- **Preview copies:** a GitHub App made by rendimiento now subscribes to pull request events, so a copy is made when its pull request opens and removed when it closes. An App made before must be subscribed by hand: its settings on GitHub → Permissions & events → Subscribe to events → Pull request.
