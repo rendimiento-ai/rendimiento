@@ -652,4 +652,5 @@ var catalog = map[string]string{
 	"the summary is not written in this process": "este proceso no escribe el resumen",
 	"pull request #%d conflicted with %s only where both sides added lines: rendimiento joined them in %s (%s), and tests it now": "la solicitud n.º %s chocaba con %s solo donde los dos lados agregaron líneas: rendimiento las juntó en %s (%s), y ahora lo prueba",
 	"pull request #%d conflicts with %s in %s: not merged": "la solicitud n.º %s choca con %s en %s: no se integró",
+	"Encargo %d, delivered in rendimiento: %s\n\n%s\n\nOpened by rendimiento when the encargo was delivered, so its checks and its preview copy can be seen before merging.": "Encargo %s, entregado en rendimiento: %s\n\n%s\n\nLa abrió rendimiento al entregarse el encargo, para que sus revisiones y su copia de vista previa se vean antes de integrar.",
 }
