@@ -166,7 +166,14 @@ const sessionCookie = "rendimiento_session"
 // session-protected /api routes and the embedded UI.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { io.WriteString(w, "ok") })
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		// The window of rendimiento for Windows follows the version inside
+		// it; only this computer is told, not the internet.
+		if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil && net.ParseIP(host).IsLoopback() && s.Version != "" {
+			w.Header().Set("X-Rendimiento-Version", s.Version)
+		}
+		io.WriteString(w, "ok")
+	})
 	mux.HandleFunc("GET /llms.txt", s.llmsTxt)
 
 	// Public endpoints.

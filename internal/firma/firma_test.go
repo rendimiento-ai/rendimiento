@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 )
@@ -40,5 +41,17 @@ func TestFirma(t *testing.T) {
 	}
 	if _, err := Suma(sums, "rendimiento-windows-amd64.exe"); err == nil {
 		t.Fatal("a file SHA256SUMS does not list")
+	}
+}
+
+// The window of rendimiento for Windows (escritorio/, a module of its own)
+// carries a copy of the key: it must be this one.
+func TestLlaveDeLaVentana(t *testing.T) {
+	src, err := os.ReadFile("../../escritorio/seguir.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(src), `const llavePublica = "`+Publica+`"`) {
+		t.Fatal("escritorio/seguir.go's llavePublica is not internal/firma.Publica")
 	}
 }
