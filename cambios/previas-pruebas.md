@@ -1,0 +1,1 @@
+- **Preview environments:** when the app has its own tests (`tests:`), they run against each pull request's copy once it is healthy, and the pull request's comment says how many passed and which failed. They only report there.
