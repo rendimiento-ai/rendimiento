@@ -28,6 +28,7 @@ import (
 
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
 	"github.com/rendimiento-ai/rendimiento/instalar"
+	"github.com/rendimiento-ai/rendimiento/internal/actualizar"
 	"github.com/rendimiento-ai/rendimiento/internal/addon"
 	"github.com/rendimiento-ai/rendimiento/internal/agentes"
 	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
@@ -134,6 +135,15 @@ type Server struct {
 	Mercado *mercado.Mercado
 	// Update moves rendimiento to an image it built itself (nil: off).
 	Update *selfupdate.Updater
+	// Publicadas says which rendimiento is published (nil: not asked), and
+	// Version and Modo which one runs here, and how it was installed
+	// ("local": a computer; "kubernetes": a cluster).
+	Publicadas    *actualizar.Consultor
+	Version, Modo string
+	// Programa changes rendimiento's own program on a computer (nil: not
+	// here), and UltimoCambio says what its last update did.
+	Programa     *actualizar.Programa
+	UltimoCambio *actualizar.Marca
 	// Metrics reads the traced service graph for the Universe page (nil:
 	// the map shows no latency).
 	Metrics *universe.Metrics
@@ -156,7 +166,14 @@ const sessionCookie = "rendimiento_session"
 // session-protected /api routes and the embedded UI.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { io.WriteString(w, "ok") })
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		// The window of rendimiento for Windows follows the version inside
+		// it; only this computer is told, not the internet.
+		if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil && net.ParseIP(host).IsLoopback() && s.Version != "" {
+			w.Header().Set("X-Rendimiento-Version", s.Version)
+		}
+		io.WriteString(w, "ok")
+	})
 	mux.HandleFunc("GET /llms.txt", s.llmsTxt)
 
 	// Public endpoints.
@@ -234,6 +251,10 @@ func (s *Server) Handler() http.Handler {
 	plat(store.MemberAdmin, "PUT /api/environment/settings/{key}", s.putSetting)
 	plat(store.MemberAdmin, "DELETE /api/environment/settings/{key}", s.deleteSetting)
 	plat(store.MemberGuest, "GET /api/platform/version", s.platformVersion)
+	plat(store.MemberAdmin, "GET /api/platform/published", s.platformPublished)
+	plat(store.MemberAdmin, "POST /api/platform/install", s.platformInstall)
+	plat(store.MemberAdmin, "POST /api/platform/back", s.platformBack)
+	plat(store.MemberAdmin, "PUT /api/platform/auto-update", s.platformAutoUpdate)
 	plat(store.MemberAdmin, "POST /api/platform/update", s.updatePlatform)
 	plat(store.MemberGuest, "GET /api/services", s.services)
 	plat(store.MemberGuest, "GET /api/stats/delivery", s.delivery)

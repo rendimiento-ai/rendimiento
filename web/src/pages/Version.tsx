@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { envApi, timeAgo, type PlatformRelease } from "../api";
+import { envApi, session, timeAgo, type PlatformRelease, type Published } from "../api";
 import { usePoll } from "../components/ui";
 import { t } from "../i18n";
 
@@ -86,6 +86,96 @@ export function PlatformVersion() {
       ) : manifests && !manifests.applied ? (
         <span className="small muted" style={{ flexBasis: "100%" }}>{t("rendimiento cannot tell yet whether make deploy is needed: it learns which commit was applied the next time make deploy runs.")}</span>
       ) : null}
+    </div>
+  );
+}
+
+/** The first lines of a release's notes, without GitHub's headings and links to every pull request. */
+function resumen(notas: string): string[] {
+  return notas.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("- ") || l.startsWith("* ")).map((l) => l.slice(2)).slice(0, 5);
+}
+
+/**
+ * The published rendimiento, for the platform's administrators only (decision 138): the version running here, the newest
+ * on GitHub with its notes, and how this install takes it. With `onlyNewer`, it shows only when there is a newer one (the
+ * home page); on the Environment page it always shows.
+ */
+export function Publicada({ onlyNewer = false }: { onlyNewer?: boolean }) {
+  const { data, setData } = usePoll(() => (session.operator ? envApi.published() : Promise.resolve(undefined as Published | undefined)), [], 30 * 60000);
+  const [busy, setBusy] = useState<string>();
+  const [failed, setFailed] = useState<string>();
+
+  // While it restarts it does not answer; once it answers in another version, reload so the new UI loads too.
+  useEffect(() => {
+    if (!busy || !data) return;
+    const before = data.version;
+    const id = setInterval(() => {
+      envApi.published().then((p) => { if (p.version !== before) location.reload(); }, () => undefined);
+    }, 4000);
+    return () => clearInterval(id);
+  }, [busy, data]);
+
+  if (!session.operator || !data || data.how === "self") return null; // a cluster that builds itself has its own card
+  if (onlyNewer && !data.newer && !data.lastChange) return null;
+  const l = data.latest;
+  const cmd = data.how === "helm"
+    ? `helm upgrade rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento --version ${l?.version ?? ""} --reuse-values`
+    : "curl -fsSL https://rendimiento.ai/instalar | sh";
+  const act = (what: string, run: () => Promise<void>) => {
+    setFailed(undefined);
+    setBusy(what);
+    run().catch((e: Error) => { setBusy(undefined); setFailed(e.message); });
+  };
+  return (
+    <div className={`bando ${data.newer ? "warn" : "ok"} publicada`}>
+      <span className="bando-titulo">{t("Version")}</span>
+      <strong>{t("rendimiento {v}", { v: data.version })}</strong>
+      {data.lastChange && (
+        <span className="small">
+          {data.lastChange.regreso
+            ? data.lastChange.quien === "automatic"
+              ? t("{a} did not stay up: rendimiento went back from it to {b} by itself", { a: data.lastChange.de, b: data.lastChange.a })
+              : t("rendimiento went back from {a} to {b}", { a: data.lastChange.de, b: data.lastChange.a })
+            : t("rendimiento was updated from {a} to {b}", { a: data.lastChange.de, b: data.lastChange.a })}
+        </span>
+      )}
+      {data.error && <span className="small muted">{t("Could not ask GitHub which version is published: {why}", { why: data.error })}</span>}
+      {l && !data.newer && <span className="sello puesto">{t("Up to date")} ✓</span>}
+      {busy && <span className="badge warn">{t("Restarting in the other version… the page reloads when it answers")}</span>}
+      {!busy && data.previous && (
+        <button className="sello" onClick={() => act("back", () => envApi.goBack())}>{t("Go back to {v}", { v: data.previous })}</button>
+      )}
+      {l && data.newer && (
+        <>
+          <span className="small"><a href={l.url} target="_blank" rel="noreferrer">{t("{v} is published", { v: l.version })}</a> · {timeAgo(l.fecha)}</span>
+          <span className={`badge ${data.onlyFix ? "ok" : "warn"}`}>{data.onlyFix ? t("fixes") : t("new features")}</span>
+          {!l.firmada && <span className="badge bad">{t("not signed: rendimiento will not install it by itself")}</span>}
+          {data.canInstall && !busy && (
+            <button className="sello" onClick={() => act("install", () => envApi.install(l.version))}>{t("Update to {v}", { v: l.version })}</button>
+          )}
+          {resumen(l.notas).length > 0 && (
+            <ul className="small publicada-notas">{resumen(l.notas).map((n, i) => <li key={i}>{n}</li>)}</ul>
+          )}
+          {!data.canInstall && (
+            <div className="small" style={{ flexBasis: "100%" }}>
+              <p style={{ margin: "4px 0" }}>{data.how === "helm" ? t("To update this cluster:") : t("To update this computer (your apps and data stay):")}</p>
+              <pre className="file" style={{ whiteSpace: "pre-wrap" }}>{cmd}</pre>
+            </div>
+          )}
+          {data.canInstall && (
+            <p className="small" style={{ flexBasis: "100%", margin: 0 }}>{t("Your apps keep running while rendimiento restarts. If the new version does not stay up, rendimiento goes back by itself.")}</p>
+          )}
+        </>
+      )}
+      {data.how === "computer" && !onlyNewer && (
+        <label className="small" style={{ flexBasis: "100%" }}>
+          <input type="checkbox" checked={data.auto} onChange={(e) => {
+            const on = e.target.checked;
+            envApi.autoUpdate(on).then(() => setData({ ...data, auto: on }), (err: Error) => setFailed(err.message));
+          }} /> {t("Install fix releases by myself (0.2.0 → 0.2.1); releases with new features wait for your click")}
+        </label>
+      )}
+      {failed && <span className="small" style={{ color: "var(--bad)", flexBasis: "100%" }}>{failed}</span>}
     </div>
   );
 }

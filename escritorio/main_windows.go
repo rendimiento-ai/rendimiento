@@ -50,6 +50,7 @@ func main() {
 		return lejos
 	})
 	bandeja(a, idioma)
+	go seguirAdentro(ctx, d.Direccion)
 
 	mensajes := wailswindows.DefaultMessages()
 	mensajes.Error = T(idioma, "webview.error")
@@ -158,3 +159,30 @@ func (v ventanaWails) Mostrar() { runtime.WindowShow(v.ctx) }
 func (v ventanaWails) Navegador(direccion string) { runtime.BrowserOpenURL(v.ctx, direccion) }
 
 func (v ventanaWails) Salir() { runtime.Quit(v.ctx) }
+
+// seguirAdentro keeps the window's program at the version rendimiento runs
+// inside (see seguidor): it looks every 10 minutes, and the new window
+// opens next time.
+func seguirAdentro(ctx context.Context, direccion string) {
+	exe, err := os.Executable()
+	if err != nil {
+		return
+	}
+	s := &seguidor{version: version, direccion: direccion, exe: exe,
+		descargas: "https://github.com/rendimiento-ai/rendimiento/releases/download"}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(10 * time.Minute):
+		}
+		v, err := s.revisar(ctx)
+		switch {
+		case err != nil:
+			log.Printf("the window did not follow rendimiento inside: %v", err)
+		case v != "":
+			log.Printf("the window is now %s, like rendimiento inside; it opens next time", v)
+			s.version = v // nothing more to follow until the inside moves again
+		}
+	}
+}

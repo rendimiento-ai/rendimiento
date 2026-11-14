@@ -11,6 +11,7 @@ import { AprobacionesAviso } from "../components/aprobaciones";
 import { SenalesAviso } from "../components/senales";
 import { ResumenDelDia } from "../components/resumen";
 import { MesaAviso } from "../components/mesa";
+import { Publicada } from "./Version";
 
 // Each app under an arch gets one of the papel picado colors for its band.
 const bandas = ["var(--grana)", "var(--cempasuchil)", "var(--anil)", "var(--rosa)", "var(--nopal)", "var(--maiz)"];
@@ -107,6 +108,7 @@ export function Dashboard() {
         </svg>
       </div>
       <ErrorBox error={error} />
+      <Publicada onlyNewer />
       {apps && apps.length > 0 && <MesaAviso />}
       {apps && apps.length > 0 && <ResumenDelDia />}
       {env && env.overall !== "ok" && (
