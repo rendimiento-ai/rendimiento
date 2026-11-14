@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/render"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
@@ -106,4 +108,45 @@ func gone(ctx context.Context, kube client.Client, name string) bool {
 	var cr v1alpha1.App
 	err := kube.Get(ctx, client.ObjectKey{Name: name}, &cr)
 	return apierrors.IsNotFound(err) || (err == nil && !cr.DeletionTimestamp.IsZero())
+}
+
+// A pull request opened after its branch already passed gets its copy at
+// once, from that run's images; a fork's never does.
+func TestPreviewWhenOpened(t *testing.T) {
+	p, fake, _, kube := setup(t)
+	ctx := context.Background()
+	yaml := "services:\n  - name: web\n    port: 3000\n    domain: abiertas.example.com\npreviews: {}\n"
+	sp, err := spec.Parse([]byte(yaml))
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := &store.App{Name: "abiertas", Repo: "o/abiertas", DefaultBranch: "main", Spec: *sp}
+	if err := p.Store.CreateApp(ctx, app); err != nil {
+		t.Fatal(err)
+	}
+	sha := strings.Repeat("b", 40)
+	fake.files[sha] = fstest.MapFS{spec.FileName: {Data: []byte(yaml)}}
+	run := &store.Run{AppID: app.ID, SHA: sha, Branch: "lista", Event: "push"}
+	if err := p.Store.CreateRun(ctx, run, pipeline.Plan(app.Name, p.Config.Registry, *sp)); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Store.UpdateStep(ctx, run.ID, "web:build", pipeline.StepResult{Status: pipeline.StatusSucceeded, Digest: "sha256:abc"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Store.FinishRun(ctx, run.ID, store.RunSucceeded, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	p.OpenedPreview(ctx, "o/abiertas", 9, "lista", "otra/abiertas")
+	if !gone(ctx, kube, "abiertas-pr-9") {
+		t.Fatal("a fork's pull request got a copy")
+	}
+	p.OpenedPreview(ctx, "o/abiertas", 9, "lista", "o/abiertas")
+	var cr v1alpha1.App
+	if err := kube.Get(ctx, client.ObjectKey{Name: "abiertas-pr-9"}, &cr); err != nil {
+		t.Fatal(err)
+	}
+	if cr.Spec.Preview != 9 || cr.Spec.Release != run.ID || !strings.HasSuffix(cr.Spec.Images["web"], "@sha256:abc") {
+		t.Fatalf("copy %+v", cr.Spec)
+	}
 }

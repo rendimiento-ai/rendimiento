@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/render"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
@@ -74,10 +76,13 @@ func (p *Platform) deployPreview(ctx context.Context, app *store.App, run *store
 	if sp.Previews == nil || p.Kube == nil || run.Deploy {
 		return
 	}
-	number := p.openPullOf(ctx, app, run.Branch)
-	if number == 0 {
-		return
+	if number := p.openPullOf(ctx, app, run.Branch); number != 0 {
+		p.deployPreviewOf(ctx, app, run, sp, images, number)
 	}
+}
+
+// deployPreviewOf writes pull request number's copy from a run that passed.
+func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *store.Run, sp spec.Spec, images map[string]string, number int) {
 	log := p.Log.With("app", app.Name, "pull", number)
 	copy := spec.PreviewOf(sp, number)
 	name := PreviewName(app.Name, number)
@@ -227,6 +232,76 @@ func pushedAt(a v1alpha1.App) time.Time {
 		return a.CreationTimestamp.Time
 	}
 	return t
+}
+
+// OpenedPreview gives a pull request opened (or reopened) on a branch whose
+// last run already passed its copy now, from that run's images: otherwise it
+// would wait for the next push. A run still going makes the copy when it
+// passes, as always. A fork's pull request never gets one.
+func (p *Platform) OpenedPreview(ctx context.Context, repo string, number int, branch, headRepo string) {
+	if p.Kube == nil || p.Store == nil || number == 0 || branch == "" || (headRepo != "" && !strings.EqualFold(headRepo, repo)) {
+		return
+	}
+	apps, err := p.Store.AppsForRepo(ctx, repo)
+	if err != nil {
+		return
+	}
+	for _, a := range apps {
+		// The pull request is new: what GitHub said before does not have it.
+		p.branchPullsCache.mu.Lock()
+		delete(p.branchPullsCache.byApp, a.ID)
+		p.branchPullsCache.mu.Unlock()
+		last, err := p.Store.LastRunOf(ctx, a.ID, branch)
+		if err != nil || last.Status != store.RunSucceeded || last.Deploy || branch == a.DefaultBranch {
+			continue
+		}
+		run, err := p.Store.GetRun(ctx, last.ID)
+		if err != nil {
+			continue
+		}
+		sp := a.Spec
+		if raw, err := p.GitHub.FileAt(ctx, a.InstallationID, a.Repo, spec.FileName, run.SHA); err == nil {
+			if s, err := spec.Parse(raw); err == nil {
+				sp = *s
+			}
+		}
+		if sp.Previews == nil {
+			continue
+		}
+		p.deployPreviewOf(ctx, a, run, sp, p.imagesOfRun(ctx, a, run, sp), number)
+	}
+}
+
+// imagesOfRun are the images a finished run passed, from its recorded
+// steps: what it built (by digest), what it reused from the app's latest
+// release, and ready-made images as given.
+func (p *Platform) imagesOfRun(ctx context.Context, a *store.App, run *store.Run, sp spec.Spec) map[string]string {
+	targets := map[string]string{}
+	for _, st := range pipeline.Plan(a.Name, p.Config.Registry, sp) {
+		if st.Kind == pipeline.KindBuild {
+			targets[st.ID] = st.Target
+		}
+	}
+	var latest map[string]string
+	if rel, err := p.Store.LatestRelease(ctx, a.ID); err == nil {
+		latest = rel.Images
+	}
+	images := map[string]string{}
+	for _, st := range run.Steps {
+		target, built := targets[st.ID]
+		switch {
+		case built && st.Digest != "":
+			images[st.Service] = target + "@" + st.Digest
+		case built && latest[st.Service] != "":
+			images[st.Service] = latest[st.Service] // reused: unchanged since the last release
+		}
+	}
+	for _, svc := range sp.Services {
+		if svc.Image != "" {
+			images[svc.Name] = svc.Image
+		}
+	}
+	return images
 }
 
 // ClosePreview deletes the copy of a closed or merged pull request, when
