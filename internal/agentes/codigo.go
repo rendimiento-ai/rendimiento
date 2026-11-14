@@ -125,7 +125,7 @@ func (c *Coder) recover(ctx context.Context) {
 	}
 	for _, e := range list {
 		note := c.say("La plataforma se reinició mientras lo hacía; lo que alcanzó a probar está en la rama %s.",
-			"The platform restarted while it worked on it; what it got to test is on branch %s.", branchFor(e.ID, e.Title))
+			"The platform restarted while it worked on it; what it got to test is on branch %s.", branchFor(e))
 		if _, err := c.Store.GiveBackEncargo(ctx, e.ID, *e.KeyID, CoderName, note); err == nil {
 			if cg, err := c.Store.OpenCargo(ctx, *e.KeyID); err == nil {
 				_ = c.Store.HandOver(ctx, cg.ID, note, "")
@@ -141,42 +141,9 @@ func (c *Coder) say(es, en string, args ...any) string {
 	return fmt.Sprintf(en, args...)
 }
 
-// branchFor names an encargo's branch by its number and the first words of
-// its title, so a list of branches says what each one is about:
-// «Cambiar la configuración desde Entorno» (25) is
-// encargo-25-cambiar-la-configuracion-desde-entorno.
-func branchFor(id int64, title string) string {
-	name := fmt.Sprintf("encargo-%d", id)
-	var words []string
-	n := 0
-	for _, w := range strings.FieldsFunc(strings.ToLower(title), func(r rune) bool { return !isSlugRune(r) }) {
-		w = strings.Map(func(r rune) rune {
-			if f, ok := folded[r]; ok {
-				return f
-			}
-			return r
-		}, w)
-		if n+len(w)+1 > maxBranchWords {
-			break
-		}
-		words, n = append(words, w), n+len(w)+1
-	}
-	if len(words) > 0 {
-		name += "-" + strings.Join(words, "-")
-	}
-	return name
-}
-
-// maxBranchWords is how long the title part of a branch name may get.
-const maxBranchWords = 40
-
-// folded writes Spanish letters the way a branch name can hold them.
-var folded = map[rune]rune{'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ü': 'u', 'ñ': 'n'}
-
-func isSlugRune(r rune) bool {
-	_, ok := folded[r]
-	return ok || r >= 'a' && r <= 'z' || r >= '0' && r <= '9'
-}
+// branchFor is an encargo's branch (store.RamaDeEncargo): fix/ for one
+// about a failed run, feature/ otherwise.
+func branchFor(e store.Encargo) string { return store.RamaDeEncargo(e) }
 
 // job is one encargo being done: the repository as it is on the branch
 // with what changed since the last commit, and what it spent.
@@ -223,7 +190,7 @@ func (c *Coder) Do(ctx context.Context, e store.Encargo) error {
 	if e, err = c.Store.TakeEncargo(ctx, e.ID, key.ID, cg.ID, CoderName); err != nil {
 		return err
 	}
-	j := &job{c: c, e: e, key: key, branch: branchFor(e.ID, e.Title), changed: map[string][]byte{}, removed: map[string]bool{}, budget: budget}
+	j := &job{c: c, e: e, key: key, branch: branchFor(e), changed: map[string][]byte{}, removed: map[string]bool{}, budget: budget}
 	err = j.work(ctx)
 	if !j.finished {
 		why := c.say("No pude terminarlo", "Could not finish it")

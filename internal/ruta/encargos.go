@@ -62,6 +62,9 @@ type EncargoOut struct {
 	Resultado  string   `json:"resultado,omitempty"`
 	Enlaces    []string `json:"enlaces,omitempty"`
 	Comentario string   `json:"comentario,omitempty"`
+	// Rama is the branch to work on: fix/encargo-<n>-… for an encargo about
+	// a failure, feature/encargo-<n>-… otherwise (store.RamaDeEncargo).
+	Rama string `json:"rama,omitempty"`
 	// Dificultad (1 a 10), Estimado (lo que gastaría la AI de la
 	// plataforma) y Para (quién debería hacerlo: "la IA de la plataforma" o
 	// "el agente de la persona"), del estimador.
@@ -90,6 +93,9 @@ func encargoOut(e store.Encargo, full bool) EncargoOut {
 		Dificultad: e.Difficulty, Razon: e.EstimateReason, Para: rutas[e.Route]}
 	if e.EstimateMicros != nil {
 		o.Estimado = fmt.Sprintf("$%.2f", float64(*e.EstimateMicros)/1e6)
+	}
+	if e.App != "" {
+		o.Rama = store.RamaDeEncargo(e)
 	}
 	if full {
 		o.Cuerpo = e.Body
@@ -155,7 +161,7 @@ func (s *Server) addEncargoTools(srv herramientas, write bool) {
 		return
 	}
 	addTool(s, srv, &mcp.Tool{Name: "encargo_crear", Description: "Crea un encargo pendiente: algo que hay que hacer y que usted no va a hacer ahora (p. ej. una falla que encontró). Necesita un cargo abierto."}, s.encargoCrear)
-	addTool(s, srv, &mcp.Tool{Name: "encargo_tomar", Description: "Toma un encargo pendiente: queda a su nombre y nadie más lo puede tomar. Necesita un cargo abierto."}, s.encargoTomar)
+	addTool(s, srv, &mcp.Tool{Name: "encargo_tomar", Description: "Toma un encargo pendiente: queda a su nombre y nadie más lo puede tomar. Trabaje en la rama que dice «rama» (fix/… para un arreglo, feature/… para algo nuevo), así rendimiento la reconoce, y entréguela con su enlace. Necesita un cargo abierto."}, s.encargoTomar)
 	addTool(s, srv, &mcp.Tool{Name: "encargo_esperar", Description: "Espera a que termine una ejecución de CI de su encargo (hasta 50 segundos por llamada) y le dice cómo terminó. Si no terminó, vuelva a llamar. Úsela en vez de consultar una y otra vez."}, s.encargoEsperar)
 	addTool(s, srv, &mcp.Tool{Name: "encargo_entregar", Description: "Entrega su encargo: qué hizo, cómo lo comprobó, y los enlaces (rama, ejecución, solicitud de cambios). La persona lo revisa o lo devuelve con un comentario."}, s.encargoEntregar)
 	addTool(s, srv, &mcp.Tool{Name: "encargo_soltar", Description: "Suelta un encargo que no puede terminar, con el motivo; vuelve a quedar pendiente para otro."}, s.encargoSoltar)

@@ -107,7 +107,7 @@ func (r *repos) CreateBranch(_ context.Context, _ int64, _, _, sha string) error
 	return nil
 }
 func (r *repos) CommitFiles(_ context.Context, _ int64, _, branch, _ string, files map[string][]byte, remove []string) (string, error) {
-	if branch != "encargo-12-saludar-en-espanol" {
+	if !strings.HasSuffix(branch, "encargo-12-saludar-en-espanol") {
 		return "", fmt.Errorf("committed to %s", branch)
 	}
 	r.commits, r.removed = append(r.commits, files), append(r.removed, remove)
@@ -243,7 +243,7 @@ func TestCoderWorksFromTheFailedRunsBranch(t *testing.T) {
 	if r.from != "head-of-propina-redonda" {
 		t.Fatalf("made from %q, want the failed run's branch", r.from)
 	}
-	if len(st.links) == 0 || st.links[0] != "https://github.com/o/tienda/compare/propina-redonda...encargo-12-saludar-en-espanol?expand=1" {
+	if len(st.links) == 0 || st.links[0] != "https://github.com/o/tienda/compare/propina-redonda...fix/encargo-12-saludar-en-espanol?expand=1" {
 		t.Fatalf("links %v", st.links)
 	}
 }
@@ -270,21 +270,5 @@ func TestCoderFixesAnEncargosBranchInPlace(t *testing.T) {
 	}
 	if len(st.links) == 0 || st.links[0] != "https://github.com/o/tienda/pull/new/encargo-12-saludar-en-espanol" {
 		t.Fatalf("links %v", st.links)
-	}
-}
-
-func TestBranchFor(t *testing.T) {
-	for _, c := range []struct {
-		title, want string
-	}{
-		{"Cambiar la configuración de la plataforma desde rendimiento", "encargo-25-cambiar-la-configuracion-de-la"},
-		{"YC 9: multiusuario (org_id en cada ruta)", "encargo-25-yc-9-multiusuario-org-id-en-cada-ruta"},
-		{"Añadir «Quién entra»", "encargo-25-anadir-quien-entra"},
-		{"", "encargo-25"},
-		{"¡¿?!", "encargo-25"},
-	} {
-		if got := branchFor(25, c.title); got != c.want {
-			t.Errorf("branchFor(%q) = %q, want %q", c.title, got, c.want)
-		}
 	}
 }

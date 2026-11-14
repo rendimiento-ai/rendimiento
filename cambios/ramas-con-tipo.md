@@ -1,0 +1,1 @@
+- **Encargos:** an encargo's branch says its kind: `fix/encargo-<n>-…` for one about a failed run, `feature/encargo-<n>-…` otherwise. The coding agent names it so, and `encargo_tomar` tells every agent the branch to use (`rama`).
