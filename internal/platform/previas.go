@@ -95,6 +95,11 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 	// One comment on the pull request, edited on each push: the address,
 	// the commit and when the copy goes.
 	url := copias.URL(copy, app.Name, number)
+	if url == "" {
+		// In a cluster a copy is reached at its domain's pr-<number> host.
+		log.Info("preview: not made, the app has no domain for the copy's address")
+		return
+	}
 	before, _ := copias.Get(ctx, app.Name, number)
 	commentID := before.CommentID
 	if p.GitHub != nil {
