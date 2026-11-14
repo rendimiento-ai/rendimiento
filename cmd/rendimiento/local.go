@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rendimiento-ai/rendimiento/internal/actualizar"
 	"github.com/rendimiento-ai/rendimiento/internal/agentes"
 	"github.com/rendimiento-ai/rendimiento/internal/api"
 	"github.com/rendimiento-ai/rendimiento/internal/destino"
@@ -241,6 +242,8 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 		motorSenal = "docker"
 	}
 	srv.Senales = enviadorDeSenales(st, "local", motorSenal, log)
+	srv.Version, srv.Modo = version, "local"
+	srv.Publicadas = &actualizar.Consultor{API: env("GITHUB_API_URL", "")}
 	go srv.Senales.Run(ctx)
 
 	// GitHub cannot send webhooks to this computer: ask it for new commits.

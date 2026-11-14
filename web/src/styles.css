@@ -324,6 +324,7 @@ ul.reasons { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size
 .bando::before,.bando::after{content:"";position:absolute;top:-7px;width:16px;height:16px;border-radius:50%;background:var(--grana);box-shadow:inset -3px -3px 0 rgba(0,0,0,.2)}
 .bando::before{left:24px}.bando::after{right:24px}
 .bando a{color:#8E1B2C}
+.publicada-notas{flex-basis:100%;margin:0;padding-left:1.1rem}
 .bando .muted,.bando .small{color:#4A3628}
 .bando-titulo{flex-basis:100%;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#8E1B2C}
 @keyframes bando-pega{from{opacity:0;transform:rotate(-3deg) translateY(-10px)}}

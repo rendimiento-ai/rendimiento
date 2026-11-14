@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { ErrorBox, usePoll } from "../components/ui";
 import { outsideWhy } from "../components/barda";
 import { locale, t, tn } from "../i18n";
-import { PlatformVersion } from "./Version";
+import { PlatformVersion, Publicada } from "./Version";
 
 const tone: Record<EnvStatus, string> = { ok: "ok", warning: "warn", missing: "bad", error: "bad" };
 const label: Record<EnvStatus, string> = { ok: "OK", warning: "Attention", missing: "Missing", error: "Error" }; // translated where shown
@@ -88,6 +88,7 @@ export function Environment() {
         </span>
       </div>
       <PlatformVersion />
+      <Publicada />
 
       <div className="calle" role="group" aria-label={t("Nodes")}>
         <div className="calle-picado" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <i key={i} style={{ background: picado[i % picado.length], ["--d" as string]: `${i * -330}ms` }} />)}</div>

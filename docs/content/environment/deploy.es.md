@@ -301,6 +301,10 @@ El repositorio de rendimiento está incorporado como cualquier aplicación. Su `
 
 Las solicitudes de incorporación reciben la misma comprobación, sin versión. En la rama principal, el resumen (digest) de la imagen se guarda con la versión, junto al del libro.
 
+### Saber que salió una versión nueva {#knowing-a-new-version-is-published}
+
+Una vez al día rendimiento pregunta a GitHub qué versión está publicada. Los administradores de la plataforma (y nadie más) la ven en una tarjeta **Versión**: en la página Entorno de un clúster, y en el inicio cuando hay una más nueva (también en una computadora, que no tiene página Entorno). La tarjeta dice la versión que corre, la más nueva con las primeras líneas de sus notas, si solo trae **arreglos** (0.2.0 → 0.2.1) o **funciones nuevas** (0.3.0), y si está **firmada**. Mientras rendimiento no actualiza su propio programa, muestra el comando que lo hace: el instalador otra vez en una computadora (sus aplicaciones y datos se quedan), `helm upgrade` en un clúster instalado con el chart. Un clúster que construye rendimiento él mismo conserva la tarjeta de abajo.
+
 ### Actualizar desde la página Entorno {#updating-from-the-environment-page}
 
 Con `SELF_APP` puesto en el nombre de la aplicación con la que está incorporado el repositorio de rendimiento, la plataforma sabe cuál de esas versiones ejecuta (por el resumen de la imagen de su pod). Cuando la versión más reciente tiene otra imagen, el enlace **Entorno** muestra *nueva* y la página Entorno tiene un botón **Actualizar**. Sustituye los pasos de arriba para una versión que pasó sus comprobaciones:

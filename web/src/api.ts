@@ -1286,6 +1286,7 @@ export const envApi = {
   dnsSync: () => request<{ ip: string; changed: boolean; updated: string[] | null }>("POST", "/api/dns/sync"),
   testEmail: () => request<{ sent: boolean; to: string[] }>("POST", "/api/notifications/test"),
   version: () => request<PlatformVersion>("GET", "/api/platform/version"),
+  published: (refresh = false) => request<Published>("GET", `/api/platform/published${refresh ? "?refresh=1" : ""}`),
   update: (release: number) => request<PlatformRelease>("POST", "/api/platform/update", { release }),
   capacity: () => request<CapacityView>("GET", "/api/environment/capacity"),
   saveCapacity: (c: Capacity) => request<CapacityView>("PUT", "/api/environment/capacity", c),
@@ -1301,6 +1302,16 @@ export interface PlatformRelease {
   sha: string;
   image: string;
   at: string;
+}
+
+/** Which rendimiento is published (api.Published), for the platform's administrators. */
+export interface Published {
+  version: string;
+  how: "computer" | "self" | "helm";
+  latest?: { version: string; notas: string; url: string; fecha: string; firmada: boolean };
+  newer: boolean;
+  onlyFix: boolean;
+  error?: string;
 }
 
 export interface PlatformVersion {

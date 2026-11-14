@@ -1927,4 +1927,12 @@ export const es: Record<string, string> = {
   "only reports": "solo avisa",
   "blocks": "bloquea",
   "set aside": "aparte",
+  "rendimiento {v}": "rendimiento {v}",
+  "Could not ask GitHub which version is published: {why}": "No se pudo preguntar a GitHub qué versión está publicada: {why}",
+  "{v} is published": "Se publicó la {v}",
+  "fixes": "arreglos",
+  "new features": "funciones nuevas",
+  "not signed: rendimiento will not install it by itself": "sin firma: rendimiento no la instalará solo",
+  "To update this cluster:": "Para actualizar este clúster:",
+  "To update this computer (your apps and data stay):": "Para actualizar esta computadora (sus aplicaciones y datos se quedan):",
 };

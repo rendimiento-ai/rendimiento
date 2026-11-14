@@ -301,6 +301,10 @@ rendimiento's repository is onboarded like any app. Its `rendimiento.yaml` has t
 
 Pull requests get the same check without a release. On the default branch the image's digest is kept with the release, next to the book's.
 
+### Knowing a new version is published {#knowing-a-new-version-is-published}
+
+Once a day rendimiento asks GitHub which version is published. The platform's administrators (and nobody else) see it on a **Version** card: on the Environment page in a cluster, and on the home page whenever a newer one is out (on a computer too, which has no Environment page). The card says the version running, the newest with the first lines of its notes, whether it only brings **fixes** (0.2.0 → 0.2.1) or **new features** (0.3.0), and whether it is **signed**. Until rendimiento updates its own program, it shows the command that does it: the installer again on a computer (your apps and data stay), `helm upgrade` in a cluster installed with the chart. A cluster that builds rendimiento itself keeps the card below.
+
 ### Updating from the Environment page {#updating-from-the-environment-page}
 
 With `SELF_APP` set to the app rendimiento's repository is onboarded as, the platform knows which of those releases it runs (by the digest of its pod's image). When the newest release holds another image, the **Environment** link shows *new* and the Environment page has an **Update** button. It replaces the steps above for a version that passed its checks:

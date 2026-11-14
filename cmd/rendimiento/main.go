@@ -33,6 +33,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
+	"github.com/rendimiento-ai/rendimiento/internal/actualizar"
 	"github.com/rendimiento-ai/rendimiento/internal/addon"
 	"github.com/rendimiento-ai/rendimiento/internal/agentes"
 	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
@@ -574,6 +575,8 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 	}
 	srv.Notify = notifier
 	srv.Senales = enviadorDeSenales(st, "kubernetes", "kubernetes", log)
+	srv.Version, srv.Modo = version, "kubernetes"
+	srv.Publicadas = &actualizar.Consultor{API: env("GITHUB_API_URL", "")}
 	srv.SenalesRecibir = env("SENALES_RECIBIR", "") == "1"
 	// REDIRECT_HOSTS: old addresses of the platform; people visiting them
 	// go to BASE_URL, while webhooks, MCP and the public stats still answer.

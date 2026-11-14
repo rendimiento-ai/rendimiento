@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { envApi, timeAgo, type PlatformRelease } from "../api";
+import { envApi, session, timeAgo, type PlatformRelease, type Published } from "../api";
 import { usePoll } from "../components/ui";
 import { t } from "../i18n";
 
@@ -86,6 +86,48 @@ export function PlatformVersion() {
       ) : manifests && !manifests.applied ? (
         <span className="small muted" style={{ flexBasis: "100%" }}>{t("rendimiento cannot tell yet whether make deploy is needed: it learns which commit was applied the next time make deploy runs.")}</span>
       ) : null}
+    </div>
+  );
+}
+
+/** The first lines of a release's notes, without GitHub's headings and links to every pull request. */
+function resumen(notas: string): string[] {
+  return notas.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("- ") || l.startsWith("* ")).map((l) => l.slice(2)).slice(0, 5);
+}
+
+/**
+ * The published rendimiento, for the platform's administrators only (decision 138): the version running here, the newest
+ * on GitHub with its notes, and how this install takes it. With `onlyNewer`, it shows only when there is a newer one (the
+ * home page); on the Environment page it always shows.
+ */
+export function Publicada({ onlyNewer = false }: { onlyNewer?: boolean }) {
+  const { data } = usePoll(() => (session.operator ? envApi.published() : Promise.resolve(undefined as Published | undefined)), [], 30 * 60000);
+  if (!session.operator || !data || data.how === "self") return null; // a cluster that builds itself has its own card
+  if (onlyNewer && !data.newer) return null;
+  const l = data.latest;
+  const cmd = data.how === "helm"
+    ? `helm upgrade rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento --version ${l?.version ?? ""} --reuse-values`
+    : "curl -fsSL https://rendimiento.ai/instalar | sh";
+  return (
+    <div className={`bando ${data.newer ? "warn" : "ok"} publicada`}>
+      <span className="bando-titulo">{t("Version")}</span>
+      <strong>{t("rendimiento {v}", { v: data.version })}</strong>
+      {data.error && <span className="small muted">{t("Could not ask GitHub which version is published: {why}", { why: data.error })}</span>}
+      {l && !data.newer && <span className="sello puesto">{t("Up to date")} ✓</span>}
+      {l && data.newer && (
+        <>
+          <span className="small"><a href={l.url} target="_blank" rel="noreferrer">{t("{v} is published", { v: l.version })}</a> · {timeAgo(l.fecha)}</span>
+          <span className={`badge ${data.onlyFix ? "ok" : "warn"}`}>{data.onlyFix ? t("fixes") : t("new features")}</span>
+          {!l.firmada && <span className="badge bad">{t("not signed: rendimiento will not install it by itself")}</span>}
+          {resumen(l.notas).length > 0 && (
+            <ul className="small publicada-notas">{resumen(l.notas).map((n, i) => <li key={i}>{n}</li>)}</ul>
+          )}
+          <div className="small" style={{ flexBasis: "100%" }}>
+            <p style={{ margin: "4px 0" }}>{data.how === "helm" ? t("To update this cluster:") : t("To update this computer (your apps and data stay):")}</p>
+            <pre className="file" style={{ whiteSpace: "pre-wrap" }}>{cmd}</pre>
+          </div>
+        </>
+      )}
     </div>
   );
 }
