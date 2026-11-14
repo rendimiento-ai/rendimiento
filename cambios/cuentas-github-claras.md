@@ -1,1 +1,0 @@
-- **Organizations:** the operators' card on Members that gives GitHub accounts to organizations is now called *Which GitHub accounts each organization can use*, and says who can use what in three short lines.

@@ -1,2 +1,0 @@
-- **At a glance:** on a wide screen the glance is two columns (the flower and its words beside the week and the visits), with a bigger flower, instead of a narrow strip with empty space beside it.
-- **At a glance:** a day is amber only when it was really slow (more than 1 in 200 checks failed, or a tenth of the day answered in a second or more), not for a single missed check: each release restarts the app and could turn every day of a busy week amber, and close the flower.

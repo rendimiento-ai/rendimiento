@@ -1,1 +1,0 @@
-- **The day's summary:** the newest day is a scoreboard: numbers that count up, badges, the runs by hour, a ring per app with its line, and the day's lotería card for the most notable thing. The numbers are counted from what was recorded, without AI.

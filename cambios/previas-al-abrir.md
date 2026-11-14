@@ -1,1 +1,0 @@
-- **Preview environments:** a pull request opened (or reopened) on a branch whose last run already passed gets its copy at once, from that run's images, instead of waiting for the next push.

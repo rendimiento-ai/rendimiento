@@ -1,1 +1,0 @@
-- **Problems:** a new install no longer lists "GitHub App not configured yet" as an open problem. It is the next step of the setup, and the welcome page already leads there; the line stays in the log.

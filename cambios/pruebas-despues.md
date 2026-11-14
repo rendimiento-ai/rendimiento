@@ -1,2 +1,0 @@
-- **Tests after each release:** `tests:` in rendimiento.yaml runs the app's own Playwright tests (from an image of `builds:`) once each release is live. Every test starts only reporting; after 5 clean releases in a row a failure of it rolls the release back; one that fails and then passes on its retry 3 times is set aside. The Releases tab lists each release's tests. Migration 0043 only adds tables.
-- **Post-deploy tasks:** `image: build:<name>` runs a task in the release's image of that build.

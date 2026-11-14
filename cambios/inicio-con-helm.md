@@ -1,1 +1,0 @@
-- **Welcome page:** the section to install rendimiento has a third tab, **Kubernetes**, with the `helm install` command to copy and what the cluster needs, beside Windows and Linux.

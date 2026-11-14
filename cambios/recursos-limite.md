@@ -1,1 +1,0 @@
-- **rendimiento.yaml:** a CPU or memory request over its limit (the size's, or one you set) is refused when the file is read, with what to change, instead of failing later when a run makes its pod.

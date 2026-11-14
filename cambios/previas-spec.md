@@ -1,1 +1,0 @@
-- **rendimiento.yaml:** a `previews:` block asks for a live copy of the app per pull request (`data: empty` or `seed`, `keep`, `max`); the copy's spec and its labeled namespace are rendered. The copies themselves come next (preview environments, slice 2).

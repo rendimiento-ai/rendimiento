@@ -1,1 +1,0 @@
-- **AI:** the home page opens with the day's summary: a few lines the platform's AI writes from what rendimiento recorded each day since your last visit (up to three days), each about an app you may see. It goes through the AI gateway and its caps, falls back to the local model and then to the numbers, and a quiet day is one line with no model. **Redo** writes it again.
