@@ -1,1 +1,0 @@
-- **Connecting GitHub:** after you choose the repositories on GitHub, rendimiento signs you in by itself. Until now it showed the welcome page, where you had to press "Sign in with GitHub" once more.

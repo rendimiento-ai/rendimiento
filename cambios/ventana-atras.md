@@ -1,1 +1,0 @@
-- **rendimiento for Windows:** the window has a **Navigate** menu with **Back** and **Back to the start**, for pages with no way back (choosing to sign in with Apple on GitHub's page, for example). Until now the only way out was in the menu of the icon next to the clock.

@@ -1,1 +1,0 @@
-- **Signing in:** pressing **Cancel** on GitHub's page, where it asks to authorize rendimiento, brings you back to the welcome page. Until now rendimiento answered with an error (502), which a proxy such as Cloudflare shows as its own "Bad gateway" page.

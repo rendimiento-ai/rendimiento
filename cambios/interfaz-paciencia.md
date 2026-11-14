@@ -1,1 +1,0 @@
-- **Builds:** the browser tests (the `interfaz` task) ask for two cores and wait longer for each page, so a busy cluster no longer fails them when the code is right.

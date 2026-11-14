@@ -1,2 +1,0 @@
-- **Builds:** a branch made at a commit the default branch already ran (an agent's new branch for an encargo) no longer runs that commit again, and a push to another branch whose last commit says `[skip ci]` does not run. The coding agent's "unfinished work" commit, left when it gives an encargo back, carries `[skip ci]`. A push to the default branch always runs.
-- **Encargos:** the coding agent's branch carries the encargo's title as well as its number (`encargo-25-cambiar-la-configuracion-de-la`), so a list of branches says what each one is about.

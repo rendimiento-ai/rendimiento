@@ -1,1 +1,0 @@
-- **Preview environments:** the book has the design for a live copy of each pull request, with its address and an agent's comment (where it lives, its data, when it is deleted, what it costs, and the order to build it). Nothing runs yet.
