@@ -150,3 +150,55 @@ func TestPreviewWhenOpened(t *testing.T) {
 		t.Fatalf("copy %+v", cr.Spec)
 	}
 }
+
+// Once a copy is healthy, the app's own tests run against its address and
+// the pull request's comment says how they went.
+func TestPreviewRunsTheAppsTests(t *testing.T) {
+	p, fake, _, _ := setup(t)
+	ctx := context.Background()
+	sp, err := spec.Parse([]byte("services:\n  - name: web\n    port: 3000\n    domain: probadas.example.com\nbuilds:\n  - name: e2e\n    path: e2e\ntests: {build: e2e}\npreviews: {}\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := &store.App{Name: "probadas", Repo: "o/probadas", DefaultBranch: "main", Spec: *sp}
+	if err := p.Store.CreateApp(ctx, app); err != nil {
+		t.Fatal(err)
+	}
+	var pr gh.PullInfo
+	pr.Number, pr.State = 3, "open"
+	pr.Head.Ref, pr.Base.Ref = "con-pruebas", "main"
+	fake.recent = []gh.PullInfo{pr}
+	p.Verify.Rollout = func(context.Context, string, int64) (RolloutState, string, error) { return RolloutHealthy, "", nil }
+	var ran spec.Task
+	var where string
+	done := make(chan struct{})
+	p.Verify.RunTask = func(_ context.Context, a *store.App, _ *store.Release, task spec.Task) store.ReleaseTask {
+		ran, where = task, a.Name
+		defer close(done)
+		return store.ReleaseTask{Status: store.TaskSucceeded,
+			Log: "@@prueba\texpected\trepartir.spec.js › abre\n@@prueba\tunexpected\trepartir.spec.js › paga\n"}
+	}
+	images := map[string]string{"web": "registry.example.lan:5000/probadas-web@sha256:1", "build:e2e": "registry.example.lan:5000/probadas-e2e@sha256:2"}
+	p.deployPreview(ctx, app, &store.Run{ID: 51, SHA: strings.Repeat("c", 40), Branch: "con-pruebas"}, *sp, images)
+	select {
+	case <-done:
+	case <-time.After(30 * time.Second):
+		t.Fatal("the copy's tests did not run")
+	}
+	if where != "probadas-pr-3" || ran.Image != images["build:e2e"] || ran.Env["BASE_URL"] != "https://probadas-pr-3.example.com" {
+		t.Fatalf("ran %s in %s against %s", ran.Image, where, ran.Env["BASE_URL"])
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		fake.mu.Lock()
+		said := fake.said[1]
+		fake.mu.Unlock()
+		if strings.Contains(said, "**Tests:** 1 of 2 passed against this copy.") && strings.Contains(said, "- failed: repartir.spec.js › paga") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the comment says %q", said)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}

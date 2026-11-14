@@ -14,6 +14,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
+	"github.com/rendimiento-ai/rendimiento/internal/pruebas"
 	"github.com/rendimiento-ai/rendimiento/internal/render"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
@@ -150,6 +151,76 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 			log.Warn("preview: its check", "err", err)
 		}
 	}
+	if sp.Tests != nil {
+		// The copy's tests run once it answers, without holding the run up.
+		go p.testPreview(context.WithoutCancel(ctx), app, run, sp, copy, images, number, commentID)
+	}
+}
+
+// testPreview runs the app's own tests (tests:) against pull request
+// number's copy once it is healthy, and adds each test's result to the
+// pull request's comment (slice 4). The tests only report here: a copy is
+// never a release, so nothing is blocked or rolled back, and no test's
+// state (advisory, blocking) moves.
+func (p *Platform) testPreview(ctx context.Context, app *store.App, run *store.Run, sp, copy spec.Spec, images map[string]string, number int, commentID int64) {
+	name := PreviewName(app.Name, number)
+	log := p.Log.With("app", app.Name, "pull", number)
+	url := previewURL(copy)
+	say := func(section string) {
+		if commentID == 0 || p.GitHub == nil {
+			return
+		}
+		body := previewComment(number, url, run, p.Config.BaseURL, app.Name, time.Now().AddDate(0, 0, sp.Previews.KeepDays())) + "\n\n" + section
+		if _, err := p.GitHub.Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err != nil {
+			log.Warn("preview: its comment", "err", err)
+		}
+	}
+	if ok, why := p.waitRollout(ctx, name, run.ID); !ok {
+		say(M("**Tests:** not run, the copy did not become healthy: %s.", why))
+		return
+	}
+	task := sp.Tests.Task(&copy)
+	rel := &store.Release{Number: run.ID, SHA: run.SHA, Images: images, Spec: copy}
+	img, ok := buildImage(rel, task.Image)
+	if !ok {
+		say(M("**Tests:** not run, this run has no image of %s.", sp.Tests.Build))
+		return
+	}
+	task.Image = img
+	runTask := p.Verify.RunTask
+	if runTask == nil {
+		runTask = p.Target().Tarea
+	}
+	res := runTask(ctx, &store.App{ID: app.ID, Name: name, Repo: app.Repo, OrgID: app.OrgID, InstallationID: app.InstallationID}, rel, task)
+	got, reported := pruebas.Parse(res.Log)
+	if !reported {
+		say(M("**Tests:** they left no report (%s).", res.Message))
+		return
+	}
+	say(previewTests(got))
+	log.Info("preview tested", "run", run.ID, "tests", len(got))
+}
+
+// previewTests is the comment's section of the copy's tests: how many
+// passed, then each that did not.
+func previewTests(got []pruebas.Result) string {
+	passed := 0
+	var lines []string
+	for _, r := range got {
+		switch r.Status {
+		case pruebas.Passed:
+			passed++
+		case pruebas.Failed:
+			lines = append(lines, M("- failed: %s", r.Name))
+		case pruebas.Flaky:
+			lines = append(lines, M("- failed, then passed on its retry: %s", r.Name))
+		}
+	}
+	out := M("**Tests:** %d of %d passed against this copy.", passed, len(got))
+	if len(lines) > 0 {
+		out += "\n" + strings.Join(lines, "\n")
+	}
+	return out
 }
 
 // previewComment is the pull request's comment about its copy.
