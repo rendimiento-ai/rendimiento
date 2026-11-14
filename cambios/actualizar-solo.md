@@ -1,1 +1,0 @@
-- **Updating by itself:** on a computer, the Version card has a switch (off at first) to install fix releases by themselves (0.2.0 → 0.2.1), checked every hour, only signed ones and never one that already failed to stay up there; releases with new features wait for an administrator's click (encargo 39).

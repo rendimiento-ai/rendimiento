@@ -1,1 +1,0 @@
-- **rendimiento for Windows:** the window follows the rendimiento inside it: when the inside was updated, the window downloads its own program of that version, checks its signature, and opens as that version next time (encargo 39).

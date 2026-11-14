@@ -1,1 +1,0 @@
-- **Version card:** the platform's administrators see which rendimiento is published, once a day from GitHub: on the Environment page, and on the home page when a newer one is out (computers too). It says whether it brings fixes or new features and whether it is signed, and gives the command to update until rendimiento does it itself (encargo 39).
