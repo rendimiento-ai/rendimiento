@@ -46,10 +46,23 @@ detalle() {
 	echo "---- the run"
 	c -fsS -m 5 -b "$tmp/galletas" "$api/api/apps/$app/runs" 2>/dev/null | jq -c '.[0]' 2>/dev/null | cut -c1-1500 || true
 }
+# pasoFallido: the end of the log of each step that failed in the example's
+# last run, which says why (a build that fails names its cause only there).
+pasoFallido() {
+	run=$(c -fsS -m 5 -b "$tmp/galletas" "$api/api/apps/$app/runs" 2>/dev/null | jq -r '.[0].id // empty' 2>/dev/null || true)
+	[ -n "$run" ] || return 0
+	for paso in $(c -fsS -m 5 -b "$tmp/galletas" "$api/api/runs/$run" 2>/dev/null | jq -r '.steps[]? | select(.status == "failed") | .id' 2>/dev/null || true); do
+		echo "-- step $paso"
+		c -fsS -m 10 -b "$tmp/galletas" "$api/api/runs/$run/steps/$paso/log" 2>/dev/null | tail -n 25 | cut -c1-300 || true
+	done
+}
 falla() {
 	detalle
+	echo "---- the failed steps"
+	pasoFallido
 	aviso error "inicio rápido (k3d)" "$1
 the run: $(c -fsS -m 5 -b "$tmp/galletas" "$api/api/apps/$app/runs" 2>/dev/null | jq -c '.[0] | {id, status, message}' 2>/dev/null || true)
+$(pasoFallido)
 $(kubectl get pods -A --no-headers 2>/dev/null | grep -v -e Running -e Completed | cut -c1-150 | head -n 8 || true)
 $(for d in rendimiento rendimiento-worker; do
 	echo "-- $d"
