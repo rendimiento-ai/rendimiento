@@ -6,10 +6,10 @@ import { t, tn } from "../i18n";
 import { TextoConFormato } from "./texto";
 import { Comentarios, porTrabajo } from "./comentarios";
 
-const statusLabel: Record<EncargoStatus, string> = {
+export const statusLabel: Record<EncargoStatus, string> = {
   pending: "Pending", taken: "Taken", waiting: "Waiting", delivered: "Delivered", reviewed: "Reviewed", cancelled: "Dropped",
 };
-const statusClass: Record<EncargoStatus, string> = {
+export const statusClass: Record<EncargoStatus, string> = {
   pending: "", taken: "live", waiting: "warn live", delivered: "warn", reviewed: "ok", cancelled: "",
 };
 const eventLabel: Record<string, string> = {

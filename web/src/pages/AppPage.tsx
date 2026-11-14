@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { addonsApi, api, appSecretNames, duration, isLibrary, session, subscribe, timeAgo, universeApi, type App, type AppAccess, type AutoEncargo, type BranchKind, type MemberRole, type Release, type ReleaseTask, type ReleaseTest } from "../api";
+import { addonsApi, api, appSecretNames, duration, isLibrary, session, subscribe, timeAgo, universeApi, type App, type AppAccess, type AutoEncargo, type BranchKind, type MemberRole, type ReleaseTask, type ReleaseTest } from "../api";
 import { memberRoleLabel } from "./Members";
 import { autoEncargoName } from "./IA";
 import { ErrorBox, PhaseBadge, ResourceTree, RunBadge, Switch, usePoll } from "../components/ui";
@@ -9,6 +9,7 @@ import { VisitsTab } from "../components/visits";
 import { CaminosTab } from "../components/caminos-tab";
 import { tecnicoPrimero, Vistazo } from "../components/vistazo";
 import { MesaTab } from "../components/mesa";
+import { LoUltimo, Rama, VerifyBadge, verifyBadge } from "../components/lo-ultimo";
 import { AppProblems } from "./Problems";
 import { outsideWhy } from "../components/barda";
 import { Flor, LluviaDePetalos } from "../components/ambiente";
@@ -89,7 +90,7 @@ export function AppPage() {
       {tab === "" && <Vistazo app={app} />}
       {tab === "mesa" && <MesaTab app={app} />}
       {tab === "overview" && <Overview name={name} app={app} />}
-      {tab === "runs" && <Runs name={name} />}
+      {tab === "runs" && <Runs name={name} repo={app.repo} />}
       {tab === "caminos" && <CaminosTab name={name} />}
       {tab === "releases" && <Releases name={name} current={app.status.release} />}
       {tab === "reliability" && <ReliabilityTab app={app} />}
@@ -150,6 +151,7 @@ function BuildNow({ name, main, onDone }: { name: string; main: string; onDone: 
 /** The four facts under the name, each a door to its tab: the last run, the live release, availability and visits. */
 function Datos({ app }: { app: App }) {
   const base = `/apps/${app.name}`;
+  const nav = useNavigate();
   const { data: rels } = usePoll(() => api.releases(app.name), [app.name], 30000);
   const { data: vis } = usePoll(() => api.visits(app.name, "24h"), [app.name], 300000);
   const live = rels?.find((r) => r.number === app.status.release);
@@ -162,11 +164,12 @@ function Datos({ app }: { app: App }) {
   const max = Math.max(1, ...puntos);
   return (
     <div className="datos">
-      <Link className="dato" to={`${base}/runs`}>
-        <span>{t("Latest run")}</span>
+      {/* Not one link: its branch is a link of its own, to GitHub. */}
+      <div className="dato dato-clic" onClick={() => nav(`${base}/runs`)}>
+        <Link to={`${base}/runs`}><span>{t("Latest run")}</span></Link>
         <b style={{ color: runTone }}>{run ? <RunBadge status={run.status} /> : "—"}</b>
-        <small>{run ? `${run.branch} · ${timeAgo(run.createdAt)}` : t("No runs yet")}</small>
-      </Link>
+        <small>{run ? <><Rama repo={app.repo} branch={run.branch} /> · {timeAgo(run.createdAt)}</> : t("No runs yet")}</small>
+      </div>
       <Link className="dato" to={`${base}/releases`}>
         <span>{t("Live")}</span>
         <b>{app.status.release ? `#${app.status.release}` : "—"}</b>
@@ -186,38 +189,6 @@ function Datos({ app }: { app: App }) {
           </svg>
         ) : <small>{vis && !vis.configured ? t("Visits are off") : t("Not counted")}</small>}
       </Link>
-    </div>
-  );
-}
-
-/** "Lo último": the app's recent runs and releases on one line of time, newest first. */
-function LoUltimo({ name }: { name: string }) {
-  const { data: runs } = usePoll(() => api.runs(name), [name], 15000);
-  const { data: rels } = usePoll(() => api.releases(name), [name], 30000);
-  const hechos = [
-    ...(runs ?? []).slice(0, 6).map((r) => ({
-      at: r.createdAt, key: `r${r.id}`, to: `/apps/${name}/runs/${r.id}`,
-      tone: r.status === "succeeded" ? "var(--ok)" : r.status === "failed" ? "var(--bad)" : "var(--warn)",
-      que: t("Run #{n}", { n: r.id }), detalle: `${r.branch} · ${r.message ?? r.sha.slice(0, 7)}`, badge: <RunBadge status={r.status} />,
-    })),
-    ...(rels ?? []).slice(0, 4).map((r) => ({
-      at: r.createdAt, key: `v${r.id}`, to: `/apps/${name}/releases`,
-      tone: r.rollbackOf ? "var(--warn)" : "var(--grana)",
-      que: r.rollbackOf ? t("Rolled back to #{n}", { n: r.rollbackOf }) : t("Release #{n}", { n: r.number }), detalle: r.sha.slice(0, 7), badge: <VerifyBadge r={r} />,
-    })),
-  ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 6);
-  return (
-    <div className="card stack">
-      <strong>{t("The latest")}</strong>
-      {hechos.length === 0 && <span className="muted small">{t("Nothing yet.")}</span>}
-      <ol className="lo-ultimo">
-        {hechos.map((h, i) => (
-          <li key={h.key} style={{ ["--c" as string]: h.tone, ["--d" as string]: `${i * 60}ms` }}>
-            <Link to={h.to}><strong>{h.que}</strong></Link> {h.badge} <span className="muted small">{timeAgo(h.at)}</span>
-            <div className="small muted">{h.detalle}</div>
-          </li>
-        ))}
-      </ol>
     </div>
   );
 }
@@ -268,7 +239,7 @@ function Overview({ name, app }: { name: string; app: Awaited<ReturnType<typeof 
         })}
       </div>
       <div className="resumen-dos">
-        <LoUltimo name={name} />
+        <LoUltimo app={app} />
         <div className="stack">
           <ProvidedNeeds name={name} app={app} />
           <DependencyUpdates name={name} />
@@ -427,7 +398,7 @@ const kindNames: Partial<Record<BranchKind, string>> = { fix: "fix", feature: "f
  * The Runs tab: the last runs, with their commit, branch, state and time, filtered by the kind of their branch (the
  * default branch, with a pull request, fixes, features, releases...). The filter is kept in the address.
  */
-function Runs({ name }: { name: string }) {
+function Runs({ name, repo }: { name: string; repo: string }) {
   const { data: runs, error } = usePoll(() => api.runs(name), [name], 5000);
   const { data: kinds } = usePoll(() => api.branchKinds(name), [name], 60000);
   const [params, setParams] = useSearchParams();
@@ -476,7 +447,7 @@ function Runs({ name }: { name: string }) {
                     <td><RunBadge status={r.status} /></td>
                     <td className="mono">{r.sha.slice(0, 7)}</td>
                     <td>
-                      {r.branch}
+                      <Rama repo={repo} branch={r.branch} />
                       {r.deploy && <span className="badge" style={{ marginLeft: 6 }}>{t("deploys")}</span>}
                       {kind && filter !== k?.kind && <span className="chip" style={{ marginLeft: 6 }}>{t(kind)}</span>}
                       {!!k?.pull && <span className="chip" style={{ marginLeft: 6 }} title={k.open ? t("Its pull request is open") : t("Its last pull request")}>#{k.pull}</span>}
@@ -578,22 +549,6 @@ function PostDeployTask({ app, release, task }: { app: string; release: number; 
       {open && <pre className="log" style={{ maxHeight: 240, marginTop: 6 }}>{log || t("No output.")}</pre>}
     </div>
   );
-}
-
-const verifyBadge: Record<string, [string, string]> = {
-  verifying: ["live", "Verifying…"],
-  passed: ["ok", "Verified"],
-  failed: ["bad", "Failed · rolled back"],
-  "failed-kept": ["bad", "Failed verification"],
-  superseded: ["", "Not verified: replaced"],
-  blocked: ["bad", "Not deployed"],
-};
-
-/** What release verification concluded, with its message on hover. */
-function VerifyBadge({ r }: { r: Release }) {
-  const b = r.verifyStatus ? verifyBadge[r.verifyStatus] : undefined;
-  if (!b) return null;
-  return <span className={`badge ${b[0]}`} title={r.verifyMessage}>{t(b[1])}</span>;
 }
 
 /** A banner while the newest release is verified, or after it was rolled back. */

@@ -4,6 +4,7 @@ import { api, session, timeAgo, type App, type MesaGroup, type MesaLine } from "
 import { ErrorBox, usePoll } from "./ui";
 import { t, tn } from "../i18n";
 import { VolverAlVistazo } from "./vistazo";
+import { Rama } from "./lo-ultimo";
 
 const grupos: { id: MesaGroup; title: string; hint: string }[] = [
   { id: "you", title: "Your turn", hint: "merge, review, or look at what failed" },
@@ -21,6 +22,7 @@ export function MesaTab({ app }: { app: App }) {
   return (
     <>
       <VolverAlVistazo />
+      {session.role !== "guest" && <Pedir app={app} onAsked={reload} />}
       <ErrorBox error={error} />
       {data && !data.github && <p className="small muted">{t("GitHub did not answer: the pull requests are missing, the runs and encargos are here.")}</p>}
       {data && data.lines.length === 0 && <div className="empty">{t("Nothing open: every branch is merged or closed.")}</div>}
@@ -42,13 +44,51 @@ export function MesaTab({ app }: { app: App }) {
   );
 }
 
+const ideas = ["Add tests to it", "Make it load faster", "Review its security", "Explain to me what it does"];
+
+/**
+ * Asking for a change without leaving the app: what is written becomes an encargo about this app, and an agent takes it
+ * from there. Its first line is the encargo's title; the ideas fill the box with a common ask.
+ */
+function Pedir({ app, onAsked }: { app: App; onAsked: () => void }) {
+  const [texto, setTexto] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>();
+  const [hecho, setHecho] = useState<number>();
+  const pedir = () => {
+    const limpio = texto.trim();
+    if (!limpio) return;
+    const primera = limpio.split("\n")[0];
+    const title = primera.length > 120 ? primera.slice(0, 117) + "…" : primera;
+    setBusy(true); setErr(undefined);
+    api.createEncargo({ title, body: limpio === primera ? "" : limpio, app: app.name }).then((e) => {
+      setBusy(false); setTexto(""); setHecho(e.id); onAsked();
+    }, (e) => { setBusy(false); setErr(e); });
+  };
+  return (
+    <div className="mesa-pedir">
+      <label htmlFor="mesa-pedido"><b>{t("What shall we change in {app}?", { app: app.name })}</b></label>
+      <textarea id="mesa-pedido" rows={2} value={texto} maxLength={20000} onChange={(e) => { setTexto(e.target.value); setHecho(undefined); }}
+        placeholder={t("e.g. That the page says hello in Spanish and in English")} />
+      <div className="mesa-ideas">
+        {ideas.map((i) => <button key={i} type="button" className="small" onClick={() => setTexto(t(i))}>{t(i)}</button>)}
+      </div>
+      <ErrorBox error={err} />
+      <div className="row">
+        <button className="primary" disabled={busy || !texto.trim()} onClick={pedir}>{t("Ask an agent")}</button>
+        {hecho && <span className="small">{t("Asked:")} <Link to={`/ruta?tab=encargos#encargo-${hecho}`}>{t("encargo {n}", { n: hecho })}</Link></span>}
+      </div>
+    </div>
+  );
+}
+
 function Fila({ app, l, onClosed }: { app: App; l: MesaLine; onClosed: () => void }) {
   const repo = `https://github.com/${app.repo}`;
   const encargos = l.encargos ?? [];
   return (
     <div className="mesa-fila">
       <div className="mesa-que">
-        <b className="mono">{l.branch || encargos[0]?.title}</b>
+        <b className="mono">{l.branch ? <Rama repo={app.repo} branch={l.branch} className="" /> : encargos[0]?.title}</b>
         {l.pull ? <> · <a href={`${repo}/pull/${l.pull}`} target="_blank" rel="noreferrer">#{l.pull}</a></> : null}
         {l.pullTitle && <div className="small muted">{l.pullTitle}</div>}
       </div>
