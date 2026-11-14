@@ -1,1 +1,0 @@
-- **Updating a computer:** on Linux and in the WSL distribution, the Version card's **Update** installs the latest release (only a signed one), keeps the previous program and restarts; a version that fails to start goes back by itself, and **Go back** returns to the previous one, only ever down (encargo 39).

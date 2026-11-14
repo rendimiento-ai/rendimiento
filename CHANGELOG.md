@@ -6,6 +6,14 @@ What is not released yet is in `cambios/`, one file per change; each release gat
 
 ## Unreleased
 
+## v0.2.1 (2026-11-14)
+
+- **rendimiento for Windows:** the window follows the rendimiento inside it: when the inside was updated, the window downloads its own program of that version, checks its signature, and opens as that version next time (encargo 39).
+- **Updating by itself:** on a computer, the Version card has a switch (off at first) to install fix releases by themselves (0.2.0 → 0.2.1), checked every hour, only signed ones and never one that already failed to stay up there; releases with new features wait for an administrator's click (encargo 39).
+- **Updating a computer:** on Linux and in the WSL distribution, the Version card's **Update** installs the latest release (only a signed one), keeps the previous program and restarts; a version that fails to start goes back by itself, and **Go back** returns to the previous one, only ever down (encargo 39).
+- **Version card:** the platform's administrators see which rendimiento is published, once a day from GitHub: on the Environment page, and on the home page when a newer one is out (computers too). It says whether it brings fixes or new features and whether it is signed, and gives the command to update until rendimiento does it itself (encargo 39).
+- **Releases:** each release's SHA256SUMS is signed (SHA256SUMS.sig), and rendimiento carries the key to check it: the first part of updating rendimiento from its own page (encargo 39).
+- **Quickstart test (k3d):** when the example's run fails, the test shows the end of the failed step's log, which says why.
 ## v0.2.0 (2026-11-14)
 
 - **Preview environments:** a pull request opened (or reopened) on a branch whose last run already passed gets its copy at once, from that run's images, instead of waiting for the next push.

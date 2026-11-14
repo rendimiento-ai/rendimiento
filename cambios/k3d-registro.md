@@ -1,1 +1,0 @@
-- **Quickstart test (k3d):** when the example's run fails, the test shows the end of the failed step's log, which says why.
