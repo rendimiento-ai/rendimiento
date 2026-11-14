@@ -140,6 +140,10 @@ type Server struct {
 	// ("local": a computer; "kubernetes": a cluster).
 	Publicadas    *actualizar.Consultor
 	Version, Modo string
+	// Programa changes rendimiento's own program on a computer (nil: not
+	// here), and UltimoCambio says what its last update did.
+	Programa     *actualizar.Programa
+	UltimoCambio *actualizar.Marca
 	// Metrics reads the traced service graph for the Universe page (nil:
 	// the map shows no latency).
 	Metrics *universe.Metrics
@@ -241,6 +245,8 @@ func (s *Server) Handler() http.Handler {
 	plat(store.MemberAdmin, "DELETE /api/environment/settings/{key}", s.deleteSetting)
 	plat(store.MemberGuest, "GET /api/platform/version", s.platformVersion)
 	plat(store.MemberAdmin, "GET /api/platform/published", s.platformPublished)
+	plat(store.MemberAdmin, "POST /api/platform/install", s.platformInstall)
+	plat(store.MemberAdmin, "POST /api/platform/back", s.platformBack)
 	plat(store.MemberAdmin, "POST /api/platform/update", s.updatePlatform)
 	plat(store.MemberGuest, "GET /api/services", s.services)
 	plat(store.MemberGuest, "GET /api/stats/delivery", s.delivery)

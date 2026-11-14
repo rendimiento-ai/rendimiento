@@ -1286,6 +1286,8 @@ export const envApi = {
   dnsSync: () => request<{ ip: string; changed: boolean; updated: string[] | null }>("POST", "/api/dns/sync"),
   testEmail: () => request<{ sent: boolean; to: string[] }>("POST", "/api/notifications/test"),
   version: () => request<PlatformVersion>("GET", "/api/platform/version"),
+  install: (version: string) => request<void>("POST", "/api/platform/install", { version }),
+  goBack: () => request<void>("POST", "/api/platform/back"),
   published: (refresh = false) => request<Published>("GET", `/api/platform/published${refresh ? "?refresh=1" : ""}`),
   update: (release: number) => request<PlatformRelease>("POST", "/api/platform/update", { release }),
   capacity: () => request<CapacityView>("GET", "/api/environment/capacity"),
@@ -1312,6 +1314,9 @@ export interface Published {
   newer: boolean;
   onlyFix: boolean;
   error?: string;
+  canInstall: boolean; // this computer installs it itself
+  previous?: string; // the version kept to go back to
+  lastChange?: { de: string; a: string; cuando: string; regreso?: boolean; quien?: string };
 }
 
 export interface PlatformVersion {

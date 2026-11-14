@@ -243,6 +243,19 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	}
 	srv.Senales = enviadorDeSenales(st, "local", motorSenal, log)
 	srv.Version, srv.Modo = version, "local"
+	// rendimiento changes its own program here (decision 138): a release
+	// installed from the Version card, checked, kept or put back.
+	if exe, err := os.Executable(); err == nil {
+		if real, err := filepath.EvalSymlinks(exe); err == nil {
+			exe = real
+		}
+		srv.Programa = &actualizar.Programa{Ruta: exe, Datos: dir,
+			Descargas: env("RELEASES_URL", "https://github.com/"+actualizar.Repo+"/releases/download"), Salir: os.Exit}
+		if m := srv.Programa.AlArrancar(version); m != nil {
+			log.Info("rendimiento changed its program", "from", m.De, "to", m.A, "back", m.Regreso, "by", m.Quien)
+			srv.UltimoCambio = m
+		}
+	}
 	srv.Publicadas = &actualizar.Consultor{API: env("GITHUB_API_URL", "")}
 	go srv.Senales.Run(ctx)
 

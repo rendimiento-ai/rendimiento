@@ -1935,4 +1935,11 @@ export const es: Record<string, string> = {
   "not signed: rendimiento will not install it by itself": "sin firma: rendimiento no la instalará solo",
   "To update this cluster:": "Para actualizar este clúster:",
   "To update this computer (your apps and data stay):": "Para actualizar esta computadora (sus aplicaciones y datos se quedan):",
+  "Restarting in the other version… the page reloads when it answers": "Reiniciando en la otra versión… la página se recarga cuando conteste",
+  "Go back to {v}": "Regresar a la {v}",
+  "Update to {v}": "Actualizar a la {v}",
+  "Your apps keep running while rendimiento restarts. If the new version does not stay up, rendimiento goes back by itself.": "Sus aplicaciones siguen corriendo mientras rendimiento se reinicia. Si la versión nueva no se mantiene arriba, rendimiento regresa sola.",
+  "{a} did not stay up: rendimiento went back from it to {b} by itself": "La {a} no se mantuvo arriba: rendimiento regresó sola de ella a la {b}",
+  "rendimiento went back from {a} to {b}": "rendimiento regresó de la {a} a la {b}",
+  "rendimiento was updated from {a} to {b}": "rendimiento se actualizó de la {a} a la {b}",
 };
