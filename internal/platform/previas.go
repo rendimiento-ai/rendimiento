@@ -4,18 +4,12 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/pruebas"
-	"github.com/rendimiento-ai/rendimiento/internal/render"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 
@@ -74,7 +68,7 @@ func (p *Platform) openPullOf(ctx context.Context, a *store.App, branch string) 
 // the run's images, the oldest copy goes first when the app has its most,
 // and a "preview" check on the commit links to the copy's address.
 func (p *Platform) deployPreview(ctx context.Context, app *store.App, run *store.Run, sp spec.Spec, images map[string]string) {
-	if sp.Previews == nil || p.Kube == nil || run.Deploy {
+	if sp.Previews == nil || p.copias() == nil || run.Deploy {
 		return
 	}
 	if number := p.openPullOf(ctx, app, run.Branch); number != 0 {
@@ -84,10 +78,13 @@ func (p *Platform) deployPreview(ctx context.Context, app *store.App, run *store
 
 // deployPreviewOf writes pull request number's copy from a run that passed.
 func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *store.Run, sp spec.Spec, images map[string]string, number int) {
+	copias := p.copias()
+	if copias == nil {
+		return
+	}
 	log := p.Log.With("app", app.Name, "pull", number)
 	copy := spec.PreviewOf(sp, number)
-	name := PreviewName(app.Name, number)
-	if err := p.makeRoom(ctx, app, name, sp.Previews.Copies()); err != nil {
+	if err := p.makeRoom(ctx, app, number, sp.Previews.Copies()); err != nil {
 		log.Warn("preview: making room", "err", err)
 	}
 	org, err := p.orgSlug(ctx, app.ID)
@@ -97,10 +94,9 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 	}
 	// One comment on the pull request, edited on each push: the address,
 	// the commit and when the copy goes.
-	url := previewURL(copy)
-	var before v1alpha1.App
-	_ = p.Kube.Get(ctx, client.ObjectKey{Name: name}, &before)
-	commentID, _ := strconv.ParseInt(before.Annotations[annotationComment], 10, 64)
+	url := copias.URL(copy, app.Name, number)
+	before, _ := copias.Get(ctx, app.Name, number)
+	commentID := before.CommentID
 	if p.GitHub != nil {
 		body := previewComment(number, url, run, p.Config.BaseURL, app.Name, time.Now().AddDate(0, 0, sp.Previews.KeepDays()))
 		if id, err := p.GitHub.Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err == nil {
@@ -109,36 +105,9 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 			log.Warn("preview: its comment", "err", err)
 		}
 	}
-	for attempt := 0; ; attempt++ {
-		var cr v1alpha1.App
-		err := p.Kube.Get(ctx, client.ObjectKey{Name: name}, &cr)
-		creating := apierrors.IsNotFound(err)
-		if err != nil && !creating {
-			log.Warn("preview: reading its App object", "err", err)
-			return
-		}
-		cr.Name = name
-		cr.Labels = map[string]string{"rendimiento.ai/app-id": strconv.FormatInt(app.ID, 10), render.LabelOrg: org,
-			render.LabelPreview: strconv.Itoa(number), labelPreviewOf: app.Name}
-		cr.Annotations = map[string]string{annotationPushed: time.Now().UTC().Format(time.RFC3339)}
-		if commentID != 0 {
-			cr.Annotations[annotationComment] = strconv.FormatInt(commentID, 10)
-		}
-		cr.Spec = v1alpha1.AppSpec{Repo: app.Repo, Services: copy.Services, Postgres: copy.Postgres, Redis: copy.Redis,
-			Observe: copy.Observe, Images: images, Release: run.ID, Preview: number}
-		if creating {
-			err = p.Kube.Create(ctx, &cr)
-		} else {
-			err = p.Kube.Update(ctx, &cr)
-		}
-		if apierrors.IsConflict(err) && attempt < 5 {
-			continue
-		}
-		if err != nil {
-			log.Warn("preview: writing its App object", "err", err)
-			return
-		}
-		break
+	if err := copias.Put(ctx, app, org, copy, images, run, number, commentID); err != nil {
+		log.Warn("preview: writing it", "err", err)
+		return
 	}
 	log.Info("preview deployed", "run", run.ID, "url", url)
 	if len(run.SHA) == 40 && p.GitHub != nil {
@@ -165,7 +134,7 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 func (p *Platform) testPreview(ctx context.Context, app *store.App, run *store.Run, sp, copy spec.Spec, images map[string]string, number int, commentID int64) {
 	name := PreviewName(app.Name, number)
 	log := p.Log.With("app", app.Name, "pull", number)
-	url := previewURL(copy)
+	url := p.copias().URL(copy, app.Name, number)
 	say := func(section string) {
 		if commentID == 0 || p.GitHub == nil {
 			return
@@ -180,6 +149,9 @@ func (p *Platform) testPreview(ctx context.Context, app *store.App, run *store.R
 		return
 	}
 	task := sp.Tests.Task(&copy)
+	if u := p.copias().TestURL(copy); u != "" && sp.Tests.URL == "" {
+		task.Env["BASE_URL"] = u
+	}
 	rel := &store.Release{Number: run.ID, SHA: run.SHA, Images: images, Spec: copy}
 	img, ok := buildImage(rel, task.Image)
 	if !ok {
@@ -234,75 +206,51 @@ func previewComment(number int, url string, run *store.Run, baseURL, app string,
 }
 
 // deletePreview deletes a copy and says why in its pull request's comment.
-func (p *Platform) deletePreview(ctx context.Context, cr *v1alpha1.App, why string) error {
-	if err := p.Kube.Delete(ctx, cr); err != nil {
-		return err
-	}
-	id, _ := strconv.ParseInt(cr.Annotations[annotationComment], 10, 64)
-	if id == 0 || p.GitHub == nil {
+func (p *Platform) deletePreview(ctx context.Context, c copia, why string) error {
+	copias := p.copias()
+	if copias == nil {
 		return nil
 	}
-	app, err := p.Store.GetApp(ctx, cr.Labels[labelPreviewOf])
+	if err := copias.Delete(ctx, c); err != nil {
+		return err
+	}
+	if c.CommentID == 0 || p.GitHub == nil {
+		return nil
+	}
+	app, err := p.Store.GetApp(ctx, c.App)
 	if err != nil {
 		return nil
 	}
-	body := M("**Preview of #%d:** deleted, %s.", cr.Spec.Preview, why)
-	if _, err := p.GitHub.Comment(ctx, app.InstallationID, app.Repo, cr.Spec.Preview, id, body); err != nil {
-		p.Log.Warn("preview: its comment", "copy", cr.Name, "err", err)
+	body := M("**Preview of #%d:** deleted, %s.", c.Number, why)
+	if _, err := p.GitHub.Comment(ctx, app.InstallationID, app.Repo, c.Number, c.CommentID, body); err != nil {
+		p.Log.Warn("preview: its comment", "copy", PreviewName(c.App, c.Number), "err", err)
 	}
 	return nil
 }
 
 // makeRoom deletes the copies of the app idle longest until a new one fits
-// under max (keep is the copy being written, which never goes).
-func (p *Platform) makeRoom(ctx context.Context, app *store.App, keep string, max int) error {
-	copies, err := p.previews(ctx, app.Name)
+// under max (keep is the pull request whose copy is being written, which
+// never goes).
+func (p *Platform) makeRoom(ctx context.Context, app *store.App, keep, max int) error {
+	copies, err := p.copias().List(ctx, app.Name)
 	if err != nil {
 		return err
 	}
 	others := copies[:0]
 	for _, c := range copies {
-		if c.Name != keep {
+		if c.Number != keep {
 			others = append(others, c)
 		}
 	}
-	sort.Slice(others, func(i, j int) bool { return pushedAt(others[i]).Before(pushedAt(others[j])) })
+	sort.Slice(others, func(i, j int) bool { return others[i].PushedAt.Before(others[j].PushedAt) })
 	for len(others) >= max {
-		if err := p.deletePreview(ctx, &others[0], M("to make room for a newer pull request's copy")); err != nil && !apierrors.IsNotFound(err) {
+		if err := p.deletePreview(ctx, others[0], M("to make room for a newer pull request's copy")); err != nil {
 			return err
 		}
-		p.Log.Info("preview deleted to make room", "app", app.Name, "copy", others[0].Name)
+		p.Log.Info("preview deleted to make room", "app", app.Name, "copy", PreviewName(app.Name, others[0].Number))
 		others = others[1:]
 	}
 	return nil
-}
-
-// previews are the App objects of an app's copies ("" for every app's).
-func (p *Platform) previews(ctx context.Context, app string) ([]v1alpha1.App, error) {
-	var list v1alpha1.AppList
-	sel := client.HasLabels{render.LabelPreview}
-	opts := []client.ListOption{sel}
-	if app != "" {
-		opts = []client.ListOption{client.MatchingLabels{labelPreviewOf: app}}
-	}
-	if err := p.Kube.List(ctx, &list, opts...); err != nil {
-		return nil, err
-	}
-	var out []v1alpha1.App
-	for _, a := range list.Items {
-		if a.Spec.Preview > 0 {
-			out = append(out, a)
-		}
-	}
-	return out, nil
-}
-
-func pushedAt(a v1alpha1.App) time.Time {
-	t, err := time.Parse(time.RFC3339, a.Annotations[annotationPushed])
-	if err != nil {
-		return a.CreationTimestamp.Time
-	}
-	return t
 }
 
 // OpenedPreview gives a pull request opened (or reopened) on a branch whose
@@ -310,7 +258,7 @@ func pushedAt(a v1alpha1.App) time.Time {
 // would wait for the next push. A run still going makes the copy when it
 // passes, as always. A fork's pull request never gets one.
 func (p *Platform) OpenedPreview(ctx context.Context, repo string, number int, branch, headRepo string) {
-	if p.Kube == nil || p.Store == nil || number == 0 || branch == "" || (headRepo != "" && !strings.EqualFold(headRepo, repo)) {
+	if p.copias() == nil || p.Store == nil || number == 0 || branch == "" || (headRepo != "" && !strings.EqualFold(headRepo, repo)) {
 		return
 	}
 	apps, err := p.Store.AppsForRepo(ctx, repo)
@@ -322,24 +270,59 @@ func (p *Platform) OpenedPreview(ctx context.Context, repo string, number int, b
 		p.branchPullsCache.mu.Lock()
 		delete(p.branchPullsCache.byApp, a.ID)
 		p.branchPullsCache.mu.Unlock()
-		last, err := p.Store.LastRunOf(ctx, a.ID, branch)
-		if err != nil || last.Status != store.RunSucceeded || last.Deploy || branch == a.DefaultBranch {
+		p.previewFromLastRun(ctx, a, number, branch)
+	}
+}
+
+// previewFromLastRun gives pull request number its copy from its branch's
+// last run, when that run passed (and is not a deploy of the main branch).
+func (p *Platform) previewFromLastRun(ctx context.Context, a *store.App, number int, branch string) {
+	last, err := p.Store.LastRunOf(ctx, a.ID, branch)
+	if err != nil || last.Status != store.RunSucceeded || last.Deploy || branch == a.DefaultBranch {
+		return
+	}
+	run, err := p.Store.GetRun(ctx, last.ID)
+	if err != nil {
+		return
+	}
+	sp := a.Spec
+	if raw, err := p.GitHub.FileAt(ctx, a.InstallationID, a.Repo, spec.FileName, run.SHA); err == nil {
+		if s, err := spec.Parse(raw); err == nil {
+			sp = *s
+		}
+	}
+	if sp.Previews == nil {
+		return
+	}
+	p.deployPreviewOf(ctx, a, run, sp, p.imagesOfRun(ctx, a, run, sp), number)
+}
+
+// catchUpPreviews makes the copies a lost "opened" event left out: an open
+// pull request of an app that asks for previews, with no copy, whose
+// branch already passed. On a computer GitHub sends no events at all, so
+// this is how a pull request opened there gets its copy.
+func (p *Platform) catchUpPreviews(ctx context.Context) {
+	apps, err := p.Store.ListApps(ctx)
+	if err != nil {
+		return
+	}
+	copias := p.copias()
+	for _, a := range apps {
+		if a.Spec.Previews == nil {
 			continue
 		}
-		run, err := p.Store.GetRun(ctx, last.ID)
-		if err != nil {
+		got, ok := p.recentPulls(ctx, a)
+		if !ok {
 			continue
 		}
-		sp := a.Spec
-		if raw, err := p.GitHub.FileAt(ctx, a.InstallationID, a.Repo, spec.FileName, run.SHA); err == nil {
-			if s, err := spec.Parse(raw); err == nil {
-				sp = *s
+		for _, pr := range got.prs {
+			if pr.State != "open" || (pr.Head.Repo.FullName != "" && pr.Head.Repo.FullName != a.Repo) {
+				continue
+			}
+			if _, has := copias.Get(ctx, a.Name, pr.Number); !has {
+				p.previewFromLastRun(ctx, a, pr.Number, pr.Head.Ref)
 			}
 		}
-		if sp.Previews == nil {
-			continue
-		}
-		p.deployPreviewOf(ctx, a, run, sp, p.imagesOfRun(ctx, a, run, sp), number)
 	}
 }
 
@@ -378,7 +361,8 @@ func (p *Platform) imagesOfRun(ctx context.Context, a *store.App, run *store.Run
 // ClosePreview deletes the copy of a closed or merged pull request, when
 // GitHub says so; the sweep catches what a lost webhook leaves.
 func (p *Platform) ClosePreview(ctx context.Context, repo string, number int) {
-	if p.Kube == nil {
+	copias := p.copias()
+	if copias == nil {
 		return
 	}
 	apps, err := p.Store.AppsForRepo(ctx, repo)
@@ -386,29 +370,35 @@ func (p *Platform) ClosePreview(ctx context.Context, repo string, number int) {
 		return
 	}
 	for _, a := range apps {
-		cr := &v1alpha1.App{}
-		if err := p.Kube.Get(ctx, client.ObjectKey{Name: PreviewName(a.Name, number)}, cr); err != nil {
+		c, ok := copias.Get(ctx, a.Name, number)
+		if !ok {
 			continue
 		}
-		if err := p.deletePreview(ctx, cr, M("the pull request was closed")); err == nil {
+		if err := p.deletePreview(ctx, c, M("the pull request was closed")); err == nil {
 			p.Log.Info("preview deleted: its pull request closed", "app", a.Name, "pull", number)
-		} else if !apierrors.IsNotFound(err) {
+		} else {
 			p.Log.Warn("preview: deleting", "app", a.Name, "pull", number, "err", err)
 		}
 	}
 }
 
-// PreviewLoop deletes, every previewSweep, the copies whose app no longer
-// asks for previews or is gone, whose pull request is closed, or that went
-// longer than the app's keep without a push.
+// PreviewLoop deletes, every PreviewEvery (previewSweep), the copies whose
+// app no longer asks for previews or is gone, whose pull request is closed,
+// or that went longer than the app's keep without a push, and makes those
+// that are missing.
 func (p *Platform) PreviewLoop(ctx context.Context) {
-	if p.Kube == nil {
+	if p.copias() == nil {
 		return
 	}
-	tick := time.NewTicker(previewSweep)
+	every := p.PreviewEvery
+	if every <= 0 {
+		every = previewSweep
+	}
+	tick := time.NewTicker(every)
 	defer tick.Stop()
 	for {
 		p.sweepPreviews(ctx, time.Now())
+		p.catchUpPreviews(ctx)
 		select {
 		case <-ctx.Done():
 			return
@@ -418,33 +408,33 @@ func (p *Platform) PreviewLoop(ctx context.Context) {
 }
 
 func (p *Platform) sweepPreviews(ctx context.Context, now time.Time) {
-	copies, err := p.previews(ctx, "")
+	copies, err := p.copias().List(ctx, "")
 	if err != nil {
 		p.Log.Warn("previews: listing", "err", err)
 		return
 	}
-	for i := range copies {
-		c := &copies[i]
+	for _, c := range copies {
 		if why := p.previewGone(ctx, c, now); why != "" {
-			if err := p.deletePreview(ctx, c, why); err != nil && !apierrors.IsNotFound(err) {
-				p.Log.Warn("previews: deleting", "copy", c.Name, "err", err)
+			name := PreviewName(c.App, c.Number)
+			if err := p.deletePreview(ctx, c, why); err != nil {
+				p.Log.Warn("previews: deleting", "copy", name, "err", err)
 				continue
 			}
-			p.Log.Info("preview deleted", "copy", c.Name, "why", why)
+			p.Log.Info("preview deleted", "copy", name, "why", why)
 		}
 	}
 }
 
 // previewGone says why a copy should go ("" to keep it).
-func (p *Platform) previewGone(ctx context.Context, c *v1alpha1.App, now time.Time) string {
-	app, err := p.Store.GetApp(ctx, c.Labels[labelPreviewOf])
+func (p *Platform) previewGone(ctx context.Context, c copia, now time.Time) string {
+	app, err := p.Store.GetApp(ctx, c.App)
 	if err != nil {
 		return M("its app is gone")
 	}
 	if app.Spec.Previews == nil {
 		return M("the app no longer asks for previews")
 	}
-	if now.Sub(pushedAt(*c)) > time.Duration(app.Spec.Previews.KeepDays())*24*time.Hour {
+	if now.Sub(c.PushedAt) > time.Duration(app.Spec.Previews.KeepDays())*24*time.Hour {
 		return M("no push for longer than the app keeps a copy")
 	}
 	got, ok := p.recentPulls(ctx, app)
@@ -452,7 +442,7 @@ func (p *Platform) previewGone(ctx context.Context, c *v1alpha1.App, now time.Ti
 		return "" // GitHub did not answer: keep it until it does
 	}
 	for _, pr := range got.prs {
-		if pr.Number == c.Spec.Preview {
+		if pr.Number == c.Number {
 			if pr.State != "open" {
 				return M("the pull request was closed")
 			}

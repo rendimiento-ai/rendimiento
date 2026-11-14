@@ -17,6 +17,7 @@ On a pull request of an app that asked for previews (`previews:` in `rendimiento
 - **The image.** The one the branch's run already built and passed. No second build: the preview deploys after the run's steps pass, like a release, but never touches the app's real `App` object, its history, its verification or its rollbacks.
 - **The trigger.** The GitHub webhook handler (`internal/api/server.go`) ignores `pull_request` events today because a push already runs the branch. It must subscribe to `pull_request` (opened, reopened, synchronize, closed) and hand them to `platform`, which finds the run of the head commit. The GitHub App already has the *pull requests: write* permission it needs for comments.
 - **The address.** `pr-<number>.<app host>`, under the DNS zones the app already has, checked like any address (it must not collide with another app's). Without a wildcard zone, no preview: the page of the app says why.
+- **On a computer.** rendimiento without a cluster (`MODE=local`) runs a copy as containers of its own, `<app>-pr-<number>`, on a network of its own with an empty Postgres and Redis of its own and the app's secrets, at `http://<app>-pr-<number>.localhost` through the same proxy as the apps; the pull request's comment and check link there. GitHub sends no events to a computer, so every `POLL_INTERVAL` rendimiento makes the copy of an open pull request whose branch already passed, and removes the copy of one that closed. The app's tests reach the copy at its first service's name inside that network.
 
 ## Data {#data}
 
