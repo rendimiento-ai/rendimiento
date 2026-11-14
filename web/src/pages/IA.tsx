@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { api, dollars, session, timeAgo, type AIProvider, type AutoEncargo, type CodeAgent, type IAAnswer, type IAView } from "../api";
+import { api, dollars, session, timeAgo, type AIProvider, type AutoEncargo, type CodeAgent, type IAAnswer, type IAView, type LocalProbe } from "../api";
 import { ErrorBox, Switch, usePoll } from "../components/ui";
 import { t } from "../i18n";
 
@@ -28,10 +28,12 @@ export function IA() {
       <p className="sub">{t("Every call the platform makes to a model goes through here: the agents inside the platform, and the explanations of what failed. It stays within the cap you set, and when a cap is reached the local model answers instead.")}</p>
       <ErrorBox error={error} />
       {data && <Summary v={data} />}
+      {/* Without a local model nothing may answer: the place to connect one comes first. */}
+      {data && session.operator && !data.localModel && <ModeloLocal onSaved={reload} />}
       {data && <Settings v={data} onSaved={reload} />}
       <Try onDone={reload} />
       {data && <Calls v={data} />}
-      {session.operator && <Operator />}
+      {session.operator && <Operator local={data?.localModel ? <ModeloLocal onSaved={reload} /> : null} />}
     </>
   );
 }
@@ -71,7 +73,10 @@ function Summary({ v }: { v: IAView }) {
           <strong>{t("Something is missing:")}</strong>{" "}
           {v.localModel
             ? t("{why}, so the local model answers for now.", { why: missing.join("; ") })
-            : t("{why}, and there is no local model to fall back on, so nothing answers: failed runs are not explained and agents cannot work. Add your own key below, or a local model (AI_LOCAL_URL).", { why: missing.join("; ") })}{" "}
+            : t("{why}, and there is no local model to fall back on, so nothing answers: failed runs are not explained and agents cannot work.", { why: missing.join("; ") })}{" "}
+          {!v.localModel && (session.operator
+            ? t("Connect a local model just below, or add your own key further down.")
+            : t("Add your own key below, or ask the platform's operators to connect a local model."))}{" "}
           {missing.some((m) => m === blocked(v, "platform")) && (session.operator
             ? t("Give your organization an allowance below, under the platform's AI.")
             : t("Ask the platform's operators for an allowance."))}
@@ -377,11 +382,12 @@ function Calls({ v }: { v: IAView }) {
 }
 
 /** For the platform's operators: each organization's allowance of the platform's AI, and the bill. */
-function Operator() {
+function Operator({ local }: { local: ReactNode }) {
   const { data, error, reload } = usePoll(api.iaOrgs, [], 60000);
   return (
     <>
       <h2 style={{ marginTop: 28 }}>{t("The platform's AI (operators)")}</h2>
+      {local}
       <ErrorBox error={error} />
       {data && (
         <>
@@ -427,5 +433,61 @@ function AllowanceRow({ org, name, uses, spent, allowance, onSaved }: { org: num
         <ErrorBox error={err} />
       </td>
     </tr>
+  );
+}
+
+/**
+ * The local model, for the platform's operators: an Ollama's address and its model, tried before they are saved. Saved, it
+ * answers for every organization within seconds, without a restart (the live settings AI_LOCAL_URL and AI_LOCAL_MODEL).
+ */
+function ModeloLocal({ onSaved }: { onSaved: () => void }) {
+  const { data: now, reload } = usePoll(api.localModel, [], 0);
+  const urlNow = now?.url ?? "", modelNow = now?.model ?? "";
+  const [url, setUrl] = useState<string>();
+  const [model, setModel] = useState<string>();
+  const [probe, setProbe] = useState<LocalProbe>();
+  const [busy, setBusy] = useState<"" | "probe" | "save">("");
+  const [err, setErr] = useState<unknown>();
+  const [saved, setSaved] = useState(false);
+  const u = url ?? urlNow, m = model ?? modelNow;
+  const wanted = m.trim() || "qwen3.5:4b";
+  const tryIt = () => {
+    setBusy("probe"); setErr(undefined); setProbe(undefined);
+    api.probeLocal(u.trim(), m.trim()).then(setProbe, setErr).finally(() => setBusy(""));
+  };
+  const save = (address: string) => {
+    setBusy("save"); setErr(undefined); setSaved(false);
+    api.saveLocalModel(address.trim(), m.trim())
+      .then(() => { setSaved(true); setUrl(undefined); setModel(undefined); reload(); onSaved(); }, setErr)
+      .finally(() => setBusy(""));
+  };
+  return (
+    <div className="card stack" id="modelo-local">
+      <strong>{t("The local model")}</strong>
+      <p className="small muted" style={{ margin: 0 }}>{t("An Ollama that rendimiento can reach: on this same computer (http://localhost:11434), on another one of your network, or in the cluster. It is free, and it answers whenever another model cannot.")}</p>
+      <div className="form-grid">
+        <label className="field"><span>{t("Its address")}</span>
+          <input id="modelo-local-url" value={u} placeholder="http://localhost:11434" onChange={(e) => { setUrl(e.target.value); setProbe(undefined); }} />
+        </label>
+        <label className="field"><span>{t("Model")}</span>
+          <input id="modelo-local-modelo" value={m} placeholder="qwen3.5:4b" onChange={(e) => { setModel(e.target.value); setProbe(undefined); }} />
+        </label>
+      </div>
+      {probe && !probe.error && probe.hasModel && <div className="alert info small">{t("It answers, and it has {model}. Save it so it is used.", { model: wanted })}</div>}
+      {probe && !probe.error && !probe.hasModel && (
+        <div className="alert small">
+          {t("It answers, but it does not have {model}. Run ollama pull {model} on that computer, or choose one it has:", { model: wanted })}{" "}
+          {probe.models.length === 0 ? t("it has none yet.") : probe.models.map((x) => <button key={x} type="button" className="small" style={{ marginRight: 6 }} onClick={() => { setModel(x); setProbe({ ...probe, hasModel: true }); }}>{x}</button>)}
+        </div>
+      )}
+      {probe?.error && <div className="alert small">{t("It does not answer: {why}", { why: probe.error })}</div>}
+      <ErrorBox error={err} />
+      <div className="row">
+        <button type="button" disabled={!u.trim() || busy !== ""} onClick={tryIt}>{busy === "probe" ? t("Trying…") : t("Try it")}</button>
+        <button type="button" className="primary" disabled={!u.trim() || busy !== "" || (u.trim() === urlNow && m.trim() === modelNow)} onClick={() => save(u)}>{t("Save")}</button>
+        {urlNow && <button type="button" disabled={busy !== ""} onClick={() => save("")}>{t("Disconnect it")}</button>}
+        {saved && <span className="small">{t("Saved: it answers within a few seconds.")}</span>}
+      </div>
+    </div>
   );
 }

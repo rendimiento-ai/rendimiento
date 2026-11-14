@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/url"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -30,6 +31,8 @@ const (
 	OrgNetworkCIDRs      = "ORG_NETWORK_POLICY_CIDRS"
 	OrgQuotaCPU          = "ORG_QUOTA_CPU"
 	OrgQuotaMemory       = "ORG_QUOTA_MEMORY"
+	AILocalURL           = "AI_LOCAL_URL"
+	AILocalModel         = "AI_LOCAL_MODEL"
 )
 
 // Def is one live setting: its variable, the group it is shown in, and
@@ -49,6 +52,8 @@ var Live = []Def{
 	{OrgNetworkCIDRs, "boundary", true},
 	{OrgQuotaCPU, "quota", false},
 	{OrgQuotaMemory, "quota", false},
+	{AILocalURL, "ai", false},
+	{AILocalModel, "ai", false},
 }
 
 // Known says whether key is a live setting.
@@ -143,6 +148,15 @@ func Read(v Values, platformNS, ingressClass string) (Boundary, error) {
 			return b, fmt.Errorf("%s must be a quantity such as 4 or 8Gi, got %q", q.key, s)
 		}
 		*q.to = n
+	}
+	if s := v[AILocalURL]; s != "" {
+		u, err := url.Parse(s)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return b, fmt.Errorf("%s must be an Ollama's address such as http://192.168.1.20:11434, got %q", AILocalURL, s)
+		}
+	}
+	if s := v[AILocalModel]; len(s) > 200 || strings.ContainsAny(s, " \t\n") {
+		return b, fmt.Errorf("%s must be a model's name such as qwen3.5:4b, got %q", AILocalModel, s)
 	}
 	return b, nil
 }

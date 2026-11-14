@@ -69,6 +69,10 @@ type Gateway struct {
 	// LocalURL is the local model's Ollama (empty: no local model), and
 	// LocalModel its model.
 	LocalURL, LocalModel string
+	// Local, when set, says the local model now: the live settings
+	// AI_LOCAL_URL and AI_LOCAL_MODEL, which the AI page saves. It wins
+	// over LocalURL and LocalModel.
+	Local func() (url, model string)
 	// PlatformKey is the platform's Anthropic key (empty: none), used by
 	// organizations the operator gives an allowance; PlatformModel its
 	// model, and PlatformCapMicros the platform's monthly cap across all.
@@ -81,6 +85,16 @@ type Gateway struct {
 	// AnthropicURL replaces Anthropic's API address (tests).
 	AnthropicURL string
 	now          func() time.Time
+}
+
+// LocalNow is the local model's Ollama and model now ("" address: there is
+// no local model).
+func (g *Gateway) LocalNow() (url, model string) {
+	url, model = g.LocalURL, g.LocalModel
+	if g.Local != nil {
+		url, model = g.Local()
+	}
+	return url, or(model, DefaultLocalModel)
 }
 
 // Default models.
@@ -138,7 +152,8 @@ type target struct {
 // choose picks the organization's provider, or the local model with the
 // reason when that one cannot be used (no key, a cap reached).
 func (g *Gateway) choose(ctx context.Context, set store.AISettings) (target, string, error) {
-	local := target{provider: store.AILocal, client: ollama{url: g.LocalURL, http: g.http()}, model: or(g.LocalModel, DefaultLocalModel)}
+	localURL, localModel := g.LocalNow()
+	local := target{provider: store.AILocal, client: ollama{url: localURL, http: g.http()}, model: localModel}
 	spentOwn, spentPlatform, err := g.Store.AISpent(ctx, set.OrgID, g.clock())
 	if err != nil {
 		return target{}, "", err
@@ -219,7 +234,7 @@ func (g *Gateway) complete(ctx context.Context, orgID int64, source, provider st
 
 // call asks one target and records it.
 func (g *Gateway) call(ctx context.Context, orgID int64, source string, t target, req Request, note string) (Response, error) {
-	if t.provider == store.AILocal && g.LocalURL == "" {
+	if url, _ := g.LocalNow(); t.provider == store.AILocal && url == "" {
 		return Response{Note: note}, ErrNoModel
 	}
 	text, in, out, err := t.client.complete(ctx, t.model, req)
