@@ -101,7 +101,7 @@ function resumen(notas: string): string[] {
  * home page); on the Environment page it always shows.
  */
 export function Publicada({ onlyNewer = false }: { onlyNewer?: boolean }) {
-  const { data } = usePoll(() => (session.operator ? envApi.published() : Promise.resolve(undefined as Published | undefined)), [], 30 * 60000);
+  const { data, setData } = usePoll(() => (session.operator ? envApi.published() : Promise.resolve(undefined as Published | undefined)), [], 30 * 60000);
   const [busy, setBusy] = useState<string>();
   const [failed, setFailed] = useState<string>();
 
@@ -166,6 +166,14 @@ export function Publicada({ onlyNewer = false }: { onlyNewer?: boolean }) {
             <p className="small" style={{ flexBasis: "100%", margin: 0 }}>{t("Your apps keep running while rendimiento restarts. If the new version does not stay up, rendimiento goes back by itself.")}</p>
           )}
         </>
+      )}
+      {data.how === "computer" && !onlyNewer && (
+        <label className="small" style={{ flexBasis: "100%" }}>
+          <input type="checkbox" checked={data.auto} onChange={(e) => {
+            const on = e.target.checked;
+            envApi.autoUpdate(on).then(() => setData({ ...data, auto: on }), (err: Error) => setFailed(err.message));
+          }} /> {t("Install fix releases by myself (0.2.0 → 0.2.1); releases with new features wait for your click")}
+        </label>
       )}
       {failed && <span className="small" style={{ color: "var(--bad)", flexBasis: "100%" }}>{failed}</span>}
     </div>

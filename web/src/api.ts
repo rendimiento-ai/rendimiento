@@ -1288,6 +1288,7 @@ export const envApi = {
   version: () => request<PlatformVersion>("GET", "/api/platform/version"),
   install: (version: string) => request<void>("POST", "/api/platform/install", { version }),
   goBack: () => request<void>("POST", "/api/platform/back"),
+  autoUpdate: (on: boolean) => request<void>("PUT", "/api/platform/auto-update", { on }),
   published: (refresh = false) => request<Published>("GET", `/api/platform/published${refresh ? "?refresh=1" : ""}`),
   update: (release: number) => request<PlatformRelease>("POST", "/api/platform/update", { release }),
   capacity: () => request<CapacityView>("GET", "/api/environment/capacity"),
@@ -1315,6 +1316,7 @@ export interface Published {
   onlyFix: boolean;
   error?: string;
   canInstall: boolean; // this computer installs it itself
+  auto: boolean; // fix releases install themselves
   previous?: string; // the version kept to go back to
   lastChange?: { de: string; a: string; cuando: string; regreso?: boolean; quien?: string };
 }

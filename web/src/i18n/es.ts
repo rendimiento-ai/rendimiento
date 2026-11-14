@@ -1942,4 +1942,5 @@ export const es: Record<string, string> = {
   "{a} did not stay up: rendimiento went back from it to {b} by itself": "La {a} no se mantuvo arriba: rendimiento regresó sola de ella a la {b}",
   "rendimiento went back from {a} to {b}": "rendimiento regresó de la {a} a la {b}",
   "rendimiento was updated from {a} to {b}": "rendimiento se actualizó de la {a} a la {b}",
+  "Install fix releases by myself (0.2.0 → 0.2.1); releases with new features wait for your click": "Instalar sola las versiones de arreglos (0.2.0 → 0.2.1); las que traen funciones nuevas esperan su clic",
 };

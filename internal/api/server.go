@@ -247,6 +247,7 @@ func (s *Server) Handler() http.Handler {
 	plat(store.MemberAdmin, "GET /api/platform/published", s.platformPublished)
 	plat(store.MemberAdmin, "POST /api/platform/install", s.platformInstall)
 	plat(store.MemberAdmin, "POST /api/platform/back", s.platformBack)
+	plat(store.MemberAdmin, "PUT /api/platform/auto-update", s.platformAutoUpdate)
 	plat(store.MemberAdmin, "POST /api/platform/update", s.updatePlatform)
 	plat(store.MemberGuest, "GET /api/services", s.services)
 	plat(store.MemberGuest, "GET /api/stats/delivery", s.delivery)

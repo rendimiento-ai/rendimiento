@@ -105,3 +105,73 @@ func TestPlatformInstall(t *testing.T) {
 		t.Fatalf("program %q", got)
 	}
 }
+
+// publicada serves a signed release of version on a stand-in for GitHub,
+// and returns it with the key that checks it.
+func publicada(t *testing.T, version string) (*httptest.Server, string) {
+	t.Helper()
+	priv, pub, _ := firma.Nueva()
+	bin := []byte("rendimiento " + version)
+	sum := sha256.Sum256(bin)
+	sums := []byte(hex.EncodeToString(sum[:]) + "  rendimiento-linux-" + runtime.GOARCH + "\n")
+	sig, _ := firma.Firmar(priv, sums)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/releases/latest"):
+			_, _ = w.Write([]byte(`{"tag_name":"v` + version + `","assets":[{"name":"SHA256SUMS.sig"}]}`))
+		case strings.HasSuffix(r.URL.Path, "/v"+version+"/SHA256SUMS"):
+			_, _ = w.Write(sums)
+		case strings.HasSuffix(r.URL.Path, "/v"+version+"/SHA256SUMS.sig"):
+			_, _ = w.Write([]byte(sig))
+		case strings.HasSuffix(r.URL.Path, "/v"+version+"/rendimiento-linux-"+runtime.GOARCH):
+			_, _ = w.Write(bin)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv, pub
+}
+
+// With the switch on, a fix release installs itself; a release with new
+// features, or one that already failed to stay up here, does not.
+func TestAutoUpdate(t *testing.T) {
+	e := newEnv(t, false)
+	ctx := context.Background()
+	usar := func(version string) string {
+		gh, pub := publicada(t, version)
+		dir := t.TempDir()
+		ruta := filepath.Join(dir, "rendimiento")
+		if err := os.WriteFile(ruta, []byte("rendimiento 0.2.0"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		e.s.Publicadas = &actualizar.Consultor{API: gh.URL}
+		e.s.Version, e.s.Modo = "0.2.0", "local"
+		e.s.Programa = &actualizar.Programa{Ruta: ruta, Datos: dir, Descargas: gh.URL, Publica: pub}
+		return dir
+	}
+	usar("0.2.1")
+	if v := e.s.autoUpdateTo(ctx); v != "" {
+		t.Fatalf("installed %s with the switch off", v)
+	}
+	if r, _ := e.do(t, "PUT", "/api/platform/auto-update", `{"on":true}`, e.session(t, "p0dxD"), nil); r.StatusCode != http.StatusNoContent {
+		t.Fatalf("turning it on: %d", r.StatusCode)
+	}
+	if _, body := e.do(t, "GET", "/api/platform/published", "", e.session(t, "p0dxD"), nil); !strings.Contains(body, `"auto":true`) {
+		t.Fatalf("published = %s", body)
+	}
+	if v := e.s.autoUpdateTo(ctx); v != "0.2.1" {
+		t.Fatalf("a fix release: installed %q", v)
+	}
+	usar("0.3.0")
+	if v := e.s.autoUpdateTo(ctx); v != "" {
+		t.Fatalf("a release with new features installed itself: %s", v)
+	}
+	dir := usar("0.2.1")
+	if err := os.WriteFile(filepath.Join(dir, "version-fallida"), []byte("0.2.1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if v := e.s.autoUpdateTo(ctx); v != "" {
+		t.Fatalf("a release that failed here installed itself again: %s", v)
+	}
+}

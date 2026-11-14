@@ -68,6 +68,16 @@ func (p *Programa) Anterior() string {
 	return strings.TrimSpace(string(b))
 }
 
+// Fallida is the last version that did not stay up here ("" when none):
+// updating by itself never installs it again.
+func (p *Programa) Fallida() string {
+	b, err := os.ReadFile(filepath.Join(p.Datos, "version-fallida"))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
 func (p *Programa) arch() string {
 	if p.Arch != "" {
 		return p.Arch
@@ -197,6 +207,8 @@ func (p *Programa) AlArrancar(version string) *Marca {
 	}
 	m.Arranques++
 	if m.Arranques > MaxArranques {
+		// It is not installed by itself again: updating by itself skips it.
+		_ = os.WriteFile(filepath.Join(p.Datos, "version-fallida"), []byte(m.A+"\n"), 0o644)
 		m2 := Marca{De: m.A, A: m.De, Cuando: time.Now().UTC(), Regreso: true, Quien: "automatic"}
 		if err := p.cambiarAAnterior(m2); err == nil && p.Salir != nil {
 			p.Salir(CodigoReinicio)

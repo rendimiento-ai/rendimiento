@@ -73,8 +73,8 @@ func TestPrograma(t *testing.T) {
 		t.Fatal("went back too soon")
 	}
 	p.AlArrancar("0.2.1")
-	if got, _ := os.ReadFile(ruta); string(got) != "rendimiento 0.2.0" || salidas != 1 {
-		t.Fatalf("after %d failed starts: program %q, exits %d", MaxArranques+1, got, salidas)
+	if got, _ := os.ReadFile(ruta); string(got) != "rendimiento 0.2.0" || salidas != 1 || p.Fallida() != "0.2.1" {
+		t.Fatalf("after %d failed starts: program %q, exits %d, failed %q", MaxArranques+1, got, salidas, p.Fallida())
 	}
 	if m := p.AlArrancar("0.2.0"); m == nil || !m.Regreso || m.De != "0.2.1" || m.A != "0.2.0" || m.Quien != "automatic" {
 		t.Fatalf("the old one, started again: %+v", m)

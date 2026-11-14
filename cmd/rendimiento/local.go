@@ -251,6 +251,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 		}
 		srv.Programa = &actualizar.Programa{Ruta: exe, Datos: dir,
 			Descargas: env("RELEASES_URL", "https://github.com/"+actualizar.Repo+"/releases/download"), Salir: os.Exit}
+		go srv.AutoUpdate(ctx)
 		if m := srv.Programa.AlArrancar(version); m != nil {
 			log.Info("rendimiento changed its program", "from", m.De, "to", m.A, "back", m.Regreso, "by", m.Quien)
 			srv.UltimoCambio = m

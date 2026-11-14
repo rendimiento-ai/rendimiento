@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -24,7 +25,9 @@ type Published struct {
 	// CanInstall: this computer can install Latest itself (it is newer and
 	// signed). Previous is the version kept to go back to ("" when none),
 	// and LastChange what the last update did.
-	CanInstall bool              `json:"canInstall"`
+	CanInstall bool `json:"canInstall"`
+	// Auto: fix releases install themselves (only on a computer).
+	Auto       bool              `json:"auto"`
 	Previous   string            `json:"previous,omitempty"`
 	LastChange *actualizar.Marca `json:"lastChange,omitempty"`
 }
@@ -56,8 +59,83 @@ func (s *Server) platformPublished(w http.ResponseWriter, r *http.Request, _ str
 	if s.Programa != nil {
 		out.CanInstall = out.Newer && latest.Firmada
 		out.Previous, out.LastChange = s.Programa.Anterior(), s.UltimoCambio
+		if sw, err := s.Store.GetActualizarSolo(r.Context()); err == nil {
+			out.Auto = sw.On
+		}
 	}
 	writeJSON(w, out)
+}
+
+// autoUpdateEvery is how often a computer looks for a fix release to
+// install by itself, when its administrators turned that on.
+const autoUpdateEvery = time.Hour
+
+// AutoUpdate installs fix releases by itself on a computer, while the
+// switch is on (decision 138): only a newer version with the same major and
+// minor (0.2.0 → 0.2.1), signed, and never one that already failed to stay
+// up here. A release with new features waits for an administrator's click.
+func (s *Server) AutoUpdate(ctx context.Context) {
+	if s.Programa == nil || s.Publicadas == nil {
+		return
+	}
+	tick := time.NewTicker(autoUpdateEvery)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+		if v := s.autoUpdateTo(ctx); v != "" {
+			s.Log.Info("rendimiento updated itself: restarting in the new version", "from", s.Version, "to", v)
+			if s.Programa.Salir != nil {
+				s.Programa.Salir(actualizar.CodigoReinicio)
+			}
+			return
+		}
+	}
+}
+
+// autoUpdateTo installs the release updating by itself may take, and says
+// which ("" when none).
+func (s *Server) autoUpdateTo(ctx context.Context) string {
+	sw, err := s.Store.GetActualizarSolo(ctx)
+	if err != nil || !sw.On {
+		return ""
+	}
+	latest, err := s.Publicadas.Ultima(ctx, false)
+	if err != nil {
+		return ""
+	}
+	newer, onlyFix := actualizar.Comparar(s.Version, latest.Version)
+	if !newer || !onlyFix || !latest.Firmada || latest.Version == s.Programa.Fallida() {
+		return ""
+	}
+	if err := s.Programa.Instalar(ctx, s.Version, latest.Version, "automatic"); err != nil {
+		s.Log.Warn("updating by itself", "to", latest.Version, "err", err)
+		return ""
+	}
+	return latest.Version
+}
+
+// platformAutoUpdate turns updating by itself on or off.
+func (s *Server) platformAutoUpdate(w http.ResponseWriter, r *http.Request, login string) {
+	if s.Programa == nil {
+		httpError(w, http.StatusNotFound, "rendimiento updates its own program only on a computer")
+		return
+	}
+	var in struct {
+		On bool `json:"on"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if err := s.Store.SetActualizarSolo(r.Context(), in.On, login); err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	s.Log.Info("updating by itself", "on", in.On, "by", login)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // platformInstall installs the latest published version on this computer
