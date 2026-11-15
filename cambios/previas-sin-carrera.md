@@ -1,0 +1,1 @@
+- **Tests:** the preview tests no longer mark a queued run as passed by hand while the test worker may take it; they wait for that worker to pass it, so they no longer fail at random (run 1395).
