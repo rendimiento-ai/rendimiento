@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // modelClient is one way to reach a model: text, tokens in and out.
@@ -163,4 +164,36 @@ func (o openai) complete(ctx context.Context, model string, req Request) (string
 		text = out.Choices[0].Message.Content
 	}
 	return text, out.Usage.In, out.Usage.Out, err
+}
+
+// ProbeLocal asks an Ollama at url which models it holds, to tell before
+// saving it whether it answers and has the model wanted.
+func ProbeLocal(ctx context.Context, client *http.Client, url string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(url, "/")+"/api/tags", nil)
+	if err != nil {
+		return nil, err
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("it answered %s, not as an Ollama does", res.Status)
+	}
+	var out struct {
+		Models []struct {
+			Name string `json:"name"`
+		} `json:"models"`
+	}
+	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&out); err != nil {
+		return nil, fmt.Errorf("its answer is not an Ollama's list of models: %w", err)
+	}
+	names := make([]string, 0, len(out.Models))
+	for _, m := range out.Models {
+		names = append(names, m.Name)
+	}
+	return names, nil
 }

@@ -1,0 +1,2 @@
+- **AI:** an operator connects the local model on the AI page (its address and model, with **Try it** to ask the Ollama which models it holds), on a cluster and on a computer, without a restart; `AI_LOCAL_URL` and `AI_LOCAL_MODEL` are only its starting value.
+- **AI:** with nothing that can answer, the page says what to do instead of naming an environment variable.

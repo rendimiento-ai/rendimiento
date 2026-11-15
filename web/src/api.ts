@@ -1011,6 +1011,9 @@ export const api = {
     request<IAView>("PUT", "/api/ia", v),
   testIA: (prompt: string) => request<IAAnswer>("POST", "/api/ia/test", { prompt }),
   iaOrgs: () => request<IAOrgs>("GET", "/api/ia/orgs"),
+  probeLocal: (url: string, model: string) => request<LocalProbe>("POST", "/api/ia/local/probe", { url, model }),
+  localModel: () => request<LocalModelView>("GET", "/api/ia/local"),
+  saveLocalModel: (url: string, model: string) => request<LocalModelView>("PUT", "/api/ia/local", { url, model }),
   setIAAllowance: (org: number, dollars: number) => request<void>("PUT", `/api/ia/orgs/${org}/allowance`, { dollars }),
   setMember: (login: string, role: MemberRole) => request<Member[]>("PUT", `/api/members/${encodeURIComponent(login)}`, { role }),
   removeMember: (login: string) => request<void>("DELETE", `/api/members/${encodeURIComponent(login)}`),
@@ -1227,9 +1230,22 @@ export interface CapacityView {
 
 // A platform setting that changes live (api.SettingView): the value in
 // force, the ConfigMap's, and the one saved on this page, which wins.
+// The local model the gateway uses now, and whether it was saved on the AI page (api.LocalModelView).
+export interface LocalModelView {
+  url: string;
+  model: string;
+  saved: boolean;
+}
+// What an Ollama said when asked before connecting it (api.LocalProbe).
+export interface LocalProbe {
+  models: string[];
+  hasModel: boolean;
+  error?: string;
+}
+
 export interface LiveSetting {
   key: string;
-  group: "boundary" | "quota";
+  group: "boundary" | "quota" | "ai";
   cluster: boolean;
   value: string;
   env: string;

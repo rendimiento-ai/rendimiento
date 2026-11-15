@@ -77,9 +77,9 @@ func (e *engine) exec(_ context.Context, _ string, args []string, out io.Writer)
 		delete(e.containers, args[len(args)-1])
 	case "ps":
 		filter := strings.TrimPrefix(args[3], "label=")
-		k, v, _ := strings.Cut(filter, "=")
+		k, v, conValor := strings.Cut(filter, "=")
 		for name, c := range e.containers {
-			if c.labels[k] == v {
+			if got, has := c.labels[k]; (conValor && got == v) || (!conValor && has) {
 				fmt.Fprintln(out, name)
 			}
 		}

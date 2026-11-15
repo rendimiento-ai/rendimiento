@@ -19,6 +19,7 @@ import (
 
 	"github.com/rendimiento-ai/rendimiento/internal/actualizar"
 	"github.com/rendimiento-ai/rendimiento/internal/agentes"
+	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
 	"github.com/rendimiento-ai/rendimiento/internal/api"
 	"github.com/rendimiento-ai/rendimiento/internal/destino"
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
@@ -202,6 +203,8 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	// back one that does not); its window has no public checks to run here.
 	loc := &destino.Local{Motor: m, Caja: caja}
 	p.Destino = loc
+	// A pull request's copy runs here too, at <app>-pr-<n>.localhost.
+	p.Copias = platform.LocalCopias{Local: loc}
 	p.Verify = platform.VerifySettings{Window: time.Minute, Every: 20 * time.Second,
 		Check: func(_ context.Context, t uptime.Target) store.Probe {
 			return store.Probe{Service: t.Service, Kind: t.Kind, At: time.Now(), OK: true}
@@ -222,13 +225,20 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	srv.IA = &ia.Gateway{Store: st, Keys: aiKeys,
 		LocalURL: os.Getenv("AI_LOCAL_URL"), LocalModel: env("AI_LOCAL_MODEL", ia.DefaultLocalModel),
 		PlatformKey: os.Getenv("AI_PLATFORM_KEY"), PlatformModel: env("AI_PLATFORM_MODEL", ia.DefaultAnthropicModel),
-		PlatformCapMicros: int64(math.Round(aiCap * 1e6))}
+		PlatformCapMicros: int64(math.Round(aiCap * 1e6)),
+		// The local model can be connected on the AI page: its live settings
+		// start from these variables and follow what is saved there.
+		Local: func() (string, string) {
+			v := settings.Effective()
+			return v[ajustes.AILocalURL], v[ajustes.AILocalModel]
+		}}
 	srv.IAKeys = aiKeys
 	srv.Translator, srv.AgentLang = &agentes.Translator{Model: srv.IA}, env("NOTIFY_LANG", "en")
 	srv.Summarizer = &agentes.Summarizer{Store: st, Model: srv.IA, Log: log.With("component", "summary")}
 	rutaSrv := &ruta.Server{Store: st, Log: log.With("component", "ruta"), Lang: env("NOTIFY_LANG", "en")}
 	rutaSrv.Plataforma = plataformaMCP{Store: st, p: p, srv: srv}
 	rutaSrv.Encargos = st
+	rutaSrv.AlEntregar = p.PullsForDelivery // a delivered branch gets its pull request
 	rutaSrv.Comentarios = st
 	rutaSrv.Produccion = produccionMCP{Store: st, p: p}
 	srv.MCP = rutaSrv.Handler()
@@ -265,6 +275,9 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	if err != nil || every < 15*time.Second {
 		return fmt.Errorf("POLL_INTERVAL must be a duration of at least 15s, got %q", os.Getenv("POLL_INTERVAL"))
 	}
+	// Without GitHub's events, pull requests' copies are made and removed
+	// as often as commits are asked for.
+	p.PreviewEvery = every
 	if gh.Local(baseURL) {
 		go (&platform.Vigia{P: p, Every: every, Branches: holder.Branches}).Run(ctx)
 	}
@@ -280,6 +293,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 		lang := env("NOTIFY_LANG", "en")
 		diag := &agentes.Diagnostician{Store: st, Model: srv.IA, Logs: srv.StepLogText, Changes: holder, Lang: lang, Log: log.With("component", "agents")}
 		coder := &agentes.Coder{Store: st, Repos: holder, Model: srv.IA, Logs: srv.StepLogText, BaseURL: baseURL, Lang: lang, Log: log.With("component", "agents")}
+		coder.AlEntregar = p.PullsForDelivery
 		est := &agentes.Estimator{Store: st, Model: srv.IA, Lang: lang, Log: log.With("component", "agents")}
 		go est.Run(ctx)
 		go coder.Run(ctx)

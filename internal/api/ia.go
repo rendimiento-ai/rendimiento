@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/rendimiento-ai/rendimiento/internal/agentes"
+	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -51,8 +52,8 @@ func (s *Server) iaView(w http.ResponseWriter, r *http.Request, _ string) {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if s.IA.LocalURL != "" {
-		v.LocalModel = s.IA.LocalModel
+	if url, model := s.IA.LocalNow(); url != "" {
+		v.LocalModel = model
 	}
 	if v.PlatformAvailable {
 		v.PlatformModel = s.IA.PlatformModel
@@ -389,4 +390,112 @@ func (s *Server) putAppAutoMerge(w http.ResponseWriter, r *http.Request, login s
 	}
 	s.Log.Info("app auto merge set", "app", a.Name, "on", in.On, "any", in.Any, "by", login)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// LocalProbe is what an Ollama said when asked before connecting it.
+type LocalProbe struct {
+	Models   []string `json:"models"`
+	HasModel bool     `json:"hasModel"` // it holds the model asked for
+	Error    string   `json:"error,omitempty"`
+}
+
+// probeLocal asks an Ollama which models it holds, so the AI page can say
+// whether it answers before its address is saved (AI_LOCAL_URL). Only the
+// platform's administrators, who may save it, may ask.
+func (s *Server) probeLocal(w http.ResponseWriter, r *http.Request, _ string) {
+	var in struct {
+		URL   string `json:"url"`
+		Model string `json:"model"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	in.URL, in.Model = strings.TrimSpace(in.URL), strings.TrimSpace(in.Model)
+	if _, err := ajustes.Read(ajustes.Values{ajustes.AILocalURL: in.URL, ajustes.AILocalModel: in.Model}, "", ""); err != nil || in.URL == "" {
+		httpError(w, http.StatusBadRequest, "give an Ollama's address, such as http://192.168.1.20:11434")
+		return
+	}
+	model := in.Model
+	if model == "" {
+		model = ia.DefaultLocalModel
+	}
+	out := LocalProbe{Models: []string{}}
+	models, err := ia.ProbeLocal(r.Context(), &http.Client{}, in.URL)
+	if err != nil {
+		out.Error = err.Error()
+		writeJSON(w, out)
+		return
+	}
+	out.Models = models
+	for _, m := range models {
+		// Ollama names a model with its tag; "qwen3.5" means "qwen3.5:latest".
+		if m == model || (!strings.Contains(model, ":") && m == model+":latest") {
+			out.HasModel = true
+		}
+	}
+	writeJSON(w, out)
+}
+
+// LocalModelView is the local model as the AI page shows it to the
+// platform's administrators: its address and model now, and whether they
+// were saved there (or come from the environment).
+type LocalModelView struct {
+	URL   string `json:"url"`
+	Model string `json:"model"`
+	Saved bool   `json:"saved"`
+}
+
+func (s *Server) localModelView(w http.ResponseWriter) {
+	if s.Settings == nil {
+		httpError(w, http.StatusServiceUnavailable, "this process does not keep live settings")
+		return
+	}
+	eff, saved := s.Settings.Effective(), s.Settings.SavedValues()
+	_, a := saved[ajustes.AILocalURL]
+	_, b := saved[ajustes.AILocalModel]
+	writeJSON(w, LocalModelView{URL: eff[ajustes.AILocalURL], Model: eff[ajustes.AILocalModel], Saved: a || b})
+}
+
+// getLocalModel is the local model the gateway uses now.
+func (s *Server) getLocalModel(w http.ResponseWriter, _ *http.Request, _ string) { s.localModelView(w) }
+
+// putLocalModel connects the local model (an empty address disconnects it):
+// saved as the live settings AI_LOCAL_URL and AI_LOCAL_MODEL, it wins over
+// the environment's in every process within 15 seconds, this one at once.
+// On a cluster and on a computer alike, so it lives here and not under the
+// Environment page's settings.
+func (s *Server) putLocalModel(w http.ResponseWriter, r *http.Request, login string) {
+	if s.Settings == nil {
+		httpError(w, http.StatusServiceUnavailable, "this process does not keep live settings")
+		return
+	}
+	var in struct {
+		URL   string `json:"url"`
+		Model string `json:"model"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	in.URL, in.Model = strings.TrimSpace(in.URL), strings.TrimSpace(in.Model)
+	if in.URL == "" {
+		in.Model = ""
+	}
+	eff := s.Settings.Effective()
+	before := eff[ajustes.AILocalURL] + " " + eff[ajustes.AILocalModel]
+	eff[ajustes.AILocalURL], eff[ajustes.AILocalModel] = in.URL, in.Model
+	if _, err := ajustes.Read(eff, s.Settings.PlatformNS, s.Settings.IngressClass); err != nil {
+		httpError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	for key, value := range map[string]string{ajustes.AILocalURL: in.URL, ajustes.AILocalModel: in.Model} {
+		if err := s.Store.SaveAjuste(r.Context(), key, value, login); err != nil {
+			httpError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	anotarDetalle(r, "antes", strings.TrimSpace(before))
+	anotarDetalle(r, "despues", strings.TrimSpace(in.URL+" "+in.Model))
+	_ = s.Settings.Refresh(r.Context())
+	s.Log.Info("local model saved", "url", in.URL, "model", in.Model, "by", login)
+	s.localModelView(w)
 }

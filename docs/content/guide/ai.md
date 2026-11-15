@@ -45,7 +45,7 @@ The newest day is a **scoreboard**: four numbers that count up as the page opens
 
 ## Setting it up {#setting-it-up}
 
-1. A local model: an Ollama reachable from the platform (for example the `ai` app's `ollama` service), in `AI_LOCAL_URL`, with `AI_LOCAL_MODEL`.
+1. A local model: an Ollama the platform can reach (on the same computer, `http://localhost:11434`; on another one of your network; or in the cluster, such as the `ai` app's `ollama` service). An operator connects it on the AI page, under **The local model**: its address and model, **Try it** to ask the Ollama which models it holds (it says when the model is missing, and offers the ones it has), and **Save**. It answers within seconds, without a restart, on a cluster and on a computer alike. `AI_LOCAL_URL` and `AI_LOCAL_MODEL` give the starting value; what is saved on the page wins.
 2. Optionally, the platform's key: an Anthropic key in the `rendimiento-ia` Secret as `AI_PLATFORM_KEY`. Set the same monthly limit in Anthropic's console as a second safety net.
 3. Give allowances to the organizations that may use it, on the AI page.
 

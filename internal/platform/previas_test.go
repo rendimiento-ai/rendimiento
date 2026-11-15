@@ -3,6 +3,7 @@ package platform
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -200,5 +201,111 @@ func TestPreviewRunsTheAppsTests(t *testing.T) {
 			t.Fatalf("the comment says %q", said)
 		}
 		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// fakeCopias keeps copies in memory, as a computer's containers would.
+type fakeCopias struct {
+	mu     sync.Mutex
+	copies map[string]copia
+	images map[string]map[string]string
+}
+
+func (f *fakeCopias) List(_ context.Context, app string) ([]copia, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []copia
+	for _, c := range f.copies {
+		if app == "" || c.App == app {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeCopias) Get(_ context.Context, app string, number int) (copia, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	c, ok := f.copies[PreviewName(app, number)]
+	return c, ok
+}
+
+func (f *fakeCopias) Put(_ context.Context, a *store.App, _ string, _ spec.Spec, images map[string]string, _ *store.Run, number int, commentID int64) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.copies[PreviewName(a.Name, number)] = copia{App: a.Name, Number: number, PushedAt: time.Now(), CommentID: commentID}
+	f.images[PreviewName(a.Name, number)] = images
+	return nil
+}
+
+func (f *fakeCopias) Delete(_ context.Context, c copia) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.copies, PreviewName(c.App, c.Number))
+	return nil
+}
+
+func (f *fakeCopias) URL(_ spec.Spec, app string, number int) string {
+	return "http://" + PreviewName(app, number) + ".localhost:8000/"
+}
+
+func (f *fakeCopias) TestURL(spec.Spec) string { return "http://web:3000" }
+
+// Where GitHub sends no events (a computer), the sweep makes the copy of a
+// pull request opened on a branch that already passed, at the copy's own
+// address, and removes it once the pull request closes.
+func TestPreviewCatchUp(t *testing.T) {
+	p, fake, _, _ := setup(t)
+	ctx := context.Background()
+	copias := &fakeCopias{copies: map[string]copia{}, images: map[string]map[string]string{}}
+	p.Copias = copias
+	yaml := "services:\n  - name: web\n    port: 3000\npreviews: {}\n"
+	sp, err := spec.Parse([]byte(yaml))
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := &store.App{Name: "alcanzadas", Repo: "o/alcanzadas", DefaultBranch: "main", Spec: *sp}
+	if err := p.Store.CreateApp(ctx, app); err != nil {
+		t.Fatal(err)
+	}
+	sha := strings.Repeat("d", 40)
+	fake.files[sha] = fstest.MapFS{spec.FileName: {Data: []byte(yaml)}}
+	run := &store.Run{AppID: app.ID, SHA: sha, Branch: "al-dia", Event: "push"}
+	if err := p.Store.CreateRun(ctx, run, pipeline.Plan(app.Name, p.Config.Registry, *sp)); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Store.UpdateStep(ctx, run.ID, "web:build", pipeline.StepResult{Status: pipeline.StatusSucceeded, Digest: "sha256:dd"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Store.FinishRun(ctx, run.ID, store.RunSucceeded, ""); err != nil {
+		t.Fatal(err)
+	}
+	var pr gh.PullInfo
+	pr.Number, pr.State = 4, "open"
+	pr.Head.Ref, pr.Base.Ref = "al-dia", "main"
+	fake.recent = []gh.PullInfo{pr}
+	// setup's Work already sweeps in the background: what it asked GitHub
+	// before the pull request existed is kept for branchPullsTTL.
+	p.branchPullsCache.mu.Lock()
+	delete(p.branchPullsCache.byApp, app.ID)
+	p.branchPullsCache.mu.Unlock()
+
+	p.catchUpPreviews(ctx)
+	if _, ok := copias.Get(ctx, "alcanzadas", 4); !ok || !strings.HasSuffix(copias.images["alcanzadas-pr-4"]["web"], "@sha256:dd") {
+		t.Fatalf("copies after catching up: %+v %v", copias.copies, copias.images)
+	}
+	for _, c := range fake.checks {
+		if c.Name == "preview: alcanzadas" && c.DetailsURL != "http://alcanzadas-pr-4.localhost:8000/" {
+			t.Fatalf("the check links to %s", c.DetailsURL)
+		}
+	}
+
+	fake.recent[0].State = "closed"
+	p.branchPullsCache.mu.Lock()
+	delete(p.branchPullsCache.byApp, app.ID)
+	p.branchPullsCache.mu.Unlock()
+	p.sweepPreviews(ctx, time.Now())
+	if _, ok := copias.Get(ctx, "alcanzadas", 4); ok {
+		t.Fatal("the sweep left the copy of a closed pull request")
 	}
 }
