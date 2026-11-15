@@ -284,6 +284,11 @@ func TestPreviewCatchUp(t *testing.T) {
 	pr.Number, pr.State = 4, "open"
 	pr.Head.Ref, pr.Base.Ref = "al-dia", "main"
 	fake.recent = []gh.PullInfo{pr}
+	// setup's Work already sweeps in the background: what it asked GitHub
+	// before the pull request existed is kept for branchPullsTTL.
+	p.branchPullsCache.mu.Lock()
+	delete(p.branchPullsCache.byApp, app.ID)
+	p.branchPullsCache.mu.Unlock()
 
 	p.catchUpPreviews(ctx)
 	if _, ok := copias.Get(ctx, "alcanzadas", 4); !ok || !strings.HasSuffix(copias.images["alcanzadas-pr-4"]["web"], "@sha256:dd") {

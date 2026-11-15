@@ -160,7 +160,7 @@ Days and hours are counted in `PUBLIC_STATS_TZ`.
 | Variable | Default | Example | Meaning |
 |---|---|---|---|
 | `AI_LOCAL_URL` | *(empty: no local model)* | `http://ollama.ai.svc.cluster.local:11434` | the local model's Ollama: free, every organization's default, and where calls fall back ([AI](../guide/ai.md)) |
-| `AI_LOCAL_MODEL` | `qwen3.5:4b` | | the local model |
+| `AI_LOCAL_MODEL` | `qwen3.5:4b` | | the local model (both change live: what an operator saves on the AI page wins) |
 | `AI_PLATFORM_KEY` | *(empty: none)* | from Secret `rendimiento-ia` | the platform's Anthropic key, which organizations use only within the allowance operators give them |
 | `AI_PLATFORM_MODEL` | `claude-haiku-5-5` | | the model of the platform's key |
 | `AI_PLATFORM_CAP` | `5` | | dollars a month the platform's key may spend, across every organization |

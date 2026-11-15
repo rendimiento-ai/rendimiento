@@ -485,7 +485,13 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 	srv.IA = &ia.Gateway{Store: st, Keys: aiKeys,
 		LocalURL: os.Getenv("AI_LOCAL_URL"), LocalModel: env("AI_LOCAL_MODEL", ia.DefaultLocalModel),
 		PlatformKey: os.Getenv("AI_PLATFORM_KEY"), PlatformModel: env("AI_PLATFORM_MODEL", ia.DefaultAnthropicModel),
-		PlatformCapMicros: int64(math.Round(aiCap * 1e6))}
+		PlatformCapMicros: int64(math.Round(aiCap * 1e6)),
+		// The local model can be connected on the AI page: its live settings
+		// start from these variables and follow what is saved there.
+		Local: func() (string, string) {
+			v := settings.Effective()
+			return v[ajustes.AILocalURL], v[ajustes.AILocalModel]
+		}}
 	srv.IAKeys = aiKeys
 	// Diagnoses are written in NOTIFY_LANG and translated for readers of the
 	// other language, once, by the same gateway.

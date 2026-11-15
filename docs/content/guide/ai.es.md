@@ -45,7 +45,7 @@ El día más reciente es un **marcador**: cuatro números que cuentan al abrir l
 
 ## Cómo configurarla {#setting-it-up}
 
-1. Un modelo local: un Ollama al que llegue la plataforma (por ejemplo el servicio `ollama` de la aplicación `ai`), en `AI_LOCAL_URL`, con `AI_LOCAL_MODEL`.
+1. Un modelo local: un Ollama al que llegue la plataforma (en la misma computadora, `http://localhost:11434`; en otra de su red; o en el clúster, como el servicio `ollama` de la aplicación `ai`). Quien opera la plataforma lo conecta en la página IA, en **El modelo local**: su dirección y su modelo, **Probar** para preguntarle al Ollama qué modelos tiene (avisa si falta el modelo y ofrece los que tiene), y **Guardar**. Responde en unos segundos, sin reiniciar, igual en un clúster que en una computadora. `AI_LOCAL_URL` y `AI_LOCAL_MODEL` dan el valor inicial; lo que se guarda en la página gana.
 2. Si quiere, la llave de la plataforma: una llave de Anthropic en el Secret `rendimiento-ia`, como `AI_PLATFORM_KEY`. Ponga el mismo límite mensual en la consola de Anthropic, como segundo seguro.
 3. Dé asignaciones a las organizaciones que puedan usarla, en la página IA.
 

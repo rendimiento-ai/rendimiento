@@ -19,6 +19,7 @@ import (
 
 	"github.com/rendimiento-ai/rendimiento/internal/actualizar"
 	"github.com/rendimiento-ai/rendimiento/internal/agentes"
+	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
 	"github.com/rendimiento-ai/rendimiento/internal/api"
 	"github.com/rendimiento-ai/rendimiento/internal/destino"
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
@@ -224,7 +225,13 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	srv.IA = &ia.Gateway{Store: st, Keys: aiKeys,
 		LocalURL: os.Getenv("AI_LOCAL_URL"), LocalModel: env("AI_LOCAL_MODEL", ia.DefaultLocalModel),
 		PlatformKey: os.Getenv("AI_PLATFORM_KEY"), PlatformModel: env("AI_PLATFORM_MODEL", ia.DefaultAnthropicModel),
-		PlatformCapMicros: int64(math.Round(aiCap * 1e6))}
+		PlatformCapMicros: int64(math.Round(aiCap * 1e6)),
+		// The local model can be connected on the AI page: its live settings
+		// start from these variables and follow what is saved there.
+		Local: func() (string, string) {
+			v := settings.Effective()
+			return v[ajustes.AILocalURL], v[ajustes.AILocalModel]
+		}}
 	srv.IAKeys = aiKeys
 	srv.Translator, srv.AgentLang = &agentes.Translator{Model: srv.IA}, env("NOTIFY_LANG", "en")
 	srv.Summarizer = &agentes.Summarizer{Store: st, Model: srv.IA, Log: log.With("component", "summary")}

@@ -160,7 +160,7 @@ Los días y las horas se cuentan en `PUBLIC_STATS_TZ`.
 | Variable | Predeterminado | Ejemplo | Qué es |
 |---|---|---|---|
 | `AI_LOCAL_URL` | *(vacío: sin modelo local)* | `http://ollama.ai.svc.cluster.local:11434` | el Ollama del modelo local: gratis, el predeterminado de cada organización, y al que caen las llamadas ([IA](../guide/ai.md)) |
-| `AI_LOCAL_MODEL` | `qwen3.5:4b` | | el modelo local |
+| `AI_LOCAL_MODEL` | `qwen3.5:4b` | | el modelo local (los dos cambian en vivo: gana lo que quien opera guarda en la página IA) |
 | `AI_PLATFORM_KEY` | *(vacío: ninguna)* | del Secret `rendimiento-ia` | la llave de Anthropic de la plataforma, que las organizaciones usan solo dentro de la asignación que les dan los operadores |
 | `AI_PLATFORM_MODEL` | `claude-haiku-5-5` | | el modelo de la llave de la plataforma |
 | `AI_PLATFORM_CAP` | `5` | | dólares al mes que puede gastar la llave de la plataforma, sumando todas las organizaciones |
