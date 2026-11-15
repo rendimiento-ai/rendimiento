@@ -92,13 +92,19 @@ func (h *Holder) UpdateCheck(ctx context.Context, installation int64, repo strin
 	return c.UpdateCheckRun(ctx, repo, id, cr)
 }
 
+// CloneValidity is how long a clone token must still be valid when a step
+// gets it: its pod may wait that long to clone (an image to pull, room on
+// a node). A cached token with five minutes left made steps that waited
+// longer fail with "could not read Username" (runs 1386 and 1390).
+const CloneValidity = 40 * time.Minute
+
 // CloneToken returns an installation token for cloning in build pods.
 func (h *Holder) CloneToken(ctx context.Context, installation int64) (string, error) {
 	a, err := h.Get()
 	if err != nil {
 		return "", err
 	}
-	return a.InstallationToken(ctx, installation)
+	return a.InstallationTokenFor(ctx, installation, CloneValidity)
 }
 
 // ChangedFiles lists files that differ between two commits (for change detection).
