@@ -64,7 +64,9 @@ func manifest(name, baseURL string) map[string]any {
 			"issues":   "write",
 			"statuses": "read",
 		},
-		"default_events": []string{"push"},
+		// pull_request: a preview copy is made when its pull request opens
+		// and removed when it closes.
+		"default_events": []string{"push", "pull_request"},
 	}
 }
 
