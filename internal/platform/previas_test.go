@@ -127,16 +127,7 @@ func TestPreviewWhenOpened(t *testing.T) {
 	}
 	sha := strings.Repeat("b", 40)
 	fake.files[sha] = fstest.MapFS{spec.FileName: {Data: []byte(yaml)}}
-	run := &store.Run{AppID: app.ID, SHA: sha, Branch: "lista", Event: "push"}
-	if err := p.Store.CreateRun(ctx, run, pipeline.Plan(app.Name, p.Config.Registry, *sp)); err != nil {
-		t.Fatal(err)
-	}
-	if err := p.Store.UpdateStep(ctx, run.ID, "web:build", pipeline.StepResult{Status: pipeline.StatusSucceeded, Digest: "sha256:abc"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := p.Store.FinishRun(ctx, run.ID, store.RunSucceeded, ""); err != nil {
-		t.Fatal(err)
-	}
+	run := passedRun(t, p, app, sp, sha, "lista")
 
 	p.OpenedPreview(ctx, "o/abiertas", 9, "lista", "otra/abiertas")
 	if !gone(ctx, kube, "abiertas-pr-9") {
@@ -147,7 +138,7 @@ func TestPreviewWhenOpened(t *testing.T) {
 	if err := kube.Get(ctx, client.ObjectKey{Name: "abiertas-pr-9"}, &cr); err != nil {
 		t.Fatal(err)
 	}
-	if cr.Spec.Preview != 9 || cr.Spec.Release != run.ID || !strings.HasSuffix(cr.Spec.Images["web"], "@sha256:abc") {
+	if cr.Spec.Preview != 9 || cr.Spec.Release != run.ID || !strings.HasSuffix(cr.Spec.Images["web"], "@sha256:"+sha[:8]) {
 		t.Fatalf("copy %+v", cr.Spec)
 	}
 }
@@ -270,16 +261,7 @@ func TestPreviewCatchUp(t *testing.T) {
 	}
 	sha := strings.Repeat("d", 40)
 	fake.files[sha] = fstest.MapFS{spec.FileName: {Data: []byte(yaml)}}
-	run := &store.Run{AppID: app.ID, SHA: sha, Branch: "al-dia", Event: "push"}
-	if err := p.Store.CreateRun(ctx, run, pipeline.Plan(app.Name, p.Config.Registry, *sp)); err != nil {
-		t.Fatal(err)
-	}
-	if err := p.Store.UpdateStep(ctx, run.ID, "web:build", pipeline.StepResult{Status: pipeline.StatusSucceeded, Digest: "sha256:dd"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := p.Store.FinishRun(ctx, run.ID, store.RunSucceeded, ""); err != nil {
-		t.Fatal(err)
-	}
+	passedRun(t, p, app, sp, sha, "al-dia")
 	var pr gh.PullInfo
 	pr.Number, pr.State = 4, "open"
 	pr.Head.Ref, pr.Base.Ref = "al-dia", "main"
@@ -291,7 +273,7 @@ func TestPreviewCatchUp(t *testing.T) {
 	p.branchPullsCache.mu.Unlock()
 
 	p.catchUpPreviews(ctx)
-	if _, ok := copias.Get(ctx, "alcanzadas", 4); !ok || !strings.HasSuffix(copias.images["alcanzadas-pr-4"]["web"], "@sha256:dd") {
+	if _, ok := copias.Get(ctx, "alcanzadas", 4); !ok || !strings.HasSuffix(copias.images["alcanzadas-pr-4"]["web"], "@sha256:"+sha[:8]) {
 		t.Fatalf("copies after catching up: %+v %v", copias.copies, copias.images)
 	}
 	for _, c := range fake.checks {
@@ -308,4 +290,20 @@ func TestPreviewCatchUp(t *testing.T) {
 	if _, ok := copias.Get(ctx, "alcanzadas", 4); ok {
 		t.Fatal("the sweep left the copy of a closed pull request")
 	}
+}
+
+// passedRun is a push of sha on branch that setup's worker ran and passed;
+// its fake build's digest is sha256:<sha[:8]>. Marking a queued run passed
+// by hand raced with that worker: when it took the run first, it built the
+// step again with its own digest, and the copy had that one (run 1395).
+func passedRun(t *testing.T, p *Platform, app *store.App, sp *spec.Spec, sha, branch string) *store.Run {
+	t.Helper()
+	run := &store.Run{AppID: app.ID, SHA: sha, Branch: branch, Event: "push"}
+	if err := p.Store.CreateRun(context.Background(), run, pipeline.Plan(app.Name, p.Config.Registry, *sp)); err != nil {
+		t.Fatal(err)
+	}
+	if got := waitRun(t, p, run.ID); got.Status != store.RunSucceeded {
+		t.Fatalf("run %d: %s %s", run.ID, got.Status, got.Message)
+	}
+	return run
 }

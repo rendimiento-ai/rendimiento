@@ -15,6 +15,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -86,6 +87,25 @@ func TestInstallationTokenCached(t *testing.T) {
 	}
 	if calls.Load() != 1 {
 		t.Fatalf("token fetched %d times", calls.Load())
+	}
+}
+
+// A clone token must last while its pod waits to clone: one with less than
+// CloneValidity left is replaced, though other calls may still use it.
+func TestCloneTokenLastsTheWait(t *testing.T) {
+	var calls atomic.Int32
+	a, _ := newApp(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := calls.Add(1)
+		json.NewEncoder(w).Encode(map[string]any{"token": fmt.Sprintf("ghs_%d", n), "expires_at": time.Now().Add(20 * time.Minute)})
+	}))
+	if tok, _ := a.InstallationToken(context.Background(), 7); tok != "ghs_1" {
+		t.Fatalf("first token %q", tok)
+	}
+	if tok, _ := a.InstallationToken(context.Background(), 7); tok != "ghs_1" {
+		t.Fatalf("20 minutes left is enough for an API call: %q", tok)
+	}
+	if tok, _ := a.InstallationTokenFor(context.Background(), 7, CloneValidity); tok != "ghs_2" {
+		t.Fatalf("20 minutes left is not enough for a clone: %q", tok)
 	}
 }
 

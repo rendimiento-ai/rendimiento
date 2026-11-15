@@ -1546,17 +1546,31 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .vistazo-usted { display: flex; flex-direction: column; gap: 4px; border-left: 4px solid var(--cempasuchil); padding: 6px 12px; background: var(--bg); border-radius: 8px; }
 .vistazo-pie { display: flex; gap: 12px 18px; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 10px; }
 .vistazo-mas { font-weight: 800; }
-/* On a wide screen the glance is two columns: the flower and its words on the left, the week and the visits on the
-   right, so the page is not a narrow strip with empty space beside it. */
+.vistazo-izq, .vistazo-der { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.vistazo-enlaces { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.vistazo-enlaces a { font-weight: 800; overflow-wrap: anywhere; }
+.vistazo-pasos { display: flex; flex-direction: column; gap: 8px; }
+.vistazo-pasos-lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.vistazo-paso { display: flex; flex-direction: column; gap: 4px; background: var(--bg); border: 1px dashed var(--border); border-radius: 14px; padding: 12px; }
+.vistazo-paso .marca { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--warn); }
+.vistazo-paso.hecho { border-style: solid; opacity: .8; }
+.vistazo-paso.hecho .marca { color: var(--nopal); }
+.vistazo-diario { display: flex; flex-direction: column; gap: 10px; }
+.vistazo-diario .lo-ultimo { margin-left: 8px; }
+.dato-clic { cursor: pointer; }
+.dato-clic > a:hover { text-decoration: none; }
+.mesa-pedir { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.mesa-pedir textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+.mesa-ideas { display: flex; flex-wrap: wrap; gap: 6px; }
+.mesa-ideas button { background: transparent; border: 1px dashed var(--border); border-radius: 999px; padding: 4px 12px; color: var(--text); cursor: pointer; }
+
+/* On a wide screen the glance is two columns: the flower, its addresses and its chips on the left; the week, the
+   visits, the steps it still needs and its diary on the right, so the page is not a narrow strip beside empty space. */
 @media (min-width: 900px) {
-  .vistazo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); grid-template-areas: "flor datos" "flor visitas" "chips usted" "pie pie"; gap: 22px 40px; padding: 28px 32px; align-items: start; }
-  .vistazo > .vistazo-flor { grid-area: flor; flex-direction: column; align-items: flex-start; }
-  .vistazo > .vistazo-flor > div { min-width: 0; }
-  .vistazo > .vistazo-datos { grid-area: datos; }
-  .vistazo > .vistazo-visitas { grid-area: visitas; }
-  .vistazo > .vistazo-chips { grid-area: chips; }
-  .vistazo > .vistazo-usted { grid-area: usted; }
-  .vistazo > .vistazo-pie { grid-area: pie; }
+  .vistazo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 22px 40px; padding: 28px 32px; align-items: start; }
+  .vistazo > .vistazo-pie { grid-column: 1 / -1; }
+  .vistazo-izq .vistazo-flor { flex-direction: column; align-items: flex-start; }
+  .vistazo-izq .vistazo-flor > div { min-width: 0; }
   .flor-grande { width: 260px; }
   .vistazo-palabra { font-size: 2.4rem; }
   .vistazo-visitas svg { max-width: none; }

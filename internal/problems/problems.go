@@ -21,6 +21,28 @@ import (
 // Keep is how long a problem is kept after it last happened.
 const Keep = 30 * 24 * time.Hour
 
+// Retried are the problems of work that rendimiento tries again by itself:
+// an App the controller reconciles again, a lease it renews, a loop that
+// runs again. Such a failure that has not happened for Quiet was retried
+// and worked, so it is resolved; if it fails again it opens again. Events
+// that happen once (a release rolled back, a login that failed) and those
+// a person must fix are not here: they stay open until fixed or dismissed.
+var Retried = []string{
+	"sync failed", "Reconciler error", "list network policies", // the App controller retries with backoff, at most ~17 minutes apart
+	"Error retrieving lease lock", "error retrieving resource lock", // leader election renews every few seconds
+	"merge: list pull requests", "branch kinds: pull requests", // GitHub is asked again on the next pass
+	"addons: sync failed", "claim run", "coder: looking for encargos",
+	"live events: listening stopped; retrying", "live events: pruning stored events",
+	"could not read the platform's settings; keeping the last ones",
+}
+
+// Quiet is how long a retried problem must not happen to count as fixed:
+// longer than the controller's longest backoff between retries.
+const Quiet = 30 * time.Minute
+
+// ResolvedQuiet is the resolution of a retried problem that went quiet.
+const ResolvedQuiet = "it was tried again and has not failed for 30 minutes"
+
 // Recorder queues problems from its Handler and stores them in Run.
 type Recorder struct {
 	ch      chan store.Problem
@@ -45,13 +67,23 @@ func (r *Recorder) Run(ctx context.Context, st *store.Store, log *slog.Logger) {
 			log.Warn("problems: could not delete old problems", "err", err)
 		}
 	}
+	resolve := func() {
+		if _, err := st.ResolveQuietProblems(ctx, Retried, time.Now().Add(-Quiet), ResolvedQuiet); err != nil && ctx.Err() == nil {
+			log.Warn("problems: could not resolve the quiet ones", "err", err)
+		}
+	}
 	prune()
+	resolve()
 	tick := time.NewTicker(time.Hour)
 	defer tick.Stop()
+	quiet := time.NewTicker(5 * time.Minute)
+	defer quiet.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-quiet.C:
+			resolve()
 		case <-tick.C:
 			prune()
 			if n := r.dropped.Swap(0); n > 0 {

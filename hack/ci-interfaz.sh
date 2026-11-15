@@ -2,7 +2,8 @@
 # The browser tests (web/e2e) in the Playwright image: what rendimiento runs
 # on every push to its own repository (rendimiento.yaml, tasks: interfaz).
 # It builds the UI and the test server (hack/interfaz), starts the server on
-# the task's empty Postgres (DATABASE_URL), and drives it with Playwright.
+# the task's empty Postgres (DATABASE_URL), and drives it with Playwright:
+# both languages, or only PROYECTO's (en or es).
 #
 # The image has Node and the browsers; Go is installed under /cache (the
 # task's cache) the first time, with the version in GO_VERSION.
@@ -47,7 +48,9 @@ curl -fs http://127.0.0.1:8090/healthz >/dev/null || { cat "$log"; echo "the tes
 
 section 'browser tests'
 status=0
-(cd web && npx playwright test -c e2e) || status=$?
+# PROYECTO runs one language only (en or es): rendimiento.yaml runs each
+# as a task of its own, at once, each with its own server and database.
+(cd web && npx playwright test -c e2e ${PROYECTO:+--project=$PROYECTO}) || status=$?
 if [ $status -ne 0 ] || [ -s "$log" ]; then
   echo "== the test server's log"
   cat "$log"

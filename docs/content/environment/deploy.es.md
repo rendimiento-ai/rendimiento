@@ -296,7 +296,9 @@ Si GitHub contesta «Bad credentials» al configurar o al agregar una aplicació
 
 El repositorio de rendimiento está incorporado como cualquier aplicación. Su `rendimiento.yaml` tiene el libro (`docs`, un servicio) y la imagen de la plataforma (`builds: platform`), así que cada envío corre:
 
-- `platform:test`: `hack/ci-test.sh` (generar, vet y las pruebas de Go, con envtest y un Postgres desechable; luego el módulo de la aplicación de Windows, `escritorio/`) en `golang`, con una caché que se conserva;
+- `platform:test`: `hack/ci-test.sh` con `CI_PARTE=resto` (generar, vet y las pruebas de Go salvo las de la API y la plataforma, con envtest y un Postgres desechable; luego el módulo de la aplicación de Windows, `escritorio/`) en `golang`, con una caché que se conserva;
+- `pruebas-api:task` y `pruebas-plataforma:task`: el mismo script con `CI_PARTE=api` y `CI_PARTE=plataforma`, los dos paquetes más largos, cada uno con su Postgres, al mismo tiempo en otros nodos;
+- `interfaz-en:task` e `interfaz-es:task`: las pruebas en el navegador en inglés y en español, al mismo tiempo, cada una con su servidor de prueba y su base de datos;
 - `platform:build`: el Dockerfile, que además revisa los tipos y las traducciones de la interfaz, publicado como `<registro>/rendimiento-ai-platform:<confirmación>`.
 
 Las solicitudes de incorporación reciben la misma comprobación, sin versión. En la rama principal, el resumen (digest) de la imagen se guarda con la versión, junto al del libro.
