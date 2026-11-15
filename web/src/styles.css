@@ -665,6 +665,10 @@ textarea.code { width: 100%; min-height: 280px; font-family: var(--mono); font-s
 .rel-filters input[type="checkbox"] { width: auto; margin: 0; }
 .problem-resolved { color: var(--ok); white-space: nowrap; }
 .lang-switch { font-weight: 600; font-size: 12px; letter-spacing: .04em; min-width: 40px; }
+/* The flag picker: the flag shows, and the native list of countries opens over it (components/marca.tsx). */
+.bandera-switch { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 30px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.bandera-switch select { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+.bandera-switch:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Problems: counters that filter, and each problem's 30 days as a strip. */
 .problema-cuentas{display:flex;flex-wrap:wrap;gap:12px;margin:4px 0 14px}

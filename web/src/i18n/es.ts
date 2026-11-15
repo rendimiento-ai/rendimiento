@@ -1953,4 +1953,6 @@ export const es: Record<string, string> = {
   "Trying…": "Probando…",
   "Disconnect it": "Desconectarlo",
   "Saved: it answers within a few seconds.": "Guardado: responde en unos segundos.",
+  "Your flag": "Su bandera",
+  "Your flag: {country}": "Su bandera: {country}",
 };

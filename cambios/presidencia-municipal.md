@@ -1,1 +1,2 @@
 - **Environment:** on the street of nodes, the control plane is drawn as the presidencia municipal (portales, a clock tower and a flag) instead of a parroquia: nothing religious in the app.
+- **Top bar:** a flag button next to the language: each person chooses the flag of the presidencia municipal (Environment and the Universe) on their device; it starts as the browser's country, or Mexico's.

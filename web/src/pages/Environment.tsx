@@ -5,6 +5,7 @@ import { ErrorBox, usePoll } from "../components/ui";
 import { outsideWhy } from "../components/barda";
 import { locale, t, tn } from "../i18n";
 import { PlatformVersion, Publicada } from "./Version";
+import { BanderaSVG, useBandera } from "../banderas";
 
 const tone: Record<EnvStatus, string> = { ok: "ok", warning: "warn", missing: "bad", error: "bad" };
 const label: Record<EnvStatus, string> = { ok: "OK", warning: "Attention", missing: "Missing", error: "Error" }; // translated where shown
@@ -188,6 +189,7 @@ function Casa({ n, i, on, onPick }: { n: EnvNode; i: number; on: boolean; onPick
   const aviso = !n.ready || (n.pressure?.length ?? 0) > 0 || !!n.unschedulable || mem >= 0.85;
   const guard = mem >= 0.85 ? "var(--rosa)" : "var(--grana)";
   const presidencia = (n.roles ?? []).some((r) => r === "control-plane" || r === "master");
+  const bandera = useBandera();
   const d = `${i * 140}ms`;
   const pct = (x: number) => `${Math.round(x * 100)}%`;
   const label = t("{name}: processor {cpu}, memory {mem}", { name: n.name, cpu: pct(cpu), mem: pct(mem) });
@@ -206,7 +208,7 @@ function Casa({ n, i, on, onPick }: { n: EnvNode; i: number; on: boolean; onPick
         <path d="M62 36 L85 18 L108 36 Z" fill="#B5532A" stroke="#8A3C1E" strokeWidth="2" />
         <circle cx="85" cy="56" r="11" fill="#FFFDF8" stroke="#7A3E0B" strokeWidth="2" /><path d="M85 56 V49 M85 56 L90 58" stroke="#2B1B12" strokeWidth="2" strokeLinecap="round" />
         <path d="M85 18 V2" stroke="#4A2A10" strokeWidth="1.6" />
-        <g className="banderita"><rect x="86" y="3" width="6" height="11" fill="#2E7D32" /><rect x="92" y="3" width="6" height="11" fill="#FFFFFF" stroke="#E0CDB0" strokeWidth=".5" /><rect x="98" y="3" width="6" height="11" fill="#C62828" /></g>
+        <g className="banderita"><BanderaSVG code={bandera} x={86} y={3} w={18} h={12} /></g>
         {balcones.map((x, j) => (
           <g key={j}>
             <rect className={j < lit ? "luz" : undefined} x={x} y="94" width="18" height="26" rx="2" fill={j < lit ? LIT : OFF} stroke="#7A3E0B" strokeWidth="2" />

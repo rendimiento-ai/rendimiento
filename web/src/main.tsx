@@ -22,7 +22,7 @@ import { Bitacora } from "./pages/Bitacora";
 import { SenalesPage } from "./pages/SenalesPage";
 import { EnvironmentNavLink } from "./pages/Version";
 import { Cielo, Guardapolvo, MovimientoSwitch, TemaSwitch, Techo } from "./components/ambiente";
-import { LangSwitch, Logo } from "./components/marca";
+import { BanderaSwitch, LangSwitch, Logo } from "./components/marca";
 import { Bienvenida, type BookLinks } from "./pages/Bienvenida";
 import { Avisos } from "./components/avisos";
 import { Campana } from "./components/campana";
@@ -93,6 +93,7 @@ function Shell() {
         <TemaSwitch />
         <MovimientoSwitch />
         <LangSwitch />
+        <BanderaSwitch />
         <button onClick={() => api.logout().then(() => location.assign("/"))}>{t("Sign out")}</button>
       </header>
       <main>
