@@ -140,8 +140,14 @@ func (a *App) JWT(now time.Time) (string, error) {
 // InstallationToken returns a cached token for the installation, refreshing
 // it five minutes before expiry. Tokens are valid for one hour.
 func (a *App) InstallationToken(ctx context.Context, installationID int64) (string, error) {
+	return a.InstallationTokenFor(ctx, installationID, 5*time.Minute)
+}
+
+// InstallationTokenFor returns a token that stays valid for at least
+// atLeast: the cached one when it has that long left, else a new one.
+func (a *App) InstallationTokenFor(ctx context.Context, installationID int64, atLeast time.Duration) (string, error) {
 	a.mu.Lock()
-	if t, ok := a.tokens[installationID]; ok && time.Until(t.expires) > 5*time.Minute {
+	if t, ok := a.tokens[installationID]; ok && time.Until(t.expires) > atLeast {
 		a.mu.Unlock()
 		return t.token, nil
 	}
