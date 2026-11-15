@@ -1,0 +1,1 @@
+- **rendimiento's own CI:** the API's and the platform's Go tests run as tasks of their own (`pruebas-api`, `pruebas-plataforma`), each with its own Postgres, beside `platform:test`; the browser tests run in English and Spanish at once (`interfaz-en`, `interfaz-es`). A run takes about half as long when the cluster has room for its steps (raise `MAX_PARALLEL_STEPS` to 8).

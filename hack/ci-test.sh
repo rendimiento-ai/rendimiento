@@ -6,7 +6,18 @@
 #
 # It needs TEST_DATABASE_URL (or DATABASE_URL), an empty Postgres database,
 # and keeps its tools under $TOOLS (default /cache/bin, the test's cache).
+#
+# CI_PARTE splits it into steps that run at once, each on its own node with
+# its own Postgres (rendimiento.yaml): "api" and "plataforma" are those two
+# packages alone, the longest ones; "resto" is everything else, with the
+# checks (generate, vet) and the Windows app. Unset (make test-remote), it
+# runs all of it here.
 set -euo pipefail
+parte=${CI_PARTE:-}
+case "$parte" in
+  ""|resto|api|plataforma) ;;
+  *) echo "CI_PARTE must be resto, api or plataforma (or unset for all), got $parte"; exit 2 ;;
+esac
 
 CONTROLLER_GEN=${CONTROLLER_GEN:-v0.22.0}
 SETUP_ENVTEST=${SETUP_ENVTEST:-v0.25.1}
@@ -37,7 +48,7 @@ if [ -d /cache ] && used=$(df -P /cache 2>/dev/null | awk 'NR==2 {print $5+0}') 
 fi
 
 section tools
-if ! controller-gen --version 2>/dev/null | grep -q "$CONTROLLER_GEN"; then
+if { [ -z "$parte" ] || [ "$parte" = resto ]; } && ! controller-gen --version 2>/dev/null | grep -q "$CONTROLLER_GEN"; then
   echo "   installing controller-gen $CONTROLLER_GEN (the cache is empty or old)"
   go install "sigs.k8s.io/controller-tools/cmd/controller-gen@$CONTROLLER_GEN"
 fi
@@ -48,35 +59,53 @@ fi
 # The built UI is not in git; vet and tests only need something to embed.
 [ -n "$(ls -A web/dist 2>/dev/null)" ] || { mkdir -p web/dist && echo placeholder > web/dist/index.html; }
 
-section generate
-controller-gen object paths=./api/... paths=./internal/spec/...
-controller-gen crd paths=./api/... output:crd:dir=deploy/crds
-cp deploy/crds/*.yaml chart/rendimiento/crds/   # the Helm chart ships the same CRDs
-if [ -n "${CHECK_GENERATED:-}" ] && ! git diff --quiet -- api internal/spec deploy/crds chart/rendimiento/crds; then
-  git diff --stat -- api internal/spec deploy/crds chart/rendimiento/crds
-  echo "generated files are out of date: run make generate (or make test-remote) and commit them"
-  exit 1
+# The checks are the whole tree's: they run once, in the step with the rest.
+if [ -z "$parte" ] || [ "$parte" = resto ]; then
+  section generate
+  controller-gen object paths=./api/... paths=./internal/spec/...
+  controller-gen crd paths=./api/... output:crd:dir=deploy/crds
+  cp deploy/crds/*.yaml chart/rendimiento/crds/   # the Helm chart ships the same CRDs
+  if [ -n "${CHECK_GENERATED:-}" ] && ! git diff --quiet -- api internal/spec deploy/crds chart/rendimiento/crds; then
+    git diff --stat -- api internal/spec deploy/crds chart/rendimiento/crds
+    echo "generated files are out of date: run make generate (or make test-remote) and commit them"
+    exit 1
+  fi
+  section 'vet (compiles everything: the longest part with an empty cache)'
+  go vet ./...
 fi
-section 'vet (compiles everything: the longest part with an empty cache)'
-go vet ./...
 section test
 KUBEBUILDER_ASSETS=$(setup-envtest use "$ENVTEST_K8S" -p path --bin-dir "$(dirname "$TOOLS")/envtest")
 export KUBEBUILDER_ASSETS
-# store, platform and api share one test database, so they run one at a
-# time; the rest (internal/controller's envtest among them) run beside
-# them, two packages at a time (with the memory the test step has).
-shared='/internal/(api|platform|store)$'
+# --8<-- [start:pruebas]
+# store, platform and api share one test database, so in one step they run
+# one at a time; the rest (internal/controller's envtest among them) run
+# beside them, two packages at a time (with the memory the test step has).
+# Split into steps, api and platform have a database each, on another node.
+case "$parte" in
+  api) shared='/internal/api$' rest='^$' ;;
+  plataforma) shared='/internal/platform$' rest='^$' ;;
+  resto) shared='/internal/store$' rest='/internal/(api|platform|store)$' ;;
+  *) shared='/internal/(api|platform|store)$' rest='/internal/(api|platform|store)$' ;;
+esac
 out=$(mktemp -d)
 go test -v -p 1 $(go list ./... | grep -E "$shared") >"$out/shared.log" 2>&1 &
 a=$!
-go test -v -p 2 $(go list ./... | grep -vE "$shared") >"$out/rest.log" 2>&1 &
-b=$!
+others=$(go list ./... | grep -vE "$rest" | grep -vE "$shared" || true)
+if [ -n "$parte" ] && [ "$parte" != resto ]; then others=""; fi
+if [ -n "$others" ]; then
+  go test -v -p 2 $others >"$out/rest.log" 2>&1 &
+  b=$!
+else
+  : >"$out/rest.log"
+  b=""
+fi
+# --8<-- [end:pruebas]
 # Each package as it finishes, so a long run shows where it is (tail ends
 # with this script, and the rest of the pipe with it).
 tail -n +1 -F --pid=$$ "$out/shared.log" "$out/rest.log" 2>/dev/null | grep --line-buffered -E '^(ok|FAIL)[[:space:]]' | sed -u 's/^/   finished: /' &
 failed=()
 wait $a || failed+=("$out/shared.log")
-wait $b || failed+=("$out/rest.log")
+[ -z "$b" ] || wait $b || failed+=("$out/rest.log")
 sleep 2 # the last packages' lines, before the summary
 
 # rendimiento for Windows (escritorio/) is a module of its own, so the
@@ -84,32 +113,34 @@ sleep 2 # the last packages' lines, before the summary
 # two envtest API servers need both cores, and a compile next to them makes
 # etcd time out. Its log joins the tests', so the summary lists its
 # packages and, when it fails, ends with the step that stopped it.
-section 'escritorio (the Windows app: on Linux, then for windows/amd64)'
-(
-  step() { echo "   $1" >&3; echo "== escritorio: $1"; }
-  cd escritorio
-  step gofmt
-  unformatted=$(gofmt -l .)
-  [ -z "$unformatted" ] || { echo "not formatted (gofmt -w fixes them):"; echo "$unformatted"; exit 1; }
-  # On Linux the files that open the window are left out (//go:build
-  # windows); the wsl package's tests run with a fake wsl.exe.
-  step 'vet and test (linux)'
-  go vet ./...
-  tests=0
-  go test -v ./... || tests=$?
-  grep -E '^(ok|FAIL)[[:space:]]' "$out/escritorio.log" | sed 's/^/   finished: /' >&3 || true
-  [ "$tests" -eq 0 ]
-  # What .github/workflows/binarios.yml publishes with each release, built
-  # the same way: Wails' tags, no console window. go build -o, never go
-  # install: with GOBIN set (above) it refuses to cross-compile.
-  step 'vet and build (windows/amd64)'
-  export GOOS=windows GOARCH=amd64 CGO_ENABLED=0
-  go vet -tags desktop,production ./...
-  go build -tags desktop,production -trimpath -ldflags '-s -w -H windowsgui' -o "$out/rendimiento-windows-amd64.exe" .
-  echo "   rendimiento-windows-amd64.exe: $(($(stat -c %s "$out/rendimiento-windows-amd64.exe") / 1024)) KiB" >&3
-) 3>&1 >"$out/escritorio.log" 2>&1 &
-c=$!
-wait $c || { failed+=("$out/escritorio.log"); echo '   failed: the summary ends with its output'; }
+if [ -z "$parte" ] || [ "$parte" = resto ]; then
+  section 'escritorio (the Windows app: on Linux, then for windows/amd64)'
+  (
+    step() { echo "   $1" >&3; echo "== escritorio: $1"; }
+    cd escritorio
+    step gofmt
+    unformatted=$(gofmt -l .)
+    [ -z "$unformatted" ] || { echo "not formatted (gofmt -w fixes them):"; echo "$unformatted"; exit 1; }
+    # On Linux the files that open the window are left out (//go:build
+    # windows); the wsl package's tests run with a fake wsl.exe.
+    step 'vet and test (linux)'
+    go vet ./...
+    tests=0
+    go test -v ./... || tests=$?
+    grep -E '^(ok|FAIL)[[:space:]]' "$out/escritorio.log" | sed 's/^/   finished: /' >&3 || true
+    [ "$tests" -eq 0 ]
+    # What .github/workflows/binarios.yml publishes with each release, built
+    # the same way: Wails' tags, no console window. go build -o, never go
+    # install: with GOBIN set (above) it refuses to cross-compile.
+    step 'vet and build (windows/amd64)'
+    export GOOS=windows GOARCH=amd64 CGO_ENABLED=0
+    go vet -tags desktop,production ./...
+    go build -tags desktop,production -trimpath -ldflags '-s -w -H windowsgui' -o "$out/rendimiento-windows-amd64.exe" .
+    echo "   rendimiento-windows-amd64.exe: $(($(stat -c %s "$out/rendimiento-windows-amd64.exe") / 1024)) KiB" >&3
+  ) 3>&1 >"$out/escritorio.log" 2>&1 &
+  c=$!
+  wait $c || { failed+=("$out/escritorio.log"); echo '   failed: the summary ends with its output'; }
+fi
 section summary
 
 # What `go test` prints without -v: one line per package.

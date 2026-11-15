@@ -47,13 +47,13 @@ make itest                                       # construcciones reales en el g
 4. `hack/ci-test.sh` corre `controller-gen`, `go vet` y `go test -p 1 ./...`, y después el módulo de la aplicación de Windows (`escritorio/`); luego corre `npm run typecheck`, y su salida llega aquí en vivo:
 
     ```bash
-    --8<-- "hack/ci-test.sh:25:47"
+    --8<-- "hack/ci-test.sh:pruebas"
     ```
 
 5. Los archivos regenerados se copian de vuelta, así el repositorio coincide con lo que se probó.
 6. Se borra el pod.
 
-`-p 1` corre los paquetes uno tras otro: las pruebas del almacén, de la plataforma y de la API comparten una base de datos.
+`-p 1` corre los paquetes uno tras otro: las pruebas del almacén, de la plataforma y de la API comparten una base de datos. En cada envío no: `CI_PARTE` reparte el script en tres pasos, cada uno con su base de datos (abajo).
 
 ## En cada envío {#on-every-push}
 
@@ -61,7 +61,7 @@ El repositorio de rendimiento es una aplicación más de rendimiento: su `rendim
 
 ## Pruebas en el navegador {#browser-tests}
 
-La tarea `interfaz` de `rendimiento.yaml` corre `hack/ci-interfaz.sh` en la imagen de Playwright en cada envío, con el Postgres desechable y la caché de la tarea (ahí se instala Go la primera vez). Construye la interfaz y `hack/interfaz`, un servidor con la API de verdad sobre esa base vacía, como en una computadora sin Kubernetes, y un GitHub falso que sirve cada ejemplo de `internal/spec/ejemplos` como repositorio (y uno sin `rendimiento.yaml`). Inicia la sesión de una persona, y Playwright recorre las páginas (`web/e2e`). Cada prueba falla ante un error lanzado en el navegador, un error en la consola o una respuesta de la API de 500 o más, aunque lo que buscaba sí estuviera. Un tipo nuevo de aplicación solo necesita su ejemplo: la prueba del asistente los recorre todos. Con caché tarda unos tres minutos. La tarea pide dos núcleos, y las pruebas esperan hasta 30 segundos lo que buscan (dos minutos una prueba completa): con el clúster ocupado, un núcleo y esperas más cortas hacían fallar pruebas que estaban bien. No se reintentan, porque comparten una sola base de datos y un segundo intento encontraría lo que hizo el primero.
+Las tareas `interfaz-en` e `interfaz-es` de `rendimiento.yaml` corren `hack/ci-interfaz.sh` (un idioma cada una, `PROYECTO`, al mismo tiempo) en la imagen de Playwright en cada envío, con el Postgres desechable y la caché de la tarea (ahí se instala Go la primera vez). Construye la interfaz y `hack/interfaz`, un servidor con la API de verdad sobre esa base vacía, como en una computadora sin Kubernetes, y un GitHub falso que sirve cada ejemplo de `internal/spec/ejemplos` como repositorio (y uno sin `rendimiento.yaml`). Inicia la sesión de una persona, y Playwright recorre las páginas (`web/e2e`). Cada prueba falla ante un error lanzado en el navegador, un error en la consola o una respuesta de la API de 500 o más, aunque lo que buscaba sí estuviera. Un tipo nuevo de aplicación solo necesita su ejemplo: la prueba del asistente los recorre todos. Con caché tarda unos tres minutos. La tarea pide dos núcleos, y las pruebas esperan hasta 30 segundos lo que buscan (dos minutos una prueba completa): con el clúster ocupado, un núcleo y esperas más cortas hacían fallar pruebas que estaban bien. No se reintentan, porque comparten una sola base de datos y un segundo intento encontraría lo que hizo el primero.
 
 ## Escribir pruebas {#writing-tests}
 
