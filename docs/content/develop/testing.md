@@ -47,13 +47,13 @@ make itest                                       # real builds on the BuildKit p
 4. `hack/ci-test.sh` runs `controller-gen`, `go vet` and `go test -p 1 ./...`, then the Windows app's module (`escritorio/`); then `npm run typecheck` runs, their output streamed here:
 
     ```bash
-    --8<-- "hack/ci-test.sh:25:47"
+    --8<-- "hack/ci-test.sh:pruebas"
     ```
 
 5. Regenerated files are copied back, so the repository matches what was tested.
 6. The pod is deleted.
 
-`-p 1` runs packages one after another: the store, platform and API tests share one database.
+`-p 1` runs packages one after another: the store, platform and API tests share one database. On every push they do not: `CI_PARTE` splits the script into three steps, each with its own database (below).
 
 ## On every push {#on-every-push}
 
@@ -61,7 +61,7 @@ rendimiento's own repository is an app on rendimiento: its `rendimiento.yaml` li
 
 ## Browser tests {#browser-tests}
 
-The `interfaz` task of `rendimiento.yaml` runs `hack/ci-interfaz.sh` in the Playwright image on every push, with the task's throwaway Postgres and kept cache (Go is installed there the first time). It builds the UI and `hack/interfaz`, a server with the real API on that empty database, as on a computer without Kubernetes, and a fake GitHub that serves every example of `internal/spec/ejemplos` as a repository (and one without a `rendimiento.yaml`). It signs in a person, and Playwright drives the pages (`web/e2e`). Every test fails on an error thrown in the browser, an error in the console, or an API answer of 500 or more, even when what it looked for was there. A new kind of app only needs its example: the wizard test walks every one. With a cache it takes about three minutes. The task asks for two cores, and the tests wait up to 30 seconds for what they look for (two minutes for a whole test): on a busy cluster, one core and shorter waits failed tests that were right. They are not retried, since they share one database and a second try would find what the first made.
+The `interfaz-en` and `interfaz-es` tasks of `rendimiento.yaml` run `hack/ci-interfaz.sh` (one language each, `PROYECTO`, at the same time) in the Playwright image on every push, with the task's throwaway Postgres and kept cache (Go is installed there the first time). It builds the UI and `hack/interfaz`, a server with the real API on that empty database, as on a computer without Kubernetes, and a fake GitHub that serves every example of `internal/spec/ejemplos` as a repository (and one without a `rendimiento.yaml`). It signs in a person, and Playwright drives the pages (`web/e2e`). Every test fails on an error thrown in the browser, an error in the console, or an API answer of 500 or more, even when what it looked for was there. A new kind of app only needs its example: the wizard test walks every one. With a cache it takes about three minutes. The task asks for two cores, and the tests wait up to 30 seconds for what they look for (two minutes for a whole test): on a busy cluster, one core and shorter waits failed tests that were right. They are not retried, since they share one database and a second try would find what the first made.
 
 ## Writing tests
 
