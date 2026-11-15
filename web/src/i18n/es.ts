@@ -677,7 +677,7 @@ export const es: Record<string, string> = {
   "Waiting for first build": "Esperando la primera construcción",
   "Waiting to start…": "Esperando para empezar…",
   "Warning": "Advertencia",
-  "Warnings and errors from rendimiento itself in the last 30 days: configs it rejected, emails it could not send, DNS or GitHub calls that failed. Repeats are grouped. A problem stays open for {n} hours after it last happened, until rendimiento sees it fixed (a later push accepted, a later email sent), or until dismissed; it reopens if it happens again. Outages of your apps are on each app's Reliability tab.": "Advertencias y errores de rendimiento en los últimos 30 días: configuraciones que rechazó, correos que no pudo enviar, llamadas a DNS o a GitHub que fallaron. Las repeticiones se agrupan. Un problema sigue abierto durante {n} horas desde la última vez que ocurrió, hasta que rendimiento lo ve resuelto (un envío posterior aceptado, un correo posterior enviado) o hasta que se descarta; se vuelve a abrir si ocurre de nuevo. Las interrupciones de sus aplicaciones están en la pestaña Confiabilidad de cada aplicación.",
+  "Warnings and errors from rendimiento itself in the last 30 days: configs it rejected, emails it could not send, DNS or GitHub calls that failed. Repeats are grouped. A problem stays open for {n} hours after it last happened, until rendimiento sees it fixed (a later push accepted, a later email sent, or, for work it retries by itself, 30 minutes without failing again), or until dismissed; it reopens if it happens again. Outages of your apps are on each app's Reliability tab.": "Advertencias y errores de rendimiento en los últimos 30 días: configuraciones que rechazó, correos que no pudo enviar, llamadas a DNS o a GitHub que fallaron. Las repeticiones se agrupan. Un problema sigue abierto durante {n} horas desde la última vez que ocurrió, hasta que rendimiento lo ve resuelto (un envío posterior aceptado, un correo posterior enviado o, en el trabajo que reintenta por su cuenta, 30 minutos sin volver a fallar) o hasta que se descarta; se vuelve a abrir si ocurre de nuevo. Las interrupciones de sus aplicaciones están en la pestaña Confiabilidad de cada aplicación.",
   "We opened": "Abrimos la",
   "Web & APIs": "Web y API",
   "Week": "Semana",
@@ -1953,4 +1953,6 @@ export const es: Record<string, string> = {
   "Trying…": "Probando…",
   "Disconnect it": "Desconectarlo",
   "Saved: it answers within a few seconds.": "Guardado: responde en unos segundos.",
+  "it was tried again and has not failed for 30 minutes": "se volvió a intentar y no ha fallado en 30 minutos",
+  "an email was sent since": "desde entonces se envió un correo",
 };

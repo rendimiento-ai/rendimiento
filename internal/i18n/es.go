@@ -276,6 +276,7 @@ var catalog = map[string]string{
 	"all %d checks stayed healthy for %s":                                                             "las %d comprobaciones se mantuvieron saludables durante %s",
 	"all %d checks stayed healthy for %s, and %d post-deploy task(s) passed":                          "las %d comprobaciones se mantuvieron saludables durante %s, y pasaron %d tarea(s) posteriores al despliegue",
 	"an app named %q already exists":                                                                  "ya existe una aplicación llamada %q",
+	"it was tried again and has not failed for 30 minutes": "se volvió a intentar y no ha fallado en 30 minutos",
 	"an email was sent since":                                                                         "desde entonces se envió un correo",
 	"API token is %s":                                                                                 "El token de la API está %s",
 	"API token rejected: %s":                                                                          "Token de la API rechazado: %s",

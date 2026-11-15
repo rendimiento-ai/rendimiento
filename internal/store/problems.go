@@ -135,3 +135,14 @@ func (s *Store) ResolveProblems(ctx context.Context, m ProblemMatch, resolution 
 		m.Message, m.App, m.Attr, resolution)
 	return tag.RowsAffected(), err
 }
+
+// ResolveQuietProblems marks as resolved the unresolved problems with one
+// of messages that last happened before quietSince: work that is tried
+// again by itself and has not failed since. It returns how many.
+func (s *Store) ResolveQuietProblems(ctx context.Context, messages []string, quietSince time.Time, resolution string) (int64, error) {
+	tag, err := s.pool.Exec(ctx, `
+		UPDATE problems SET resolved_at = now(), resolution = $3
+		WHERE resolved_at IS NULL AND message = ANY($1::text[]) AND last_at < $2`,
+		messages, quietSince, resolution)
+	return tag.RowsAffected(), err
+}

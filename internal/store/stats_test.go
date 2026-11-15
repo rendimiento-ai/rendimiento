@@ -182,3 +182,27 @@ func TestResolveProblems(t *testing.T) {
 		t.Fatalf("a resolved problem that recurs is open again; open = %d", open)
 	}
 }
+
+// A problem of work retried by itself is resolved once it has been quiet;
+// one that happened since, or another kind, stays open.
+func TestResolveQuietProblems(t *testing.T) {
+	s := open(t)
+	ctx := context.Background()
+	old, recent := time.Now().Add(-time.Hour), time.Now()
+	for _, p := range []Problem{
+		{Fingerprint: "q1", Level: "ERROR", Message: "sync failed", LastAt: old},
+		{Fingerprint: "q2", Level: "ERROR", Message: "sync failed", LastAt: recent},
+		{Fingerprint: "q3", Level: "ERROR", Message: "release failed verification; rolled back", LastAt: old},
+	} {
+		if err := s.RecordProblem(ctx, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	n, err := s.ResolveQuietProblems(ctx, []string{"sync failed"}, time.Now().Add(-30*time.Minute), "quiet")
+	if err != nil || n != 1 {
+		t.Fatalf("resolved %d, %v", n, err)
+	}
+	if open, _ := s.OpenProblems(ctx); open != 2 {
+		t.Fatalf("open = %d", open)
+	}
+}
