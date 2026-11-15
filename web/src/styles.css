@@ -351,8 +351,8 @@ button.sello:hover{transform:rotate(0) scale(1.04)}
 .casa .luz{animation:casa-prende 2.4s ease-in-out infinite}
 .casa .farol{animation:casa-prende 2.8s ease-in-out infinite}
 @keyframes casa-prende{50%{opacity:.75}}
-.casa .campana{transform-origin:top center;transform-box:fill-box;animation:casa-tilin 3s ease-in-out infinite}
-@keyframes casa-tilin{0%,80%,100%{transform:rotate(0)}85%{transform:rotate(14deg)}92%{transform:rotate(-12deg)}}
+.casa .banderita{transform-origin:left center;transform-box:fill-box;animation:banderita-ondea 2.6s ease-in-out infinite}
+@keyframes banderita-ondea{0%,100%{transform:skewY(0)}50%{transform:skewY(-7deg)}}
 .casa .aviso-puerta{transform-origin:top center;transform-box:fill-box;animation:casa-tiembla 2.4s ease-in-out infinite}
 @keyframes casa-tiembla{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
 .calle-leyenda{margin:8px 0 0}
@@ -384,7 +384,7 @@ button.sello:hover{transform:rotate(0) scale(1.04)}
 button.nota{cursor:pointer}
 button.nota:hover{transform:rotate(0) translateY(-2px)}
 .nota::before{content:"";position:absolute;top:-6px;left:50%;width:12px;height:12px;border-radius:50%;background:var(--t);box-shadow:0 2px 3px rgba(0,0,0,.3)}
-@media (prefers-reduced-motion: reduce){.bando,.sello.puesto,.calle-picado i,.casa,.casa .guard,.casa .luz,.casa .farol,.casa .campana,.casa .aviso-puerta,.letrero .tabla,.ventanilla,.calle-nodo{animation:none}}
+@media (prefers-reduced-motion: reduce){.bando,.sello.puesto,.calle-picado i,.casa,.casa .guard,.casa .luz,.casa .farol,.casa .banderita,.casa .aviso-puerta,.letrero .tabla,.ventanilla,.calle-nodo{animation:none}}
 
 .center { min-height: 70vh; display: grid; place-items: center; text-align: center; }
 .empty { text-align: center; padding: 48px 16px; color: var(--muted); }

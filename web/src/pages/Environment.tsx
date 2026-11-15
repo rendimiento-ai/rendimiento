@@ -34,7 +34,7 @@ interface Letrero {
 
 /**
  * The Environment page, as a Cotija town: the bando with the platform's version, the nodes as houses on a cobbled street
- * (the control plane is the parroquia), the providers as hanging signs that open their ventanilla, the cluster's problems
+ * (the control plane is the presidencia municipal), the providers as hanging signs that open their ventanilla, the cluster's problems
  * pinned to a cork board, and what the town needs.
  */
 export function Environment() {
@@ -97,7 +97,7 @@ export function Environment() {
           <Casa key={n.name} n={n} i={i} on={sel === n.name} onPick={() => setSel(sel === n.name ? undefined : n.name)} />
         ))}
       </div>
-      <p className="small muted calle-leyenda">{t("Lit windows are the processor; the red skirting rises with memory. A note on the door says the node is missing something. The parroquia is the node in charge.")}</p>
+      <p className="small muted calle-leyenda">{t("Lit windows are the processor; the red skirting rises with memory. A note on the door says the node is missing something. The presidencia municipal is the node in charge.")}</p>
       {nodo && <div className="calle-nodo"><NodeCard n={nodo} /></div>}
       <Capacidad nodes={r.nodes} />
       {session.operator && <Ajustes />}
@@ -179,7 +179,7 @@ const OFF = "#5A6E7A";
 
 /**
  * A node as a house of Cotija: lit windows for how busy its processor is, a red skirting that rises with its memory,
- * and a note on the door when something is wrong. The control plane is the parroquia, with its two towers.
+ * and a note on the door when something is wrong. The control plane is the presidencia municipal, with its clock tower.
  */
 function Casa({ n, i, on, onPick }: { n: EnvNode; i: number; on: boolean; onPick: () => void }) {
   const cpu = n.cpuUsed !== undefined ? n.cpuUsed / n.cpuCores : 0;
@@ -187,27 +187,35 @@ function Casa({ n, i, on, onPick }: { n: EnvNode; i: number; on: boolean; onPick
   const lit = Math.round(cpu * 4);
   const aviso = !n.ready || (n.pressure?.length ?? 0) > 0 || !!n.unschedulable || mem >= 0.85;
   const guard = mem >= 0.85 ? "var(--rosa)" : "var(--grana)";
-  const parroquia = (n.roles ?? []).some((r) => r === "control-plane" || r === "master");
+  const presidencia = (n.roles ?? []).some((r) => r === "control-plane" || r === "master");
   const d = `${i * 140}ms`;
   const pct = (x: number) => `${Math.round(x * 100)}%`;
   const label = t("{name}: processor {cpu}, memory {mem}", { name: n.name, cpu: pct(cpu), mem: pct(mem) });
   let dibujo;
-  if (parroquia) {
-    const ws = ["M24 70 q7 -10 14 0 v18 h-14 z", "M132 70 q7 -10 14 0 v18 h-14 z", "M58 96 q9 -12 18 0 v26 h-18 z", "M94 96 q9 -12 18 0 v26 h-18 z"];
+  if (presidencia) {
+    // Four balconies upstairs, lit with the processor; portales below, the door in the middle.
+    const balcones = [22, 54, 98, 130];
+    const arcos = [16, 44, 100, 128];
     const gH = Math.round(14 + mem * 40);
     dibujo = (
       <svg width="170" height="210" viewBox="0 0 170 210" aria-hidden="true">
-        <rect x="14" y="40" width="34" height="160" fill="#F4E9D8" stroke="#C9B79F" strokeWidth="2" />
-        <rect x="122" y="40" width="34" height="160" fill="#F4E9D8" stroke="#C9B79F" strokeWidth="2" />
-        <path d="M12 42 Q31 6 50 42 Z" fill="#E9B824" stroke="#B5532A" strokeWidth="2" /><path d="M120 42 Q139 6 158 42 Z" fill="#E9B824" stroke="#B5532A" strokeWidth="2" />
-        <path d="M31 4 v10 M27 8 h8 M139 4 v10 M135 8 h8" stroke="#7A3E0B" strokeWidth="2.4" />
-        <rect x="44" y="72" width="82" height="128" fill="#FBF7EF" stroke="#C9B79F" strokeWidth="2" />
-        <path d="M44 74 L85 40 L126 74 Z" fill="#F4E9D8" stroke="#C9B79F" strokeWidth="2" />
-        <circle cx="85" cy="64" r="11" fill="#FFFDF8" stroke="#7A3E0B" strokeWidth="2" /><path d="M85 64 V57 M85 64 L90 66" stroke="#2B1B12" strokeWidth="2" strokeLinecap="round" />
-        {ws.map((p, j) => <path key={j} className={j < lit ? "luz" : undefined} d={p} fill={j < lit ? LIT : OFF} stroke="#7A3E0B" strokeWidth="2" />)}
-        <path className="campana" d="M27 50 q4 -8 8 0 v4 h-8 z" fill="#B5532A" /><path className="campana" d="M135 50 q4 -8 8 0 v4 h-8 z" fill="#B5532A" style={{ animationDelay: "1.5s" }} />
-        <rect className="guard" x="14" y={200 - gH} width="142" height={gH} fill={guard} style={{ ["--d" as string]: d }} />
-        <path d="M70 200 V160 Q85 140 100 160 V200 Z" fill="#7A3E0B" stroke="#4A2A10" strokeWidth="2" /><path d="M85 152 V200" stroke="#4A2A10" strokeWidth="1.5" />
+        <rect x="10" y="84" width="150" height="116" fill="#FBF7EF" stroke="#C9B79F" strokeWidth="2" />
+        <rect x="6" y="78" width="158" height="8" fill="#B5532A" stroke="#8A3C1E" strokeWidth="1.5" />
+        <rect x="10" y="136" width="150" height="4" fill="#E0CDB0" />
+        <rect x="66" y="34" width="38" height="46" fill="#F4E9D8" stroke="#C9B79F" strokeWidth="2" />
+        <path d="M62 36 L85 18 L108 36 Z" fill="#B5532A" stroke="#8A3C1E" strokeWidth="2" />
+        <circle cx="85" cy="56" r="11" fill="#FFFDF8" stroke="#7A3E0B" strokeWidth="2" /><path d="M85 56 V49 M85 56 L90 58" stroke="#2B1B12" strokeWidth="2" strokeLinecap="round" />
+        <path d="M85 18 V2" stroke="#4A2A10" strokeWidth="1.6" />
+        <g className="banderita"><rect x="86" y="3" width="6" height="11" fill="#2E7D32" /><rect x="92" y="3" width="6" height="11" fill="#FFFFFF" stroke="#E0CDB0" strokeWidth=".5" /><rect x="98" y="3" width="6" height="11" fill="#C62828" /></g>
+        {balcones.map((x, j) => (
+          <g key={j}>
+            <rect className={j < lit ? "luz" : undefined} x={x} y="94" width="18" height="26" rx="2" fill={j < lit ? LIT : OFF} stroke="#7A3E0B" strokeWidth="2" />
+            <path d={`M${x - 4} 122 h26 M${x - 4} 130 h26 M${x - 4} 122 v8 M${x + 22} 122 v8 M${x + 9} 122 v8`} stroke="#2B1B12" strokeWidth="1.6" />
+          </g>
+        ))}
+        {arcos.map((x, j) => <path key={j} d={`M${x} 200 V164 Q${x + 13} 148 ${x + 26} 164 V200`} fill="#E8D6B8" stroke="#C9B79F" strokeWidth="2" />)}
+        <rect className="guard" x="10" y={200 - gH} width="150" height={gH} fill={guard} style={{ ["--d" as string]: d }} />
+        <path d="M72 200 V162 Q85 146 98 162 V200 Z" fill="#7A3E0B" stroke="#4A2A10" strokeWidth="2" /><path d="M85 154 V200" stroke="#4A2A10" strokeWidth="1.5" />
         {aviso && <Aviso x={78} y={168} />}
       </svg>
     );
@@ -246,7 +254,7 @@ function Casa({ n, i, on, onPick }: { n: EnvNode; i: number; on: boolean; onPick
     <button className={`casa${on ? " on" : ""}`} style={{ ["--d" as string]: d }} onClick={onPick} aria-pressed={on} aria-label={label}>
       {dibujo}
       <span className="rot">{n.name}</span>
-      <span className="small">{parroquia ? t("in charge") : (n.roles?.length ? n.roles.join(", ") : t("worker"))}</span>
+      <span className="small">{presidencia ? t("in charge") : (n.roles?.length ? n.roles.join(", ") : t("worker"))}</span>
     </button>
   );
 }

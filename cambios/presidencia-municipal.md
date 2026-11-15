@@ -1,0 +1,1 @@
+- **Environment:** on the street of nodes, the control plane is drawn as the presidencia municipal (portales, a clock tower and a flag) instead of a parroquia: nothing religious in the app.
