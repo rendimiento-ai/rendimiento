@@ -1,0 +1,1 @@
+- **Problems:** a failure of work rendimiento retries by itself (an App reconciled again, the leader lease, calls to GitHub, background loops) is marked resolved after 30 minutes without failing again, instead of staying open until it ages out.

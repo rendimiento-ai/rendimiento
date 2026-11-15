@@ -10,7 +10,7 @@ Outages of your apps are not problems: they're on each app's [Reliability tab](r
 - Each problem has its **level** (warning or error), its **message** and the error it reported, the **app** it concerns (if any), and the **part of the platform** that reported it.
 - **Repeats are grouped.** The same problem happening again (even with a different commit or number in it) adds to its count: *"40 times since 2:10 PM, last 3 min ago"*. A **strip of the last 30 days** lights up the days it happened (hover a day for how many times); the platform counts them by day (UTC) since this page was added, so older problems show only their last day.
 - A problem is **open** for 24 hours after it last happened, unless it is **resolved** or **dismissed** first:
-    - **Resolved** means rendimiento saw proof it's fixed, and says what: a rejected `rendimiento.yaml` is resolved by the next push accepted on the same branch (*"fixed by c6eae54"*), a failed email by the next email sent.
+    - **Resolved** means rendimiento saw proof it's fixed, and says what: a rejected `rendimiento.yaml` is resolved by the next push accepted on the same branch (*"fixed by c6eae54"*), a failed email by the next email sent, and a failure of work rendimiento retries by itself (an App the controller reconciles again, a lease it renews, a call to GitHub or a loop that runs again) by 30 minutes without failing again (*"it was tried again and has not failed for 30 minutes"*). A failure that happens once, such as a release rolled back, stays open until it ages out or is dismissed.
     - **Dismiss** hides a problem by hand.
     - Either way, it reopens if it happens again.
 - Problems are kept for **30 days** after they last happened.
