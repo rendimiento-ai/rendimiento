@@ -4,6 +4,7 @@ import { api, dollars, duration, session, subscribe, timeAgo, type App, type Dia
 import { ErrorBox, RunBadge } from "../components/ui";
 import { lang, t, tn } from "../i18n";
 import { TextoConFormato } from "../components/texto";
+import { Rama } from "../components/lo-ultimo";
 
 /** A run's page: why it failed, its steps with when each ran, live as they go, and the log of the step chosen. */
 export function RunPage() {
@@ -72,7 +73,7 @@ export function RunPage() {
         )}
       </div>
       <p className="sub">
-        <span className="mono">{run.sha.slice(0, 7)}</span> {t("on")} <strong>{run.branch}</strong> · {t(run.event)}
+        <span className="mono">{run.sha.slice(0, 7)}</span> {t("on")} <strong>{app ? <Rama repo={app.repo} branch={run.branch} className="" /> : run.branch}</strong> · {t(run.event)}
         {run.deploy ? ` · ${t("deploys on success")}` : ` · ${t("build only")}`} · {timeAgo(run.createdAt)}
         {run.startedAt && ` · ${duration(run.startedAt, run.finishedAt)}`}
         {run.message && ` · ${run.message}`}

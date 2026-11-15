@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { api, type App, type Reliability, type Visits } from "../api";
+import { api, isLibrary, type App, type Reliability, type Visits } from "../api";
+import { LoUltimo } from "./lo-ultimo";
 import { usePoll } from "./ui";
 import { locale, t, tn } from "../i18n";
 
@@ -53,8 +54,9 @@ const palabra: Record<Floracion, string> = { brote: "Not live yet", abierta: "It
 
 /**
  * The glance at an app, for whoever does not need the technical side: a cempasúchil that blooms while the app runs, a
- * hummingbird while an agent works on it, a sentence of what changed, its visits and its week, and what it needs of you, only
- * when it needs something. The details stay a tap further.
+ * hummingbird while an agent works on it, a sentence of what changed, its addresses, its visits and its week, its diary, and
+ * what it needs of you, only when it needs something. While its numbers are missing, the steps that bring them stand in
+ * their place. The details stay a tap further.
  */
 export function Vistazo({ app }: { app: App }) {
   const name = app.name;
@@ -73,46 +75,103 @@ export function Vistazo({ app }: { app: App }) {
   const fallo = app.lastRun?.deploy && app.lastRun.status === "failed";
   return (
     <section className="vistazo">
-      <div className="vistazo-flor">
-        <FlorGrande estado={flor} colibri={trabajando} />
-        <div>
-          <div className={`vistazo-palabra ${flor}`}>{t(palabra[flor])}</div>
-          {frase && <p className="vistazo-frase">{frase}</p>}
-          {trabajando && <p className="vistazo-agente">{t("An agent is working on it. You don't need to do anything.")}</p>}
-        </div>
-      </div>
-
-      <div className="vistazo-datos">
-        {sem.enLinea !== undefined && <Anillo parte={sem.enLinea} />}
-        <div className="vistazo-semana">
-          <div className="small muted">{t("This week, day by day")}</div>
-          <div className="vistazo-dias" role="img" aria-label={sem.dias.map((d) => `${diaCorto(d.day)}: ${t(estadoDia[d.estado])}`).join(", ")}>
-            {sem.dias.map((d) => <span key={d.day} className={`vistazo-dia ${d.estado}`} title={`${diaCorto(d.day)}: ${t(estadoDia[d.estado])}`}><i />{diaCorto(d.day).slice(0, 2)}</span>)}
+      <div className="vistazo-izq">
+        <div className="vistazo-flor">
+          <FlorGrande estado={flor} colibri={trabajando} />
+          <div>
+            <div className={`vistazo-palabra ${flor}`}>{t(palabra[flor])}</div>
+            {frase && <p className="vistazo-frase">{frase}</p>}
+            {trabajando && <p className="vistazo-agente">{t("An agent is working on it. You don't need to do anything.")}</p>}
           </div>
-          {malDia && <div className="small muted">{t(malDia.estado === "caida" ? "On {day} it did not answer for a while." : "On {day} it was slow for a while.", { day: diaLargo(malDia.day) })}</div>}
+        </div>
+        <Enlaces app={app} />
+        <div className="vistazo-chips">
+          {sem.respuestaMs !== undefined && <span className="chip"><b>{respuesta(sem.respuestaMs)}</b> {t("to answer")}</span>}
+          <span className="chip"><b>{cambios}</b> {tn(cambios, "change this week", "changes this week")}</span>
         </div>
       </div>
 
-      <Visitas vis={vis} />
-
-      <div className="vistazo-chips">
-        {sem.respuestaMs !== undefined && <span className="chip"><b>{respuesta(sem.respuestaMs)}</b> {t("to answer")}</span>}
-        <span className="chip"><b>{cambios}</b> {tn(cambios, "change this week", "changes this week")}</span>
-      </div>
-
-      {(porRevisar > 0 || fallo) && (
-        <div className="vistazo-usted">
-          <strong>{t("For you")}</strong>
-          {fallo && <Link to={`/apps/${name}/runs/${app.lastRun!.id}`}>{t("The last publication failed: see why")}</Link>}
-          {porRevisar > 0 && <Link to="/ruta?tab=encargos">{tn(porRevisar, "An agent finished something for you to review", "{n} things agents finished wait for your review")}</Link>}
+      <div className="vistazo-der">
+        <div className="vistazo-datos">
+          {sem.enLinea !== undefined && <Anillo parte={sem.enLinea} />}
+          <div className="vistazo-semana">
+            <div className="small muted">{t("This week, day by day")}</div>
+            <div className="vistazo-dias" role="img" aria-label={sem.dias.map((d) => `${diaCorto(d.day)}: ${t(estadoDia[d.estado])}`).join(", ")}>
+              {sem.dias.map((d) => <span key={d.day} className={`vistazo-dia ${d.estado}`} title={`${diaCorto(d.day)}: ${t(estadoDia[d.estado])}`}><i />{diaCorto(d.day).slice(0, 2)}</span>)}
+            </div>
+            {malDia && <div className="small muted">{t(malDia.estado === "caida" ? "On {day} it did not answer for a while." : "On {day} it was slow for a while.", { day: diaLargo(malDia.day) })}</div>}
+          </div>
         </div>
-      )}
+
+        <Visitas vis={vis} />
+
+        {(porRevisar > 0 || fallo) && (
+          <div className="vistazo-usted">
+            <strong>{t("For you")}</strong>
+            {fallo && <Link to={`/apps/${name}/runs/${app.lastRun!.id}`}>{t("The last publication failed: see why")}</Link>}
+            {porRevisar > 0 && <Link to="/ruta?tab=encargos">{tn(porRevisar, "An agent finished something for you to review", "{n} things agents finished wait for your review")}</Link>}
+          </div>
+        )}
+
+        <Pasos app={app} conRevisiones={sem.enLinea !== undefined} vis={vis} />
+
+        <div className="vistazo-diario">
+          <div className="small muted">{t("The latest")}</div>
+          <LoUltimo app={app} n={5} plain />
+        </div>
+      </div>
 
       <div className="vistazo-pie">
         <Link to={`/apps/${name}/mesa`} className="vistazo-mas">{t("See the details →")}</Link>
         <label className="small muted"><input type="checkbox" checked={tecnicoPrimero()} onChange={(e) => ponerTecnico(e.target.checked)} /> {t("Show me the technical side first")}</label>
       </div>
     </section>
+  );
+}
+
+/** Where the app answers: each service's address (its domain, or on the network at home), without repeats. */
+function Enlaces({ app }: { app: App }) {
+  const vistos = new Set<string>();
+  const enlaces = (app.status.services ?? []).flatMap((s) => [s.url, s.lanURL].filter((u): u is string => !!u).map((u) => ({ u, s: s.name })))
+    .filter(({ u }) => !vistos.has(u) && !!vistos.add(u));
+  if (enlaces.length === 0) return null;
+  const varios = new Set(enlaces.map((e) => e.s)).size > 1;
+  return (
+    <ul className="vistazo-enlaces" aria-label={t("Where it answers")}>
+      {enlaces.map(({ u, s }) => (
+        <li key={u}><a href={u} target="_blank" rel="noreferrer">{u.replace(/^https?:\/\//, "").replace(/\/$/, "")} ↗</a>{varios && <span className="small muted"> · {s}</span>}</li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * What the app is missing for its glance to tell more, each with the way to get it. A step leaves when it is done, and
+ * the whole card leaves with the last one, so an app that has its numbers never sees it.
+ */
+function Pasos({ app, conRevisiones, vis }: { app: App; conRevisiones: boolean; vis?: Visits }) {
+  const base = `/apps/${app.name}`;
+  if (isLibrary(app.spec) || !app.status.release) return null;
+  const pasos: { id: string; marca: string; titulo: string; texto: string; ir?: { to: string; label: string } }[] = [];
+  if (!conRevisiones) pasos.push({ id: "revisiones", marca: "Next", titulo: "Knowing whether it answers", texto: "A check every minute fills in the days of the week and the ring. They start by themselves once it is published.", ir: { to: `${base}/reliability`, label: "See its availability" } });
+  if (vis && (!vis.configured || vis.reports.length === 0)) pasos.push({ id: "visitas", marca: "Optional", titulo: "Counting visits", texto: "Without cookies. The week's bars appear here.", ir: { to: `${base}/visits`, label: "How to turn them on" } });
+  if (!app.spec.previews) pasos.push({ id: "copias", marca: "Try it", titulo: "Seeing a change before merging it", texto: "Add previews: {} to rendimiento.yaml, and each pull request gets its own live copy." });
+  if (pasos.length === 0) return null;
+  return (
+    <div className="vistazo-pasos">
+      <div className="small muted">{t("For its flower to tell you more")}</div>
+      <div className="vistazo-pasos-lista">
+        <div className="vistazo-paso hecho"><span className="marca">✓ {t("Done")}</span><strong>{t("Published")}</strong><span className="small muted">{t("Release #{n} is live.", { n: app.status.release })}</span></div>
+        {pasos.map((p) => (
+          <div key={p.id} className="vistazo-paso">
+            <span className="marca">{t(p.marca)}</span>
+            <strong>{t(p.titulo)}</strong>
+            <span className="small muted">{t(p.texto)}</span>
+            {p.ir && <Link to={p.ir.to} className="small">{t(p.ir.label)} →</Link>}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
