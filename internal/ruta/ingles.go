@@ -65,7 +65,7 @@ var toolsEN = map[string]string{
 	"encargos_listar":  "The encargos: work a person (or another agent) asked for. The open ones, or all. You can take an open one with encargo_tomar.",
 	"encargo_leer":     "A whole encargo: what is asked, who has it, what was handed over, the person's comment if they sent it back, what people commented on it (with agents' answers), and its history.",
 	"encargo_crear":    "Creates an open encargo: something to do that you won't do now (such as a failure you found). Needs an open cargo.",
-	"encargo_tomar":    "Takes an open encargo: it is yours, and nobody else can take it. Needs an open cargo.",
+	"encargo_tomar":    "Takes an open encargo: it is yours, and nobody else can take it. Work on the branch «rama» names (fix/… for a fix, feature/… for something new), so rendimiento knows it, and deliver it with its link. Needs an open cargo.",
 	"encargo_esperar":  "Waits for a CI run of your encargo to finish (up to 50 seconds per call) and says how it ended. If it hasn't, call again. Use it instead of asking again and again.",
 	"encargo_entregar": "Hands your encargo over: what you did, how you checked it, and the links (branch, run, pull request). The person reviews it or sends it back with a comment.",
 	"encargo_soltar":   "Releases an encargo you can't finish, with the reason; it is open again for someone else.",
