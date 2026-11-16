@@ -38,7 +38,7 @@ test("a run's steps: the race, then the threads, and a step's log", async ({ pag
   // The race first: a lane per step, the place it arrived in.
   await expect(pasos.getByRole("button", { name: es ? "La carrera" : "The race" })).toHaveAttribute("aria-pressed", "true");
   await expect(pasos.locator(".carrera-carril")).toHaveCount(6);
-  await expect(pasos.locator(".carrera-carril", { hasText: "web:build" })).toContainText(es ? "1.º" : "1st");
+  await expect(pasos.locator('.carrera-carril[aria-label^="web:build,"]')).toContainText(es ? "1.º" : "1st");
   await expect(pasos.locator(".carrera-carril.vivo")).toHaveCount(1);
 
   // The threads: three leave from the change, and three steps start at a knot.
