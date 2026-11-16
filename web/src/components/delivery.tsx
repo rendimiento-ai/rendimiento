@@ -223,6 +223,7 @@ export function DeliveryPanel() {
       <Days days={data.current.deploysPerDay} />
       <details>
         <summary className="small muted">{t("Weekly numbers")}</summary>
+        <div className="table-wrap">
         <table className="dlv-table">
           <thead>
             <tr><th>{t("Week")}</th><th>{t("Deploys")}</th><th>{t("Lead time")}</th><th>{t("Change failure rate")}</th><th>{t("Outages")}</th><th>{t("Time to recover")}</th></tr>
@@ -240,6 +241,7 @@ export function DeliveryPanel() {
             ))}
           </tbody>
         </table>
+        </div>
       </details>
     </section>
   );
