@@ -29,6 +29,60 @@ type Opinion struct {
 	Borrador  string          `json:"borrador,omitempty"`
 	Respuesta string          `json:"respuesta,omitempty"`
 	CreatedAt time.Time       `json:"createdAt"`
+	// What the platform's AI made of it: what it matches ("libro:guide/ai/",
+	// "ruta:105", "opinion:7"), the earlier comment it groups with, when it
+	// was classified, and why it could not be ("" when it was).
+	Coincidencias []string   `json:"coincidencias"`
+	Grupo         *int64     `json:"grupo,omitempty"`
+	ClasificadaAt *time.Time `json:"clasificadaAt,omitempty"`
+	IAError       string     `json:"iaError,omitempty"`
+}
+
+// The classes of decision 145.
+const (
+	ClaseYaExiste   = "ya_existe"
+	ClaseNuevo      = "nuevo"
+	ClaseFalla      = "falla"
+	ClaseSinSentido = "sin_sentido"
+)
+
+// Clasificacion is what the platform's AI made of a comment, or why it
+// could not (Error).
+type Clasificacion struct {
+	Clase, Resumen, Borrador string
+	Coincidencias            []string
+	Grupo                    *int64
+	Error                    string
+}
+
+// GuardarClasificacion keeps what the AI made of a comment. A comment is
+// classified once; a person may change it later.
+func (s *Store) GuardarClasificacion(ctx context.Context, id int64, c Clasificacion) error {
+	if c.Coincidencias == nil {
+		c.Coincidencias = []string{}
+	}
+	co, _ := json.Marshal(c.Coincidencias)
+	tag, err := s.pool.Exec(ctx, `UPDATE opiniones SET clase = $2, resumen = $3, borrador = $4, coincidencias = $5, grupo = $6,
+		ia_error = $7, clasificada_at = now() WHERE id = $1`, id, c.Clase, c.Resumen, c.Borrador, co, c.Grupo, c.Error)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// OpinionesSinClasificar are the comments the AI has not looked at yet,
+// oldest first.
+func (s *Store) OpinionesSinClasificar(ctx context.Context, limite int) ([]Opinion, error) {
+	return s.opiniones(ctx, `WHERE clasificada_at IS NULL ORDER BY id LIMIT $1`, limite)
+}
+
+// OpinionesClasificadas are the latest comments the AI classified, newest
+// first: what a new one may group with.
+func (s *Store) OpinionesClasificadas(ctx context.Context, limite int) ([]Opinion, error) {
+	return s.opiniones(ctx, `WHERE clasificada_at IS NOT NULL AND resumen <> '' ORDER BY id DESC LIMIT $1`, limite)
 }
 
 // Where a comment comes from.
@@ -125,8 +179,12 @@ func (s *Store) salOpiniones(ctx context.Context) (string, error) {
 // Comentarios are the comments kept here, newest first (limite at most),
 // without the emails: those only go out with an answer.
 func (s *Store) Opiniones(ctx context.Context, limite int) ([]Opinion, error) {
-	rows, err := s.pool.Query(ctx, `SELECT id, origen, texto, idioma, nombre, datos, estado, clase, resumen, borrador, respuesta, created_at
-		FROM opiniones ORDER BY created_at DESC, id DESC LIMIT $1`, limite)
+	return s.opiniones(ctx, `ORDER BY created_at DESC, id DESC LIMIT $1`, limite)
+}
+
+func (s *Store) opiniones(ctx context.Context, where string, args ...any) ([]Opinion, error) {
+	rows, err := s.pool.Query(ctx, `SELECT id, origen, texto, idioma, nombre, datos, estado, clase, resumen, borrador, respuesta, created_at,
+		coincidencias, grupo, clasificada_at, ia_error FROM opiniones `+where, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -134,8 +192,13 @@ func (s *Store) Opiniones(ctx context.Context, limite int) ([]Opinion, error) {
 	out := []Opinion{}
 	for rows.Next() {
 		var c Opinion
-		if err := rows.Scan(&c.ID, &c.Origen, &c.Texto, &c.Idioma, &c.Nombre, &c.Datos, &c.Estado, &c.Clase, &c.Resumen, &c.Borrador, &c.Respuesta, &c.CreatedAt); err != nil {
+		var co []byte
+		if err := rows.Scan(&c.ID, &c.Origen, &c.Texto, &c.Idioma, &c.Nombre, &c.Datos, &c.Estado, &c.Clase, &c.Resumen, &c.Borrador, &c.Respuesta, &c.CreatedAt,
+			&co, &c.Grupo, &c.ClasificadaAt, &c.IAError); err != nil {
 			return nil, err
+		}
+		if json.Unmarshal(co, &c.Coincidencias) != nil || c.Coincidencias == nil {
+			c.Coincidencias = []string{}
 		}
 		out = append(out, c)
 	}

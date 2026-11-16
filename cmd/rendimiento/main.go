@@ -695,6 +695,12 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 			Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "agents")}
 		coder.AlEntregar = p.PullsForDelivery
 		est := &agentes.Estimator{Store: st, Model: srv.IA, Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "agents")}
+		// Where comments are received (rendimiento.ai), the platform's AI
+		// sorts each one and drafts its answer, for a person to send.
+		var clas *agentes.Clasificador
+		if srv.SenalesRecibir {
+			clas = &agentes.Clasificador{Store: st, Model: srv.IA, BookURL: os.Getenv("BOOK_URL"), Log: log.With("component", "agents")}
+		}
 		go func() {
 			release, err := st.LockAgents(ctx, 5*time.Second)
 			if err != nil {
@@ -704,6 +710,9 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 			log.Info("starting the agents: the diagnostician, the estimator and the coding agent")
 			go est.Run(ctx)
 			go coder.Run(ctx)
+			if clas != nil {
+				go clas.Run(ctx)
+			}
 			diag.Run(ctx)
 		}()
 	}
