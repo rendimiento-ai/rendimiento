@@ -3,7 +3,7 @@
 // peeks from the bottom with the first pages and the edge of the rest, so
 // nothing hides behind a button; its handle raises it to every page, then
 // to the account and preferences.
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { t } from "../i18n";
 
@@ -89,8 +89,60 @@ export function Hoja({ altura, poner, paginas, cuenta }: { altura: Altura; poner
     return () => { window.removeEventListener("scroll", bajar); window.removeEventListener("keydown", tecla); };
   }, [altura, poner]);
   const que = altura === 0 ? t("Show every page") : altura === 1 ? t("Show your account and preferences") : t("Lower the menu");
+
+  // Dragging the sheet with a finger, from anywhere on it: it follows, and on
+  // release settles on the nearest of its three heights (a clear flick moves
+  // it one step that way). A touch that did not move is a tap, as before.
+  const caja = useRef<HTMLDivElement>(null);
+  const gesto = useRef<{ y: number; x: number; alto: number; arrastra: boolean; id: number } | undefined>(undefined);
+  const arrastro = useRef(false);
+  const alturas = () => {
+    const el = caja.current!;
+    const prev = el.style.height;
+    el.style.height = "";
+    const medir = (a: Altura) => { el.dataset.altura = String(a); return el.getBoundingClientRect().height; };
+    const hs = [medir(0), medir(1), medir(2)];
+    el.dataset.altura = String(altura);
+    el.style.height = prev;
+    return hs;
+  };
+  const baja = (e: React.PointerEvent) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    arrastro.current = false;
+    gesto.current = { y: e.clientY, x: e.clientX, alto: caja.current!.getBoundingClientRect().height, arrastra: false, id: e.pointerId };
+  };
+  const mueve = (e: React.PointerEvent) => {
+    const g = gesto.current;
+    const el = caja.current;
+    if (!g || !el || e.pointerId !== g.id) return;
+    const dy = e.clientY - g.y;
+    if (!g.arrastra) {
+      if (Math.abs(dy) < 8 || Math.abs(dy) < Math.abs(e.clientX - g.x)) return;
+      g.arrastra = true;
+      arrastro.current = true;
+      try { el.setPointerCapture(g.id); } catch { /* the pointer is gone already: the moves still reach the sheet */ }
+      el.classList.add("arrastrando");
+    }
+    const [min, , max] = alturas();
+    el.style.height = `${Math.max(min, Math.min(max, g.alto - dy))}px`;
+  };
+  const suelta = (e: React.PointerEvent) => {
+    const g = gesto.current;
+    const el = caja.current;
+    gesto.current = undefined;
+    if (!g || !el || !g.arrastra) return;
+    const dy = e.clientY - g.y;
+    const hs = alturas();
+    const ahora = g.alto - dy;
+    let a = hs.reduce((mejor, h, i) => (Math.abs(h - ahora) < Math.abs(hs[mejor] - ahora) ? i : mejor), 0);
+    if (a === altura && Math.abs(dy) > 24) a = Math.max(0, Math.min(2, altura + (dy < 0 ? 1 : -1)));
+    el.classList.remove("arrastrando");
+    el.style.height = "";
+    poner(a as Altura);
+  };
   return (
-    <div className="menu-hoja" data-altura={altura}>
+    <div className="menu-hoja" data-altura={altura} ref={caja} onPointerDown={baja} onPointerMove={mueve} onPointerUp={suelta} onPointerCancel={suelta}
+      onClickCapture={(e) => { if (arrastro.current) { arrastro.current = false; e.preventDefault(); e.stopPropagation(); } }}>
       <button type="button" className="menu-hoja-agarradera" aria-expanded={altura > 0} title={que} onClick={() => poner(((altura + 1) % 3) as Altura)}>
         <span className="sr-only">{que}</span>
       </button>

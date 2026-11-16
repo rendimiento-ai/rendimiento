@@ -81,6 +81,20 @@ test("on a phone the menu is a sheet that peeks from the bottom", async ({ page,
   await expect(hoja.locator(".menu-hoja-cuenta button").last()).toBeInViewport(); // Sign out
   await enlaces.nth(1).click();
   await expect(hoja, "a page's link lowers it").toHaveAttribute("data-altura", "0");
+  // Dragging it up with a finger raises it; dragging it down lowers it.
+  const caja = (await hoja.boundingBox())!;
+  const arrastra = async (desde: number, hasta: number) => {
+    const x = caja.x + caja.width / 2;
+    await hoja.dispatchEvent("pointerdown", { pointerId: 7, pointerType: "touch", button: 0, clientX: x, clientY: desde, bubbles: true });
+    for (const y of [desde + (hasta - desde) / 3, desde + ((hasta - desde) * 2) / 3, hasta]) {
+      await hoja.dispatchEvent("pointermove", { pointerId: 7, pointerType: "touch", clientX: x, clientY: y, bubbles: true });
+    }
+    await hoja.dispatchEvent("pointerup", { pointerId: 7, pointerType: "touch", clientX: x, clientY: hasta, bubbles: true });
+  };
+  await arrastra(caja.y + 40, caja.y - 30);
+  await expect(hoja, "dragged up").toHaveAttribute("data-altura", "1");
+  await arrastra(700, 800);
+  await expect(hoja, "dragged down").toHaveAttribute("data-altura", "0");
   await page.locator("button.topbar-yo").click();
   await expect(hoja).toHaveAttribute("data-altura", "2");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
