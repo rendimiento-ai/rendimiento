@@ -1,0 +1,1 @@
+- **Phone:** on an app's page the steps' labels («Try it», «✓ Done») no longer spill over their titles; Environment's «Updating…» notice wraps inside the bando instead of widening the page; the weekly numbers table scrolls inside its card.

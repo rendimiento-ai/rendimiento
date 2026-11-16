@@ -326,6 +326,8 @@ ul.reasons { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size
 .bando a{color:#8E1B2C}
 .publicada-notas{flex-basis:100%;margin:0;padding-left:1.1rem}
 .bando .muted,.bando .small{color:#4A3628}
+/* A long notice wraps inside the bando instead of pushing the page wider than the phone. */
+.bando .badge{white-space:normal;max-width:100%;line-height:1.35}
 .bando-titulo{flex-basis:100%;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#8E1B2C}
 @keyframes bando-pega{from{opacity:0;transform:rotate(-3deg) translateY(-10px)}}
 .sello{display:inline-block;border:3px solid #8E1B2C;color:#8E1B2C;background:transparent;border-radius:10px;padding:8px 16px;min-height:44px;font-weight:800;cursor:pointer;transform:rotate(-3deg);transition:transform .15s}
@@ -1553,7 +1555,8 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .vistazo-pasos { display: flex; flex-direction: column; gap: 8px; }
 .vistazo-pasos-lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
 .vistazo-paso { display: flex; flex-direction: column; gap: 4px; background: var(--bg); border: 1px dashed var(--border); border-radius: 14px; padding: 12px; }
-.vistazo-paso .marca { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--warn); }
+/* Its label, not the colored dot the global .marca draws: on a phone the dot's 10px box made the text spill over the title. */
+.vistazo-paso .marca { width: auto; height: auto; border-radius: 0; background: none; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--warn); }
 .vistazo-paso.hecho { border-style: solid; opacity: .8; }
 .vistazo-paso.hecho .marca { color: var(--nopal); }
 .vistazo-diario { display: flex; flex-direction: column; gap: 10px; }
