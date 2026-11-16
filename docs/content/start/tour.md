@@ -19,6 +19,8 @@ flowchart TB
     add --> det[Add-on page /addons/:name]
 ```
 
+The band at the foot of every page says which rendimiento answers, for anyone signed in: its version (or the commit it was built from), the system its program is for, and whether it runs on a computer or on a Kubernetes cluster, as in `v0.2.1 · Linux arm64 · on a computer`. Give that line when you report something.
+
 ## Apps
 
 The home page lists every app with its phase (*Healthy*, *Progressing*, *Degraded*, *Waiting for first build*…), its latest run and its public addresses. Phases update live.

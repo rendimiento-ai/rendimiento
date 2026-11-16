@@ -325,6 +325,10 @@ export interface Me {
   cluster: boolean; // false on a computer without Kubernetes: no Environment, Services or Add-ons
   mercado?: boolean; // the Mercado is set up here (reached from the Apps page)
   appPrefix?: string; // what this organization's app names begin with ("" in the platform's)
+  version?: string; // the rendimiento that answers: a release ("0.2.1") or the commit it was built from
+  modo?: "local" | "kubernetes"; // on a computer, or on a cluster
+  os: string; // the system its program was built for (Go's GOOS: linux, windows, darwin)
+  arch: string; // and the processor (GOARCH: amd64, arm64)
 }
 
 // A demo link (internal/store.DemoLink): a secret address that opens a

@@ -19,6 +19,8 @@ flowchart TB
     add --> det[Página del complemento /addons/:name]
 ```
 
+La franja al pie de cada página dice qué rendimiento contesta, a cualquiera con sesión: su versión (o la confirmación de la que se construyó), el sistema para el que es su programa, y si corre en una computadora o en un clúster de Kubernetes, como en `v0.2.1 · Linux arm64 · en una computadora`. Dé esa línea cuando reporte algo.
+
 ## Aplicaciones {#apps}
 
 La página de inicio enumera cada aplicación con su fase (*Saludable*, *En curso*, *Degradado*, *Esperando la primera construcción*…), su última ejecución y sus direcciones públicas. Las fases se actualizan en vivo.

@@ -27,7 +27,7 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 
 | Method | Path | Does |
 |---|---|---|
-| GET | `/api/me` | the signed-in login |
+| GET | `/api/me` | the signed-in login, and which rendimiento answers: `version`, `modo` (`local` or `kubernetes`), `os`, `arch` |
 | GET | `/api/installations` | GitHub App installations |
 | GET | `/api/installations/{id}/repos` | repositories of an installation |
 | POST | `/api/installations/{id}/connect` | connect the GitHub App on your own GitHub account to your organization ([GitHub accounts](../guide/members.md#github-accounts)) |

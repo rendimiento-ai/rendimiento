@@ -101,11 +101,32 @@ export function Cielo() {
   return <div className="cielo" aria-hidden="true"><span className="luna" /></div>;
 }
 
-/** The guardapolvo band at the foot of every page. */
-export function Guardapolvo() {
+/** Which rendimiento runs here, as the foot of every page says it. */
+export interface Sistema {
+  version?: string;
+  modo?: "local" | "kubernetes";
+  os: string;
+  arch: string;
+}
+
+const sistemas: Record<string, string> = { linux: "Linux", windows: "Windows", darwin: "macOS" };
+
+/** "v0.2.1 · Linux arm64 · on a computer": the release (or the commit it was built from), the system and how it runs. */
+export function queCorre(s: Sistema): string {
+  const v = s.version ?? "";
+  const version = /^\d+\.\d+/.test(v) ? "v" + v
+    : /^[0-9a-f]{7,40}$/.test(v) ? t("commit {sha}", { sha: v.slice(0, 7) })
+    : v || t("unknown version");
+  const donde = s.modo === "kubernetes" ? t("on a Kubernetes cluster") : s.modo === "local" ? t("on a computer") : "";
+  return [version, `${sistemas[s.os] ?? s.os} ${s.arch}`, donde].filter(Boolean).join(" · ");
+}
+
+/** The guardapolvo band at the foot of every page, with which rendimiento runs here. */
+export function Guardapolvo({ sistema }: { sistema?: Sistema }) {
   return (
     <footer className="guardapolvo">
       <span>rendimiento · {t("gives your code life")}</span>
+      {sistema && <span className="que-corre" title={t("The rendimiento that answers here")}>{queCorre(sistema)}</span>}
     </footer>
   );
 }
