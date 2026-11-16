@@ -29,7 +29,7 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 
 | Método | Ruta | Hace |
 |---|---|---|
-| GET | `/api/me` | la cuenta con la sesión iniciada |
+| GET | `/api/me` | la cuenta con la sesión iniciada, y qué rendimiento contesta: `version`, `modo` (`local` o `kubernetes`), `os`, `arch` |
 | GET | `/api/installations` | las instalaciones de la aplicación de GitHub |
 | GET | `/api/installations/{id}/repos` | los repositorios de una instalación |
 | POST | `/api/installations/{id}/connect` | conectar a su organización la aplicación de GitHub de su propia cuenta de GitHub ([Cuentas de GitHub](../guide/members.md#github-accounts)) |

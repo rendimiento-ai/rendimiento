@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -30,11 +31,20 @@ type Me struct {
 	// (its address and a dash); empty in the platform's organization, whose
 	// apps keep the name they are given.
 	AppPrefix string `json:"appPrefix,omitempty"`
+	// Version is the rendimiento that answers (a release, or the commit it
+	// was built from), Modo how it runs ("local": a computer; "kubernetes":
+	// a cluster), and OS and Arch the system its program was built for. The
+	// foot of every page shows them, so anyone can say what they run.
+	Version string `json:"version,omitempty"`
+	Modo    string `json:"modo,omitempty"`
+	OS      string `json:"os"`
+	Arch    string `json:"arch"`
 }
 
 // me is the signed-in person, for the top bar.
 func (s *Server) me(w http.ResponseWriter, r *http.Request, login string) {
-	out := Me{Login: login, Role: roleOf(r), Demo: store.IsDemoLogin(login), Cluster: s.Kube != nil, Mercado: s.Mercado != nil}
+	out := Me{Login: login, Role: roleOf(r), Demo: store.IsDemoLogin(login), Cluster: s.Kube != nil, Mercado: s.Mercado != nil,
+		Version: s.Version, Modo: s.Modo, OS: runtime.GOOS, Arch: runtime.GOARCH}
 	o, err := s.Store.GetOrg(r.Context(), orgOf(r))
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
