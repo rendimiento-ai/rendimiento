@@ -658,14 +658,11 @@ textarea.code { width: 100%; min-height: 280px; font-family: var(--mono); font-s
   display: inline-block; min-width: 18px; margin-left: 6px; padding: 0 5px; border-radius: 9px;
   background: var(--bad); color: var(--surface); font-size: 11px; font-weight: 600; line-height: 18px; text-align: center;
 }
-.problem-h { font-size: 15px; margin: 0 0 4px; }
-.problem-detail { margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--idle-bg); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
 .problem-list { margin: 6px 0; padding-left: 18px; }
 .problem-list li { word-break: break-word; }
 .rel-filters label { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
 .rel-filters label select { width: auto; }
 .rel-filters input[type="checkbox"] { width: auto; margin: 0; }
-.problem-resolved { color: var(--ok); white-space: nowrap; }
 .lang-switch { font-weight: 600; font-size: 12px; letter-spacing: .04em; min-width: 40px; }
 /* The flag picker: the flag shows, and the native list of countries opens over it (components/marca.tsx). */
 .bandera-switch { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 30px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
@@ -679,16 +676,27 @@ textarea.code { width: 100%; min-height: 280px; font-family: var(--mono); font-s
 .problema-cuenta[aria-pressed="true"]{border-color:var(--text)}
 .problema-cuenta span{font-size:13px;font-weight:700;color:var(--muted)}
 .problema-cuenta b{font:800 30px/1.1 Fraunces,Georgia,serif}
-.problem{animation:problema-entra .4s ease both;animation-delay:var(--d);transition:opacity .35s,transform .35s}
-.problem.fuera{opacity:0;transform:translateX(30px)}
-.problem.resuelto{background:color-mix(in srgb,var(--ok) 6%,var(--card));border-color:color-mix(in srgb,var(--ok) 25%,var(--border))}
-@keyframes problema-entra{from{opacity:0;transform:translateY(8px)}}
 .dias{display:grid;grid-template-columns:repeat(30,minmax(0,1fr));gap:2px}
 .dias span{height:14px;border-radius:3px;background:var(--border)}
 .dias span.si{background:var(--c);animation:dias-late 2.4s ease-in-out infinite;animation-delay:var(--d)}
 @keyframes dias-late{50%{opacity:.6}}
 .dias-pie{display:flex;justify-content:space-between;margin-top:3px}
-@media (prefers-reduced-motion: reduce){.problem,.dias span.si{animation:none;transition:none}}
+@media (prefers-reduced-motion: reduce){.dias span.si{animation:none;transition:none}}
+/* Problems: the list on the left, the one chosen on the right (.lista-detalle). */
+.problemas .ld-lista{gap:2px}
+.problema-fila{align-items:flex-start;padding:10px}
+.problema-fila-texto{display:block;min-width:0;flex:1;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.problema-fila .ld-sub{white-space:normal;margin-top:2px}
+.problema-detalle{gap:18px}
+.problema-titulo{font-size:24px;line-height:1.25;margin-top:10px}
+.problema-detalle .ld-sec p{margin:0 0 6px;line-height:1.5;overflow-wrap:anywhere}
+.problema-resuelto{color:var(--ok)}
+.problema-tecnico summary{cursor:pointer;color:var(--muted);font-size:13px}
+.problema-crudo{margin:8px 0;padding:8px 10px;border-radius:8px;background:var(--idle-bg);font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto}
+.problema-tecnico dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:8px 0 0}
+.problema-tecnico dt{color:var(--muted)}
+.problema-tecnico dd{margin:0;overflow-wrap:anywhere}
+@media (max-width:700px){.problema-detalle{padding:16px}.problema-titulo{font-size:21px}}
 
 /* ---- Cotija: roof, papel picado, night sky, guardapolvo ---- */
 :root { --cede-display: block; --farol-display: none; --cielo-display: none; --bg-image: none; }
