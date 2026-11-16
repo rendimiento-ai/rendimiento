@@ -30,6 +30,7 @@ import { Bienvenida, type BookLinks } from "./pages/Bienvenida";
 import { Avisos } from "./components/avisos";
 import { Campana } from "./components/campana";
 import { Dibujo, Hoja, useTelefono, type Altura } from "./components/navegacion";
+import { FallaFrontera, NoExiste } from "./components/falla";
 import "./styles.css";
 
 /**
@@ -124,6 +125,7 @@ function Shell() {
       </header>
       {telefono && <Hoja altura={altura} poner={setAltura} paginas={paginas} cuenta={cuenta} />}
       <main>
+        <FallaFrontera version={state.sistema?.version} org={state.org?.name}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/new" element={<NewApp />} />
@@ -149,8 +151,9 @@ function Shell() {
           <Route path="/apps/:name/:tab" element={<AppPage />} />
           <Route path="/apps/:name/runs/:id" element={<RunPage />} />
           <Route path="/setup" element={<Navigate to="/" />} />
-          <Route path="*" element={<div className="empty">{t("Page not found.")} <Link to="/">{t("Go home")}</Link></div>} />
+          <Route path="*" element={<NoExiste />} />
         </Routes>
+        </FallaFrontera>
       </main>
       <Avisos />
       <Guardapolvo sistema={state.sistema} />
