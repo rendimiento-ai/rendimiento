@@ -3420,7 +3420,8 @@ Package web embeds the built UI (npm run build → web/dist).
 
 | Name | Kind | Summary |
 |---|---|---|
-| `Logo` | component | rendimiento's mark: a pulse line. |
+| `Logo` | component | rendimiento's mark: the sun over the furrows, the worked field (it sways a little when the pointer is on it). |
+| `Semilla` | component | The seed that sprouts: the icon of the button that makes a new app (it sprouts on hover and focus). |
 | `LangSwitch` | component | EN/ES: shows the other language, in that language. |
 
 ### `web/src/components/reliability.tsx`

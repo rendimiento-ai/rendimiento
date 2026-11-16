@@ -2,15 +2,24 @@
 import { lang, locale, setLang, t } from "../i18n";
 import { BANDERAS, BanderaSVG, nombrePais, ponerBandera, useBandera } from "../banderas";
 
-/** rendimiento's mark: a pulse line, with a beat that runs along it (still when movement is off). */
+/** rendimiento's mark: the sun over the furrows, the worked field (it sways a little when the pointer is on it). */
 export function Logo() {
   return (
     <span className="logo" aria-hidden>
-      <svg width="20" height="20" viewBox="0 0 32 32">
-        <path className="logo-fondo" d="M3 17 L10 17 L13 9 L18 25 L21 17 L29 17" stroke="var(--accent-text)" strokeWidth="3.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        <path className="logo-latido" pathLength={100} d="M3 17 L10 17 L13 9 L18 25 L21 17 L29 17" stroke="var(--accent-text)" strokeWidth="3.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent-text)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 13a6 6 0 0 1 12 0M12 3v2M5 6l1.5 1.5M19 6l-1.5 1.5M2.5 12.5h2M19.5 12.5h2M3 16.5q9-3 18 0M3 20q9-3 18 0" />
       </svg>
     </span>
+  );
+}
+
+/** The seed that sprouts: the icon of the button that makes a new app (it sprouts on hover and focus). */
+export function Semilla() {
+  return (
+    <svg className="semilla" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <ellipse cx="12" cy="18" rx="4.2" ry="2.8" />
+      <path className="semilla-brote" d="M12 15.2V9M12 11c0-3 2-4.5 4.5-4.5C16.5 9.5 14.5 11 12 11M12 13c-2.5 0-4-1.5-4-4 2.5 0 4 1.5 4 4" />
+    </svg>
   );
 }
 
