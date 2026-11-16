@@ -13,6 +13,7 @@ func TestRamaDeEncargo(t *testing.T) {
 		{Encargo{ID: 25, Title: "Añadir «Quién entra»"}, "feature/encargo-25-anadir-quien-entra"},
 		{Encargo{ID: 25, Title: "¡¿?!"}, "feature/encargo-25"},
 		{Encargo{ID: 31, Title: "Arreglar la ejecución #1276", RunID: &run}, "fix/encargo-31-arreglar-la-ejecucion-1276"},
+		{Encargo{ID: 41, Title: "Resolve the conflict of comentarios-recibir", RunID: &run, RunBranch: "comentarios-recibir"}, "comentarios-recibir"},
 	} {
 		if got := RamaDeEncargo(c.e); got != c.want {
 			t.Errorf("RamaDeEncargo(%q) = %q, want %q", c.e.Title, got, c.want)

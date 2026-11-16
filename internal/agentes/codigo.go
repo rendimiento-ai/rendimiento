@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
+	"github.com/rendimiento-ai/rendimiento/internal/mezcla"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -49,6 +51,13 @@ type Repos interface {
 	BranchSHA(ctx context.Context, installation int64, repo, branch string) (string, error)
 	CreateBranch(ctx context.Context, installation int64, repo, branch, sha string) error
 	CommitFiles(ctx context.Context, installation int64, repo, branch, message string, files map[string][]byte, remove []string) (string, error)
+	// For merging the default branch into the encargo's (merge_default_branch):
+	// the commit both come from, the files each changed since, a file at a
+	// commit, and a merge commit with both as parents.
+	MergeBase(ctx context.Context, installation int64, repo, base, head string) (string, time.Time, error)
+	ChangedFiles(ctx context.Context, installation int64, repo, base, head string) ([]string, bool, error)
+	FileAt(ctx context.Context, installation int64, repo, path, ref string) ([]byte, error)
+	CommitMerge(ctx context.Context, installation int64, repo, branch, head, other, message string, files map[string][]byte, remove []string) (string, error)
 }
 
 // Coder is the platform's coding agent: it does encargos on a branch of the
@@ -148,22 +157,26 @@ func branchFor(e store.Encargo) string { return store.RamaDeEncargo(e) }
 // job is one encargo being done: the repository as it is on the branch
 // with what changed since the last commit, and what it spent.
 type job struct {
-	c        *Coder
-	e        store.Encargo
-	app      *store.App
-	key      store.AgentKey
-	branch   string
-	from     string // the branch it was made from: the default one, or the failed run's
-	same     bool   // it works on the failed run's branch itself: an encargo's branch
-	files    map[string][]byte
-	changed  map[string][]byte
-	removed  map[string]bool
-	spent    int64
-	budget   int64
-	lastSHA  string
-	lastRun  *store.Run
-	finished bool
-	outcome  string // delivered, gave back
+	c      *Coder
+	e      store.Encargo
+	app    *store.App
+	key    store.AgentKey
+	branch string
+	from   string // the branch it was made from: the default one, or the failed run's
+	same   bool   // it works on the failed run's branch itself
+	// merging is the default branch's commit a merge_default_branch joined,
+	// and mergeHead the branch's commit it joined it to: the next commit is
+	// a merge, with both as parents.
+	merging, mergeHead string
+	files              map[string][]byte
+	changed            map[string][]byte
+	removed            map[string]bool
+	spent              int64
+	budget             int64
+	lastSHA            string
+	lastRun            *store.Run
+	finished           bool
+	outcome            string // delivered, gave back
 }
 
 // Do does one encargo: takes it in a cargo, works on its branch, and
@@ -231,10 +244,11 @@ func (j *job) work(ctx context.Context) error {
 			j.from = run.Branch
 		}
 	}
-	// A fix of an encargo's branch goes on that branch, not on a copy of it:
-	// its pull request is the one to merge. A person's branch is theirs; the
-	// fix goes on a branch of its own, made from it.
-	if j.from != app.DefaultBranch && store.EncargoOfBranch(j.from) != 0 {
+	// A fix of a branch that is not the default one goes on that branch,
+	// not on a copy of it (Ruta 130): the fix stays where the problem is,
+	// and its pull request is tested again by itself. Only a failure of the
+	// default branch gets a branch of its own, since nobody pushes to it.
+	if j.from != app.DefaultBranch {
 		j.branch, j.same = j.from, true
 	} else {
 		base, err := c.Repos.BranchSHA(ctx, app.InstallationID, app.Repo, j.from)
@@ -291,7 +305,12 @@ func (j *job) work(ctx context.Context) error {
 // commitLeft keeps what changed since the last commit on the branch, for
 // the person's agent to go on from.
 func (j *job) commitLeft(ctx context.Context) {
-	if len(j.changed) == 0 && len(j.removed) == 0 {
+	if len(j.changed) == 0 && len(j.removed) == 0 && j.merging == "" {
+		return
+	}
+	// Never half a merge, and never unfinished work on a person's own
+	// branch: its pull request is theirs. It stays on an encargo's branch.
+	if len(j.marked()) > 0 || (j.same && store.EncargoOfBranch(j.branch) == 0) {
 		return
 	}
 	// [skip ci]: unfinished work is not worth a run; whoever goes on from it
@@ -307,9 +326,7 @@ func (j *job) brief() string {
 		j.e.ID, j.e.Title, j.app.Name, j.app.Repo, j.app.DefaultBranch, j.branch, j.from)
 	switch {
 	case j.same:
-		fmt.Fprintf(&b, "That is the branch where run #%d failed, an encargo's branch: you commit on it directly, and its pull request is what gets merged.\n", *j.e.RunID)
-	case j.from != j.app.DefaultBranch:
-		fmt.Fprintf(&b, "That is the branch where run #%d failed: the code to fix is there, and your branch will be merged into it.\n", *j.e.RunID)
+		fmt.Fprintf(&b, "That is the branch of run #%d: you commit on it directly, and its pull request is what gets merged. If it conflicts with %s, call merge_default_branch first.\n", *j.e.RunID, j.app.DefaultBranch)
 	}
 	if j.e.Body != "" {
 		fmt.Fprintf(&b, "\nThe detail:\n%s\n", truncate(j.e.Body, 8000))
@@ -364,8 +381,8 @@ How to work:
 var coderTools = []ia.Tool{
 	{Name: "list_files", Description: "List the repository's files under a folder (all of them when it is empty), optionally only those whose name matches a glob like *.go.",
 		InputSchema: schema(map[string]any{"folder": str("a folder, like web/src; empty for all"), "glob": str("a name pattern, like *.tsx")})},
-	{Name: "read_file", Description: "Read a file as it is now on your branch (with your changes), whole or from line to line.",
-		InputSchema: schema(map[string]any{"path": str("the file's path"), "from_line": num("first line, from 1"), "to_line": num("last line")}, "path")},
+	{Name: "read_file", Description: "Read a file as it is now on your branch (with your changes), whole or from line to line; with ref, as it is on another branch or commit (the default branch, say).",
+		InputSchema: schema(map[string]any{"path": str("the file's path"), "from_line": num("first line, from 1"), "to_line": num("last line"), "ref": str("a branch or commit; empty for yours")}, "path")},
 	{Name: "search", Description: "Search the repository's files for a regular expression (Go syntax); answers path:line: text, up to 120 matches.",
 		InputSchema: schema(map[string]any{"pattern": str("a regular expression"), "folder": str("only under this folder")}, "pattern")},
 	{Name: "write_file", Description: "Write a whole file (a new one, or replacing it).",
@@ -374,6 +391,8 @@ var coderTools = []ia.Tool{
 		InputSchema: schema(map[string]any{"path": str("the file's path"), "old_text": str("the exact text to replace"), "new_text": str("what replaces it")}, "path", "old_text", "new_text")},
 	{Name: "delete_file", Description: "Delete a file.",
 		InputSchema: schema(map[string]any{"path": str("the file's path")}, "path")},
+	{Name: "merge_default_branch", Description: "Merge the default branch into yours, as git merge would: the files only it changed come in, and where both changed the same place the file gets git's conflict marks (<<<<<<< your branch, =======, >>>>>>> the default branch) for you to resolve, keeping what both sides meant. Your next commit_and_test is the merge commit; it refuses while a mark is left.",
+		InputSchema: schema(map[string]any{})},
 	{Name: "commit_and_test", Description: "Commit your changes to your branch with a message, and wait for the platform's CI run on it (minutes): how it ended and, if it failed, the end of the failed steps' logs.",
 		InputSchema: schema(map[string]any{"message": str("the commit message, in the repository's style")}, "message")},
 	{Name: "deliver", Description: "Hand the encargo over to the person, once the latest run passed.",
@@ -396,11 +415,11 @@ func num(d string) map[string]any { return map[string]any{"type": "integer", "de
 // tool runs one tool call: its answer, and whether it is an error.
 func (j *job) tool(ctx context.Context, call ia.ToolCall) (string, bool) {
 	var in struct {
-		Folder, Glob, Path, Pattern, Content, Message, Summary, Reason string
-		OldText                                                        string `json:"old_text"`
-		NewText                                                        string `json:"new_text"`
-		FromLine                                                       int    `json:"from_line"`
-		ToLine                                                         int    `json:"to_line"`
+		Folder, Glob, Path, Pattern, Content, Message, Summary, Reason, Ref string
+		OldText                                                             string `json:"old_text"`
+		NewText                                                             string `json:"new_text"`
+		FromLine                                                            int    `json:"from_line"`
+		ToLine                                                              int    `json:"to_line"`
 	}
 	if err := json.Unmarshal(call.Input, &in); err != nil {
 		return "the input is not valid JSON: " + err.Error(), true
@@ -410,7 +429,12 @@ func (j *job) tool(ctx context.Context, call ia.ToolCall) (string, bool) {
 	case "list_files":
 		return j.list(in.Folder, in.Glob), false
 	case "read_file":
+		if in.Ref != "" {
+			return j.readAt(ctx, in.Path, in.Ref, in.FromLine, in.ToLine)
+		}
 		return j.read(in.Path, in.FromLine, in.ToLine)
+	case "merge_default_branch":
+		return j.mergeDefault(ctx)
 	case "search":
 		return j.search(in.Pattern, in.Folder)
 	case "write_file":
@@ -509,6 +533,20 @@ func (j *job) read(p string, from, to int) (string, bool) {
 	if !ok {
 		return "no such file: " + p, true
 	}
+	return lines(f, from, to)
+}
+
+// readAt reads a file as it is at ref (another branch, or a commit).
+func (j *job) readAt(ctx context.Context, p, ref string, from, to int) (string, bool) {
+	f, err := j.c.Repos.FileAt(ctx, j.app.InstallationID, j.app.Repo, p, ref)
+	if err != nil {
+		return fmt.Sprintf("could not read %s at %s: %v", p, ref, err), true
+	}
+	return lines(f, from, to)
+}
+
+// lines is a file whole, or from line to line, cut to readChars.
+func lines(f []byte, from, to int) (string, bool) {
 	if from <= 0 && to <= 0 {
 		if len(f) > readChars {
 			return string(f[:readChars]) + fmt.Sprintf("\n… the file has %d bytes; read the rest with from_line and to_line", len(f)), false
@@ -556,6 +594,129 @@ func (j *job) search(pattern, folder string) (string, bool) {
 	return strings.Join(out, "\n"), false
 }
 
+// marked are the changed files that still have a conflict's marks.
+func (j *job) marked() []string {
+	var out []string
+	for p, f := range j.changed {
+		if mezcla.HasMarks(f) {
+			out = append(out, p)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// mergeDefault merges the default branch into the branch, in the job's
+// copy: what only the default branch changed comes in; where both changed
+// a file, it is joined (mezcla.Merge), with git's marks where both changed
+// the same place, for the model to resolve. The next commit is the merge.
+func (j *job) mergeDefault(ctx context.Context) (string, bool) {
+	c, inst, repo := j.c, j.app.InstallationID, j.app.Repo
+	if j.branch == j.app.DefaultBranch {
+		return "you are on the default branch", true
+	}
+	if len(j.changed) > 0 || len(j.removed) > 0 {
+		return "commit_and_test your changes first, then merge", true
+	}
+	head, err := c.Repos.BranchSHA(ctx, inst, repo, j.branch)
+	if err != nil {
+		return "could not read your branch: " + err.Error(), true
+	}
+	main, err := c.Repos.BranchSHA(ctx, inst, repo, j.app.DefaultBranch)
+	if err != nil {
+		return "could not read the default branch: " + err.Error(), true
+	}
+	base, _, err := c.Repos.MergeBase(ctx, inst, repo, main, head)
+	if err != nil || base == "" {
+		return fmt.Sprintf("no common commit of %s and %s: %v", j.app.DefaultBranch, j.branch, err), true
+	}
+	if base == main {
+		return j.app.DefaultBranch + " has nothing your branch lacks: no merge needed", false
+	}
+	theirs, ok1, err := c.Repos.ChangedFiles(ctx, inst, repo, base, main)
+	if err != nil {
+		return "could not compare: " + err.Error(), true
+	}
+	ours, ok2, err := c.Repos.ChangedFiles(ctx, inst, repo, base, head)
+	if err != nil {
+		return "could not compare: " + err.Error(), true
+	}
+	if !ok1 || !ok2 {
+		return "too many files changed to merge without git; give_up so a person's agent merges it", true
+	}
+	mine := map[string]bool{}
+	for _, f := range ours {
+		mine[f] = true
+	}
+	read := func(p, ref string) ([]byte, bool, error) {
+		b, err := c.Repos.FileAt(ctx, inst, repo, p, ref)
+		if gh.IsNotFound(err) {
+			return nil, false, nil
+		}
+		return b, err == nil, err
+	}
+	var came, joined, conflicts, notes []string
+	for _, f := range theirs {
+		t, tok, err := read(f, main)
+		if err != nil {
+			return "could not read " + f + ": " + err.Error(), true
+		}
+		if !mine[f] {
+			if tok {
+				j.changed[f] = t
+			} else {
+				j.removed[f] = true
+			}
+			came = append(came, f)
+			continue
+		}
+		o, ook := j.file(f)
+		switch {
+		case !ook && !tok:
+			continue
+		case !ook:
+			notes = append(notes, f+": your branch deleted it and "+j.app.DefaultBranch+" changed it; it stays deleted unless you write it back (read it with ref)")
+			continue
+		case !tok:
+			notes = append(notes, f+": "+j.app.DefaultBranch+" deleted it and your branch changed it; it stays as yours unless you delete it")
+			continue
+		case string(o) == string(t):
+			continue
+		}
+		b, _, err := read(f, base)
+		if err != nil {
+			return "could not read " + f + ": " + err.Error(), true
+		}
+		merged, conflict, ok := mezcla.Merge(b, o, t, j.branch, j.app.DefaultBranch)
+		if !ok {
+			notes = append(notes, f+": a binary file both changed; it stays as yours")
+			continue
+		}
+		j.changed[f] = merged
+		if conflict {
+			conflicts = append(conflicts, f)
+		} else {
+			joined = append(joined, f)
+		}
+	}
+	j.merging, j.mergeHead = main, head
+	var out strings.Builder
+	fmt.Fprintf(&out, "merged %s (%s) into %s in your copy; your next commit_and_test is the merge commit.\n", j.app.DefaultBranch, main[:min(7, len(main))], j.branch)
+	if len(came) > 0 {
+		fmt.Fprintf(&out, "Came in as %s has them: %s\n", j.app.DefaultBranch, strings.Join(came, ", "))
+	}
+	if len(joined) > 0 {
+		fmt.Fprintf(&out, "Joined without conflict: %s\n", strings.Join(joined, ", "))
+	}
+	if len(conflicts) > 0 {
+		fmt.Fprintf(&out, "CONFLICTS to resolve (read each, keep what both sides meant, remove every mark): %s\n", strings.Join(conflicts, ", "))
+	}
+	for _, n := range notes {
+		out.WriteString(n + "\n")
+	}
+	return out.String(), false
+}
+
 // commit commits what changed to the branch.
 func (j *job) commit(ctx context.Context, message string) (string, error) {
 	var remove []string
@@ -565,10 +726,17 @@ func (j *job) commit(ctx context.Context, message string) (string, error) {
 		}
 	}
 	sort.Strings(remove)
-	sha, err := j.c.Repos.CommitFiles(ctx, j.app.InstallationID, j.app.Repo, j.branch, message, j.changed, remove)
+	var sha string
+	var err error
+	if j.merging != "" {
+		sha, err = j.c.Repos.CommitMerge(ctx, j.app.InstallationID, j.app.Repo, j.branch, j.mergeHead, j.merging, message, j.changed, remove)
+	} else {
+		sha, err = j.c.Repos.CommitFiles(ctx, j.app.InstallationID, j.app.Repo, j.branch, message, j.changed, remove)
+	}
 	if err != nil {
 		return "", err
 	}
+	j.merging, j.mergeHead = "", ""
 	for p, f := range j.changed {
 		j.files[p] = f
 	}
@@ -582,8 +750,11 @@ func (j *job) commit(ctx context.Context, message string) (string, error) {
 // commitAndTest commits and waits for the platform's run on the commit.
 func (j *job) commitAndTest(ctx context.Context, message string) (string, bool) {
 	c := j.c
-	if len(j.changed) == 0 && len(j.removed) == 0 {
+	if len(j.changed) == 0 && len(j.removed) == 0 && j.merging == "" {
 		return "nothing changed since the last commit", true
+	}
+	if left := j.marked(); len(left) > 0 {
+		return "these files still have conflict marks; resolve them first: " + strings.Join(left, ", "), true
 	}
 	sha, err := j.commit(ctx, strings.TrimSpace(message)+"\n\n"+c.say("Encargo %d, hecho por el agente de código de rendimiento.", "Encargo %d, done by rendimiento's coding agent.", j.e.ID))
 	if err != nil {

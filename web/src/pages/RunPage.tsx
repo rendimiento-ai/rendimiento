@@ -266,7 +266,7 @@ function Conflict({ run, app }: { run: Run; app: string }) {
   const body = [
     t("Pull request #{pull} of {app} ({branch}, {sha}) passed run #{n}, but it conflicts with the default branch, so rendimiento did not merge it.", { pull: run.pull ?? 0, app, branch: run.branch, sha: run.sha.slice(0, 7), n: run.id }),
     run.message,
-    t("Resolve it keeping what both sides meant. With git: merge the default branch into {branch} and push; the new commit is tested, and merged if it passes. Without git: redo what {branch} changes on a new branch from the default one. Say in the handover what you chose in each conflict.", { branch: run.branch }),
+    t("Resolve it on {branch} itself, keeping what both sides meant: merge the default branch into it (with git, or with merge_default_branch, rendimiento's coding agent's tool) and push; the new commit is tested, and merged if it passes. Say in the handover what you chose in each conflict.", { branch: run.branch }),
   ].join("\n");
   return (
     <div className="card why-failed">

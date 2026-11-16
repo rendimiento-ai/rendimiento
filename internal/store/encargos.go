@@ -51,12 +51,15 @@ type Encargo struct {
 	Route          string `json:"route,omitempty"`
 	// DoNow: a person sent it to the platform's coding agent; SpentMicros
 	// is what that agent spent on it.
-	DoNow       bool         `json:"doNow,omitempty"`
-	SpentMicros int64        `json:"spentMicros,omitempty"`
-	OrgID       int64        `json:"orgId"`
-	CreatedAt   time.Time    `json:"createdAt"`
-	UpdatedAt   time.Time    `json:"updatedAt"`
-	Log         []EncargoLog `json:"log,omitempty"`
+	DoNow       bool  `json:"doNow,omitempty"`
+	SpentMicros int64 `json:"spentMicros,omitempty"`
+	// RunBranch is the branch of its run when that is not the app's default
+	// branch: the encargo is worked on there (RamaDeEncargo).
+	RunBranch string       `json:"runBranch,omitempty"`
+	OrgID     int64        `json:"orgId"`
+	CreatedAt time.Time    `json:"createdAt"`
+	UpdatedAt time.Time    `json:"updatedAt"`
+	Log       []EncargoLog `json:"log,omitempty"`
 }
 
 // EncargoLog is one thing that happened to an encargo.
@@ -69,7 +72,8 @@ type EncargoLog struct {
 
 const encargoCols = `e.id, e.title, e.body, e.app, e.run_id, e.status, e.created_by, e.by_agent, e.key_id, COALESCE(k.name, ''),
 	e.cargo_id, e.waiting_run, e.result, e.links, e.comment, e.created_at, e.updated_at, e.org_id,
-	e.difficulty, e.estimate_micros, e.estimate_reason, e.route, e.do_now, e.spent_micros`
+	e.difficulty, e.estimate_micros, e.estimate_reason, e.route, e.do_now, e.spent_micros,
+	COALESCE((SELECT r.branch FROM runs r JOIN apps a ON a.id = r.app_id WHERE r.id = e.run_id AND r.branch <> a.default_branch), '')`
 
 const encargoFrom = ` FROM encargos e LEFT JOIN agent_keys k ON k.id = e.key_id`
 
@@ -77,7 +81,7 @@ func scanEncargo(row pgx.Row) (Encargo, error) {
 	var e Encargo
 	err := row.Scan(&e.ID, &e.Title, &e.Body, &e.App, &e.RunID, &e.Status, &e.CreatedBy, &e.ByAgent, &e.KeyID, &e.KeyName,
 		&e.CargoID, &e.WaitingRun, &e.Result, &e.Links, &e.Comment, &e.CreatedAt, &e.UpdatedAt, &e.OrgID,
-		&e.Difficulty, &e.EstimateMicros, &e.EstimateReason, &e.Route, &e.DoNow, &e.SpentMicros)
+		&e.Difficulty, &e.EstimateMicros, &e.EstimateReason, &e.Route, &e.DoNow, &e.SpentMicros, &e.RunBranch)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return e, ErrNotFound
 	}
