@@ -39,6 +39,9 @@ type Me struct {
 	Modo    string `json:"modo,omitempty"`
 	OS      string `json:"os"`
 	Arch    string `json:"arch"`
+	// Buzon: this platform receives the comments people write to the team,
+	// and the person answers them (its operators): the Comments page.
+	Buzon bool `json:"buzon,omitempty"`
 }
 
 // me is the signed-in person, for the top bar.
@@ -57,6 +60,7 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request, login string) {
 	if role, err := s.Store.MemberRole(r.Context(), store.DefaultOrg, login); err == nil {
 		out.Operator = role == store.MemberAdmin
 	}
+	out.Buzon = out.Operator && s.SenalesRecibir
 	writeJSON(w, out)
 }
 

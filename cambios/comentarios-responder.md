@@ -1,0 +1,1 @@
+- **Comments:** operators of the platform that receives comments get **Comments** (`/buzon`): each comment with the AI's class, summary, matches and draft, to rewrite and send with their name (by email to whoever wrote from the form), set aside or sort again; the bell counts those waiting. The form's emails are deleted 30 days after the answer, or when the comment is set aside.

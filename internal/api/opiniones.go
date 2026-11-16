@@ -3,11 +3,13 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"html/template"
 	"io"
 	"net"
 	"net/http"
 	"net/mail"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -128,4 +130,214 @@ func remitente(r *http.Request) string {
 		return host
 	}
 	return r.RemoteAddr
+}
+
+// ---- the team's page of comments (decision 145, step 3) ----
+
+// opinionesVisibles: the comments' routes answer only where comments are
+// received; elsewhere, 404.
+func (s *Server) opinionesVisibles(w http.ResponseWriter) bool {
+	if !s.SenalesRecibir {
+		httpError(w, http.StatusNotFound, "this platform does not receive comments")
+		return false
+	}
+	return true
+}
+
+// listarOpiniones are the comments, newest first, without emails.
+func (s *Server) listarOpiniones(w http.ResponseWriter, r *http.Request, _ string) {
+	if !s.opinionesVisibles(w) {
+		return
+	}
+	list, err := s.Store.Opiniones(r.Context(), 500)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, list)
+}
+
+func opinionID(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		httpError(w, http.StatusBadRequest, "not a comment's number")
+		return 0, false
+	}
+	return id, true
+}
+
+// verOpinion is one comment with its email (seen only here) and answer.
+func (s *Server) verOpinion(w http.ResponseWriter, r *http.Request, _ string) {
+	if !s.opinionesVisibles(w) {
+		return
+	}
+	id, ok := opinionID(w, r)
+	if !ok {
+		return
+	}
+	d, err := s.Store.GetOpinion(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) {
+		httpError(w, http.StatusNotFound, "no such comment")
+		return
+	}
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, d)
+}
+
+// cambiarOpinion changes a comment's class, state, group or draft.
+func (s *Server) cambiarOpinion(w http.ResponseWriter, r *http.Request, _ string) {
+	if !s.opinionesVisibles(w) {
+		return
+	}
+	id, ok := opinionID(w, r)
+	if !ok {
+		return
+	}
+	var c store.CambioOpinion
+	if !readJSON(w, r, &c) {
+		return
+	}
+	if c.Clase != nil {
+		switch *c.Clase {
+		case store.ClaseYaExiste, store.ClaseNuevo, store.ClaseFalla, store.ClaseSinSentido:
+			anotarDetalle(r, "clase", *c.Clase)
+		default:
+			httpError(w, http.StatusBadRequest, "not a class")
+			return
+		}
+	}
+	if c.Estado != nil {
+		if *c.Estado != store.OpinionPorRevisar && *c.Estado != store.OpinionDescartada {
+			httpError(w, http.StatusBadRequest, "a comment is set aside or back to review; it is answered with its own button")
+			return
+		}
+		anotarDetalle(r, "estado", *c.Estado)
+	}
+	if c.Borrador != nil && utf8.RuneCountInString(*c.Borrador) > 8000 {
+		httpError(w, http.StatusBadRequest, "a draft is at most 8,000 characters")
+		return
+	}
+	switch err := s.Store.CambiarOpinion(r.Context(), id, c); {
+	case errors.Is(err, store.ErrNotFound):
+		httpError(w, http.StatusNotFound, "no such comment")
+	case err != nil:
+		httpError(w, http.StatusInternalServerError, err.Error())
+	default:
+		s.verOpinion(w, r, "")
+	}
+}
+
+// reclasificarOpinion asks the AI to sort and draft a comment again.
+func (s *Server) reclasificarOpinion(w http.ResponseWriter, r *http.Request, _ string) {
+	if !s.opinionesVisibles(w) {
+		return
+	}
+	id, ok := opinionID(w, r)
+	if !ok {
+		return
+	}
+	switch err := s.Store.Reclasificar(r.Context(), id); {
+	case errors.Is(err, store.ErrNotFound):
+		httpError(w, http.StatusNotFound, "no such comment, or it was answered")
+	case err != nil:
+		httpError(w, http.StatusInternalServerError, err.Error())
+	default:
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// responderOpinion sends a person's answer to a comment, with their name:
+// by email to whoever wrote from the form; kept for the installation to
+// fetch when it came from the app. Once: what was sent was sent.
+func (s *Server) responderOpinion(w http.ResponseWriter, r *http.Request, login string) {
+	if !s.opinionesVisibles(w) {
+		return
+	}
+	id, ok := opinionID(w, r)
+	if !ok {
+		return
+	}
+	var in struct {
+		Respuesta string `json:"respuesta"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	in.Respuesta = strings.TrimSpace(in.Respuesta)
+	if in.Respuesta == "" || utf8.RuneCountInString(in.Respuesta) > 8000 {
+		httpError(w, http.StatusBadRequest, "an answer is 1 to 8,000 characters")
+		return
+	}
+	ctx := r.Context()
+	d, err := s.Store.GetOpinion(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		httpError(w, http.StatusNotFound, "no such comment")
+		return
+	}
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if d.Estado == store.OpinionRespondida {
+		httpError(w, http.StatusConflict, "this comment was already answered")
+		return
+	}
+	if d.Origen == store.OpinionFormulario {
+		if d.Correo == "" {
+			httpError(w, http.StatusConflict, "this comment's email was deleted: it cannot be answered")
+			return
+		}
+		if s.Notify == nil || s.Notify.Sender == nil {
+			httpError(w, http.StatusServiceUnavailable, "email is not set up here (RESEND_API_KEY)")
+			return
+		}
+		subject, html, text := correoRespuesta(d, in.Respuesta, login)
+		if err := s.Notify.Sender.Send(ctx, []string{d.Correo}, subject, html, text); err != nil {
+			httpError(w, http.StatusBadGateway, "the email could not be sent: "+err.Error())
+			return
+		}
+	}
+	if err := s.Store.ResponderOpinion(ctx, id, in.Respuesta, login); err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	anotarDetalle(r, "origen", d.Origen)
+	s.verOpinion(w, r, login)
+}
+
+// correoRespuesta is the email with a person's answer: from them, with the
+// comment it answers, in the comment's language; one email, no links.
+func correoRespuesta(d store.OpinionDetalle, respuesta, login string) (subject, html, text string) {
+	es := d.Idioma != "en"
+	subject, saludo, dijo := "Your comment to rendimiento", "Hello", "You wrote:"
+	if es {
+		subject, saludo, dijo = "Su comentario a rendimiento", "Hola", "Usted escribió:"
+	}
+	if d.Nombre != "" {
+		saludo += " " + d.Nombre
+	}
+	text = saludo + ",\n\n" + respuesta + "\n\n— " + login + "\n\n" + dijo + "\n> " + strings.ReplaceAll(d.Texto, "\n", "\n> ") + "\n"
+	esc := template.HTMLEscapeString
+	html = `<div style="font-family:Georgia,serif;font-size:16px;line-height:1.5;color:#2B1B12;max-width:560px">` +
+		"<p>" + esc(saludo) + ",</p><p>" + strings.ReplaceAll(esc(respuesta), "\n", "<br>") + "</p><p>— " + esc(login) + "</p>" +
+		`<p style="color:#6B5444;font-size:14px">` + esc(dijo) + `</p><blockquote style="color:#6B5444;font-size:14px;border-left:3px solid #E9DCC8;margin:0;padding-left:12px">` +
+		strings.ReplaceAll(esc(d.Texto), "\n", "<br>") + "</blockquote></div>"
+	return subject, html, text
+}
+
+// cuentaOpiniones is how many comments wait for a person, for the bell
+// (0 where comments are not received).
+func (s *Server) cuentaOpiniones(w http.ResponseWriter, r *http.Request, _ string) {
+	n := 0
+	if s.SenalesRecibir {
+		var err error
+		if n, err = s.Store.OpinionesPorRevisar(r.Context()); err != nil {
+			httpError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	writeJSON(w, map[string]int{"porRevisar": n})
 }

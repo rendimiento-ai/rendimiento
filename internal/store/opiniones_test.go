@@ -71,3 +71,55 @@ func TestClasificarOpiniones(t *testing.T) {
 		t.Fatalf("no such comment: %v", err)
 	}
 }
+
+// A person changes a comment, answers it once, and its email goes 30 days
+// after the answer, or at once when it is set aside.
+func TestResponderOpiniones(t *testing.T) {
+	s := open(t)
+	ctx := context.Background()
+	a, _ := s.GuardarOpinion(ctx, NuevaOpinion{Origen: OpinionFormulario, Texto: "¿Y GitLab?", Correo: "a@example.com", Remitente: "192.0.2.11"})
+	b, _ := s.GuardarOpinion(ctx, NuevaOpinion{Origen: OpinionFormulario, Texto: "spam", Correo: "b@example.com", Remitente: "192.0.2.12"})
+	if n, _ := s.OpinionesPorRevisar(ctx); n != 2 {
+		t.Fatalf("to review: %d", n)
+	}
+	clase, borrador := ClaseNuevo, "Gracias, Ana."
+	if err := s.CambiarOpinion(ctx, a, CambioOpinion{Clase: &clase, Borrador: &borrador, Grupo: &b}); err != nil {
+		t.Fatal(err)
+	}
+	cero := int64(0)
+	if err := s.CambiarOpinion(ctx, a, CambioOpinion{Grupo: &cero}); err != nil {
+		t.Fatal(err)
+	}
+	d, err := s.GetOpinion(ctx, a)
+	if err != nil || d.Clase != ClaseNuevo || d.Borrador != "Gracias, Ana." || d.Grupo != nil || d.Correo != "a@example.com" {
+		t.Fatalf("changed: %+v %v", d, err)
+	}
+	if err := s.ResponderOpinion(ctx, a, "Gracias, Ana: quedó anotado.", "p0dxD"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ResponderOpinion(ctx, a, "otra vez", "p0dxD"); err != ErrNotFound {
+		t.Fatalf("answered twice: %v", err)
+	}
+	descartar := OpinionDescartada
+	if err := s.CambiarOpinion(ctx, a, CambioOpinion{Estado: &descartar}); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := s.GetOpinion(ctx, a); d.Estado != OpinionRespondida || d.RespondidoPor != "p0dxD" || d.RespondidoAt == nil {
+		t.Fatalf("an answered comment keeps its state: %+v", d)
+	}
+	if err := s.CambiarOpinion(ctx, b, CambioOpinion{Estado: &descartar}); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := s.GetOpinion(ctx, b); d.Correo != "" || d.Estado != OpinionDescartada {
+		t.Fatalf("set aside, its email goes: %+v", d)
+	}
+	if _, err := s.pool.Exec(ctx, `UPDATE opiniones SET respondido_at = now() - interval '31 days' WHERE id = $1`, a); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := s.BorrarCorreosVencidos(ctx); err != nil || n != 1 {
+		t.Fatalf("deleted %d %v", n, err)
+	}
+	if d, _ := s.GetOpinion(ctx, a); d.Correo != "" || d.Respuesta == "" {
+		t.Fatalf("after 30 days: %+v", d)
+	}
+}

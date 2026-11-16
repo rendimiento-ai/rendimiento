@@ -15,6 +15,12 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | GET | `/api/public/stats` | aggregate numbers for a public page; only with `PUBLIC_STATS=true`, and only on the internal `STATS_LISTEN` port when that is set ([what it contains](../guide/reliability.md#public-stats)) |
 | GET | `/api/public/activity` | the welcome page's *Right now in the town*: runs queued or running and the 8 latest releases, by app name and time only (no repositories, commits, branches or messages); only with `PUBLIC_ACTIVITY=true` |
 | POST | `/api/webhooks/github` | GitHub App webhooks (push, pull request, installation), verified by HMAC |
+| GET | `/api/opiniones` | the comments received, newest first, without emails (operators, where comments are received) |
+| GET | `/api/opiniones/cuenta` | how many comments wait for an answer: `{porRevisar}` |
+| GET | `/api/opiniones/{id}` | one comment, with its email until it is deleted, and its answer |
+| PUT | `/api/opiniones/{id}` | change its class, set it aside or back to review, its group (`0`: none) or its draft |
+| POST | `/api/opiniones/{id}/reclasificar` | ask the AI to sort it and draft again |
+| POST | `/api/opiniones/{id}/respuesta` | send the answer `{respuesta}`, once, with your name: by email to the form's sender; kept for an installation |
 | POST | `/api/senales/comentarios` | a comment for the team, where señales are received: `{texto, idioma, correo, nombre}` from the [public form](../future/comentarios.md) or `{texto, idioma, datos, ficha}` from an installation; up to 2,000 characters, 3 an hour per sender and 200 a day in all (429 past that) |
 | GET | `/api/auth/login` | redirects to GitHub OAuth |
 | GET | `/api/auth/callback` | OAuth callback; creates the session |

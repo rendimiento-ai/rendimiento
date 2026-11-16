@@ -1619,3 +1619,26 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .buzon-cuenta { align-self: flex-end; }
 .buzon-carta .btn { align-self: flex-start; }
 .buzon-trampa { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
+/* ---- the team's mailbox of comments (/buzon) ---- */
+.tabs button.tab { padding: 8px 14px; color: var(--muted); background: none; border: none; border-bottom: 2px solid transparent; white-space: nowrap; font: inherit; cursor: pointer; }
+.tabs button.tab.on { color: var(--text); border-color: var(--accent); }
+.buzon-cuerpo { display: grid; grid-template-columns: minmax(240px, 340px) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 760px) { .buzon-cuerpo { grid-template-columns: minmax(0, 1fr); } }
+.buzon-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.buzon-fila { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font: inherit; cursor: pointer; }
+.buzon-fila.on { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
+.buzon-fila-arriba { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.buzon-fila-texto { overflow-wrap: anywhere; }
+.buzon-detalle { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.buzon-carta-leida, .buzon-ia, .buzon-respuesta { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.buzon-carta-leida { border-top: 6px solid var(--grana); }
+.buzon-texto { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.buzon-respuesta textarea { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
+.buzon-acciones { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.buzon-coincidencias { margin: 0; padding-left: 18px; }
+.buzon-detalle button.link { background: none; border: none; padding: 0; color: var(--link); cursor: pointer; font: inherit; }
+.badge.clase-ya_existe { background: var(--ok-bg); color: var(--ok); }
+.badge.clase-nuevo { background: var(--surface-2); color: var(--text); }
+.badge.clase-falla { background: var(--bad-bg); color: var(--bad); }
+.badge.clase-sin_sentido, .badge.clase-ninguna { background: var(--idle-bg); color: var(--idle); }

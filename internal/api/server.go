@@ -275,6 +275,13 @@ func (s *Server) Handler() http.Handler {
 	// administrators: arguments can show more than guests should see).
 	// The señales de vida: what this installation sends, for the operators.
 	plat(store.MemberAdmin, "GET /api/senales/estado", s.verSenales)
+	// The comments people write to the team, where they are received (decision 145).
+	plat(store.MemberAdmin, "GET /api/opiniones", s.listarOpiniones)
+	plat(store.MemberAdmin, "GET /api/opiniones/cuenta", s.cuentaOpiniones)
+	plat(store.MemberAdmin, "GET /api/opiniones/{id}", s.verOpinion)
+	plat(store.MemberAdmin, "PUT /api/opiniones/{id}", s.cambiarOpinion)
+	plat(store.MemberAdmin, "POST /api/opiniones/{id}/reclasificar", s.reclasificarOpinion)
+	plat(store.MemberAdmin, "POST /api/opiniones/{id}/respuesta", s.responderOpinion)
 	plat(store.MemberAdmin, "PUT /api/senales/estado", s.putSenales)
 	plat(store.MemberAdmin, "GET /api/senales/instalaciones", s.listarInstalaciones)
 	plat(store.MemberAdmin, "PUT /api/senales/instalaciones/{id}/equipo", s.marcarEquipo)
