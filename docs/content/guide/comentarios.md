@@ -22,5 +22,6 @@ Where comments are received (`SENALES_RECIBIR=1`, rendimiento.ai), the platform'
 - **To review, Answered, Dismissed:** each comment with where it came from and, for the form, the email.
 - **What the AI made of it:** its class (*It exists already*, *New*, *Something fails*, *Nonsense*), a one-line summary, the book pages, Ruta entries and earlier comments it matches, and the earlier comment that asks the same thing. The count of a group (*3 people ask this*) is the evidence of demand.
 - **The draft,** to rewrite. **Send the answer** asks once more, then sends it with your name. You can also change the class, join it to another comment, **Sort it again**, or **Set aside** (its email is deleted at once).
+- **Pass it to the Ruta,** when it is worth keeping: it becomes an idea in the Ruta (a to-do tagged `idea` and `comentario`), with your name, their words quoted and the AI's summary. If it is not answered yet, the AI drafts the answer again, now telling them their idea is on the team's list, without promising a date. Once per comment; an answered one can be passed too, and keeps what was sent.
 
 The AI sees the comment's text only, as data: whatever a comment asks it to do changes nothing. The form's emails are kept apart from the text, seen only on this page, and deleted 30 days after the answer.

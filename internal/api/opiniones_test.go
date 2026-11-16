@@ -204,3 +204,47 @@ func TestAlEquipoYDeVuelta(t *testing.T) {
 		t.Fatalf("señales off: %d", r.StatusCode)
 	}
 }
+
+// A person passes a comment to the Ruta: it becomes an idea with their
+// name and the comment's words quoted, the comment links to it and goes
+// back for the AI to draft its answer again; once only. An answered one
+// may be passed too, and keeps what was sent.
+func TestOpinionALaRuta(t *testing.T) {
+	e := newEnv(t, false)
+	ctx := context.Background()
+	me := e.session(t, "p0dxD")
+	e.s.SenalesRecibir = true
+	a, _ := e.store.GuardarOpinion(ctx, store.NuevaOpinion{Origen: store.OpinionApp, Texto: "More color themes, please", Idioma: "en", Ficha: strings.Repeat("ef", 32), Remitente: "192.0.2.41"})
+	_ = e.store.GuardarClasificacion(ctx, a, store.Clasificacion{Clase: store.ClaseNuevo, Resumen: "More color themes", Borrador: "Thanks."})
+
+	r, body := e.do(t, "POST", fmt.Sprintf("/api/opiniones/%d/ruta", a), `{}`, me, nil)
+	if r.StatusCode != 200 || !strings.Contains(body, `"rutaId":`) || strings.Contains(body, `"clasificadaAt"`) {
+		t.Fatalf("pass: %d %s", r.StatusCode, body)
+	}
+	d, _ := e.store.GetOpinion(ctx, a)
+	entrada, err := e.store.Ruta(ctx, *d.RutaID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if entrada.Kind != store.KindPendiente || entrada.Author != "p0dxD" || entrada.ByAgent || entrada.Done ||
+		entrada.Title != "Idea de un comentario: More color themes, please" || strings.Join(entrada.Tags, ",") != "idea,comentario" ||
+		!strings.Contains(entrada.Body, "> More color themes, please") || !strings.Contains(entrada.Body, "More color themes\n") {
+		t.Fatalf("the entry: %+v", entrada)
+	}
+	if sin, _ := e.store.OpinionesSinClasificar(ctx, 10); len(sin) != 1 || sin[0].ID != a || sin[0].RutaID == nil {
+		t.Fatalf("not back for its draft: %+v", sin)
+	}
+	if r, _ := e.do(t, "POST", fmt.Sprintf("/api/opiniones/%d/ruta", a), `{}`, me, nil); r.StatusCode != 409 {
+		t.Fatalf("passed twice: %d", r.StatusCode)
+	}
+	if r, _ := e.do(t, "POST", "/api/opiniones/999999/ruta", `{}`, me, nil); r.StatusCode != 404 {
+		t.Fatalf("no such comment: %d", r.StatusCode)
+	}
+
+	b, _ := e.store.GuardarOpinion(ctx, store.NuevaOpinion{Origen: store.OpinionApp, Texto: "Dark mode on the map", Ficha: strings.Repeat("ab", 32), Remitente: "192.0.2.42"})
+	_ = e.store.GuardarClasificacion(ctx, b, store.Clasificacion{Clase: store.ClaseNuevo, Resumen: "Dark map", Borrador: "Thanks."})
+	_ = e.store.ResponderOpinion(ctx, b, "Thanks, noted.", "p0dxD")
+	if r, body := e.do(t, "POST", fmt.Sprintf("/api/opiniones/%d/ruta", b), `{}`, me, nil); r.StatusCode != 200 || !strings.Contains(body, `"clasificadaAt"`) || !strings.Contains(body, `"respuesta":"Thanks, noted."`) {
+		t.Fatalf("an answered one: %d %s", r.StatusCode, body)
+	}
+}
