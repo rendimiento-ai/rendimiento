@@ -166,7 +166,7 @@ func TestAlEquipoYDeVuelta(t *testing.T) {
 	e.s.Notify = &notify.Notifier{Sender: &correos{}}
 
 	_, body := e.do(t, "GET", "/api/al-equipo", "", me, nil)
-	if !strings.Contains(body, `"encendidos":true`) || !strings.Contains(body, `"version":"0.2.2"`) || !strings.Contains(body, senales.FichaVista) {
+	if !strings.Contains(body, `"encendidos":true`) || !strings.Contains(body, `"version":"0.2.2"`) || !strings.Contains(body, "sha256 of a random token") {
 		t.Fatalf("the page: %s", body)
 	}
 	if r, body := e.do(t, "POST", "/api/al-equipo", `{"texto":"Me gustaría ver la versión en el pie"}`, me, nil); r.StatusCode != 200 || !strings.Contains(body, "versión en el pie") {
