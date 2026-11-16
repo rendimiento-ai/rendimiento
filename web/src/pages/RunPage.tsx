@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, dollars, duration, session, subscribe, timeAgo, type App, type Diagnosis, type Run, type Step } from "../api";
+import { api, dollars, duration, session, subscribe, timeAgo, type App, type Diagnosis, type Run } from "../api";
 import { ErrorBox, RunBadge } from "../components/ui";
 import { lang, t, tn } from "../i18n";
 import { TextoConFormato } from "../components/texto";
 import { Rama } from "../components/lo-ultimo";
+import { Pasos } from "../components/pasos";
 
 /** A run's page: why it failed, its steps with when each ran, live as they go, and the log of the step chosen. */
 export function RunPage() {
@@ -137,56 +138,6 @@ function Retry({ run, app, onRetried }: { run: Run; app?: App; onRetried: (r: Ru
     <button disabled={busy} onClick={go} title={t("Runs again only what did not pass; what passed keeps its result and its image.")}>
       {busy ? t("Retrying…") : t("Retry what failed")}
     </button>
-  );
-}
-
-const pasoColor: Record<Step["status"], string> = {
-  succeeded: "var(--ok)", failed: "var(--bad)", running: "var(--warn)", pending: "var(--muted)", skipped: "var(--muted)", reused: "var(--anil)",
-};
-const pasoIcono: Record<Step["status"], string> = {
-  succeeded: "M7 12.5l3 3 7-7", failed: "M8.5 8.5l7 7M15.5 8.5l-7 7", running: "M8 12h.01M12 12h.01M16 12h.01",
-  pending: "", skipped: "M8 12h8", reused: "M8 10a4 4 0 0 1 7-1M16 14a4 4 0 0 1-7 1",
-};
-
-/**
- * The steps as a list, each with a bar for when it ran within the run: bars that overlap ran at the same time («a la par»),
- * so what ran in parallel shows at a glance.
- */
-function Pasos({ run, selected, onSelect }: { run: Run; selected?: string; onSelect: (id: string) => void }) {
-  const ms = (x?: string) => (x ? new Date(x).getTime() : undefined);
-  const steps = run.steps ?? [];
-  const now = Date.now();
-  const starts = steps.map((s) => ms(s.startedAt)).filter((x): x is number => x !== undefined);
-  const t0 = starts.length ? Math.min(...starts) : now;
-  const t1 = Math.max(t0 + 1000, ...steps.map((s) => ms(s.finishedAt) ?? (s.startedAt ? now : 0)));
-  const span = (s: Step): [number, number] | undefined => (s.startedAt ? [ms(s.startedAt)!, ms(s.finishedAt) ?? now] : undefined);
-  const total = duration(new Date(t0).toISOString(), new Date(t1).toISOString());
-  return (
-    <div className="pasos" role="list" aria-label={t("Steps")}>
-      <div className="pasos-escala small muted" aria-hidden="true"><span>0 s</span><span>{total}</span></div>
-      {steps.map((s, i) => {
-        const r = span(s);
-        const con = r ? steps.filter((o) => o.id !== s.id && span(o) && span(o)![0] < r[1] && span(o)![1] > r[0]).map((o) => o.id) : [];
-        const x = r ? ((r[0] - t0) / (t1 - t0)) * 100 : 0;
-        const w = r ? Math.max(1.5, ((r[1] - r[0]) / (t1 - t0)) * 100) : 0;
-        return (
-          <button key={s.id} role="listitem" className={`paso${s.id === selected ? " on" : ""}${s.status === "running" ? " corre" : ""}`} onClick={() => onSelect(s.id)} aria-current={s.id === selected}>
-            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="10" fill={pasoColor[s.status]} opacity={s.status === "pending" ? 0.35 : 1} />
-              {pasoIcono[s.status] && <path d={pasoIcono[s.status]} stroke="#fff" strokeWidth="2.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />}
-            </svg>
-            <span style={{ minWidth: 0 }}>
-              <strong>{s.id}</strong>
-              {con.length > 0 && <span className="par" title={t("Ran at the same time as {steps}", { steps: con.join(", ") })}>{t("side by side")}</span>}
-              <br />
-              <span className="small muted">{t(s.kind)}{s.dependsOn.length > 0 ? ` · ${t("after {steps}", { steps: s.dependsOn.join(", ") })}` : ""}</span>
-              <span className="pista">{r && <b style={{ left: `${x}%`, width: `${Math.min(w, 100 - x)}%`, ["--c" as string]: pasoColor[s.status], ["--d" as string]: `${i * 50}ms` }} />}</span>
-            </span>
-            <span className="small muted">{s.startedAt ? duration(s.startedAt, s.finishedAt) : ""}</span>
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
