@@ -6,6 +6,7 @@ import { useState, type ReactNode } from "react";
 import { api, timeAgo, type Problem } from "../api";
 import { ErrorBox, usePoll } from "../components/ui";
 import { t, tn } from "../i18n";
+import { anotar } from "../uso";
 
 /** A problem still counts while it is not dismissed or fixed and happened recently. */
 function isOpen(p: Problem, openForHours: number) {
@@ -62,7 +63,7 @@ function ProblemCard({ p, open, i, onDismiss }: { p: Problem; open: boolean; i: 
         </div>
         {open && (
           <button disabled={busy} title={t("Hide it until it happens again")}
-            onClick={() => { setBusy(true); api.dismissProblem(p.id).then(() => { setLeaving(true); setTimeout(onDismiss, 350); }, (e) => { setBusy(false); alert(e.message); }); }}>
+            onClick={() => { anotar("dismiss_problem"); setBusy(true); api.dismissProblem(p.id).then(() => { setLeaving(true); setTimeout(onDismiss, 350); }, (e) => { setBusy(false); alert(e.message); }); }}>
             {t("Dismiss")}
           </button>
         )}

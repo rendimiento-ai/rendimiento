@@ -20,6 +20,8 @@ import { Mercado, PuestoEditor } from "./pages/Mercado";
 import { Ruta } from "./pages/Ruta";
 import { Bitacora } from "./pages/Bitacora";
 import { SenalesPage } from "./pages/SenalesPage";
+import { UsoPage } from "./pages/Uso";
+import { useUso } from "./uso";
 import { EnvironmentNavLink } from "./pages/Version";
 import { ComentarioPublico } from "./pages/ComentarioPublico";
 import { Buzon } from "./pages/Buzon";
@@ -39,6 +41,7 @@ function Shell() {
   const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; buzon?: boolean; sistema?: Sistema; configured?: boolean; book?: BookLinks; activity?: boolean; loading: boolean }>({ loading: true });
   const telefono = useTelefono();
   const [altura, setAltura] = useState<Altura>(0);
+  useUso(!!state.login);
 
   useEffect(() => {
     (async () => {
@@ -139,6 +142,7 @@ function Shell() {
           <Route path="/ruta" element={<Ruta />} />
           <Route path="/bitacora" element={<Bitacora />} />
           <Route path="/senales" element={<SenalesPage />} />
+          <Route path="/uso" element={<UsoPage />} />
           <Route path="/ia" element={<IA />} />
           <Route path="/buzon" element={<Buzon />} />
           <Route path="/escribir" element={<AlEquipo />} />
