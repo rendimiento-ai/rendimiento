@@ -1183,13 +1183,39 @@ export const api = {
   stepLog: (id: number, step: string) => request<string>("GET", `/api/runs/${id}/steps/${encodeURIComponent(step)}/log`),
 };
 
-/** Subscribes to server-sent events; returns an unsubscribe function. */
-export function subscribe(path: string, handlers: Record<string, (data: any) => void>): () => void {
-  const es = new EventSource(path, { withCredentials: true });
-  for (const [type, fn] of Object.entries(handlers)) {
-    es.addEventListener(type, (e) => fn(JSON.parse((e as MessageEvent).data)));
-  }
-  return () => es.close();
+/**
+ * Subscribes to server-sent events; returns an unsubscribe function. The server drops events for a subscriber that is
+ * behind, and a phone's browser drops the stream of a page in the background, so `reopened` is called each time the
+ * stream opens again after the first (the browser reconnecting by itself, or a new stream when it gave up): the moment
+ * to fetch the state again.
+ */
+export function subscribe(path: string, handlers: Record<string, (data: any) => void>, reopened?: () => void): () => void {
+  let es: EventSource | undefined;
+  let opened = false;
+  let closed = false;
+  let again: ReturnType<typeof setTimeout> | undefined;
+  const open = () => {
+    es = new EventSource(path, { withCredentials: true });
+    for (const [type, fn] of Object.entries(handlers)) {
+      es.addEventListener(type, (e) => fn(JSON.parse((e as MessageEvent).data)));
+    }
+    es.addEventListener("open", () => {
+      if (opened) reopened?.();
+      opened = true;
+    });
+    es.addEventListener("error", () => {
+      // The browser retries by itself unless the stream is closed for good (a 5xx, say): then open a new one.
+      if (es?.readyState === EventSource.CLOSED && !closed && !again) {
+        again = setTimeout(() => { again = undefined; if (!closed) open(); }, 5000);
+      }
+    });
+  };
+  open();
+  return () => {
+    closed = true;
+    if (again) clearTimeout(again);
+    es?.close();
+  };
 }
 
 /** The welcome page's "right now": runs going on and the latest releases, by app name only. */

@@ -86,8 +86,14 @@ func TestAppsRunsReleases(t *testing.T) {
 	if err := s.UpdateStep(ctx, run.ID, "web:build", pipeline.StepResult{Status: pipeline.StatusRunning, Started: now}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.UpdateStep(ctx, run.ID, "web:build", pipeline.StepResult{Status: pipeline.StatusSucceeded, Digest: "sha256:1", Finished: now}); err != nil {
+	// The finished update says the times as stored: the start of the first update is kept.
+	started, finished, err := s.UpdateStepTimes(ctx, run.ID, "web:build", pipeline.StepResult{Status: pipeline.StatusSucceeded, Digest: "sha256:1", Started: now.Add(time.Second), Finished: now.Add(2 * time.Second)})
+	if err != nil {
 		t.Fatal(err)
+	}
+	near := func(a *time.Time, b time.Time) bool { return a != nil && a.Sub(b).Abs() < time.Millisecond }
+	if !near(started, now) || !near(finished, now.Add(2*time.Second)) {
+		t.Fatalf("stored times = %v, %v", started, finished)
 	}
 	for _, c := range []string{"line 1\n", "line 2\n"} {
 		if err := s.AppendLog(ctx, run.ID, "web:build", c); err != nil {

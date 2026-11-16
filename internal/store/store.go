@@ -494,14 +494,26 @@ func (s *Store) ListRuns(ctx context.Context, appID int64, limit int) ([]*Run, e
 
 // UpdateStep records a step's status, digest, message and times.
 func (s *Store) UpdateStep(ctx context.Context, runID int64, stepID string, r pipeline.StepResult) error {
-	_, err := s.pool.Exec(ctx, `UPDATE steps SET status = $3,
+	_, _, err := s.UpdateStepTimes(ctx, runID, stepID, r)
+	return err
+}
+
+// UpdateStepTimes is UpdateStep, returning when the step started and
+// finished as stored (a step keeps the start of its first update), so the
+// live event says the same as a reload.
+func (s *Store) UpdateStepTimes(ctx context.Context, runID int64, stepID string, r pipeline.StepResult) (started, finished *time.Time, err error) {
+	err = s.pool.QueryRow(ctx, `UPDATE steps SET status = $3,
 			digest = CASE WHEN $4 = '' THEN digest ELSE $4 END,
 			message = $5,
 			started_at = COALESCE(started_at, $6),
 			finished_at = $7
-		WHERE run_id = $1 AND step_id = $2`,
-		runID, stepID, string(r.Status), r.Digest, r.Message, nullTime(r.Started), nullTime(r.Finished))
-	return err
+		WHERE run_id = $1 AND step_id = $2
+		RETURNING started_at, finished_at`,
+		runID, stepID, string(r.Status), r.Digest, r.Message, nullTime(r.Started), nullTime(r.Finished)).Scan(&started, &finished)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil, nil // no such step: nothing to update, as before
+	}
+	return started, finished, err
 }
 
 // maxLog caps stored log size per step; the head is dropped, the tail (where errors are) kept.

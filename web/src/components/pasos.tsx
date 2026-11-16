@@ -1,8 +1,8 @@
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { duration, type Run, type Step } from "../api";
 import { t } from "../i18n";
 import { statusText } from "./ui";
-import { FILA, tejer } from "./tejido";
+import { FILA, tejer, totalSegundos } from "./tejido";
 
 /**
  * A run's steps, shown one of two ways (the person picks, and the browser remembers it):
@@ -50,6 +50,37 @@ function nombre(s: Step): string {
   return [s.id, statusText(s.status), d].filter(Boolean).join(", ");
 }
 
+/**
+ * The span a view's scale stands for while the run goes: it is held, and grows (with room to spare) only when what has
+ * run passes it, so the bars and threads grow inside a still track instead of every one of them shrinking each second.
+ * Once the run has ended, the scale is the exact span.
+ */
+function useHolgura(real: number, vivo: boolean, minimo: number, conPrevisto: boolean): number {
+  const fijo = useRef(0);
+  if (!vivo) {
+    fijo.current = 0;
+    return real;
+  }
+  if (real > fijo.current) fijo.current = Math.max(minimo, real * (conPrevisto ? 1.1 : 1.5));
+  return fijo.current;
+}
+
+/** How long each step took in an earlier run that passed (ms), and when it finished from that run's start. */
+function previos(antes?: Run): Map<string, { dura: number; llega: number }> {
+  const m = new Map<string, { dura: number; llega: number }>();
+  const steps = antes?.steps ?? [];
+  const starts = steps.map((s) => ms(s.startedAt)).filter((x): x is number => x !== undefined);
+  if (!starts.length) return m;
+  const t0 = Math.min(...starts);
+  for (const s of steps) {
+    const a = ms(s.startedAt), b = ms(s.finishedAt);
+    if (a !== undefined && b !== undefined && s.status === "succeeded") m.set(s.id, { dura: b - a, llega: b - t0 });
+  }
+  return m;
+}
+
+const andando = (run: Run) => run.status === "queued" || run.status === "running" || !!run.steps?.some((s) => s.status === "running");
+
 function Icono({ s, c, r = 10, x = 12, y = 12 }: { s: Step; c: string; r?: number; x?: number; y?: number }) {
   const k = r / 10;
   return (
@@ -62,7 +93,7 @@ function Icono({ s, c, r = 10, x = 12, y = 12 }: { s: Step; c: string; r?: numbe
   );
 }
 
-export function Pasos({ run, selected, onSelect }: { run: Run; selected?: string; onSelect: (id: string) => void }) {
+export function Pasos({ run, antes, selected, onSelect }: { run: Run; antes?: Run; selected?: string; onSelect: (id: string) => void }) {
   const [tema, setTema] = useState<Tema>(temaGuardado);
   const elegir = (x: Tema) => {
     setTema(x);
@@ -86,23 +117,35 @@ export function Pasos({ run, selected, onSelect }: { run: Run; selected?: string
           <button type="button" aria-pressed={tema === "hilos"} onClick={() => elegir("hilos")}>{t("The threads")}</button>
         </div>
       </div>
-      {tema === "carrera" ? <Carrera run={run} selected={selected} onSelect={onSelect} /> : <Hilos run={run} selected={selected} onSelect={onSelect} />}
+      {tema === "carrera" ? <Carrera run={run} antes={antes} selected={selected} onSelect={onSelect} /> : <Hilos run={run} antes={antes} selected={selected} onSelect={onSelect} />}
     </section>
   );
 }
 
-type Vista = { run: Run; selected?: string; onSelect: (id: string) => void };
+type Vista = { run: Run; antes?: Run; selected?: string; onSelect: (id: string) => void };
 
 /**
  * The race: every step in its lane, the lane the run's whole time. Its bar goes from when it started to when it
  * finished (or now), a dotted stretch before it when it waited; at the right, the place it arrived in and how long it took.
+ * While the run goes, a running bar shines and its head beats, a finished one stops where it arrived, and a faint mark
+ * says where the step finished the last time the run passed.
  */
-function Carrera({ run, selected, onSelect }: Vista) {
+function Carrera({ run, antes, selected, onSelect }: Vista) {
   const steps = run.steps ?? [];
   const now = Date.now();
+  const vivo = andando(run);
+  const prev = previos(antes);
   const starts = steps.map((s) => ms(s.startedAt)).filter((x): x is number => x !== undefined);
   const t0 = starts.length ? Math.min(...starts) : now;
-  const t1 = Math.max(t0 + 1000, ...steps.map((s) => ms(s.finishedAt) ?? (s.startedAt ? now : 0)));
+  const marca = (s: Step) => {
+    const p = prev.get(s.id);
+    if (!p) return undefined;
+    const a = ms(s.startedAt);
+    return a !== undefined ? a + p.dura : t0 + p.llega;
+  };
+  const real = Math.max(1000, ...steps.map((s) => (ms(s.finishedAt) ?? (s.startedAt ? now : t0)) - t0));
+  const previsto = vivo ? Math.max(0, ...steps.map((s) => (marca(s) ?? t0) - t0)) : 0;
+  const t1 = t0 + useHolgura(Math.max(real, previsto), vivo, 20000, prev.size > 0);
   const pct = (x: number) => ((x - t0) / (t1 - t0)) * 100;
   const llegada = steps
     .filter((s) => s.startedAt && s.finishedAt && s.status !== "running")
@@ -118,6 +161,7 @@ function Carrera({ run, selected, onSelect }: Vista) {
           const w = a !== undefined ? Math.max(1.5, Math.min(pct(b) - x, 100 - x)) : 0;
           const espero = a !== undefined && (s.dependsOn.length > 0 || a - t0 >= 1000);
           const puesto = llegada.indexOf(s.id);
+          const m = vivo ? marca(s) : undefined;
           return (
             <li key={s.id}>
               <button type="button" className={`carrera-carril${s.id === selected ? " on" : ""}${s.status === "running" ? " vivo" : ""} es-${s.status}`}
@@ -134,6 +178,7 @@ function Carrera({ run, selected, onSelect }: Vista) {
                 </span>
                 <span className="carrera-pista" aria-hidden="true">
                   {espero && <span className="carrera-espera" style={{ width: `${x}%` }} />}
+                  {m !== undefined && <span className="carrera-antes" style={{ left: `${Math.min(100, pct(m))}%` }} />}
                   {a !== undefined && s.status !== "skipped" && <span className="carrera-tramo" style={{ left: `${x}%`, width: `${w}%` }} />}
                 </span>
               </button>
@@ -153,16 +198,30 @@ function Carrera({ run, selected, onSelect }: Vista) {
  * The threads: from the change, a thread for every step that waits for nobody; a thread as long as its step took,
  * ending in its bead. A step that waits for others starts at the knot where their threads come together.
  */
-function Hilos({ run, selected, onSelect }: Vista) {
+function Hilos({ run, antes, selected, onSelect }: Vista) {
   const steps = run.steps ?? [];
   const now = Date.now();
+  const vivo = andando(run);
+  const prev = vivo ? previos(antes) : new Map<string, { dura: number }>();
   const por = new Map(steps.map((s, i) => [s.id, { s, i }]));
-  const tejido = tejer(steps.map((s) => {
-    const a = ms(s.startedAt);
-    return { id: s.id, dependsOn: s.dependsOn, segundos: a === undefined ? undefined : Math.max(0, ((ms(s.finishedAt) ?? now) - a) / 1000) };
-  }));
+  const hebras = steps.map((s) => {
+    const a = ms(s.startedAt), p = prev.get(s.id);
+    return {
+      id: s.id, dependsOn: s.dependsOn, previsto: p && p.dura / 1000,
+      segundos: a === undefined ? undefined : Math.max(0, ((ms(s.finishedAt) ?? now) - a) / 1000),
+    };
+  });
+  // While it goes, the scale is held (and so the canvas): the threads grow inside it.
+  const escala = useHolgura(totalSegundos(hebras), vivo, 20, prev.size > 0);
+  const tejido = tejer(hebras, vivo ? escala : undefined);
   const fin = new Map(tejido.hilos.map((h) => [h.id, h]));
   const { origen } = tejido;
+  // A touch chooses the step without the browser scrolling the box to bring the focused thread into view.
+  const toque = (e: PointerEvent<SVGGElement>) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.focus({ preventScroll: true });
+  };
   const tecla = (id: string) => (e: KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -191,14 +250,17 @@ function Hilos({ run, selected, onSelect }: Vista) {
             : `M${origen.x} ${origen.y}C${origen.x + 36} ${origen.y} ${h.x0 - 34} ${h.y} ${h.x0} ${h.y}H${h.x1}`;
           const on = s.id === selected;
           const corto = h.corto && s.status !== "reused"; // not started (pending, skipped): a faint dashed thread
+          const corre = s.status === "running";
           return (
-            <g key={s.id} className={`hilos-paso${on ? " on" : ""}${s.status === "running" ? " vivo" : ""}${corto ? " corto" : ""}`}
+            <g key={s.id} className={`hilos-paso${on ? " on" : ""}${corre ? " vivo" : ""}${corto ? " corto" : ""}`}
               style={{ ["--c" as string]: c, ["--d" as string]: `${i * 70}ms` }}
               role="button" tabIndex={0} aria-label={nombre(s)} aria-current={on}
-              onClick={() => onSelect(s.id)} onKeyDown={tecla(s.id)}>
+              onPointerDown={toque} onClick={() => onSelect(s.id)} onKeyDown={tecla(s.id)}>
               <rect className="hilos-toque" x={h.x0 - 4} y={h.y - FILA / 2 - 4} width={Math.max(h.x1 - h.x0 + 70, s.id.length * 7.2 + 12)} height={FILA} rx={10} />
               {on && <path className="hilos-elegido" d={`M${h.x0} ${h.y}H${h.x1}`} />}
+              {h.xPrevisto !== undefined && <path className="hilos-antes" d={`M${h.xPrevisto} ${h.y - 8}V${h.y + 8}`} />}
               <path className="hilos-hilo" d={d} pathLength={corto ? undefined : 1} />
+              {corre && <path className="hilos-avanza" d={`M${h.x0} ${h.y}H${h.x1}`} />}
               <Icono s={s} c={c} r={9} x={h.x1} y={h.y} />
               <text x={h.x0 + 2} y={h.y - 11}>{s.id}</text>
               <text className="hilos-m" x={h.x1 + 15} y={h.y + 4}>{s.startedAt ? duration(s.startedAt, s.finishedAt) : statusText(s.status)}</text>

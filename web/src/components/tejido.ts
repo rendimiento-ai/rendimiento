@@ -4,6 +4,8 @@
  * nobody); every level is a column, and a level starts where the longest thread of the previous one ends (plus room for
  * its duration and the knot). The rows of a level are centered on the tallest level, so a chain stays on one line and a
  * step that waits for several sits between them. A thread's length is its duration, at one scale for the whole run.
+ * While the run goes, the caller can hold the scale (segundosEscala) so the weaving does not shrink every second, and
+ * give each step how long it took last time (previsto), which keeps its level's room and is marked on its thread.
  */
 
 /** A step as the layout sees it: seconds it has run (so far), or undefined when it has not started. */
@@ -11,6 +13,8 @@ export interface Hebra {
   id: string;
   dependsOn: string[];
   segundos?: number;
+  /** Seconds it took the last time it passed, if known. */
+  previsto?: number;
 }
 
 /** A step placed: its thread from (x0, y) to (x1, y); deps are the steps whose threads knot at (x0, y). */
@@ -24,6 +28,8 @@ export interface Hilo {
   deps: string[];
   /** It has not started: a fixed, short thread. */
   corto: boolean;
+  /** Where its thread ended last time, if known. */
+  xPrevisto?: number;
 }
 
 export interface Tejido {
@@ -67,16 +73,28 @@ export function niveles(pasos: Hebra[]): Map<string, number> {
   return nivel;
 }
 
-export function tejer(pasos: Hebra[]): Tejido {
+function porNiveles(pasos: Hebra[]): Hebra[][] {
   const nivel = niveles(pasos);
   const cuantos = pasos.length ? Math.max(...nivel.values()) + 1 : 0;
   const porNivel: Hebra[][] = Array.from({ length: cuantos }, () => []);
   pasos.forEach((p) => porNivel[nivel.get(p.id)!].push(p));
+  return porNivel;
+}
 
-  // One scale for the run: the longest thread of every level, end to end, fills LARGO.
-  const mas = porNivel.map((ps) => Math.max(0, ...ps.map((p) => p.segundos ?? 0)));
-  const escala = LARGO / Math.max(1, mas.reduce((a, b) => a + b, 0));
+/** The seconds the run's scale stands for: the longest thread of every level (so far, or last time), end to end. */
+export function totalSegundos(pasos: Hebra[]): number {
+  return porNiveles(pasos)
+    .map((ps) => Math.max(0, ...ps.map((p) => Math.max(p.segundos ?? 0, p.previsto ?? 0))))
+    .reduce((a, b) => a + b, 0);
+}
+
+export function tejer(pasos: Hebra[], segundosEscala?: number): Tejido {
+  const porNivel = porNiveles(pasos);
+
+  // One scale for the run: the longest thread of every level, end to end, fills LARGO (or what the caller holds).
+  const escala = LARGO / Math.max(1, segundosEscala ?? totalSegundos(pasos));
   const largo = (p: Hebra) => (p.segundos === undefined ? CORTO : Math.max(MINIMO, p.segundos * escala));
+  const previsto = (p: Hebra) => (p.previsto === undefined ? 0 : Math.max(MINIMO, p.previsto * escala));
 
   const filas = Math.max(1, ...porNivel.map((ps) => ps.length));
   const centro = ARRIBA + ((filas - 1) * FILA) / 2;
@@ -99,9 +117,10 @@ export function tejer(pasos: Hebra[]): Tejido {
       const yy = centro + (j - (orden.length - 1) / 2) * FILA;
       y.set(p.id, yy);
       const x1 = x0 + largo(p);
-      hilos.push({ id: p.id, nivel: n, x0, x1, y: yy, deps: ds, corto: p.segundos === undefined });
-      // What follows starts after this bead's duration and after this step's id, whichever is further.
-      fin = Math.max(fin, x1 + DURACION, x0 + p.id.length * LETRA + 12);
+      hilos.push({ id: p.id, nivel: n, x0, x1, y: yy, deps: ds, corto: p.segundos === undefined, xPrevisto: p.previsto === undefined ? undefined : x0 + previsto(p) });
+      // What follows starts after this bead's duration (or where it ended last time) and after this step's id,
+      // whichever is further.
+      fin = Math.max(fin, x1 + DURACION, x0 + previsto(p) + DURACION, x0 + p.id.length * LETRA + 12);
     });
     x = fin;
   });
@@ -112,7 +131,8 @@ export function tejer(pasos: Hebra[]): Tejido {
     hilos,
     origen: { x: ORIGEN_X, y: centro },
     niveles: inicios,
-    ancho: Math.ceil(x + 8),
+    // A held scale holds the canvas too: what it stands for fits in LARGO, so threads grow inside it.
+    ancho: Math.ceil(Math.max(x, segundosEscala === undefined ? 0 : ORIGEN_X + SALIDA + LARGO + porNivel.length * (NUDO + DURACION)) + 8),
     alto: Math.ceil(Math.max(ARRIBA + (filas - 1) * FILA + 22, centro + 40)),
   };
 }
