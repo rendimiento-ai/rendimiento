@@ -25,7 +25,7 @@ import { ComentarioPublico } from "./pages/ComentarioPublico";
 import { Buzon } from "./pages/Buzon";
 import { AlEquipo } from "./pages/AlEquipo";
 import { Cielo, Guardapolvo, MovimientoSwitch, TemaSwitch, Techo, type Sistema } from "./components/ambiente";
-import { BanderaSwitch, LangSwitch, Logo } from "./components/marca";
+import { BanderaSwitch, LangSwitch, Logo, Semilla } from "./components/marca";
 import { Bienvenida, type BookLinks } from "./pages/Bienvenida";
 import { Avisos } from "./components/avisos";
 import { Campana } from "./components/campana";
@@ -96,7 +96,7 @@ function Shell() {
   );
   const cuenta = (
     <>
-      {state.role === "admin" && <Link to="/new" className="btn primary">{t("New app")}</Link>}
+      {state.role === "admin" && <Link to="/new" className="btn primary"><Semilla />{t("New app")}</Link>}
       <OrgSwitch current={state.org} />
       {state.demo
         ? <span className="badge demo-badge" title={t("You are seeing a demo: you can look at everything, and change nothing.")}>{t("Read-only demo")}</span>
