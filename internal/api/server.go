@@ -192,6 +192,7 @@ func (s *Server) Handler() http.Handler {
 		_, _ = w.Write(instalar.Script)
 	})
 	mux.HandleFunc("POST /api/senales", s.recibirSenal)
+	mux.HandleFunc("POST /api/senales/comentarios", s.recibirOpinion)
 	mux.HandleFunc("GET /api/setup/status", s.setupStatus)
 	mux.HandleFunc("GET /api/setup/github", s.setupStart)
 	mux.HandleFunc("GET /api/setup/github/callback", s.setupCallback)

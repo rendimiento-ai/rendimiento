@@ -21,6 +21,7 @@ import { Ruta } from "./pages/Ruta";
 import { Bitacora } from "./pages/Bitacora";
 import { SenalesPage } from "./pages/SenalesPage";
 import { EnvironmentNavLink } from "./pages/Version";
+import { ComentarioPublico } from "./pages/ComentarioPublico";
 import { Cielo, Guardapolvo, MovimientoSwitch, TemaSwitch, Techo } from "./components/ambiente";
 import { BanderaSwitch, LangSwitch, Logo } from "./components/marca";
 import { Bienvenida, type BookLinks } from "./pages/Bienvenida";
@@ -65,6 +66,9 @@ function Shell() {
       </Routes>
     );
   }
+
+  // The public form to write to the team, signed in or not.
+  if (location.pathname === "/comentarios") return <ComentarioPublico />;
 
   if (!state.login) return <Bienvenida book={state.book ?? {}} activity={!!state.activity} />;
 

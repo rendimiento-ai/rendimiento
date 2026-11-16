@@ -247,6 +247,7 @@ export function Bienvenida({ book, activity }: { book: BookLinks; activity: bool
             <a className="btn primary big" href="/api/auth/login">{t("Sign in with GitHub")}</a>
             {libro && <a className="btn big" href={libro}>{t("Read the book")}</a>}
           </div>
+          <p className="small muted">{t("An idea, or something that got in your way?")} <a href="https://rendimiento.ai/comentarios">{t("Write to us")}</a></p>
         </section>
       </main>
       <Guardapolvo />
