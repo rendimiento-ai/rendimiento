@@ -1,0 +1,1 @@
+- **Merging:** when rendimiento joins a conflict where both sides only added lines, the run now records it. The database refused that state («merge: record» in Problems), so the run kept no trace of it. Migration 0048 only widens a check.
