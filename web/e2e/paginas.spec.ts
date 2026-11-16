@@ -58,6 +58,26 @@ test("the bell's panel fits a phone's screen", async ({ page, problemas }) => {
   expect(problemas).toEqual([]);
 });
 
+// On a phone the top bar is two short rows (the brand, the bell and ☰;
+// the pages sliding sideways), and the account and preferences open
+// behind ☰. Nothing makes the page wider than the screen.
+test("the top bar is short on a phone, with its menu behind ☰", async ({ page, problemas }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const barra = page.locator("header.topbar");
+  const alto = (await barra.boundingBox())!.height;
+  expect(alto, "two short rows").toBeLessThan(120);
+  const cuenta = page.locator(".topbar-cuenta");
+  await expect(cuenta).toBeHidden();
+  await page.locator("button.topbar-menu").click();
+  await expect(cuenta).toBeVisible();
+  await expect(cuenta.locator("button").last()).toBeVisible(); // Sign out
+  await page.locator(".topbar-nav a.nav-link").nth(1).click();
+  await expect(cuenta, "a page's link closes it").toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  expect(problemas).toEqual([]);
+});
+
 // The operators see what the señales would send, exactly, and turn them
 // off; the notice on the Apps page goes once seen.
 test("the señales: what goes, and the switch", async ({ page, problemas }, info) => {

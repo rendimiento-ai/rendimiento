@@ -1,0 +1,1 @@
+- **Phone:** the top bar is two short rows: the brand, the bell and ☰, then the pages sliding sideways. The account and preferences (New app, organization, theme, language, Sign out) open behind ☰.

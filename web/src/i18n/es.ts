@@ -41,6 +41,8 @@ export const es: Record<string, string> = {
   "Class": "Clase",
   "Same as comment #": "Igual que el comentario n.º",
   "Sort it again": "Ordenarlo de nuevo",
+  "Close the menu": "Cerrar el menú",
+  "Your account and preferences": "Su cuenta y sus preferencias",
   "Writing the draft again, now saying it was noted…": "Redactando de nuevo el borrador, ahora diciendo que quedó anotado…",
   "In the Ruta as entry {n}.": "En la Ruta como la entrada {n}.",
   "Open the Ruta": "Abrir la Ruta",

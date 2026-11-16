@@ -36,6 +36,7 @@ import "./styles.css";
  */
 function Shell() {
   const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; buzon?: boolean; sistema?: Sistema; configured?: boolean; book?: BookLinks; activity?: boolean; loading: boolean }>({ loading: true });
+  const [menu, setMenu] = useState(false); // on a phone, the account and preferences fold behind ☰
 
   useEffect(() => {
     (async () => {
@@ -79,8 +80,9 @@ function Shell() {
     <>
       <Cielo />
       <Techo />
-      <header className="topbar">
+      <header className={`topbar${menu ? " menu-abierto" : ""}`} onClick={(e) => { if ((e.target as HTMLElement).closest("a")) setMenu(false); }}>
         <Link to="/" className="brand"><Logo /> <span className="brand-name">rendimiento</span></Link>
+        <nav className="topbar-nav" aria-label={t("Pages")}>
         <NavLink to="/" end className="nav-link">{t("Apps")}</NavLink>
         <NavLink to="/universe" className="nav-link">{t("Universe")}</NavLink>
         {state.operator && state.cluster && <NavLink to="/services" className="nav-link">{t("Services")}</NavLink>}
@@ -91,8 +93,14 @@ function Shell() {
         <NavLink to="/ia" className="nav-link">{t("AI")}</NavLink>
         {state.operator && <ProblemsNavLink />}
         {state.buzon && <NavLink to="/buzon" className="nav-link">{t("Comments")}</NavLink>}
+        </nav>
         <span className="spacer" />
         <Campana role={state.role} operator={state.operator} buzon={state.buzon} />
+        <button type="button" className="topbar-menu" aria-expanded={menu} aria-controls="topbar-cuenta" onClick={() => setMenu(!menu)}
+          title={menu ? t("Close the menu") : t("Your account and preferences")}>
+          {menu ? "✕" : "☰"}<span className="sr-only">{menu ? t("Close the menu") : t("Your account and preferences")}</span>
+        </button>
+        <div className="topbar-cuenta" id="topbar-cuenta">
         {state.role === "admin" && <Link to="/new" className="btn primary">{t("New app")}</Link>}
         <OrgSwitch current={state.org} />
         {state.demo
@@ -103,6 +111,7 @@ function Shell() {
         <LangSwitch />
         <BanderaSwitch />
         <button onClick={() => api.logout().then(() => location.assign("/"))}>{t("Sign out")}</button>
+        </div>
       </header>
       <main>
         <Routes>

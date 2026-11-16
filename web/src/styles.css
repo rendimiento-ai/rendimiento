@@ -396,6 +396,27 @@ button.nota:hover{transform:rotate(0) translateY(-2px)}
   .hide-sm { display: none; }
 }
 
+/* The top bar. On a wide screen its groups are one row, as before. On a phone it is two short rows: the brand,
+   the bell and ☰; then the pages, sliding sideways. The account and preferences fold behind ☰. */
+.topbar-nav, .topbar-cuenta { display: contents; }
+.topbar-menu { display: none; }
+@media (max-width: 640px) {
+  .topbar { gap: 4px 10px; padding-block: 8px; }
+  .topbar .brand-name { font-size: 18px; }
+  .topbar .brand .logo { width: 26px; height: 26px; }
+  .topbar-menu { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border-radius: 10px; font-size: 18px; line-height: 1; }
+  .topbar-nav {
+    display: flex; order: 5; flex-basis: 100%; gap: 16px; overflow-x: auto; white-space: nowrap; scrollbar-width: none;
+    margin-inline: -16px; padding: 4px 16px 6px;
+  }
+  .topbar-nav::-webkit-scrollbar { display: none; }
+  .topbar-nav .nav-link { flex: none; }
+  .topbar-cuenta { display: none; order: 6; flex-basis: 100%; }
+  .topbar.menu-abierto .topbar-cuenta {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding-top: 8px; border-top: 1px solid var(--border);
+  }
+}
+
 /* Environment */
 .env-hero { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-left: 4px solid var(--idle); }
 .env-hero.ok { border-left-color: var(--ok); }
