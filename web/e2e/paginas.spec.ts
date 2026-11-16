@@ -58,6 +58,45 @@ test("the bell's panel fits a phone's screen", async ({ page, problemas }) => {
   expect(problemas).toEqual([]);
 });
 
+// On a phone the menu is a sheet that always peeks from the bottom, with
+// the pages and their drawings: nothing hides behind a button. Its handle
+// raises it to every page, then to the account; a page's link lowers it.
+// The top bar is one short row, and nothing is wider than the screen.
+test("on a phone the menu is a sheet that peeks from the bottom", async ({ page, problemas }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  expect((await page.locator("header.topbar").boundingBox())!.height, "one short row").toBeLessThan(70);
+  await expect(page.locator("header.topbar a.nav-link")).toHaveCount(0);
+  const hoja = page.locator(".menu-hoja");
+  const enlaces = hoja.locator(".menu-hoja-paginas a.nav-link");
+  await expect(enlaces.first()).toBeVisible();
+  await expect(enlaces.first().locator("svg.dibujo")).toBeVisible();
+  const asomada = (await hoja.boundingBox())!;
+  expect(asomada.height, "it peeks").toBeLessThan(130);
+  expect(asomada.y + asomada.height).toBeGreaterThan(840);
+  await hoja.locator(".menu-hoja-agarradera").click();
+  await expect(hoja).toHaveAttribute("data-altura", "1");
+  await hoja.locator(".menu-hoja-agarradera").click();
+  await expect(hoja).toHaveAttribute("data-altura", "2");
+  await expect(hoja.locator(".menu-hoja-cuenta button").last()).toBeInViewport(); // Sign out
+  await enlaces.nth(1).click();
+  await expect(hoja, "a page's link lowers it").toHaveAttribute("data-altura", "0");
+  await page.locator("button.topbar-yo").click();
+  await expect(hoja).toHaveAttribute("data-altura", "2");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  expect(problemas).toEqual([]);
+});
+
+// On a wide screen each page's name has its drawing beside it.
+test("the top bar's pages have their drawings", async ({ page, problemas }) => {
+  await page.goto("/");
+  const enlaces = page.locator("header.topbar a.nav-link:has(svg.dibujo)");
+  await expect(enlaces.first()).toBeVisible(); // count() does not wait for the page to load
+  expect(await enlaces.count()).toBeGreaterThan(3);
+  await expect(page.locator(".menu-hoja")).toHaveCount(0);
+  expect(problemas).toEqual([]);
+});
+
 // The operators see what the señales would send, exactly, and turn them
 // off; the notice on the Apps page goes once seen.
 test("the señales: what goes, and the switch", async ({ page, problemas }, info) => {

@@ -396,6 +396,47 @@ button.nota:hover{transform:rotate(0) translateY(-2px)}
   .hide-sm { display: none; }
 }
 
+/* The pages' drawings (components/navegacion): beside each name in the top bar, in the name's color, so the
+   open page's lights with it. */
+.nav-link { display: inline-flex; align-items: center; gap: 6px; }
+.dibujo { width: 20px; height: 20px; flex: none; opacity: .85; transition: transform .25s cubic-bezier(.2,.8,.3,1), color .2s; }
+.nav-link.active .dibujo { color: var(--cempasuchil); opacity: 1; }
+.nav-link:hover .dibujo { transform: translateY(-2px) rotate(-6deg); }
+@media (prefers-reduced-motion: reduce) { .dibujo { transition: none; } .nav-link:hover .dibujo { transform: none; } }
+.topbar-yo { width: 34px; height: 34px; padding: 0; border-radius: 50%; font-weight: 700; text-transform: lowercase; background: var(--anil); color: #fff; border: 0; }
+
+/* On a phone the menu is a sheet that always peeks from the bottom: the first pages and the edge of the rest.
+   Its handle raises it to every page, then to the account and preferences. */
+.menu-hoja {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; height: calc(96px + env(safe-area-inset-bottom, 0px)); max-height: 86vh;
+  display: flex; flex-direction: column; overflow: hidden; border-radius: 22px 22px 0 0;
+  background: color-mix(in srgb, var(--surface) 90%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--border); box-shadow: 0 -12px 28px -16px rgba(0,0,0,.5);
+  padding-inline: max(6px, env(safe-area-inset-left, 0px)) max(6px, env(safe-area-inset-right, 0px));
+  transition: height .3s cubic-bezier(.2,.8,.3,1);
+}
+.menu-hoja[data-altura="1"] { height: calc(166px + env(safe-area-inset-bottom, 0px)); }
+.menu-hoja[data-altura="2"] { height: 86vh; overflow-y: auto; }
+.menu-hoja-agarradera { flex: none; width: 100%; height: 22px; padding: 0; border: 0; background: none; display: grid; place-items: center; cursor: pointer; }
+.menu-hoja-agarradera::before { content: ""; width: 40px; height: 5px; border-radius: 3px; background: var(--muted); opacity: .6; }
+.menu-hoja-paginas { flex: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px 0; }
+.menu-hoja-paginas .nav-link {
+  position: relative; display: flex; flex-direction: column; gap: 3px; justify-content: center; height: 60px; border-radius: 14px;
+  font-size: 10.5px; white-space: nowrap; box-shadow: none;
+}
+.menu-hoja-paginas .nav-link .dibujo { width: 29px; height: 29px; }
+.menu-hoja-paginas .nav-link.active { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--cempasuchil); font-weight: 700; box-shadow: none; }
+.menu-hoja-paginas .nav-count { position: absolute; top: 0; right: 6px; margin: 0; min-width: 16px; line-height: 16px; font-size: 10px; }
+.menu-hoja-cuenta { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 8px; padding-top: 14px; border-top: 1px solid var(--border); }
+.menu-hoja-cuenta .btn.primary { flex-basis: 100%; text-align: center; }
+.menu-hoja-espacio { height: calc(104px + env(safe-area-inset-bottom, 0px)); }
+@media (prefers-reduced-motion: reduce) { .menu-hoja { transition: none; } }
+@media (max-width: 640px) {
+  .topbar { gap: 4px 10px; padding-block: 8px; }
+  .topbar .brand-name { font-size: 18px; }
+}
+
+
 /* Environment */
 .env-hero { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; border-left: 4px solid var(--idle); }
 .env-hero.ok { border-left-color: var(--ok); }
