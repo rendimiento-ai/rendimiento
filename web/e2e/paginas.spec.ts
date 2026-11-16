@@ -58,23 +58,41 @@ test("the bell's panel fits a phone's screen", async ({ page, problemas }) => {
   expect(problemas).toEqual([]);
 });
 
-// On a phone the top bar is two short rows (the brand, the bell and ☰;
-// the pages sliding sideways), and the account and preferences open
-// behind ☰. Nothing makes the page wider than the screen.
-test("the top bar is short on a phone, with its menu behind ☰", async ({ page, problemas }) => {
+// On a phone the menu is a sheet that always peeks from the bottom, with
+// the pages and their drawings: nothing hides behind a button. Its handle
+// raises it to every page, then to the account; a page's link lowers it.
+// The top bar is one short row, and nothing is wider than the screen.
+test("on a phone the menu is a sheet that peeks from the bottom", async ({ page, problemas }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
-  const barra = page.locator("header.topbar");
-  const alto = (await barra.boundingBox())!.height;
-  expect(alto, "two short rows").toBeLessThan(120);
-  const cuenta = page.locator(".topbar-cuenta");
-  await expect(cuenta).toBeHidden();
-  await page.locator("button.topbar-menu").click();
-  await expect(cuenta).toBeVisible();
-  await expect(cuenta.locator("button").last()).toBeVisible(); // Sign out
-  await page.locator(".topbar-nav a.nav-link").nth(1).click();
-  await expect(cuenta, "a page's link closes it").toBeHidden();
+  expect((await page.locator("header.topbar").boundingBox())!.height, "one short row").toBeLessThan(70);
+  await expect(page.locator("header.topbar a.nav-link")).toHaveCount(0);
+  const hoja = page.locator(".hoja");
+  const enlaces = hoja.locator(".hoja-paginas a.nav-link");
+  await expect(enlaces.first()).toBeVisible();
+  await expect(enlaces.first().locator("svg.dibujo")).toBeVisible();
+  const asomada = (await hoja.boundingBox())!;
+  expect(asomada.height, "it peeks").toBeLessThan(130);
+  expect(asomada.y + asomada.height).toBeGreaterThan(840);
+  await hoja.locator(".hoja-agarradera").click();
+  await expect(hoja).toHaveAttribute("data-altura", "1");
+  await hoja.locator(".hoja-agarradera").click();
+  await expect(hoja).toHaveAttribute("data-altura", "2");
+  await expect(hoja.locator(".hoja-cuenta button").last()).toBeInViewport(); // Sign out
+  await enlaces.nth(1).click();
+  await expect(hoja, "a page's link lowers it").toHaveAttribute("data-altura", "0");
+  await page.locator("button.topbar-yo").click();
+  await expect(hoja).toHaveAttribute("data-altura", "2");
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  expect(problemas).toEqual([]);
+});
+
+// On a wide screen each page's name has its drawing beside it.
+test("the top bar's pages have their drawings", async ({ page, problemas }) => {
+  await page.goto("/");
+  const enlaces = page.locator("header.topbar a.nav-link:has(svg.dibujo)");
+  expect(await enlaces.count()).toBeGreaterThan(3);
+  await expect(page.locator(".hoja")).toHaveCount(0);
   expect(problemas).toEqual([]);
 });
 

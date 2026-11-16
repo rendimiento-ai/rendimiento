@@ -1,1 +1,2 @@
-- **Phone:** the top bar is two short rows: the brand, the bell and ☰, then the pages sliding sideways. The account and preferences (New app, organization, theme, language, Sign out) open behind ☰.
+- **Menu:** each page has its drawing, of things of the town (a cempasúchil, a clay pot, a tiled house, the monarch…), beside its name in the top bar.
+- **Phone:** the menu is a sheet that always peeks from the bottom with the pages and their drawings, instead of a bar that wrapped into five rows. Its handle raises it to every page, then to the account and preferences; nothing hides behind a button.

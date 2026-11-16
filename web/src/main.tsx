@@ -29,6 +29,7 @@ import { BanderaSwitch, LangSwitch, Logo } from "./components/marca";
 import { Bienvenida, type BookLinks } from "./pages/Bienvenida";
 import { Avisos } from "./components/avisos";
 import { Campana } from "./components/campana";
+import { Dibujo, Hoja, useTelefono, type Altura } from "./components/navegacion";
 import "./styles.css";
 
 /**
@@ -36,7 +37,8 @@ import "./styles.css";
  */
 function Shell() {
   const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; buzon?: boolean; sistema?: Sistema; configured?: boolean; book?: BookLinks; activity?: boolean; loading: boolean }>({ loading: true });
-  const [menu, setMenu] = useState(false); // on a phone, the account and preferences fold behind ☰
+  const telefono = useTelefono();
+  const [altura, setAltura] = useState<Altura>(0);
 
   useEffect(() => {
     (async () => {
@@ -76,43 +78,51 @@ function Shell() {
 
   if (!state.login) return <Bienvenida book={state.book ?? {}} activity={!!state.activity} />;
 
+  // The pages and the account: in the top bar on a wide screen; on a phone,
+  // in the sheet that peeks from the bottom (components/navegacion).
+  const paginas = (
+    <>
+      <NavLink to="/" end className="nav-link"><Dibujo de="apps" />{t("Apps")}</NavLink>
+      <NavLink to="/universe" className="nav-link"><Dibujo de="universo" />{t("Universe")}</NavLink>
+      {state.operator && state.cluster && <NavLink to="/services" className="nav-link"><Dibujo de="servicios" />{t("Services")}</NavLink>}
+      {state.operator && state.cluster && <NavLink to="/addons" className="nav-link"><Dibujo de="complementos" />{t("Add-ons")}</NavLink>}
+      {state.operator && state.cluster && <EnvironmentNavLink dibujo={<Dibujo de="entorno" />} />}
+      <NavLink to="/ruta" className="nav-link"><Dibujo de="ruta" />{t("Ruta")}</NavLink>
+      {state.role && state.role !== "guest" && <NavLink to="/bitacora" className="nav-link"><Dibujo de="bitacora" />{t("Bitácora")}</NavLink>}
+      <NavLink to="/ia" className="nav-link"><Dibujo de="ia" />{t("AI")}</NavLink>
+      {state.operator && <ProblemsNavLink dibujo={<Dibujo de="problemas" />} />}
+      {state.buzon && <NavLink to="/buzon" className="nav-link"><Dibujo de="comentarios" />{t("Comments")}</NavLink>}
+    </>
+  );
+  const cuenta = (
+    <>
+      {state.role === "admin" && <Link to="/new" className="btn primary">{t("New app")}</Link>}
+      <OrgSwitch current={state.org} />
+      {state.demo
+        ? <span className="badge demo-badge" title={t("You are seeing a demo: you can look at everything, and change nothing.")}>{t("Read-only demo")}</span>
+        : <NavLink to="/members" className="nav-link small" title={t(memberRoleLabel[state.role ?? "guest"])}>{state.login}</NavLink>}
+      <TemaSwitch />
+      <MovimientoSwitch />
+      <LangSwitch />
+      <BanderaSwitch />
+      <button onClick={() => api.logout().then(() => location.assign("/"))}>{t("Sign out")}</button>
+    </>
+  );
+
   return (
     <>
       <Cielo />
       <Techo />
-      <header className={`topbar${menu ? " menu-abierto" : ""}`} onClick={(e) => { if ((e.target as HTMLElement).closest("a")) setMenu(false); }}>
+      <header className="topbar">
         <Link to="/" className="brand"><Logo /> <span className="brand-name">rendimiento</span></Link>
-        <nav className="topbar-nav" aria-label={t("Pages")}>
-        <NavLink to="/" end className="nav-link">{t("Apps")}</NavLink>
-        <NavLink to="/universe" className="nav-link">{t("Universe")}</NavLink>
-        {state.operator && state.cluster && <NavLink to="/services" className="nav-link">{t("Services")}</NavLink>}
-        {state.operator && state.cluster && <NavLink to="/addons" className="nav-link">{t("Add-ons")}</NavLink>}
-        {state.operator && state.cluster && <EnvironmentNavLink />}
-        <NavLink to="/ruta" className="nav-link">{t("Ruta")}</NavLink>
-        {state.role && state.role !== "guest" && <NavLink to="/bitacora" className="nav-link">{t("Bitácora")}</NavLink>}
-        <NavLink to="/ia" className="nav-link">{t("AI")}</NavLink>
-        {state.operator && <ProblemsNavLink />}
-        {state.buzon && <NavLink to="/buzon" className="nav-link">{t("Comments")}</NavLink>}
-        </nav>
+        {!telefono && paginas}
         <span className="spacer" />
         <Campana role={state.role} operator={state.operator} buzon={state.buzon} />
-        <button type="button" className="topbar-menu" aria-expanded={menu} aria-controls="topbar-cuenta" onClick={() => setMenu(!menu)}
-          title={menu ? t("Close the menu") : t("Your account and preferences")}>
-          {menu ? "✕" : "☰"}<span className="sr-only">{menu ? t("Close the menu") : t("Your account and preferences")}</span>
-        </button>
-        <div className="topbar-cuenta" id="topbar-cuenta">
-        {state.role === "admin" && <Link to="/new" className="btn primary">{t("New app")}</Link>}
-        <OrgSwitch current={state.org} />
-        {state.demo
-          ? <span className="badge demo-badge" title={t("You are seeing a demo: you can look at everything, and change nothing.")}>{t("Read-only demo")}</span>
-          : <NavLink to="/members" className="nav-link small" title={t(memberRoleLabel[state.role ?? "guest"])}>{state.login}</NavLink>}
-        <TemaSwitch />
-        <MovimientoSwitch />
-        <LangSwitch />
-        <BanderaSwitch />
-        <button onClick={() => api.logout().then(() => location.assign("/"))}>{t("Sign out")}</button>
-        </div>
+        {telefono
+          ? <button type="button" className="topbar-yo" title={t("Your account and preferences")} onClick={() => setAltura(altura === 2 ? 0 : 2)}>{(state.login ?? "?").slice(0, 1)}<span className="sr-only">{t("Your account and preferences")}</span></button>
+          : cuenta}
       </header>
+      {telefono && <Hoja altura={altura} poner={setAltura} paginas={paginas} cuenta={cuenta} />}
       <main>
         <Routes>
           <Route path="/" element={<Dashboard />} />
@@ -144,6 +154,7 @@ function Shell() {
       </main>
       <Avisos />
       <Guardapolvo sistema={state.sistema} />
+      {telefono && <div className="hoja-espacio" />}
     </>
   );
 }
