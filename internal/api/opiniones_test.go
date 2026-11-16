@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -60,7 +61,8 @@ func TestRecibirOpinion(t *testing.T) {
 	for _, c := range got {
 		if c.Origen == "app" {
 			deApp = true
-			if strings.Contains(string(c.Datos), "secreta") || !strings.Contains(string(c.Datos), `"version":"0.2.2"`) {
+			var d map[string]any
+			if err := json.Unmarshal(c.Datos, &d); err != nil || d["version"] != "0.2.2" || d["so"] != "linux" || len(d) != 4 {
 				t.Fatalf("an installation's data, only the known fields: %s", c.Datos)
 			}
 		}
