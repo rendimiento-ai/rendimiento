@@ -42,3 +42,32 @@ func TestOpiniones(t *testing.T) {
 		t.Fatalf("list: %+v %v", got, err)
 	}
 }
+
+// The AI's classification is kept once, and a comment classified leaves
+// the queue for the classifier and joins those a new one may group with.
+func TestClasificarOpiniones(t *testing.T) {
+	s := open(t)
+	ctx := context.Background()
+	a, _ := s.GuardarOpinion(ctx, NuevaOpinion{Origen: OpinionFormulario, Texto: "¿Y GitLab?", Correo: "a@example.com", Remitente: "192.0.2.1"})
+	b, _ := s.GuardarOpinion(ctx, NuevaOpinion{Origen: OpinionFormulario, Texto: "Quiero GitLab", Correo: "b@example.com", Remitente: "192.0.2.2"})
+	cola, err := s.OpinionesSinClasificar(ctx, 10)
+	if err != nil || len(cola) != 2 || cola[0].ID != a {
+		t.Fatalf("queue: %+v %v", cola, err)
+	}
+	if err := s.GuardarClasificacion(ctx, a, Clasificacion{Clase: ClaseNuevo, Resumen: "Soporte para GitLab", Borrador: "Gracias", Coincidencias: []string{"ruta:102"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.GuardarClasificacion(ctx, b, Clasificacion{Clase: ClaseNuevo, Resumen: "GitLab", Grupo: &a}); err != nil {
+		t.Fatal(err)
+	}
+	if cola, _ := s.OpinionesSinClasificar(ctx, 10); len(cola) != 0 {
+		t.Fatalf("still queued: %+v", cola)
+	}
+	hechas, err := s.OpinionesClasificadas(ctx, 10)
+	if err != nil || len(hechas) != 2 || hechas[0].ID != b || hechas[0].Grupo == nil || *hechas[0].Grupo != a || hechas[1].Coincidencias[0] != "ruta:102" {
+		t.Fatalf("classified: %+v %v", hechas, err)
+	}
+	if err := s.GuardarClasificacion(ctx, 999999, Clasificacion{}); err != ErrNotFound {
+		t.Fatalf("no such comment: %v", err)
+	}
+}

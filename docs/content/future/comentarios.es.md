@@ -1,7 +1,7 @@
 # Comentarios para p0dxD (diseño) {#comments-for-p0dxd}
 
 !!! info "Estado: aprobado, en construcción"
-    Esta es la idea 105 de la Ruta, de p0dxD (2026-11-10). p0dxD la aprobó el 2026-11-15 con todas las recomendaciones de abajo (decisión 145 de la Ruta). **Construido hasta ahora: el tramo 1**, el extremo que recibe y el formulario público en `/comentarios`; los comentarios se guardan, pero la IA, la página para responderlos y el botón de la app vienen después, en el [orden del trabajo](#order-of-work).
+    Esta es la idea 105 de la Ruta, de p0dxD (2026-11-10). p0dxD la aprobó el 2026-11-15 con todas las recomendaciones de abajo (decisión 145 de la Ruta). **Construido hasta ahora: los tramos 1 y 2**, el extremo que recibe con el formulario público en `/comentarios`, y la IA que ordena cada comentario y redacta su respuesta (ve el índice del libro, los pendientes y las decisiones de la Ruta, y los comentarios anteriores); la página para responderlos y el botón de la app vienen después, en el [orden del trabajo](#order-of-work).
 
 La gente debe poder escribirle a p0dxD, y la IA debe ordenar lo que escriban. La decisión 95 (el plan de YC) pide evidencia de demanda; este es el canal por donde llega, en palabras de la gente, y conviene tenerlo antes del lanzamiento.
 
