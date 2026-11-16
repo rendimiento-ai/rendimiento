@@ -271,8 +271,10 @@ func (s *Store) CambiarOpinion(ctx context.Context, id int64, c CambioOpinion) e
 		return ErrNotFound
 	}
 	if c.Estado != nil && *c.Estado == OpinionDescartada {
-		// Set aside: its email is not needed anymore.
-		_, err = s.pool.Exec(ctx, `DELETE FROM opinion_correos WHERE opinion_id = $1`, id)
+		// Set aside: its email is not needed anymore. An answered comment
+		// keeps its state, and its email until its 30 days.
+		_, err = s.pool.Exec(ctx, `DELETE FROM opinion_correos WHERE opinion_id = $1
+			AND EXISTS (SELECT 1 FROM opiniones WHERE id = $1 AND estado = 'descartado')`, id)
 	}
 	return err
 }
