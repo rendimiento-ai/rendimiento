@@ -91,6 +91,7 @@ test("on a phone the menu is a sheet that peeks from the bottom", async ({ page,
 test("the top bar's pages have their drawings", async ({ page, problemas }) => {
   await page.goto("/");
   const enlaces = page.locator("header.topbar a.nav-link:has(svg.dibujo)");
+  await expect(enlaces.first()).toBeVisible(); // count() does not wait for the page to load
   expect(await enlaces.count()).toBeGreaterThan(3);
   await expect(page.locator(".menu-hoja")).toHaveCount(0);
   expect(problemas).toEqual([]);
