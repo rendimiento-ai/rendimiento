@@ -21,7 +21,7 @@ import { Ruta } from "./pages/Ruta";
 import { Bitacora } from "./pages/Bitacora";
 import { SenalesPage } from "./pages/SenalesPage";
 import { EnvironmentNavLink } from "./pages/Version";
-import { Cielo, Guardapolvo, MovimientoSwitch, TemaSwitch, Techo } from "./components/ambiente";
+import { Cielo, Guardapolvo, MovimientoSwitch, TemaSwitch, Techo, type Sistema } from "./components/ambiente";
 import { BanderaSwitch, LangSwitch, Logo } from "./components/marca";
 import { Bienvenida, type BookLinks } from "./pages/Bienvenida";
 import { Avisos } from "./components/avisos";
@@ -32,7 +32,7 @@ import "./styles.css";
  * The app's frame: setup until the GitHub App exists, the welcome page until you sign in, then the menu and pages.
  */
 function Shell() {
-  const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; configured?: boolean; book?: BookLinks; activity?: boolean; loading: boolean }>({ loading: true });
+  const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; sistema?: Sistema; configured?: boolean; book?: BookLinks; activity?: boolean; loading: boolean }>({ loading: true });
 
   useEffect(() => {
     (async () => {
@@ -45,7 +45,8 @@ function Shell() {
         session.cluster = !!me.cluster;
         session.mercado = !!me.mercado;
         session.appPrefix = me.appPrefix ?? "";
-        setState({ login: me.login, role: me.role, org: me.org, operator: me.operator, demo: me.demo, cluster: me.cluster, configured: true, loading: false });
+        setState({ login: me.login, role: me.role, org: me.org, operator: me.operator, demo: me.demo, cluster: me.cluster,
+          sistema: { version: me.version, modo: me.modo, os: me.os, arch: me.arch }, configured: true, loading: false });
       } catch (e) {
         if (!(e instanceof ApiError && e.status === 401)) throw e;
         // GitHub brings the person back here once they chose the repositories (the GitHub App's setup URL, with
@@ -124,7 +125,7 @@ function Shell() {
         </Routes>
       </main>
       <Avisos />
-      <Guardapolvo />
+      <Guardapolvo sistema={state.sistema} />
     </>
   );
 }

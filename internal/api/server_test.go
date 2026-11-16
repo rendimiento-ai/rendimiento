@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	goruntime "runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -149,6 +150,11 @@ func TestAuthBoundaries(t *testing.T) {
 	me := e.session(t, "P0DXD")
 	if r, body := e.do(t, "GET", "/api/me", "", me, nil); r.StatusCode != 200 || !strings.Contains(body, "P0DXD") {
 		t.Fatalf("me: %d %s", r.StatusCode, body)
+	}
+	// It says which rendimiento answers, for the foot of every page.
+	e.s.Version, e.s.Modo = "0.2.2", "local"
+	if _, body := e.do(t, "GET", "/api/me", "", me, nil); !strings.Contains(body, `"version":"0.2.2","modo":"local","os":"`+goruntime.GOOS+`","arch":"`+goruntime.GOARCH+`"`) {
+		t.Fatalf("me without the version: %s", body)
 	}
 	// Cross-site state change refused even with a valid cookie.
 	if r, _ := e.do(t, "POST", "/api/apps/x/rollback", `{"release":1}`, me, map[string]string{"Origin": "https://evil.example"}); r.StatusCode != 403 {
@@ -1595,7 +1601,7 @@ func TestSenalesDeVida(t *testing.T) {
 		t.Fatalf("a señal: %d", code)
 	}
 	mandar("8f3c2a9e1d474b6a9e0c5a7d2f1b3c84", false, "") // within the hour: not counted twice
-	mandar("00000000000000000000000000000001", true, "")   // the team's own
+	mandar("00000000000000000000000000000001", true, "")  // the team's own
 	r, err := e.store.Resumen(ctx)
 	if err != nil || r.Activas7 != 1 || r.Activas28 != 1 || r.Equipo28 != 1 || r.PorMotor["docker"] != 1 || r.AppsEnFuera28 != 2 {
 		t.Fatalf("summary: %+v %v", r, err)
