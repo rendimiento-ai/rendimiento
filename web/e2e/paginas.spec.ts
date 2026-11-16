@@ -67,18 +67,18 @@ test("on a phone the menu is a sheet that peeks from the bottom", async ({ page,
   await page.goto("/");
   expect((await page.locator("header.topbar").boundingBox())!.height, "one short row").toBeLessThan(70);
   await expect(page.locator("header.topbar a.nav-link")).toHaveCount(0);
-  const hoja = page.locator(".hoja");
-  const enlaces = hoja.locator(".hoja-paginas a.nav-link");
+  const hoja = page.locator(".menu-hoja");
+  const enlaces = hoja.locator(".menu-hoja-paginas a.nav-link");
   await expect(enlaces.first()).toBeVisible();
   await expect(enlaces.first().locator("svg.dibujo")).toBeVisible();
   const asomada = (await hoja.boundingBox())!;
   expect(asomada.height, "it peeks").toBeLessThan(130);
   expect(asomada.y + asomada.height).toBeGreaterThan(840);
-  await hoja.locator(".hoja-agarradera").click();
+  await hoja.locator(".menu-hoja-agarradera").click();
   await expect(hoja).toHaveAttribute("data-altura", "1");
-  await hoja.locator(".hoja-agarradera").click();
+  await hoja.locator(".menu-hoja-agarradera").click();
   await expect(hoja).toHaveAttribute("data-altura", "2");
-  await expect(hoja.locator(".hoja-cuenta button").last()).toBeInViewport(); // Sign out
+  await expect(hoja.locator(".menu-hoja-cuenta button").last()).toBeInViewport(); // Sign out
   await enlaces.nth(1).click();
   await expect(hoja, "a page's link lowers it").toHaveAttribute("data-altura", "0");
   await page.locator("button.topbar-yo").click();
@@ -92,7 +92,7 @@ test("the top bar's pages have their drawings", async ({ page, problemas }) => {
   await page.goto("/");
   const enlaces = page.locator("header.topbar a.nav-link:has(svg.dibujo)");
   expect(await enlaces.count()).toBeGreaterThan(3);
-  await expect(page.locator(".hoja")).toHaveCount(0);
+  await expect(page.locator(".menu-hoja")).toHaveCount(0);
   expect(problemas).toEqual([]);
 });
 

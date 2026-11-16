@@ -154,7 +154,7 @@ function Shell() {
       </main>
       <Avisos />
       <Guardapolvo sistema={state.sistema} />
-      {telefono && <div className="hoja-espacio" />}
+      {telefono && <div className="menu-hoja-espacio" />}
     </>
   );
 }

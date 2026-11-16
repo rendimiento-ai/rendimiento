@@ -90,12 +90,12 @@ export function Hoja({ altura, poner, paginas, cuenta }: { altura: Altura; poner
   }, [altura, poner]);
   const que = altura === 0 ? t("Show every page") : altura === 1 ? t("Show your account and preferences") : t("Lower the menu");
   return (
-    <div className="hoja" data-altura={altura}>
-      <button type="button" className="hoja-agarradera" aria-expanded={altura > 0} title={que} onClick={() => poner(((altura + 1) % 3) as Altura)}>
+    <div className="menu-hoja" data-altura={altura}>
+      <button type="button" className="menu-hoja-agarradera" aria-expanded={altura > 0} title={que} onClick={() => poner(((altura + 1) % 3) as Altura)}>
         <span className="sr-only">{que}</span>
       </button>
-      <nav className="hoja-paginas" aria-label={t("Pages")}>{paginas}</nav>
-      <div className="hoja-cuenta">{cuenta}</div>
+      <nav className="menu-hoja-paginas" aria-label={t("Pages")}>{paginas}</nav>
+      <div className="menu-hoja-cuenta">{cuenta}</div>
     </div>
   );
 }
