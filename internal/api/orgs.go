@@ -42,6 +42,9 @@ type Me struct {
 	// Buzon: this platform receives the comments people write to the team,
 	// and the person answers them (its operators): the Comments page.
 	Buzon bool `json:"buzon,omitempty"`
+	// Uso: the interface notes how it is used (totals only); off, it sends
+	// nothing.
+	Uso bool `json:"uso,omitempty"`
 }
 
 // me is the signed-in person, for the top bar.
@@ -61,6 +64,9 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request, login string) {
 		out.Operator = role == store.MemberAdmin
 	}
 	out.Buzon = out.Operator && s.SenalesRecibir
+	if u, err := s.Store.GetUso(r.Context()); err == nil {
+		out.Uso = u.Encendido && !out.Demo
+	}
 	writeJSON(w, out)
 }
 

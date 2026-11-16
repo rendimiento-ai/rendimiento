@@ -654,4 +654,10 @@ var catalog = map[string]string{
 	"pull request #%d conflicted with %s only where both sides added lines: rendimiento joined them in %s (%s), and tests it now": "la solicitud n.º %s chocaba con %s solo donde los dos lados agregaron líneas: rendimiento las juntó en %s (%s), y ahora lo prueba",
 	"pull request #%d conflicts with %s in %s: not merged": "la solicitud n.º %s choca con %s en %s: no se integró",
 	"Encargo %d, delivered in rendimiento: %s\n\n%s\n\nOpened by rendimiento when the encargo was delivered, so its checks and its preview copy can be seen before merging.": "Encargo %s, entregado en rendimiento: %s\n\n%s\n\nLa abrió rendimiento al entregarse el encargo, para que sus revisiones y su copia de vista previa se vean antes de integrar.",
+	"too much at once":                        "demasiado de una vez",
+	"not a page of the interface":             "no es una página de la interfaz",
+	"a time to data is from 0 to 60000 ms":    "un tiempo hasta los datos va de 0 a 60000 ms",
+	"not an action the interface notes":       "no es una acción que la interfaz anote",
+	"the period is 7, 14 or 30 days":          "el periodo es de 7, 14 o 30 días",
+	"say whether it is on: {\"encendido\": true}": "diga si está encendido: {\"encendido\": true}",
 }

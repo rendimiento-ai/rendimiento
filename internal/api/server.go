@@ -221,6 +221,12 @@ func (s *Server) Handler() http.Handler {
 		mux.Handle(pattern, s.requireRole(true, role, s.anotando(pattern, true, h)))
 	}
 	auth(store.MemberGuest, "GET /api/me", s.me)
+	// How the interface is used, as totals (internal/api/uso.go). Not in the
+	// bitácora: that would tie each batch to who sent it.
+	s.routes = append(s.routes, route{pattern: "POST /api/uso", role: store.MemberGuest})
+	mux.Handle("POST /api/uso", s.requireRole(false, store.MemberGuest, s.anotarUso))
+	plat(store.MemberAdmin, "GET /api/uso", s.verUso)
+	plat(store.MemberAdmin, "PUT /api/uso", s.putUso)
 	// Writing to the team from this installation, and its answers (decision 145).
 	auth(store.MemberGuest, "GET /api/al-equipo", s.verMisComentarios)
 	auth(store.MemberGuest, "POST /api/al-equipo", s.enviarMiComentario)
