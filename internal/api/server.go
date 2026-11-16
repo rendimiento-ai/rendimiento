@@ -223,7 +223,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/me", s.me)
 	// How the interface is used, as totals (internal/api/uso.go). Not in the
 	// bitácora: that would tie each batch to who sent it.
-	s.routes = append(s.routes, route{pattern: "POST /api/uso", role: store.MemberGuest})
+	s.routes = append(s.routes, route{pattern: "POST /api/uso", role: store.MemberGuest, sinBitacora: true})
 	mux.Handle("POST /api/uso", s.requireRole(false, store.MemberGuest, s.anotarUso))
 	plat(store.MemberAdmin, "GET /api/uso", s.verUso)
 	plat(store.MemberAdmin, "PUT /api/uso", s.putUso)
@@ -500,6 +500,9 @@ func randomToken() string {
 type route struct {
 	pattern, role string
 	platform      bool
+	// sinBitacora: a change kept out of the bitácora on purpose, because
+	// a row would say who did it (the interface's use, which is anonymous).
+	sinBitacora bool
 }
 
 type roleKey struct{}
