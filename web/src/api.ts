@@ -353,6 +353,13 @@ export interface Opinion {
   clasificadaAt?: string;
   iaError?: string;
 }
+/** Writing to the team from this installation (decision 145): whether comments may go, exactly what goes, and the person's own. */
+export interface AlEquipo {
+  encendidos: boolean;
+  porque?: string;
+  vista: { texto: string; idioma?: string; datos: { version: string; modo: string; motor: string; so: string }; ficha: string };
+  mios: { id: number; texto: string; remoto: number; respuesta?: string; respondidoPor?: string; respondidoAt?: string; visto: boolean; createdAt: string }[];
+}
 export interface OpinionDetalle extends Opinion {
   correo?: string;
   respondidoPor?: string;
@@ -1030,6 +1037,9 @@ export const api = {
   summary: () => request<SummaryView>("GET", "/api/summary"),
   redoSummary: (day: string) => request<void>("POST", "/api/summary/redo", { day }),
   me: () => request<Me>("GET", "/api/me"),
+  alEquipo: () => request<AlEquipo>("GET", "/api/al-equipo"),
+  escribirAlEquipo: (texto: string) => request<AlEquipo>("POST", "/api/al-equipo", { texto }),
+  respuestasDelEquipo: () => request<{ sinVer: number }>("GET", "/api/al-equipo/sin-ver"),
   opiniones: () => request<Opinion[]>("GET", "/api/opiniones"),
   opinion: (id: number) => request<OpinionDetalle>("GET", `/api/opiniones/${id}`),
   cambiarOpinion: (id: number, c: { clase?: ClaseOpinion; estado?: "por_revisar" | "descartado"; grupo?: number; borrador?: string }) =>

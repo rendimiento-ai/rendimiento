@@ -1642,3 +1642,6 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .badge.clase-nuevo { background: var(--surface-2); color: var(--text); }
 .badge.clase-falla { background: var(--bad-bg); color: var(--bad); }
 .badge.clase-sin_sentido, .badge.clase-ninguna { background: var(--idle-bg); color: var(--idle); }
+.guardapolvo .al-equipo-enlace { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.al-equipo pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--code-bg); color: var(--code-text); padding: 12px; border-radius: 8px; }
+.al-equipo h2 { margin-top: 24px; }

@@ -79,6 +79,7 @@ var textos = map[string]texto{
 	"bandeja.abrir":     {"Open", "Abrir"},
 	"bandeja.inicio":    {"Back to the start", "Volver al inicio"},
 	"bandeja.navegador": {"Open in the browser", "Abrir en el navegador"},
+	"bandeja.escribir":  {"Write to the team", "Escribirle al equipo"},
 	"bandeja.dormir":    {"Sleep", "Dormir"},
 	"bandeja.despertar": {"Wake up", "Despertar"},
 	"bandeja.salir":     {"Quit", "Salir"},

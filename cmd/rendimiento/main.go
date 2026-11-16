@@ -747,6 +747,8 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 			}
 			go p.ServeVerifications(ctx)
 			go srv.Senales.Run(ctx)
+			// The answers to the comments its people wrote to the team (decision 145).
+			go srv.Senales.RecogerRespuestas(ctx, st, 0)
 			if gh.Local(baseURL) {
 				// GitHub cannot send webhooks to this computer: ask it for new commits.
 				go (&platform.Vigia{P: p, Every: pollEvery, Branches: holder.Branches}).Run(ctx)

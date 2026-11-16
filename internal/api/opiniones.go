@@ -1,6 +1,9 @@
 package api
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"html/template"
@@ -13,6 +16,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/rendimiento-ai/rendimiento/internal/senales"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -340,4 +344,127 @@ func (s *Server) cuentaOpiniones(w http.ResponseWriter, r *http.Request, _ strin
 		}
 	}
 	writeJSON(w, map[string]int{"porRevisar": n})
+}
+
+// ---- an installation's own comments (decision 145, step 4) ----
+
+// respuestaOpinion gives an installation the answer to its comment (GET
+// /api/senales/comentarios/{id}/respuesta, no session): only to whoever
+// holds the token whose hash came with it (X-Ficha). 204 while no person
+// answered it.
+func (s *Server) respuestaOpinion(w http.ResponseWriter, r *http.Request) {
+	if !s.SenalesRecibir {
+		http.NotFound(w, r)
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	token := r.Header.Get("X-Ficha")
+	if err != nil || id <= 0 || len(token) != 64 {
+		httpError(w, http.StatusNotFound, "no such comment")
+		return
+	}
+	h := sha256.Sum256([]byte(token))
+	d, ok, answered, err := s.Store.RespuestaDeOpinion(r.Context(), id, hex.EncodeToString(h[:]))
+	switch {
+	case err != nil:
+		httpError(w, http.StatusInternalServerError, err.Error())
+	case !ok:
+		httpError(w, http.StatusNotFound, "no such comment")
+	case !answered:
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		writeJSON(w, map[string]any{"respuesta": d.Respuesta, "respondidoPor": d.RespondidoPor, "respondidoAt": d.RespondidoAt})
+	}
+}
+
+// MisComentariosView is the page to write to the team: whether comments
+// can go from here (señales on) and why not, the comment exactly as it
+// would go, and the person's comments with their answers.
+type MisComentariosView struct {
+	Encendidos bool                       `json:"encendidos"`
+	Porque     string                     `json:"porque,omitempty"`
+	Vista      senales.ComentarioSaliente `json:"vista"`
+	Mios       []store.MiComentario       `json:"mios"`
+}
+
+func idiomaDe(r *http.Request) string {
+	if strings.HasPrefix(strings.ToLower(r.Header.Get("Accept-Language")), "es") {
+		return "es"
+	}
+	return "en"
+}
+
+// verMisComentarios is the page to write to the team; it marks the
+// person's answers as seen.
+func (s *Server) verMisComentarios(w http.ResponseWriter, r *http.Request, login string) {
+	ctx := r.Context()
+	v := MisComentariosView{}
+	if s.Senales == nil {
+		v.Porque = "señales are not set up here"
+	} else {
+		on, porque, err := s.Senales.Encendidas(ctx)
+		if err != nil {
+			httpError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		v.Encendidos, v.Porque, v.Vista = on, porque, s.Senales.Comentario("", idiomaDe(r))
+	}
+	mios, err := s.Store.MisComentarios(ctx, login)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	v.Mios = mios
+	_ = s.Store.VerRespuestasEquipo(context.WithoutCancel(ctx), login)
+	writeJSON(w, v)
+}
+
+// enviarMiComentario sends a person's comment to the team, as the page
+// showed it would go, and keeps it here with its token.
+func (s *Server) enviarMiComentario(w http.ResponseWriter, r *http.Request, login string) {
+	var in struct {
+		Texto string `json:"texto"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	in.Texto = strings.TrimSpace(in.Texto)
+	if in.Texto == "" || utf8.RuneCountInString(in.Texto) > MaxOpinion {
+		httpError(w, http.StatusBadRequest, "a comment is 1 to 2,000 characters")
+		return
+	}
+	ctx := r.Context()
+	if s.Senales == nil {
+		httpError(w, http.StatusConflict, "señales are not set up here")
+		return
+	}
+	if on, porque, err := s.Senales.Encendidas(ctx); err != nil || !on {
+		httpError(w, http.StatusConflict, "nothing leaves this installation: señales are off ("+porque+")")
+		return
+	}
+	remoto, token, err := s.Senales.EnviarComentario(ctx, in.Texto, idiomaDe(r))
+	switch {
+	case errors.Is(err, senales.ErrDemasiados):
+		httpError(w, http.StatusTooManyRequests, err.Error())
+		return
+	case err != nil:
+		httpError(w, http.StatusBadGateway, "the comment could not be sent: "+err.Error())
+		return
+	}
+	if _, err := s.Store.GuardarMiComentario(context.WithoutCancel(ctx), login, in.Texto, remoto, token); err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	s.verMisComentarios(w, r, login)
+}
+
+// respuestasEquipoSinVer is how many answers to the person's comments to
+// the team they have not seen, for the bell.
+func (s *Server) respuestasEquipoSinVer(w http.ResponseWriter, r *http.Request, login string) {
+	n, err := s.Store.RespuestasEquipoSinVer(r.Context(), login)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, map[string]int{"sinVer": n})
 }

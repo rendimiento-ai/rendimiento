@@ -23,6 +23,7 @@ import { SenalesPage } from "./pages/SenalesPage";
 import { EnvironmentNavLink } from "./pages/Version";
 import { ComentarioPublico } from "./pages/ComentarioPublico";
 import { Buzon } from "./pages/Buzon";
+import { AlEquipo } from "./pages/AlEquipo";
 import { Cielo, Guardapolvo, MovimientoSwitch, TemaSwitch, Techo, type Sistema } from "./components/ambiente";
 import { BanderaSwitch, LangSwitch, Logo } from "./components/marca";
 import { Bienvenida, type BookLinks } from "./pages/Bienvenida";
@@ -121,6 +122,7 @@ function Shell() {
           <Route path="/senales" element={<SenalesPage />} />
           <Route path="/ia" element={<IA />} />
           <Route path="/buzon" element={<Buzon />} />
+          <Route path="/escribir" element={<AlEquipo />} />
           <Route path="/members" element={<Members me={state.login ?? ""} role={state.role ?? "guest"} org={state.org} />} />
           <Route path="/addons/:name" element={<Addons />} />
           <Route path="/services/:ns/:name" element={<Services />} />

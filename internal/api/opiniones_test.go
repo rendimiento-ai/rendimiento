@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/rendimiento-ai/rendimiento/internal/notify"
+	"github.com/rendimiento-ai/rendimiento/internal/senales"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -149,5 +150,57 @@ func TestBuzonAPI(t *testing.T) {
 	}
 	if r, _ := e.do(t, "POST", fmt.Sprintf("/api/opiniones/%d/reclasificar", a), `{}`, me, nil); r.StatusCode != 404 {
 		t.Fatalf("an answered one is not sorted again: %d", r.StatusCode)
+	}
+}
+
+// From an installation to the team and back: the page shows exactly what
+// would go; Send keeps the comment here and there; the answer a person
+// sends there is fetched with the token, lands here, counts in the bell
+// until seen. Off, nothing leaves; without the token, no answer.
+func TestAlEquipoYDeVuelta(t *testing.T) {
+	e := newEnv(t, false)
+	ctx := context.Background()
+	me := e.session(t, "p0dxD")
+	e.s.SenalesRecibir = true // this platform is also where comments go, as rendimiento.ai is
+	e.s.Senales = &senales.Enviador{Store: e.store, URL: e.srv.URL + "/api/senales", Version: "0.2.2", Modo: "kubernetes", Motor: "kubernetes"}
+	e.s.Notify = &notify.Notifier{Sender: &correos{}}
+
+	_, body := e.do(t, "GET", "/api/al-equipo", "", me, nil)
+	if !strings.Contains(body, `"encendidos":true`) || !strings.Contains(body, `"version":"0.2.2"`) || !strings.Contains(body, senales.FichaVista) {
+		t.Fatalf("the page: %s", body)
+	}
+	if r, body := e.do(t, "POST", "/api/al-equipo", `{"texto":"Me gustaría ver la versión en el pie"}`, me, nil); r.StatusCode != 200 || !strings.Contains(body, "versión en el pie") {
+		t.Fatalf("send: %d %s", r.StatusCode, body)
+	}
+	llegadas, _ := e.store.Opiniones(ctx, 10)
+	if len(llegadas) != 1 || llegadas[0].Origen != store.OpinionApp || !strings.Contains(string(llegadas[0].Datos), "0.2.2") {
+		t.Fatalf("arrived: %+v", llegadas)
+	}
+	mios, _ := e.store.MisComentarios(ctx, "p0dxD")
+	if len(mios) != 1 || mios[0].Remoto != llegadas[0].ID || len(mios[0].Ficha) != 64 {
+		t.Fatalf("kept here: %+v", mios)
+	}
+	if r, _ := e.do(t, "GET", fmt.Sprintf("/api/senales/comentarios/%d/respuesta", mios[0].Remoto), "", nil, map[string]string{"X-Ficha": mios[0].Ficha}); r.StatusCode != 204 {
+		t.Fatalf("no answer yet: %d", r.StatusCode)
+	}
+	if r, _ := e.do(t, "GET", fmt.Sprintf("/api/senales/comentarios/%d/respuesta", mios[0].Remoto), "", nil, map[string]string{"X-Ficha": strings.Repeat("0", 64)}); r.StatusCode != 404 {
+		t.Fatalf("another token: %d", r.StatusCode)
+	}
+	if r, _ := e.do(t, "POST", fmt.Sprintf("/api/opiniones/%d/respuesta", mios[0].Remoto), `{"respuesta":"¡Ya está! Véalo al pie."}`, me, nil); r.StatusCode != 200 {
+		t.Fatalf("answer: %d", r.StatusCode)
+	}
+	e.s.Senales.Recoger(ctx, e.store)
+	if _, body := e.do(t, "GET", "/api/al-equipo/sin-ver", "", me, nil); !strings.Contains(body, `"sinVer":1`) {
+		t.Fatalf("the bell: %s", body)
+	}
+	if _, body := e.do(t, "GET", "/api/al-equipo", "", me, nil); !strings.Contains(body, "¡Ya está! Véalo al pie.") || !strings.Contains(body, `"respondidoPor":"p0dxD"`) {
+		t.Fatalf("the answer here: %s", body)
+	}
+	if _, body := e.do(t, "GET", "/api/al-equipo/sin-ver", "", me, nil); !strings.Contains(body, `"sinVer":0`) {
+		t.Fatalf("seen: %s", body)
+	}
+	e.s.Senales.Off = true
+	if r, _ := e.do(t, "POST", "/api/al-equipo", `{"texto":"otro"}`, me, nil); r.StatusCode != 409 {
+		t.Fatalf("señales off: %d", r.StatusCode)
 	}
 }

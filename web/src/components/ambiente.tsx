@@ -127,6 +127,7 @@ export function Guardapolvo({ sistema }: { sistema?: Sistema }) {
     <footer className="guardapolvo">
       <span>rendimiento · {t("gives your code life")}</span>
       {sistema && <span className="que-corre" title={t("The rendimiento that answers here")}>{queCorre(sistema)}</span>}
+      {sistema && <a className="que-corre al-equipo-enlace" href="/escribir">{t("Write to the team")}</a>}
     </footer>
   );
 }

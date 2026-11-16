@@ -29,6 +29,7 @@ func atender(a *Asistente, idioma string) {
 	abrir := systray.AddMenuItem(T(idioma, "bandeja.abrir"), "")
 	inicio := systray.AddMenuItem(T(idioma, "bandeja.inicio"), "")
 	navegador := systray.AddMenuItem(T(idioma, "bandeja.navegador"), "")
+	escribir := systray.AddMenuItem(T(idioma, "bandeja.escribir"), "")
 	alternar := systray.AddMenuItem(T(idioma, "bandeja.despertar"), "")
 	systray.AddSeparator()
 	salir := systray.AddMenuItem(T(idioma, "bandeja.salir"), "")
@@ -41,6 +42,7 @@ func atender(a *Asistente, idioma string) {
 		alternar.SetTitle(m.Alternar)
 		activar(alternar, m.Activo)
 		activar(navegador, m.Navegador)
+		activar(escribir, m.Navegador)
 	})
 	for {
 		select {
@@ -50,6 +52,8 @@ func atender(a *Asistente, idioma string) {
 			go a.inicio()
 		case <-navegador.ClickedCh:
 			go a.navegador()
+		case <-escribir.ClickedCh:
+			go a.escribir()
 		case <-alternar.ClickedCh:
 			go a.alternar()
 		case <-salir.ClickedCh:
