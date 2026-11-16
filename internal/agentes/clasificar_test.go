@@ -34,6 +34,8 @@ func (s *opinionesStore) SearchRuta(_ context.Context, _ int64, kind, _ string, 
 	return []store.RutaEntry{{ID: 95, Kind: kind, Title: "El plan de YC"}}, nil
 }
 
+func (s *opinionesStore) BorrarCorreosVencidos(context.Context) (int64, error) { return 0, nil }
+
 type modeloFijo struct {
 	text string
 	err  error

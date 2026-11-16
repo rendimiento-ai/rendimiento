@@ -329,6 +329,34 @@ export interface Me {
   modo?: "local" | "kubernetes"; // on a computer, or on a cluster
   os: string; // the system its program was built for (Go's GOOS: linux, windows, darwin)
   arch: string; // and the processor (GOARCH: amd64, arm64)
+  buzon?: boolean; // this platform receives the comments people write to the team, and this person answers them
+}
+
+/** A comment someone wrote to the team (internal/store.Opinion), as the team's page shows it. */
+export type ClaseOpinion = "ya_existe" | "nuevo" | "falla" | "sin_sentido";
+export type EstadoOpinion = "por_revisar" | "respondido" | "descartado";
+export interface Opinion {
+  id: number;
+  origen: "app" | "formulario";
+  texto: string;
+  idioma: string;
+  nombre?: string;
+  datos?: { version?: string; modo?: string; motor?: string; so?: string };
+  estado: EstadoOpinion;
+  clase?: ClaseOpinion | "";
+  resumen?: string;
+  borrador?: string;
+  respuesta?: string;
+  createdAt: string;
+  coincidencias: string[]; // "libro:guide/ai/", "ruta:105", "opinion:7"
+  grupo?: number;
+  clasificadaAt?: string;
+  iaError?: string;
+}
+export interface OpinionDetalle extends Opinion {
+  correo?: string;
+  respondidoPor?: string;
+  respondidoAt?: string;
 }
 
 // A demo link (internal/store.DemoLink): a secret address that opens a
@@ -1002,6 +1030,13 @@ export const api = {
   summary: () => request<SummaryView>("GET", "/api/summary"),
   redoSummary: (day: string) => request<void>("POST", "/api/summary/redo", { day }),
   me: () => request<Me>("GET", "/api/me"),
+  opiniones: () => request<Opinion[]>("GET", "/api/opiniones"),
+  opinion: (id: number) => request<OpinionDetalle>("GET", `/api/opiniones/${id}`),
+  cambiarOpinion: (id: number, c: { clase?: ClaseOpinion; estado?: "por_revisar" | "descartado"; grupo?: number; borrador?: string }) =>
+    request<OpinionDetalle>("PUT", `/api/opiniones/${id}`, c),
+  reclasificarOpinion: (id: number) => request<void>("POST", `/api/opiniones/${id}/reclasificar`, {}),
+  responderOpinion: (id: number, respuesta: string) => request<OpinionDetalle>("POST", `/api/opiniones/${id}/respuesta`, { respuesta }),
+  opinionesPorRevisar: () => request<{ porRevisar: number }>("GET", "/api/opiniones/cuenta"),
   /** A comment for the team from the public form (decision 145); received only where señales are. */
   enviarComentario: (c: { texto: string; correo: string; nombre: string; idioma: string; sitio: string }) =>
     request<{ id: number }>("POST", "/api/senales/comentarios", c),

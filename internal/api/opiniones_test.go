@@ -3,8 +3,13 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
+	"sync"
 	"testing"
+
+	"github.com/rendimiento-ai/rendimiento/internal/notify"
+	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
 // The comments endpoint answers only where señales are received, keeps a
@@ -72,5 +77,77 @@ func TestRecibirOpinion(t *testing.T) {
 	}
 	if !deApp {
 		t.Fatal("the installation's comment is missing")
+	}
+}
+
+// correos keeps the emails it was asked to send.
+type correos struct {
+	mu   sync.Mutex
+	sent []string // to|subject|text
+}
+
+func (c *correos) Send(_ context.Context, to []string, subject, _, text string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.sent = append(c.sent, strings.Join(to, ",")+"|"+subject+"|"+text)
+	return nil
+}
+
+// The team's page: the comments are listed without emails, one is read
+// with its email, changed, answered once by email with the person's name,
+// and set aside; the bell counts those waiting. Where comments are not
+// received, none of it answers.
+func TestBuzonAPI(t *testing.T) {
+	e := newEnv(t, false)
+	ctx := context.Background()
+	me := e.session(t, "p0dxD")
+	if r, _ := e.do(t, "GET", "/api/opiniones", "", me, nil); r.StatusCode != 404 {
+		t.Fatalf("not receiving: %d", r.StatusCode)
+	}
+	e.s.SenalesRecibir = true
+	enviados := &correos{}
+	e.s.Notify = &notify.Notifier{Sender: enviados}
+	a, _ := e.store.GuardarOpinion(ctx, store.NuevaOpinion{Origen: store.OpinionFormulario, Texto: "¿Y GitLab?", Idioma: "es", Nombre: "Ana", Correo: "ana@example.com", Remitente: "192.0.2.31"})
+	b, _ := e.store.GuardarOpinion(ctx, store.NuevaOpinion{Origen: store.OpinionApp, Texto: "Me gusta", Ficha: strings.Repeat("cd", 32), Remitente: "192.0.2.32"})
+	_ = e.store.GuardarClasificacion(ctx, a, store.Clasificacion{Clase: store.ClaseNuevo, Resumen: "GitLab support", Borrador: "Gracias, quedó anotado."})
+
+	_, body := e.do(t, "GET", "/api/opiniones", "", me, nil)
+	if strings.Contains(body, "ana@example.com") || !strings.Contains(body, "GitLab support") {
+		t.Fatalf("the list: %s", body)
+	}
+	if _, body := e.do(t, "GET", "/api/opiniones/cuenta", "", me, nil); !strings.Contains(body, `"porRevisar":2`) {
+		t.Fatalf("count: %s", body)
+	}
+	if _, body := e.do(t, "GET", fmt.Sprintf("/api/opiniones/%d", a), "", me, nil); !strings.Contains(body, `"correo":"ana@example.com"`) {
+		t.Fatalf("one: %s", body)
+	}
+	if r, _ := e.do(t, "PUT", fmt.Sprintf("/api/opiniones/%d", a), `{"clase":"otra"}`, me, nil); r.StatusCode != 400 {
+		t.Fatalf("a bad class: %d", r.StatusCode)
+	}
+	if r, _ := e.do(t, "PUT", fmt.Sprintf("/api/opiniones/%d", a), `{"estado":"respondido"}`, me, nil); r.StatusCode != 400 {
+		t.Fatalf("answered by PUT: %d", r.StatusCode)
+	}
+	if r, body := e.do(t, "PUT", fmt.Sprintf("/api/opiniones/%d", a), `{"clase":"ya_existe","borrador":"Ya existe"}`, me, nil); r.StatusCode != 200 || !strings.Contains(body, `"clase":"ya_existe"`) {
+		t.Fatalf("change: %d %s", r.StatusCode, body)
+	}
+	r, body := e.do(t, "POST", fmt.Sprintf("/api/opiniones/%d/respuesta", a), `{"respuesta":"Hola Ana: ya se puede, vea el libro."}`, me, nil)
+	if r.StatusCode != 200 || !strings.Contains(body, `"estado":"respondido"`) || !strings.Contains(body, `"respondidoPor":"p0dxD"`) {
+		t.Fatalf("answer: %d %s", r.StatusCode, body)
+	}
+	if len(enviados.sent) != 1 || !strings.HasPrefix(enviados.sent[0], "ana@example.com|Su comentario a rendimiento|Hola Ana,") ||
+		!strings.Contains(enviados.sent[0], "— p0dxD") || !strings.Contains(enviados.sent[0], "> ¿Y GitLab?") {
+		t.Fatalf("sent: %q", enviados.sent)
+	}
+	if r, _ := e.do(t, "POST", fmt.Sprintf("/api/opiniones/%d/respuesta", a), `{"respuesta":"otra vez"}`, me, nil); r.StatusCode != 409 {
+		t.Fatalf("answered twice: %d", r.StatusCode)
+	}
+	if r, body := e.do(t, "POST", fmt.Sprintf("/api/opiniones/%d/respuesta", b), `{"respuesta":"¡Gracias!"}`, me, nil); r.StatusCode != 200 || len(enviados.sent) != 1 {
+		t.Fatalf("an installation's comment is answered without email: %d %s %q", r.StatusCode, body, enviados.sent)
+	}
+	if _, body := e.do(t, "GET", "/api/opiniones/cuenta", "", me, nil); !strings.Contains(body, `"porRevisar":0`) {
+		t.Fatalf("count after: %s", body)
+	}
+	if r, _ := e.do(t, "POST", fmt.Sprintf("/api/opiniones/%d/reclasificar", a), `{}`, me, nil); r.StatusCode != 404 {
+		t.Fatalf("an answered one is not sorted again: %d", r.StatusCode)
 	}
 }

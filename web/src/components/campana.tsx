@@ -19,12 +19,13 @@ interface Pendiente {
  * and, opened, those things and what happened since the page opened.
  * Nothing that waits goes unseen.
  */
-export function Campana({ role, operator }: { role?: string; operator?: boolean }) {
+export function Campana({ role, operator, buzon }: { role?: string; operator?: boolean; buzon?: boolean }) {
   const actua = !!role && role !== "guest";
   const { data: aprobaciones } = usePoll(() => (actua ? api.aprobaciones(true, lang) : Promise.resolve([])), [actua], 20000);
   const { data: encargos } = usePoll(() => (actua ? api.encargos() : Promise.resolve([])), [actua], 30000);
   const { data: respuestas } = usePoll(() => (actua ? api.respuestas() : Promise.resolve([])), [actua], 30000);
   const { data: problemas } = usePoll(() => (operator ? api.problemCount() : Promise.resolve({ open: 0 })), [operator], 30000);
+  const { data: comentarios } = usePoll(() => (buzon ? api.opinionesPorRevisar() : Promise.resolve({ porRevisar: 0 })), [buzon], 60000);
   const historial = useHistorial();
   const [abierta, setAbierta] = useState(false);
   const [donde, setDonde] = useState<CSSProperties>({});
@@ -77,6 +78,11 @@ export function Campana({ role, operator }: { role?: string; operator?: boolean 
         : t("{agent} answered your comment on cargo #{n}", { agent: c.author, n: c.cargoId ?? 0 }),
       a: c.encargoId ? "/ruta?tab=encargos" : "/ruta?tab=cargos",
     })),
+    ...((comentarios?.porRevisar ?? 0) > 0 ? [{
+      clave: "comentarios",
+      texto: tn(comentarios!.porRevisar, "{n} comment waits for your answer", "{n} comments wait for your answer"),
+      a: "/buzon",
+    }] : []),
     ...((problemas?.open ?? 0) > 0 ? [{
       clave: "problemas",
       texto: tn(problemas!.open, "{n} problem is open", "{n} problems are open"),

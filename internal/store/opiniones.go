@@ -204,3 +204,117 @@ func (s *Store) opiniones(ctx context.Context, where string, args ...any) ([]Opi
 	}
 	return out, rows.Err()
 }
+
+// OpinionDetalle is a comment with what only the team's page shows: the
+// form's email (until it is deleted) and who answered, when.
+type OpinionDetalle struct {
+	Opinion
+	Correo        string     `json:"correo,omitempty"`
+	RespondidoPor string     `json:"respondidoPor,omitempty"`
+	RespondidoAt  *time.Time `json:"respondidoAt,omitempty"`
+}
+
+// The states of a comment.
+const (
+	OpinionPorRevisar = "por_revisar"
+	OpinionRespondida = "respondido"
+	OpinionDescartada = "descartado"
+)
+
+// GetOpinion is one comment with its email and answer.
+func (s *Store) GetOpinion(ctx context.Context, id int64) (OpinionDetalle, error) {
+	list, err := s.opiniones(ctx, `WHERE id = $1`, id)
+	if err != nil {
+		return OpinionDetalle{}, err
+	}
+	if len(list) == 0 {
+		return OpinionDetalle{}, ErrNotFound
+	}
+	d := OpinionDetalle{Opinion: list[0]}
+	err = s.pool.QueryRow(ctx, `SELECT coalesce((SELECT correo FROM opinion_correos WHERE opinion_id = o.id), ''), o.respondido_por, o.respondido_at
+		FROM opiniones o WHERE o.id = $1`, id).Scan(&d.Correo, &d.RespondidoPor, &d.RespondidoAt)
+	return d, err
+}
+
+// CambioOpinion is what a person changes of a comment on the team's page:
+// its class, its state (set aside, or back to review), its group (0: none)
+// and its draft. A nil field stays.
+type CambioOpinion struct {
+	Clase    *string `json:"clase,omitempty"`
+	Estado   *string `json:"estado,omitempty"`
+	Grupo    *int64  `json:"grupo,omitempty"`
+	Borrador *string `json:"borrador,omitempty"`
+}
+
+// CambiarOpinion changes a comment as a person said. An answered comment
+// keeps its state: what was sent was sent.
+func (s *Store) CambiarOpinion(ctx context.Context, id int64, c CambioOpinion) error {
+	var grupo *int64
+	quitarGrupo := false
+	if c.Grupo != nil {
+		if *c.Grupo == 0 || *c.Grupo == id {
+			quitarGrupo = true
+		} else {
+			grupo = c.Grupo
+		}
+	}
+	tag, err := s.pool.Exec(ctx, `UPDATE opiniones SET
+		clase = coalesce($2, clase),
+		estado = CASE WHEN estado = 'respondido' THEN estado ELSE coalesce($3, estado) END,
+		grupo = CASE WHEN $6 THEN NULL ELSE coalesce($4, grupo) END,
+		borrador = coalesce($5, borrador)
+		WHERE id = $1`, id, c.Clase, c.Estado, grupo, c.Borrador, quitarGrupo)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	if c.Estado != nil && *c.Estado == OpinionDescartada {
+		// Set aside: its email is not needed anymore. An answered comment
+		// keeps its state, and its email until its 30 days.
+		_, err = s.pool.Exec(ctx, `DELETE FROM opinion_correos WHERE opinion_id = $1
+			AND EXISTS (SELECT 1 FROM opiniones WHERE id = $1 AND estado = 'descartado')`, id)
+	}
+	return err
+}
+
+// ResponderOpinion keeps the answer a person sent, with their name.
+func (s *Store) ResponderOpinion(ctx context.Context, id int64, respuesta, por string) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE opiniones SET respuesta = $2, respondido_por = $3, respondido_at = now(), estado = 'respondido'
+		WHERE id = $1 AND estado <> 'respondido'`, id, respuesta, por)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// Reclasificar puts a comment back for the AI to sort and draft again.
+func (s *Store) Reclasificar(ctx context.Context, id int64) error {
+	tag, err := s.pool.Exec(ctx, `UPDATE opiniones SET clasificada_at = NULL, ia_error = '' WHERE id = $1 AND estado <> 'respondido'`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// BorrarCorreosVencidos deletes the emails of comments answered 30 days
+// ago or more, and of those set aside (decision 145).
+func (s *Store) BorrarCorreosVencidos(ctx context.Context) (int64, error) {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM opinion_correos c USING opiniones o WHERE o.id = c.opinion_id
+		AND ((o.estado = 'respondido' AND o.respondido_at < now() - interval '30 days') OR o.estado = 'descartado')`)
+	return tag.RowsAffected(), err
+}
+
+// OpinionesPorRevisar is how many comments wait for a person.
+func (s *Store) OpinionesPorRevisar(ctx context.Context) (int, error) {
+	var n int
+	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM opiniones WHERE estado = 'por_revisar'`).Scan(&n)
+	return n, err
+}

@@ -1,7 +1,7 @@
 # Comments for p0dxD (design) {#comments-for-p0dxd}
 
 !!! info "Status: approved, being built"
-    This is idea 105 of la Ruta, from p0dxD (2026-11-10). p0dxD approved it on 2026-11-15 with every recommendation below (decision 145 of la Ruta). **Built so far: steps 1 and 2**, the receiving end with the public form at `/comentarios`, and the AI that sorts each comment and drafts its answer (it sees the book's contents, the Ruta's open to-dos and decisions, and the earlier comments); the page to answer them and the app's button come next, in the [order of work](#order-of-work).
+    This is idea 105 of la Ruta, from p0dxD (2026-11-10). p0dxD approved it on 2026-11-15 with every recommendation below (decision 145 of la Ruta). **Built so far: steps 1 to 3**: the receiving end with the public form at `/comentarios`; the AI that sorts each comment and drafts its answer (it sees the book's contents, the Ruta's open to-dos and decisions, and the earlier comments); and **Comments** (`/buzon`), the operators' page where each draft is rewritten and sent, with the count in the bell. The app's button, and the answer in its bell, come next, in the [order of work](#order-of-work).
 
 People should be able to write to p0dxD, and the AI should put what they write in order. Decision 95 (the YC plan) asks for evidence of demand; this is the channel where it arrives, in people's own words, and it is better to have it before the launch.
 

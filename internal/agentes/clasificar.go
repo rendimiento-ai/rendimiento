@@ -24,6 +24,7 @@ type ClasificadorStore interface {
 	OpinionesClasificadas(ctx context.Context, limite int) ([]store.Opinion, error)
 	GuardarClasificacion(ctx context.Context, id int64, c store.Clasificacion) error
 	SearchRuta(ctx context.Context, orgID int64, kind, text string, limit int) ([]store.RutaEntry, error)
+	BorrarCorreosVencidos(ctx context.Context) (int64, error)
 }
 
 // Clasificador reads each new comment people wrote to the team (decision
@@ -45,11 +46,21 @@ type Clasificador struct {
 	Log     *slog.Logger
 }
 
-// Run classifies new comments every 30 seconds until ctx ends.
+// Run classifies new comments every 30 seconds until ctx ends, and once an
+// hour deletes the emails no longer needed (30 days after the answer).
 func (c *Clasificador) Run(ctx context.Context) {
 	tick := time.NewTicker(30 * time.Second)
 	defer tick.Stop()
+	var limpio time.Time
 	for {
+		if time.Since(limpio) > time.Hour {
+			if n, err := c.Store.BorrarCorreosVencidos(ctx); err != nil && ctx.Err() == nil {
+				c.Log.Warn("comments: deleting old emails", "err", err)
+			} else if n > 0 {
+				c.Log.Info("comments: deleted the emails no longer needed", "n", n)
+			}
+			limpio = time.Now()
+		}
 		cola, err := c.Store.OpinionesSinClasificar(ctx, 5)
 		if err != nil && ctx.Err() == nil {
 			c.Log.Warn("comments: listing the new ones", "err", err)

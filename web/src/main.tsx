@@ -22,6 +22,7 @@ import { Bitacora } from "./pages/Bitacora";
 import { SenalesPage } from "./pages/SenalesPage";
 import { EnvironmentNavLink } from "./pages/Version";
 import { ComentarioPublico } from "./pages/ComentarioPublico";
+import { Buzon } from "./pages/Buzon";
 import { Cielo, Guardapolvo, MovimientoSwitch, TemaSwitch, Techo, type Sistema } from "./components/ambiente";
 import { BanderaSwitch, LangSwitch, Logo } from "./components/marca";
 import { Bienvenida, type BookLinks } from "./pages/Bienvenida";
@@ -33,7 +34,7 @@ import "./styles.css";
  * The app's frame: setup until the GitHub App exists, the welcome page until you sign in, then the menu and pages.
  */
 function Shell() {
-  const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; sistema?: Sistema; configured?: boolean; book?: BookLinks; activity?: boolean; loading: boolean }>({ loading: true });
+  const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; buzon?: boolean; sistema?: Sistema; configured?: boolean; book?: BookLinks; activity?: boolean; loading: boolean }>({ loading: true });
 
   useEffect(() => {
     (async () => {
@@ -46,7 +47,7 @@ function Shell() {
         session.cluster = !!me.cluster;
         session.mercado = !!me.mercado;
         session.appPrefix = me.appPrefix ?? "";
-        setState({ login: me.login, role: me.role, org: me.org, operator: me.operator, demo: me.demo, cluster: me.cluster,
+        setState({ login: me.login, role: me.role, org: me.org, operator: me.operator, demo: me.demo, cluster: me.cluster, buzon: me.buzon,
           sistema: { version: me.version, modo: me.modo, os: me.os, arch: me.arch }, configured: true, loading: false });
       } catch (e) {
         if (!(e instanceof ApiError && e.status === 401)) throw e;
@@ -88,8 +89,9 @@ function Shell() {
         {state.role && state.role !== "guest" && <NavLink to="/bitacora" className="nav-link">{t("Bitácora")}</NavLink>}
         <NavLink to="/ia" className="nav-link">{t("AI")}</NavLink>
         {state.operator && <ProblemsNavLink />}
+        {state.buzon && <NavLink to="/buzon" className="nav-link">{t("Comments")}</NavLink>}
         <span className="spacer" />
-        <Campana role={state.role} operator={state.operator} />
+        <Campana role={state.role} operator={state.operator} buzon={state.buzon} />
         {state.role === "admin" && <Link to="/new" className="btn primary">{t("New app")}</Link>}
         <OrgSwitch current={state.org} />
         {state.demo
@@ -118,6 +120,7 @@ function Shell() {
           <Route path="/bitacora" element={<Bitacora />} />
           <Route path="/senales" element={<SenalesPage />} />
           <Route path="/ia" element={<IA />} />
+          <Route path="/buzon" element={<Buzon />} />
           <Route path="/members" element={<Members me={state.login ?? ""} role={state.role ?? "guest"} org={state.org} />} />
           <Route path="/addons/:name" element={<Addons />} />
           <Route path="/services/:ns/:name" element={<Services />} />
