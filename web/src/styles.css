@@ -1462,21 +1462,58 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 .app-dominio { min-width: 0; overflow-wrap: anywhere; }
 .judge { margin: 6px 0 8px; }
 
-/* One run: the steps with their timing bars beside the log. */
+/* One run: its steps (the race, or the threads) beside the log. */
 .ejecucion{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;margin-top:16px}
-.pasos{position:relative;flex:1 1 280px;max-width:360px;display:flex;flex-direction:column;gap:2px}
-.pasos::before{content:"";position:absolute;left:21px;top:34px;bottom:20px;border-left:2px dashed var(--border)}
-.pasos-escala{display:flex;justify-content:space-between;padding:0 10px 0 44px}
-.paso{position:relative;width:100%;display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;border:none;background:transparent;border-radius:12px;padding:10px;min-height:46px;color:var(--text);cursor:pointer}
-.paso:hover{background:color-mix(in srgb,var(--border) 55%,transparent)}
-.paso.on{background:var(--card);box-shadow:0 1px 4px rgba(0,0,0,.18)}
-.paso svg{display:block;position:relative}
-.paso.corre svg circle{animation:paso-late 1.2s ease-in-out infinite}
-@keyframes paso-late{50%{opacity:.45}}
-.pista{position:relative;display:block;height:6px;margin-top:6px;border-radius:3px;background:var(--border)}
-.pista b{position:absolute;top:0;bottom:0;border-radius:3px;background:var(--c);transform-origin:left;animation:pista-crece .6s cubic-bezier(.2,.8,.3,1) both;animation-delay:var(--d)}
-@keyframes pista-crece{from{transform:scaleX(0)}}
-.par{display:inline-block;margin-left:6px;font-size:11px;font-weight:800;padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--anil) 15%,transparent);color:var(--anil);vertical-align:1px}
+.pasos{flex:1 1 300px;max-width:440px;min-width:0;display:flex;flex-direction:column;gap:6px}
+.pasos.pasos-hilos{flex-basis:100%;max-width:none}
+.pasos-cab{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:0 4px 4px}
+.pasos-tema{display:inline-flex;background:var(--surface-2);border-radius:10px;padding:3px;gap:2px}
+.pasos-tema button{border:0;background:transparent;border-radius:8px;min-height:30px;padding:0 11px;font-size:13px;font-weight:800;color:var(--muted);transition:background .2s,color .2s,box-shadow .2s}
+.pasos-tema button[aria-pressed="true"]{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.2)}
+/* Each step's own color, the same in both ways: day, and night (chosen, or following a dark device). */
+:root{--hebra-1:var(--nopal);--hebra-2:var(--anil);--hebra-3:var(--rosa);--hebra-4:var(--cempasuchil);--hebra-5:#7A4FB5;--hebra-6:#1F8A8E;--hebra-7:var(--teja);--hebra-8:var(--terciopelo)}
+:root[data-theme="night"]{--hebra-1:#6FBF73;--hebra-2:#6E97F0;--hebra-3:#FF6F91;--hebra-4:#F2A93B;--hebra-5:#B58BFF;--hebra-6:#4FC3C7;--hebra-7:#FF9B5E;--hebra-8:#E98BC4}
+@media (prefers-color-scheme: dark){:root:not([data-theme="day"]){--hebra-1:#6FBF73;--hebra-2:#6E97F0;--hebra-3:#FF6F91;--hebra-4:#F2A93B;--hebra-5:#B58BFF;--hebra-6:#4FC3C7;--hebra-7:#FF9B5E;--hebra-8:#E98BC4}}
+
+/* The race: a lane per step across the run's time. */
+.carrera{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.carrera-carril{width:100%;display:grid;grid-template-columns:20px minmax(0,1fr) auto;column-gap:10px;row-gap:7px;align-items:center;text-align:left;border:none;background:transparent;border-radius:12px;padding:9px 10px;color:var(--text);cursor:pointer}
+.carrera-carril:hover{background:color-mix(in srgb,var(--border) 55%,transparent)}
+.carrera-carril.on{background:var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.carrera-carril svg{display:block}
+.carrera-nombre{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.carrera-llegada{white-space:nowrap;text-align:right}
+.carrera-llegada b{color:var(--text)}
+.carrera-pista{grid-column:2/-1;position:relative;display:block;height:10px;margin-right:8px;border-radius:5px;background:color-mix(in srgb,var(--border) 70%,transparent)}
+.carrera-espera{position:absolute;left:0;top:4px;height:0;border-top:2px dotted var(--muted);opacity:.7}
+.carrera-tramo{position:absolute;top:0;bottom:0;border-radius:5px;background:var(--c);transform-origin:left;animation:carrera-sale .7s cubic-bezier(.2,.8,.3,1) both;animation-delay:var(--d)}
+.carrera-tramo::after{content:"";position:absolute;right:-7px;top:-4px;width:18px;height:18px;border-radius:50%;background:var(--c);border:3px solid var(--surface);box-sizing:border-box}
+.carrera-carril.vivo .carrera-tramo::after{animation:carrera-late 1.2s ease-in-out infinite}
+.carrera-carril.es-skipped{color:var(--muted)}
+.carrera-escala{display:flex;justify-content:space-between;padding:0 18px 0 40px}
+@keyframes carrera-sale{from{transform:scaleX(0)}}
+@keyframes carrera-late{50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--c) 35%,transparent)}}
+
+/* The threads: the run as a weaving, in its own box that scrolls sideways on a phone. */
+.hilos-caja{overflow-x:auto;max-width:100%;padding:4px 0 8px;border-radius:12px}
+.hilos{display:block}
+.hilos text{font:600 12.5px var(--body);fill:var(--text)}
+.hilos .hilos-m{font-weight:400;font-size:11.5px;fill:var(--muted)}
+.hilos-origen{fill:var(--text)}
+.hilos-nudo{fill:var(--surface);stroke:var(--text);stroke-width:2.5}
+.hilos-espera{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-dasharray:2 5;stroke-linecap:round;opacity:.75}
+.hilos-paso{cursor:pointer;outline:none}
+.hilos-toque{fill:transparent;stroke:none}
+.hilos-paso:hover .hilos-toque{fill:color-mix(in srgb,var(--border) 45%,transparent)}
+.hilos-paso:focus-visible .hilos-toque{stroke:var(--text);stroke-width:2}
+.hilos-paso.on .hilos-toque{fill:color-mix(in srgb,var(--c) 12%,transparent)}
+.hilos-paso.on text:not(.hilos-m){font-weight:800}
+.hilos-elegido{fill:none;stroke:var(--c);stroke-width:13;stroke-linecap:round;opacity:.22}
+.hilos-hilo{fill:none;stroke:var(--c);stroke-width:5;stroke-linecap:round;stroke-dasharray:1;animation:hilos-teje 1.2s ease-out both;animation-delay:var(--d)}
+.hilos-paso.corto .hilos-hilo{stroke-width:3;stroke-dasharray:4 6;opacity:.5;animation:none}
+.hilos-paso.vivo .pasos-cuenta{animation:hilos-late 1.2s ease-in-out infinite}
+@keyframes hilos-teje{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes hilos-late{50%{opacity:.45}}
 .ejecucion-registro{flex:999 1 520px;min-width:0;display:flex;flex-direction:column;gap:8px}
 .reg{background:#1E1430;color:#EDE3D6;border-radius:16px;padding:14px 0;font:13px/1.65 ui-monospace,Menlo,Consolas,monospace;max-height:620px;overflow:auto}
 .reg div{padding:0 16px;white-space:pre-wrap;overflow-wrap:anywhere}
@@ -1485,7 +1522,7 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 .reg .grp{color:#F2C14E}
 .reg-vacio{color:#B9A9C9}
 @media (max-width:700px){.pasos{max-width:none}}
-@media (prefers-reduced-motion: reduce){.pista b,.paso.corre svg circle{animation:none}}
+@media (prefers-reduced-motion: reduce){.carrera-tramo,.carrera-carril.vivo .carrera-tramo::after,.hilos-hilo,.hilos-paso.vivo .pasos-cuenta{animation:none}}
 
 /* The bell: what waits for this person, and what just happened. */
 .campana { position: relative; }
