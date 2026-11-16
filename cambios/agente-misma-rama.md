@@ -1,0 +1,2 @@
+- **Coding agent:** an encargo about a run of a branch that is not the default one (a failure, or a pull request that conflicts) is worked on that same branch, not on a new `fix/` copy.
+- **Coding agent:** it resolves conflicts without git: `merge_default_branch` merges the default branch in, with git's marks where both sides changed the same place, and its next commit is the merge.

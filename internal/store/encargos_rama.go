@@ -66,12 +66,16 @@ func (s *Store) RunBranch(ctx context.Context, runID int64) (branch, defaultBran
 	return branch, defaultBranch, nil
 }
 
-// RamaDeEncargo names an encargo's branch by its kind, its number and the
-// first words of its title, so a list of branches says what each one is
-// and what it is about: fix/ for an encargo about a failed run (or a
-// conflict), feature/ for anything else. «Cambiar la configuración desde
+// RamaDeEncargo is the branch an encargo is worked on: its run's, when it
+// came from a run of a branch that is not the default one; else a branch
+// of its own, named by its kind, its number and the first words of its
+// title, so a list of branches says what each one is and what it is about:
+// fix/ for an encargo about a failed run, feature/ for anything else. «Cambiar la configuración desde
 // Entorno» (25) is feature/encargo-25-cambiar-la-configuracion-desde-entorno.
 func RamaDeEncargo(e Encargo) string {
+	if e.RunBranch != "" {
+		return e.RunBranch // worked on the run's own branch (Ruta 130)
+	}
 	kind := "feature/"
 	if e.RunID != nil {
 		kind = "fix/"

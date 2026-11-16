@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -90,6 +91,12 @@ type repos struct {
 	results []string
 	st      *coderStore
 	from    string // the sha the agent's branch was made from
+	branch  string // the branch commits must go to ("": the encargo's own)
+	// For merging: files at a commit, the files changed between two
+	// commits ("base...head"), and the merge commits made (head+other).
+	at      map[string]map[string][]byte
+	changes map[string][]string
+	merges  []string
 }
 
 func (r *repos) Files(context.Context, int64, string, string, int) (map[string][]byte, error) {
@@ -106,8 +113,24 @@ func (r *repos) CreateBranch(_ context.Context, _ int64, _, _, sha string) error
 	r.from = sha
 	return nil
 }
+func (r *repos) MergeBase(_ context.Context, _ int64, _, base, head string) (string, time.Time, error) {
+	return "base-sha", time.Time{}, nil
+}
+func (r *repos) ChangedFiles(_ context.Context, _ int64, _, base, head string) ([]string, bool, error) {
+	return r.changes[base+"..."+head], true, nil
+}
+func (r *repos) FileAt(_ context.Context, _ int64, _, p, ref string) ([]byte, error) {
+	if f, ok := r.at[ref][p]; ok {
+		return f, nil
+	}
+	return nil, &gh.APIError{Status: 404}
+}
+func (r *repos) CommitMerge(ctx context.Context, inst int64, repo, branch, head, other, msg string, files map[string][]byte, remove []string) (string, error) {
+	r.merges = append(r.merges, head+"+"+other)
+	return r.CommitFiles(ctx, inst, repo, branch, msg, files, remove)
+}
 func (r *repos) CommitFiles(_ context.Context, _ int64, _, branch, _ string, files map[string][]byte, remove []string) (string, error) {
-	if !strings.HasSuffix(branch, "encargo-12-saludar-en-espanol") {
+	if r.branch != "" && branch != r.branch || r.branch == "" && !strings.HasSuffix(branch, "encargo-12-saludar-en-espanol") {
 		return "", fmt.Errorf("committed to %s", branch)
 	}
 	r.commits, r.removed = append(r.commits, files), append(r.removed, remove)
@@ -226,12 +249,13 @@ func TestCoderStopsAtTwiceTheEstimate(t *testing.T) {
 	}
 }
 
-// An encargo about a run that failed on another branch is worked on a
-// branch made from that one, and its pull request goes into it.
-func TestCoderWorksFromTheFailedRunsBranch(t *testing.T) {
+// An encargo about a run that failed on a person's branch is worked on
+// that branch itself (Ruta 130): no copy of it, and the link is its own
+// pull request.
+func TestCoderFixesTheFailedRunsBranchInPlace(t *testing.T) {
 	run := int64(808)
 	st := &coderStore{runID: &run, runs: []*store.Run{{ID: 808, AppID: 4, Branch: "propina-redonda", SHA: "abc", Status: store.RunFailed}}}
-	r := &repos{st: st, files: map[string][]byte{"saludo.go": []byte("const Saludo = \"Hi\"\n")}, results: []string{store.RunSucceeded}}
+	r := &repos{st: st, branch: "propina-redonda", files: map[string][]byte{"saludo.go": []byte("const Saludo = \"Hi\"\n")}, results: []string{store.RunSucceeded}}
 	m := &script{t: t, cost: 10_000, turns: [][]ia.ToolCall{
 		{call("edit_file", map[string]string{"path": "saludo.go", "old_text": "Hi", "new_text": "Hola"})},
 		{call("commit_and_test", map[string]string{"message": "Saludo"})},
@@ -240,10 +264,10 @@ func TestCoderWorksFromTheFailedRunsBranch(t *testing.T) {
 	if err := newCoder(st, r, m).Do(context.Background(), store.Encargo{ID: 12, OrgID: 1, App: "tienda", RunID: &run}); err != nil {
 		t.Fatal(err)
 	}
-	if r.from != "head-of-propina-redonda" {
-		t.Fatalf("made from %q, want the failed run's branch", r.from)
+	if r.from != "" || len(r.commits) != 1 {
+		t.Fatalf("made a branch from %q, %d commits; want none and one on propina-redonda", r.from, len(r.commits))
 	}
-	if len(st.links) == 0 || st.links[0] != "https://github.com/o/tienda/compare/propina-redonda...fix/encargo-12-saludar-en-espanol?expand=1" {
+	if len(st.links) == 0 || st.links[0] != "https://github.com/o/tienda/pull/new/propina-redonda" {
 		t.Fatalf("links %v", st.links)
 	}
 }
@@ -270,5 +294,51 @@ func TestCoderFixesAnEncargosBranchInPlace(t *testing.T) {
 	}
 	if len(st.links) == 0 || st.links[0] != "https://github.com/o/tienda/pull/new/encargo-12-saludar-en-espanol" {
 		t.Fatalf("links %v", st.links)
+	}
+}
+
+// A conflict with the default branch is resolved on the branch itself
+// without git: merge_default_branch brings in what only main changed and
+// marks where both did; a commit with a mark left is refused; once
+// resolved, the commit is a merge with main as its second parent.
+func TestCoderMergesTheDefaultBranch(t *testing.T) {
+	run := int64(810)
+	st := &coderStore{runID: &run, runs: []*store.Run{{ID: 810, AppID: 4, Branch: "comentarios", SHA: "abc", Status: store.RunSucceeded}}}
+	base := "import a\nimport b\n\nfunc main() {}\n"
+	ours := "import a\nimport c\n\nfunc main() {}\n"
+	theirs := "import a\nimport b, s\n\nfunc main() {}\n"
+	r := &repos{st: st, branch: "comentarios", results: []string{store.RunSucceeded},
+		files: map[string][]byte{"main.ts": []byte(ours)},
+		at: map[string]map[string][]byte{
+			"base-sha":     {"main.ts": []byte(base)},
+			"head-of-main": {"main.ts": []byte(theirs), "nuevo.ts": []byte("export {}\n")},
+		},
+		changes: map[string][]string{"base-sha...head-of-main": {"main.ts", "nuevo.ts"}, "base-sha...head-of-comentarios": {"main.ts"}},
+	}
+	resolved := "import a\nimport b, s\nimport c\n\nfunc main() {}\n"
+	m := &script{t: t, cost: 10_000, turns: [][]ia.ToolCall{
+		{call("merge_default_branch", map[string]string{})},
+		{call("commit_and_test", map[string]string{"message": "Merge main"})},
+		{call("read_file", map[string]string{"path": "main.ts", "ref": "main"})},
+		{call("write_file", map[string]string{"path": "main.ts", "content": resolved})},
+		{call("commit_and_test", map[string]string{"message": "Merge main into comentarios"})},
+		{call("deliver", map[string]string{"summary": "Conservé los dos imports."})},
+	}}
+	r.at["main"] = r.at["head-of-main"]
+	if err := newCoder(st, r, m).Do(context.Background(), store.Encargo{ID: 12, OrgID: 1, App: "tienda", RunID: &run}); err != nil {
+		t.Fatal(err)
+	}
+	if len(m.seen) < 4 || !strings.Contains(m.seen[0], "CONFLICTS to resolve") || !strings.Contains(m.seen[0], "main.ts") || !strings.Contains(m.seen[0], "nuevo.ts") {
+		t.Fatalf("the merge said %q", m.seen)
+	}
+	if !strings.Contains(m.seen[1], "conflict marks") || m.seen[2] != theirs {
+		t.Fatalf("a commit with marks: %q; main's file: %q", m.seen[1], m.seen[2])
+	}
+	if len(r.merges) != 1 || r.merges[0] != "head-of-comentarios+head-of-main" || len(r.commits) != 1 ||
+		string(r.commits[0]["main.ts"]) != resolved || string(r.commits[0]["nuevo.ts"]) != "export {}\n" {
+		t.Fatalf("merges %v, commits %q", r.merges, r.commits)
+	}
+	if st.delivered == "" {
+		t.Fatalf("not delivered: gave back %q", st.gaveBack)
 	}
 }
