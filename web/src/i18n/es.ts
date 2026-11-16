@@ -177,7 +177,7 @@ export const es: Record<string, string> = {
   "Elsewhere in the cluster": "En otras partes del clúster",
   "Environment": "Entorno",
   "The town where your apps live: its houses, its services and its notices.": "El pueblo donde viven sus aplicaciones: sus casas, sus servicios y sus avisos.",
-  "Lit windows are the processor; the red skirting rises with memory. A note on the door says the node is missing something. The parroquia is the node in charge.": "Las ventanas encendidas son el procesador; el guardapolvo rojo sube con la memoria. Un papelito en la puerta avisa que algo le falta a ese nodo. La parroquia es el nodo que manda.",
+  "Lit windows are the processor; the red skirting rises with memory. A note on the door says the node is missing something. The presidencia municipal is the node in charge.": "Las ventanas encendidas son el procesador; el guardapolvo rojo sube con la memoria. Un papelito en la puerta avisa que algo le falta a ese nodo. La presidencia municipal es el nodo que manda.",
   "Capacity": "Capacidad",
   "Reserved is what the pods on a node ask for: a new pod goes only where it fits, however little the node really uses. Runs' steps go only to the nodes that take runs.": "Lo reservado es lo que piden los pods de un nodo: un pod nuevo solo entra donde cabe, aunque el nodo use poco de verdad. Los pasos de las ejecuciones solo van a los nodos que corren ejecuciones.",
   "Off in BUILD_EXCLUDE_NODES": "Apagado en BUILD_EXCLUDE_NODES",
@@ -1979,4 +1979,6 @@ export const es: Record<string, string> = {
   "Saved: it answers within a few seconds.": "Guardado: responde en unos segundos.",
   "it was tried again and has not failed for 30 minutes": "se volvió a intentar y no ha fallado en 30 minutos",
   "an email was sent since": "desde entonces se envió un correo",
+  "Your flag": "Su bandera",
+  "Your flag: {country}": "Su bandera: {country}",
 };

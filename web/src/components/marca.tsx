@@ -1,5 +1,6 @@
 // The brand mark and the language switch, shared by the top bar and the welcome page.
-import { lang, setLang } from "../i18n";
+import { lang, locale, setLang, t } from "../i18n";
+import { BANDERAS, BanderaSVG, nombrePais, ponerBandera, useBandera } from "../banderas";
 
 /** rendimiento's mark: a pulse line, with a beat that runs along it (still when movement is off). */
 export function Logo() {
@@ -21,5 +22,22 @@ export function LangSwitch() {
       aria-label={other === "es" ? "Cambiar a español" : "Switch to English"}>
       {other.toUpperCase()}
     </button>
+  );
+}
+
+/**
+ * The flag of the presidencia municipal (Environment's street and the Universe's plaza), chosen by each person on this
+ * device: the flag shows, and a list of countries opens over it.
+ */
+export function BanderaSwitch() {
+  const b = useBandera();
+  const paises = Object.keys(BANDERAS).map((c) => ({ c, n: nombrePais(c, locale) })).sort((x, y) => x.n.localeCompare(y.n, locale));
+  return (
+    <label className="bandera-switch" title={t("Your flag: {country}", { country: nombrePais(b, locale) })}>
+      <svg width="22" height="15" viewBox="0 0 22 15" aria-hidden="true"><BanderaSVG code={b} w={22} h={15} /></svg>
+      <select id="bandera-switch" value={b} onChange={(e) => ponerBandera(e.target.value)} aria-label={t("Your flag")}>
+        {paises.map((p) => <option key={p.c} value={p.c}>{p.n}</option>)}
+      </select>
+    </label>
   );
 }

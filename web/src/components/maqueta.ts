@@ -10,6 +10,7 @@
 // The page owns what is shown (the level and the picked thing); this file
 // only lays it out, draws it, and says what was clicked.
 import { t } from "../i18n";
+import { banderaActual, pintarBandera } from "../banderas";
 
 export type Status = "none" | "ok" | "slow" | "bad";
 export type NodeKind = "service" | "postgres" | "redis" | "workload" | "external" | "internet";
@@ -867,7 +868,7 @@ export class Maqueta implements Engine {
     // the flag on its pole at the corner of the roof
     const base = iso(x + w - 0.25, y + 0.25, h + 4), poleTop = { x: base.x, y: base.y - 30 };
     ctx.strokeStyle = this.night ? "#8C7AB0" : "#6B5444"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.lineTo(poleTop.x, poleTop.y); ctx.stroke();
-    ["#006847", "#FFFFFF", "#CE1126"].forEach((col, i) => { ctx.fillStyle = col; ctx.fillRect(poleTop.x + 1 + i * 5, poleTop.y, 5, 9); });
+    pintarBandera(ctx, banderaActual(), poleTop.x + 1, poleTop.y, 15, 10);
   }
   /** The paseo: people walking round the plaza, half one way and half the other. */
   private walkers(c: number, n: number, now: number) {
