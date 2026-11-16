@@ -435,9 +435,9 @@ type PullInfo struct {
 	Labels []struct {
 		Name string `json:"name"`
 	} `json:"labels"`
-	State  string `json:"state"`
-	Draft  bool   `json:"draft"`
-	Head   struct {
+	State string `json:"state"`
+	Draft bool   `json:"draft"`
+	Head  struct {
 		Ref  string `json:"ref"`
 		SHA  string `json:"sha"`
 		Repo struct {
@@ -698,6 +698,23 @@ func (c *Client) commitOn(ctx context.Context, repo, branch, want, other, messag
 		Type string  `json:"type"`
 		SHA  *string `json:"sha"` // null deletes the path
 	}
+	// Each file keeps its mode: a script stays executable (a merge of main
+	// into a branch wrote hack/*.sh as 100644, and its steps could not run
+	// them). A file new to the branch takes other's mode.
+	modes := c.modes(ctx, repo, head)
+	var otherModes map[string]string
+	if other != "" {
+		otherModes = c.modes(ctx, repo, other)
+	}
+	modeOf := func(p string) string {
+		if m := modes[p]; m != "" {
+			return m
+		}
+		if m := otherModes[p]; m != "" {
+			return m
+		}
+		return "100644"
+	}
 	paths := make([]string, 0, len(files))
 	for p := range files {
 		paths = append(paths, p)
@@ -713,7 +730,7 @@ func (c *Client) commitOn(ctx context.Context, repo, branch, want, other, messag
 		}, &blob); err != nil {
 			return "", err
 		}
-		entries = append(entries, entry{Path: p, Mode: "100644", Type: "blob", SHA: &blob.SHA})
+		entries = append(entries, entry{Path: p, Mode: modeOf(p), Type: "blob", SHA: &blob.SHA})
 	}
 	for _, p := range remove {
 		if _, ok := files[p]; !ok {
@@ -742,6 +759,29 @@ func (c *Client) commitOn(ctx context.Context, repo, branch, want, other, messag
 		return "", err
 	}
 	return commit.SHA, nil
+}
+
+// modes are the modes of the files in commit sha's tree, by path
+// ("100755" for an executable); empty when GitHub does not say, and
+// without the files a truncated (very large) tree leaves out.
+func (c *Client) modes(ctx context.Context, repo, sha string) map[string]string {
+	var out struct {
+		Tree []struct {
+			Path string `json:"path"`
+			Mode string `json:"mode"`
+			Type string `json:"type"`
+		} `json:"tree"`
+	}
+	modes := map[string]string{}
+	if err := c.do(ctx, http.MethodGet, "/repos/"+repo+"/git/trees/"+url.PathEscape(sha)+"?recursive=1", nil, &out); err != nil {
+		return modes
+	}
+	for _, e := range out.Tree {
+		if e.Type == "blob" && e.Mode != "" {
+			modes[e.Path] = e.Mode
+		}
+	}
+	return modes
 }
 
 // AddCollaborator invites a GitHub user to a repository with permission

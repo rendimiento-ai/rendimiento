@@ -335,3 +335,60 @@ func TestRelojAdelantado(t *testing.T) {
 		t.Errorf("duracion: %q", got)
 	}
 }
+
+// A merge writes each file with the mode it had: a script stays
+// executable, a file new to the branch takes main's mode.
+func TestCommitMergeKeepsModes(t *testing.T) {
+	var trees []string
+	a, _ := newApp(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		enc := json.NewEncoder(w)
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/access_tokens"):
+			enc.Encode(map[string]any{"token": "ghs_x", "expires_at": time.Now().Add(time.Hour)})
+		case r.URL.Path == "/repos/o/r/commits/rama":
+			enc.Encode(map[string]string{"sha": "head-sha"})
+		case r.URL.Path == "/repos/o/r/git/commits/head-sha":
+			enc.Encode(map[string]any{"tree": map[string]string{"sha": "head-tree"}})
+		case r.URL.Path == "/repos/o/r/git/trees/head-sha":
+			enc.Encode(map[string]any{"tree": []map[string]string{
+				{"path": "hack", "type": "tree", "mode": "040000"},
+				{"path": "hack/ci.sh", "type": "blob", "mode": "100755"},
+				{"path": "README.md", "type": "blob", "mode": "100644"},
+			}})
+		case r.URL.Path == "/repos/o/r/git/trees/main-sha":
+			enc.Encode(map[string]any{"tree": []map[string]string{
+				{"path": "hack/ci.sh", "type": "blob", "mode": "100755"},
+				{"path": "hack/nuevo.sh", "type": "blob", "mode": "100755"},
+			}})
+		case r.Method == http.MethodPost && r.URL.Path == "/repos/o/r/git/trees":
+			b, _ := io.ReadAll(r.Body)
+			trees = append(trees, string(b))
+			enc.Encode(map[string]string{"sha": "new-tree"})
+		case r.Method == http.MethodPost:
+			enc.Encode(map[string]string{"sha": "new-sha"})
+		case r.Method == http.MethodPatch:
+			enc.Encode(map[string]string{})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	files := map[string][]byte{"hack/ci.sh": []byte("#!/bin/sh\n"), "hack/nuevo.sh": []byte("#!/bin/sh\n"), "README.md": []byte("hola"), "otro.txt": []byte("x")}
+	if _, err := a.Client(7).CommitMerge(context.Background(), "o/r", "rama", "head-sha", "main-sha", "Merge main", files, nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(trees) != 1 {
+		t.Fatalf("trees posted: %v", trees)
+	}
+	var body struct {
+		Tree []struct{ Path, Mode string } `json:"tree"`
+	}
+	if err := json.Unmarshal([]byte(trees[0]), &body); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"hack/ci.sh": "100755", "hack/nuevo.sh": "100755", "README.md": "100644", "otro.txt": "100644"}
+	for _, e := range body.Tree {
+		if want[e.Path] != e.Mode {
+			t.Errorf("%s: mode %s, want %s", e.Path, e.Mode, want[e.Path])
+		}
+	}
+}
