@@ -1,1 +1,0 @@
-- **Comments:** **Pass it to the Ruta** on the Comments page makes a comment an idea in the Ruta, with your name and their words, and the AI drafts the answer again saying it was noted. Migration 0047 only adds a column.
