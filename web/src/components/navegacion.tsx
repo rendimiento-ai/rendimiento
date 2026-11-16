@@ -96,16 +96,10 @@ export function Hoja({ altura, poner, paginas, cuenta }: { altura: Altura; poner
   const caja = useRef<HTMLDivElement>(null);
   const gesto = useRef<{ y: number; x: number; alto: number; arrastra: boolean; id: number } | undefined>(undefined);
   const arrastro = useRef(false);
-  const alturas = () => {
-    const el = caja.current!;
-    const prev = el.style.height;
-    el.style.height = "";
-    const medir = (a: Altura) => { el.dataset.altura = String(a); return el.getBoundingClientRect().height; };
-    const hs = [medir(0), medir(1), medir(2)];
-    el.dataset.altura = String(altura);
-    el.style.height = prev;
-    return hs;
-  };
+  // The sheet's three heights, as the styles set them (styles.css, .menu-hoja).
+  const alturas = () => [104, 174, Math.round(window.innerHeight * 0.86)];
+  const actual = useRef(altura);
+  actual.current = altura;
   const baja = (e: React.PointerEvent) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
     arrastro.current = false;
@@ -135,7 +129,7 @@ export function Hoja({ altura, poner, paginas, cuenta }: { altura: Altura; poner
     const hs = alturas();
     const ahora = g.alto - dy;
     let a = hs.reduce((mejor, h, i) => (Math.abs(h - ahora) < Math.abs(hs[mejor] - ahora) ? i : mejor), 0);
-    if (a === altura && Math.abs(dy) > 24) a = Math.max(0, Math.min(2, altura + (dy < 0 ? 1 : -1)));
+    if (a === actual.current && Math.abs(dy) > 24) a = Math.max(0, Math.min(2, actual.current + (dy < 0 ? 1 : -1)));
     el.classList.remove("arrastrando");
     el.style.height = "";
     poner(a as Altura);

@@ -82,6 +82,7 @@ test("on a phone the menu is a sheet that peeks from the bottom", async ({ page,
   await enlaces.nth(1).click();
   await expect(hoja, "a page's link lowers it").toHaveAttribute("data-altura", "0");
   // Dragging it up with a finger raises it; dragging it down lowers it.
+  await page.waitForTimeout(500); // the sheet has finished lowering
   const caja = (await hoja.boundingBox())!;
   const arrastra = async (desde: number, hasta: number) => {
     const x = caja.x + caja.width / 2;
@@ -93,6 +94,7 @@ test("on a phone the menu is a sheet that peeks from the bottom", async ({ page,
   };
   await arrastra(caja.y + 40, caja.y - 30);
   await expect(hoja, "dragged up").toHaveAttribute("data-altura", "1");
+  await page.waitForTimeout(500);
   await arrastra(700, 800);
   await expect(hoja, "dragged down").toHaveAttribute("data-altura", "0");
   await page.locator("button.topbar-yo").click();
