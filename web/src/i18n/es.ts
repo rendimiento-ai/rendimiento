@@ -1,6 +1,20 @@
 // Spanish for every phrase in the UI, keyed by its English text (see ../i18n.ts).
 // Usted, and technical terms in Spanish (despliegue, construcción, versión, complemento…).
 export const es: Record<string, string> = {
+  "Write to the team": "Escribirle al equipo",
+  "Nothing leaves this installation: its señales are off. You can still write at rendimiento.ai/comentarios.": "Nada sale de esta instalación: sus señales están apagadas. Aun así puede escribir en rendimiento.ai/comentarios.",
+  "An idea, something that did not work, a question: a person on the team reads it and answers it, in their own words. The answer comes back here and to your bell; it may take a few days.": "Una idea, algo que no funcionó, una pregunta: una persona del equipo lo lee y le responde, con sus propias palabras. La respuesta llega aquí y a su campana; puede tardar unos días.",
+  "Nothing leaves this installation: its señales are off ({why}), and comments go the same way.": "Nada sale de esta instalación: sus señales están apagadas ({why}), y los comentarios salen por el mismo camino.",
+  "You can still write without an account at": "Aun así puede escribir sin cuenta en",
+  "Exactly what will be sent": "Exactamente lo que se enviará",
+  "Never your name, your apps or this installation's identity. The token whose hash goes stays here: only with it can this installation fetch the answer.": "Nunca su nombre, sus aplicaciones ni la identidad de esta instalación. La ficha cuya huella sale se queda aquí: solo con ella esta instalación puede recoger la respuesta.",
+  "Sent. The answer will come back here and to your bell.": "Enviado. La respuesta llegará aquí y a su campana.",
+  "Your comments": "Sus comentarios",
+  "You have not written to the team yet.": "Todavía no le ha escrito al equipo.",
+  "{who} answered, {when}": "{who} respondió, {when}",
+  "Waiting for an answer.": "Esperando respuesta.",
+  "The team answered your comment": "El equipo respondió su comentario",
+  "The team answered {n} of your comments": "El equipo respondió {n} de sus comentarios",
   "It exists already": "Ya existe",
   "New": "Nuevo",
   "Something fails": "Algo falla",

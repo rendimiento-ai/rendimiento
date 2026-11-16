@@ -193,6 +193,7 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.HandleFunc("POST /api/senales", s.recibirSenal)
 	mux.HandleFunc("POST /api/senales/comentarios", s.recibirOpinion)
+	mux.HandleFunc("GET /api/senales/comentarios/{id}/respuesta", s.respuestaOpinion)
 	mux.HandleFunc("GET /api/setup/status", s.setupStatus)
 	mux.HandleFunc("GET /api/setup/github", s.setupStart)
 	mux.HandleFunc("GET /api/setup/github/callback", s.setupCallback)
@@ -220,6 +221,10 @@ func (s *Server) Handler() http.Handler {
 		mux.Handle(pattern, s.requireRole(true, role, s.anotando(pattern, true, h)))
 	}
 	auth(store.MemberGuest, "GET /api/me", s.me)
+	// Writing to the team from this installation, and its answers (decision 145).
+	auth(store.MemberGuest, "GET /api/al-equipo", s.verMisComentarios)
+	auth(store.MemberGuest, "POST /api/al-equipo", s.enviarMiComentario)
+	auth(store.MemberGuest, "GET /api/al-equipo/sin-ver", s.respuestasEquipoSinVer)
 	auth(store.MemberGuest, "GET /api/orgs", s.listOrgs)
 	plat(store.MemberAdmin, "POST /api/orgs", s.createOrg)
 	auth(store.MemberGuest, "POST /api/orgs/{id}/switch", s.switchOrg)

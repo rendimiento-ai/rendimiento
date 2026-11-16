@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -236,6 +237,14 @@ func (a *Asistente) alternar() {
 func (a *Asistente) navegador() {
 	if v := a.laVentana(); v != nil && a.ahora().estado == wsl.Despierta {
 		v.Navegador(a.direccion)
+	}
+}
+
+// escribir opens, in the person's browser, the page to write to the team
+// (decision 145): its comment goes from this computer's rendimiento.
+func (a *Asistente) escribir() {
+	if v := a.laVentana(); v != nil && a.ahora().estado == wsl.Despierta {
+		v.Navegador(strings.TrimRight(a.direccion, "/") + "/escribir")
 	}
 }
 

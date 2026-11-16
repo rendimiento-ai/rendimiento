@@ -26,6 +26,7 @@ export function Campana({ role, operator, buzon }: { role?: string; operator?: b
   const { data: respuestas } = usePoll(() => (actua ? api.respuestas() : Promise.resolve([])), [actua], 30000);
   const { data: problemas } = usePoll(() => (operator ? api.problemCount() : Promise.resolve({ open: 0 })), [operator], 30000);
   const { data: comentarios } = usePoll(() => (buzon ? api.opinionesPorRevisar() : Promise.resolve({ porRevisar: 0 })), [buzon], 60000);
+  const { data: delEquipo } = usePoll(() => (role ? api.respuestasDelEquipo() : Promise.resolve({ sinVer: 0 })), [role], 5 * 60000);
   const historial = useHistorial();
   const [abierta, setAbierta] = useState(false);
   const [donde, setDonde] = useState<CSSProperties>({});
@@ -78,6 +79,11 @@ export function Campana({ role, operator, buzon }: { role?: string; operator?: b
         : t("{agent} answered your comment on cargo #{n}", { agent: c.author, n: c.cargoId ?? 0 }),
       a: c.encargoId ? "/ruta?tab=encargos" : "/ruta?tab=cargos",
     })),
+    ...((delEquipo?.sinVer ?? 0) > 0 ? [{
+      clave: "del-equipo",
+      texto: tn(delEquipo!.sinVer, "The team answered your comment", "The team answered {n} of your comments"),
+      a: "/escribir",
+    }] : []),
     ...((comentarios?.porRevisar ?? 0) > 0 ? [{
       clave: "comentarios",
       texto: tn(comentarios!.porRevisar, "{n} comment waits for your answer", "{n} comments wait for your answer"),
