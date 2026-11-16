@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, dollars, duration, session, subscribe, timeAgo, type App, type Diagnosis, type Run } from "../api";
+import { api, dollars, duration, session, subscribe, timeAgo, type App, type Diagnosis, type Run, type Step } from "../api";
 import { ErrorBox, RunBadge } from "../components/ui";
 import { lang, t, tn } from "../i18n";
 import { TextoConFormato } from "../components/texto";
@@ -20,20 +20,60 @@ export function RunPage() {
   const logRef = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
 
-  // Initial state, then live updates over SSE.
+  // Initial state, then live updates over SSE. The stream can miss events (the server drops them for a page that is
+  // behind, and a phone drops the stream of a tab in the background), so the run is fetched again when the stream
+  // reopens, when the page is seen again, and every few seconds while it goes. Only the run is replaced: the step chosen
+  // and the log's scroll stay as they are.
+  const [fresco, setFresco] = useState(0); // bumped when the stream or the page come back: the chosen step's log too
+  const pedidos = useRef(0);
+  const recargar = useCallback((log = false) => {
+    const n = ++pedidos.current;
+    api.run(runId).then((r) => {
+      if (n !== pedidos.current) return; // a later fetch is on its way
+      setRun((cur) => (cur ? { ...cur, ...r } : r));
+      setSelected((cur) => cur ?? primero(r));
+      if (log) setFresco((x) => x + 1);
+    }, () => {});
+  }, [runId]);
   useEffect(() => {
     api.run(runId).then((r) => {
       setRun(r);
-      const first = r.steps?.find((s) => s.status === "running" || s.status === "failed") ?? r.steps?.[0];
-      setSelected((cur) => cur ?? first?.id);
+      setSelected((cur) => cur ?? primero(r));
     }, setError);
     return subscribe(`/api/runs/${runId}/events`, {
-      run: (r: Run) => setRun(r),
-      step: (s: { id: string; status: string; digest?: string; message?: string }) =>
-        setRun((cur) => cur && { ...cur, steps: cur.steps?.map((x) => (x.id === s.id ? { ...x, ...s } as typeof x : x)) }),
+      // The run, steps and all; what only the page's fetch says (stumbles, limits) is kept.
+      run: (r: Run) => {
+        setRun((cur) => (cur ? { ...cur, ...r } : r));
+        setSelected((cur) => cur ?? primero(r));
+      },
+      step: (e: PasoEnVivo) => setRun((cur) => cur && { ...cur, steps: cur.steps?.map((x) => (x.id === e.id ? enVivo(x, e) : x)) }),
       log: (l: { step: string; text: string }) => setLogs((cur) => ({ ...cur, [l.step]: (cur[l.step] ?? "") + l.text })),
-    });
-  }, [runId]);
+    }, () => recargar(true));
+  }, [runId, recargar]);
+  const anda = run?.status === "queued" || run?.status === "running";
+  useEffect(() => {
+    const visto = () => { if (document.visibilityState === "visible") recargar(true); };
+    document.addEventListener("visibilitychange", visto);
+    return () => document.removeEventListener("visibilitychange", visto);
+  }, [recargar]);
+  useEffect(() => {
+    if (!anda) return;
+    const cada = setInterval(() => { if (document.visibilityState !== "hidden") recargar(); }, 10000);
+    return () => clearInterval(cada);
+  }, [anda, recargar]);
+
+  // How long each step took in the last run of the same kind (deploying or not) that passed: a faint mark in its lane.
+  const [antes, setAntes] = useState<Run>();
+  const deploy = run?.deploy;
+  useEffect(() => {
+    if (deploy === undefined) return;
+    let vivo = true;
+    api.runs(name).then((rs) => {
+      const otra = rs.find((r) => r.id < runId && r.status === "succeeded" && r.deploy === deploy);
+      return otra && api.run(otra.id).then((r) => { if (vivo) setAntes(r); });
+    }).catch(() => {});
+    return () => { vivo = false; };
+  }, [name, runId, deploy]);
 
   // The app says whether rendimiento merges, and with whose yes.
   useEffect(() => {
@@ -44,7 +84,7 @@ export function RunPage() {
   useEffect(() => {
     if (!selected) return;
     api.stepLog(runId, selected).then((text) => setLogs((cur) => (text.length >= (cur[selected]?.length ?? 0) ? { ...cur, [selected]: text } : cur)), () => {});
-  }, [runId, selected, run?.steps?.find((s) => s.id === selected)?.status]);
+  }, [runId, selected, run?.steps?.find((s) => s.id === selected)?.status, fresco]);
 
   useEffect(() => {
     const el = logRef.current;
@@ -87,7 +127,7 @@ export function RunPage() {
 
       {run.steps?.length ? (
         <div className="ejecucion">
-          <Pasos run={run} selected={selected} onSelect={setSelected} />
+          <Pasos run={run} antes={antes} selected={selected} onSelect={setSelected} />
           {step && (
             <div className="ejecucion-registro">
               <div className="row">
@@ -120,6 +160,38 @@ export function RunPage() {
       )}
     </>
   );
+}
+
+/** The step to show first: the one running or failed, else the first. */
+function primero(r: Run): string | undefined {
+  return (r.steps?.find((s) => s.status === "running" || s.status === "failed") ?? r.steps?.[0])?.id;
+}
+
+/** A step's live event: its status, and its times when the server says them (an older server does not). */
+type PasoEnVivo = Pick<Step, "id" | "status"> & Partial<Pick<Step, "digest" | "message" | "startedAt" | "finishedAt">>;
+
+/**
+ * A step after its live event. The times the server stored win; without them, a step that starts starts now and one
+ * that ends (having started) ends now, so its bar stops instead of growing with the clock until a reload.
+ */
+function enVivo(x: Step, e: PasoEnVivo): Step {
+  const ahora = new Date().toISOString();
+  const y: Step = { ...x, ...e };
+  switch (e.status) {
+    case "pending":
+      y.startedAt = e.startedAt;
+      y.finishedAt = e.finishedAt;
+      break;
+    case "running":
+      // A retried step starts again: its old times are not this try's.
+      y.startedAt = e.startedAt ?? (x.status === "running" ? x.startedAt : undefined) ?? ahora;
+      y.finishedAt = undefined;
+      break;
+    default: // succeeded, failed, skipped, reused
+      y.startedAt = e.startedAt ?? x.startedAt;
+      y.finishedAt = e.finishedAt ?? (y.startedAt ? (x.status === "running" ? ahora : x.finishedAt ?? ahora) : undefined);
+  }
+  return y;
 }
 
 /**

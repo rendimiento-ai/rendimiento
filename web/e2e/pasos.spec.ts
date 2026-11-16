@@ -63,3 +63,72 @@ test("a run's steps: the race, then the threads, and a step's log", async ({ pag
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   expect(problemas).toEqual([]);
 });
+
+// Live: two steps run side by side; the stream then says they finished (one
+// as an older server says it, without times; one with them) and that the
+// deploy started. Without a reload, the finished lanes show their place and
+// stop, the deploy's runs; the last run that passed marks where each step
+// finished then.
+test("a run's steps follow the live events: a finished step stops", async ({ page, problemas }, info) => {
+  const es = info.project.name === "es";
+  const vivo = 990002, previa = 990001 - 1;
+  const lanes = (pasos: ReturnType<typeof paso>[]) => ({ ...ejecucion, id: vivo, branch: "main", deploy: true, status: "running", steps: pasos });
+  let servida = lanes([
+    paso("api:test", "test", [], "running", 90),
+    paso("api:build", "build", [], "running", 90),
+    paso("deploy", "task", ["api:test", "api:build"], "pending"),
+  ]);
+  let soltar = () => {};
+  const suelto = new Promise<void>((r) => { soltar = r; });
+  await page.route(`**/api/runs/${vivo}`, (r) => r.fulfill({ json: servida }));
+  await page.route(`**/api/apps/en-vivo/runs`, (r) => r.fulfill({ json: [{ ...ejecucion, id: previa, status: "succeeded", steps: undefined }] }));
+  await page.route(`**/api/runs/${previa}`, (r) => r.fulfill({ json: { ...ejecucion, id: previa, status: "succeeded", steps: [
+    paso("api:test", "test", [], "succeeded", 900, 800),
+    paso("api:build", "build", [], "succeeded", 900, 840),
+    paso("deploy", "task", ["api:test", "api:build"], "succeeded", 800, 700),
+  ] } }));
+  await page.route(`**/api/runs/${vivo}/steps/*/log`, (r) => r.fulfill({ contentType: "text/plain", body: "" }));
+  await page.route(`**/api/runs/${vivo}/events`, async (r) => {
+    await suelto; // the events come once the page shows the run
+    const ev = (data: object) => `event: step\ndata: ${JSON.stringify(data)}\n\n`;
+    await r.fulfill({ status: 200, contentType: "text/event-stream", body: "retry: 600000\n\n" +
+      ev({ id: "api:test", status: "succeeded", digest: "", message: "" }) +
+      ev({ id: "api:build", status: "succeeded", digest: "", message: "", startedAt: hace(90), finishedAt: hace(30) }) +
+      ev({ id: "deploy", status: "running", digest: "", message: "", startedAt: hace(0) }) });
+  });
+  await page.goto(`/apps/en-vivo/runs/${vivo}`);
+
+  const pasos = page.locator("section.pasos");
+  const carril = (id: string) => pasos.locator(`.carrera-carril[aria-label^="${id},"]`);
+  await expect(pasos.locator(".carrera-carril")).toHaveCount(3);
+  await expect(pasos.locator(".carrera-carril.vivo")).toHaveCount(2);
+  await expect(pasos.locator(".carrera-antes")).toHaveCount(3);
+
+  // What the server says from now on, should the page fetch the run again.
+  servida = lanes([
+    paso("api:test", "test", [], "succeeded", 90, 0),
+    paso("api:build", "build", [], "succeeded", 90, 30),
+    paso("deploy", "task", ["api:test", "api:build"], "running", 0),
+  ]);
+  soltar();
+  await expect(carril("deploy")).toHaveClass(/\bvivo\b/);
+  await expect(pasos.locator(".carrera-carril.vivo")).toHaveCount(1);
+  await expect(carril("api:build")).toContainText(es ? "1.º" : "1st");
+  await expect(carril("api:test")).toContainText(es ? "2.º" : "2nd");
+  await expect(carril("deploy").locator(".carrera-tramo")).toHaveCount(1);
+
+  // A finished step's time stands still while the deploy's goes on.
+  const antes = await carril("api:test").getAttribute("aria-label");
+  const deployAntes = await carril("deploy").getAttribute("aria-label");
+  await page.waitForTimeout(2200);
+  expect(await carril("api:test").getAttribute("aria-label")).toBe(antes);
+  expect(await carril("deploy").getAttribute("aria-label")).not.toBe(deployAntes);
+
+  // The threads say the same: one thread running.
+  await pasos.getByRole("button", { name: es ? "Los hilos" : "The threads" }).click();
+  await expect(pasos.locator("g.hilos-paso")).toHaveCount(3);
+  await expect(pasos.locator("g.hilos-paso.vivo")).toHaveCount(1);
+  await expect(pasos.locator("g.hilos-paso.vivo")).toHaveAttribute("aria-label", /^deploy,/);
+  await expect(pasos.locator(".hilos-avanza")).toHaveCount(1);
+  expect(problemas).toEqual([]);
+});
