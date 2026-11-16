@@ -1,6 +1,23 @@
 // Spanish for every phrase in the UI, keyed by its English text (see ../i18n.ts).
 // Usted, and technical terms in Spanish (despliegue, construcción, versión, complemento…).
 export const es: Record<string, string> = {
+  "You have written several times this hour. Please try again later.": "Ya escribió varias veces en esta hora. Por favor, intente más tarde.",
+  "This rendimiento does not receive comments. Write at rendimiento.ai/comentarios.": "Este rendimiento no recibe comentarios. Escriba en rendimiento.ai/comentarios.",
+  "Check the email and the text (up to 2,000 characters).": "Revise el correo y el texto (hasta 2,000 caracteres).",
+  "It could not be sent. Your text is still here; try again in a moment.": "No se pudo enviar. Su texto sigue aquí; intente de nuevo en un momento.",
+  "Write to us": "Escríbanos",
+  "An idea, something that did not work, a question: a person reads every comment and answers it by email, in their own words. It may take a few days.": "Una idea, algo que no funcionó, una pregunta: una persona lee cada comentario y le responde por correo, con sus propias palabras. Puede tardar unos días.",
+  "Thank you: it is in the mailbox.": "Gracias: ya está en el buzón.",
+  "The answer will reach {correo}, once, from a person.": "La respuesta le llegará a {correo}, una sola vez, de parte de una persona.",
+  "Back to rendimiento": "Volver a rendimiento",
+  "Your comment": "Su comentario",
+  "What would you like rendimiento to do, or what got in your way?": "¿Qué le gustaría que hiciera rendimiento, o qué le estorbó?",
+  "Your email": "Su correo",
+  "required, only to answer you": "obligatorio, solo para responderle",
+  "Your name": "Su nombre",
+  "Send": "Enviar",
+  "Your email is kept apart from your comment, seen only by the team, used only to answer, and deleted 30 days after the answer. Nothing you write is published.": "Su correo se guarda aparte de su comentario, solo lo ve el equipo, solo se usa para responderle y se borra 30 días después de la respuesta. Nada de lo que escriba se publica.",
+  "An idea, or something that got in your way?": "¿Una idea, o algo que le estorbó?",
   "Your apps,": "Sus aplicaciones,",
   "Withered": "Marchitas",
   "Last run failed": "Última ejecución falló",

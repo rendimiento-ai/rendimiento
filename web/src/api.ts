@@ -1002,6 +1002,9 @@ export const api = {
   summary: () => request<SummaryView>("GET", "/api/summary"),
   redoSummary: (day: string) => request<void>("POST", "/api/summary/redo", { day }),
   me: () => request<Me>("GET", "/api/me"),
+  /** A comment for the team from the public form (decision 145); received only where señales are. */
+  enviarComentario: (c: { texto: string; correo: string; nombre: string; idioma: string; sitio: string }) =>
+    request<{ id: number }>("POST", "/api/senales/comentarios", c),
   orgs: () => request<Org[]>("GET", "/api/orgs"),
   createOrg: (slug: string, name: string) => request<Org>("POST", "/api/orgs", { slug, name }),
   switchOrg: (id: number) => request<void>("POST", `/api/orgs/${id}/switch`),

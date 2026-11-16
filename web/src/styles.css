@@ -1609,3 +1609,13 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .mesa-accion .btn { white-space: nowrap; }
 .mesa-aviso { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; border-left: 4px solid var(--bad); margin-bottom: 16px; }
 @media (max-width: 560px) { .mesa-fila { grid-template-columns: 1fr; } }
+
+/* ---- the public form to write to the team (/comentarios): a letter for the town's mailbox ---- */
+.buzon { max-width: 640px; margin-inline: auto; }
+.buzon h1 { font-family: var(--display); font-size: clamp(30px, 5vw, 44px); margin: 0 0 8px; }
+.buzon-carta { display: flex; flex-direction: column; gap: 16px; background: var(--surface); border: 1px solid var(--border); border-top: 6px solid var(--grana); border-radius: var(--radius); padding: 20px; box-shadow: 0 2px 0 var(--border); }
+.buzon-carta label { display: flex; flex-direction: column; gap: 6px; }
+.buzon-carta textarea, .buzon-carta input { font: inherit; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
+.buzon-cuenta { align-self: flex-end; }
+.buzon-carta .btn { align-self: flex-start; }
+.buzon-trampa { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }

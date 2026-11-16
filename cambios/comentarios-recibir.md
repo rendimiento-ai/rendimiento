@@ -1,0 +1,1 @@
+- **Comments:** anyone can write to the team at `/comentarios` (linked from the welcome page), with an email for the answer; rendimiento.ai keeps each comment within 2,000 characters and 3 an hour per sender (decision 145). The AI, the page to answer them and the app's button come next.
