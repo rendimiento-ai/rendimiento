@@ -8,11 +8,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
     <script>
-      // The day/night theme and movement chosen in the top bar, applied
-      // before the first paint so the page never flashes the other theme.
+      // The day/night theme, the colors and movement chosen in the top bar,
+      // applied before the first paint so the page never flashes the other
+      // theme. The families are those in components/ambiente.tsx.
       try {
         var t = localStorage.getItem("rendimiento.tema");
         if (t === "day" || t === "night") document.documentElement.dataset.theme = t;
+        var c = localStorage.getItem("rendimiento.colores");
+        if (["sierra", "atardecer", "bugambilia", "talavera", "milpa", "adobe"].indexOf(c) >= 0) document.documentElement.dataset.tema = c;
         if (localStorage.getItem("rendimiento.movimiento") === "off") document.documentElement.dataset.motion = "off";
       } catch (e) {}
     </script>

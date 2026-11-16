@@ -82,3 +82,42 @@ test("the señales page", async ({ page, problemas }, info) => {
   await expect(page.locator("main")).toContainText(es ? "Recibidas de todas las instalaciones" : "Received from every installation");
   expect(problemas).toEqual([]);
 });
+
+// The colors beside the day/night switch: a family and a mode, chosen apart,
+// both kept through a reload; the classic papel picado takes the family away.
+test("the colors and the day/night mode are kept", async ({ page, problemas }, info) => {
+  const es = info.project.name === "es";
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/");
+  const raiz = page.locator("html");
+  const boton = page.locator("header.topbar button.tema-boton");
+  await boton.click();
+  await expect(boton).toHaveAttribute("aria-expanded", "true");
+  await page.locator(".tema-panel").getByRole("button", { name: "Sierra" }).click();
+  await expect(raiz).toHaveAttribute("data-tema", "sierra");
+  await expect(page.locator(".tema-panel")).toBeHidden();
+  await expect(page.locator(".tema-franja")).toBeVisible(); // the family's band, in place of the papel picado
+  await expect(page.locator(".papel-picado")).toBeHidden();
+
+  await page.getByRole("button", { name: es ? "Cambiar a la noche" : "Switch to night" }).click();
+  await expect(raiz).toHaveAttribute("data-theme", "night");
+  await expect(raiz).toHaveAttribute("data-tema", "sierra");
+
+  await page.reload();
+  await expect(page.locator("header.topbar")).toBeVisible();
+  await expect(raiz).toHaveAttribute("data-theme", "night");
+  await expect(raiz).toHaveAttribute("data-tema", "sierra");
+
+  // Escape closes the list without choosing; then the classic one.
+  await boton.click();
+  await expect(page.locator(".tema-panel")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".tema-panel")).toBeHidden();
+  await expect(raiz).toHaveAttribute("data-tema", "sierra");
+  await boton.click();
+  await page.locator(".tema-panel").getByRole("button", { name: "Papel picado" }).click();
+  await expect(raiz).not.toHaveAttribute("data-tema", /.*/);
+  await expect(raiz).toHaveAttribute("data-theme", "night");
+  await expect(page.locator(".papel-picado")).toBeVisible();
+  expect(problemas).toEqual([]);
+});

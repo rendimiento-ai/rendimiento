@@ -113,7 +113,7 @@ export class Maqueta3D implements Engine {
 
     this.readTheme();
     const obs = new MutationObserver(() => { this.readTheme(); this.build(); });
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-motion"] });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-tema", "data-motion"] });
     const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
     const onMq = () => { this.readTheme(); this.build(); };
     mq?.addEventListener("change", onMq);

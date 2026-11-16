@@ -1,0 +1,1 @@
+- **Themes:** beside the day/night switch, a colors picker offers six families besides the classic papel picado (Sierra, Sunset on the hill, Bougainvillea, Talavera, Milpa, Adobe and roof tile), each with its day and its night and its own band at the top of the page; the family and the mode are chosen apart and both are remembered in the browser.

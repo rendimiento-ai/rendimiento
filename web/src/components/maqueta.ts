@@ -148,7 +148,7 @@ export class Maqueta implements Engine {
     this.stars = Array.from({ length: 140 }, () => ({ x: rnd(), y: rnd(), s: 0.5 + rnd() * 1.4, p: rnd() * 6 }));
     this.readTheme();
     const obs = new MutationObserver(() => this.readTheme());
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-tema"] });
     const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
     const onMq = () => this.readTheme();
     mq?.addEventListener("change", onMq);
