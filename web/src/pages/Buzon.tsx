@@ -2,6 +2,7 @@
 // the platform's AI made of it, for a person to rewrite the draft in their
 // own words and send it with their name. Nothing goes out by itself.
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, ApiError, timeAgo, type ClaseOpinion, type EstadoOpinion, type Opinion, type OpinionDetalle } from "../api";
 import { t, tn } from "../i18n";
 import { usePoll } from "../components/ui";
@@ -102,6 +103,22 @@ function Detalle({ id, abrir, cambio, lista }: { id: number; abrir: (id: number)
     }, (e) => setError(e instanceof Error ? e.message : String(e)));
   }, [id]);
 
+  // While the AI sorts it (or drafts it again), look every few seconds, and
+  // put its new draft in the answer when it comes.
+  const ordenando = !!o && !o.clasificadaAt && !o.iaError;
+  useEffect(() => {
+    if (!ordenando) return;
+    const tm = window.setInterval(() => {
+      api.opinion(id).then((d) => {
+        if (!d.clasificadaAt && !d.iaError) return;
+        setO(d);
+        if (d.estado !== "respondido") setRespuesta(d.borrador ?? "");
+        cambio();
+      }, () => undefined);
+    }, 4000);
+    return () => window.clearInterval(tm);
+  }, [id, ordenando, cambio]);
+
   async function hacer(f: () => Promise<OpinionDetalle | void>) {
     setOcupado(true);
     setError("");
@@ -140,7 +157,7 @@ function Detalle({ id, abrir, cambio, lista }: { id: number; abrir: (id: number)
 
       <div className="buzon-ia">
         <div className="small muted">{t("What the AI made of it")}</div>
-        {o.iaError ? <p className="small">{t("It could not sort it: {why}", { why: o.iaError })}</p> : !o.clasificadaAt ? <p className="small">{t("Sorting…")}</p> : (
+        {o.iaError ? <p className="small">{t("It could not sort it: {why}", { why: o.iaError })}</p> : !o.clasificadaAt ? <p className="small">{o.rutaId ? t("Writing the draft again, now saying it was noted…") : t("Sorting…")}</p> : (
           <>
             {o.resumen && <p>{o.resumen}</p>}
             {o.coincidencias.length > 0 && (
@@ -167,6 +184,16 @@ function Detalle({ id, abrir, cambio, lista }: { id: number; abrir: (id: number)
             <button type="button" disabled={ocupado} onClick={() => hacer(async () => { await api.reclasificarOpinion(o.id); return api.opinion(o.id); })}>{t("Sort it again")}</button>
           </div>
         )}
+        <div className="buzon-acciones">
+          {o.rutaId ? (
+            <span className="small">{t("In the Ruta as entry {n}.", { n: o.rutaId })} <Link to="/ruta">{t("Open the Ruta")}</Link></span>
+          ) : (
+            <button type="button" disabled={ocupado} onClick={() => hacer(() => api.pasarOpinionALaRuta(o.id))}
+              title={t("It becomes an idea in the Ruta, with your name and their words, and the AI drafts the answer again saying it was noted.")}>
+              {t("Pass it to the Ruta")}
+            </button>
+          )}
+        </div>
         {mismos.length > 0 && <div className="small muted">{t("Asks the same as: {list}", { list: mismos.map((m) => `#${m.id}`).join(", ") })}</div>}
       </div>
 

@@ -352,6 +352,7 @@ export interface Opinion {
   grupo?: number;
   clasificadaAt?: string;
   iaError?: string;
+  rutaId?: number; // the Ruta entry a person made of it
 }
 /** Writing to the team from this installation (decision 145): whether comments may go, exactly what goes, and the person's own. */
 export interface AlEquipo {
@@ -1045,6 +1046,7 @@ export const api = {
   cambiarOpinion: (id: number, c: { clase?: ClaseOpinion; estado?: "por_revisar" | "descartado"; grupo?: number; borrador?: string }) =>
     request<OpinionDetalle>("PUT", `/api/opiniones/${id}`, c),
   reclasificarOpinion: (id: number) => request<void>("POST", `/api/opiniones/${id}/reclasificar`, {}),
+  pasarOpinionALaRuta: (id: number) => request<OpinionDetalle>("POST", `/api/opiniones/${id}/ruta`, {}),
   responderOpinion: (id: number, respuesta: string) => request<OpinionDetalle>("POST", `/api/opiniones/${id}/respuesta`, { respuesta }),
   opinionesPorRevisar: () => request<{ porRevisar: number }>("GET", "/api/opiniones/cuenta"),
   /** A comment for the team from the public form (decision 145); received only where señales are. */

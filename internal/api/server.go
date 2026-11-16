@@ -287,6 +287,7 @@ func (s *Server) Handler() http.Handler {
 	plat(store.MemberAdmin, "PUT /api/opiniones/{id}", s.cambiarOpinion)
 	plat(store.MemberAdmin, "POST /api/opiniones/{id}/reclasificar", s.reclasificarOpinion)
 	plat(store.MemberAdmin, "POST /api/opiniones/{id}/respuesta", s.responderOpinion)
+	plat(store.MemberAdmin, "POST /api/opiniones/{id}/ruta", s.pasarOpinionALaRuta)
 	plat(store.MemberAdmin, "PUT /api/senales/estado", s.putSenales)
 	plat(store.MemberAdmin, "GET /api/senales/instalaciones", s.listarInstalaciones)
 	plat(store.MemberAdmin, "PUT /api/senales/instalaciones/{id}/equipo", s.marcarEquipo)

@@ -83,6 +83,19 @@ func TestClasificador(t *testing.T) {
 	if g := st.guardadas[10]; g.Clase != "" || !strings.Contains(g.Error, "no JSON") {
 		t.Fatalf("unreadable: %+v", g)
 	}
+	// Passed to the Ruta by a person: the draft says it was noted, and it
+	// matches its entry even when that entry is not among those listed.
+	m.text = `{"clase": "nuevo", "resumen": "More themes", "coincidencias": ["ruta:250"], "grupo": null, "borrador": "Gracias: su idea ya está en la lista del equipo."}`
+	enLaRuta := int64(250)
+	_ = c.Clasificar(context.Background(), store.Opinion{ID: 12, Texto: "más temas", Idioma: "es", RutaID: &enLaRuta})
+	if g := st.guardadas[12]; strings.Join(g.Coincidencias, ",") != "ruta:250" || !strings.Contains(m.req.System, "passed this comment to the Ruta") {
+		t.Fatalf("in the Ruta: %+v\n%s", g, m.req.System)
+	}
+	_ = c.Clasificar(context.Background(), store.Opinion{ID: 13, Texto: "otro"})
+	if strings.Contains(m.req.System, "passed this comment to the Ruta") {
+		t.Fatal("a comment not in the Ruta was told it is")
+	}
+
 	m.text, m.err = "", ia.ErrNoModel
 	_ = c.Clasificar(context.Background(), store.Opinion{ID: 11, Texto: "hola"})
 	if g := st.guardadas[11]; g.Clase != "" || g.Error == "" {

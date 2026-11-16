@@ -253,6 +253,33 @@ func (s *Server) reclasificarOpinion(w http.ResponseWriter, r *http.Request, _ s
 	}
 }
 
+// pasarOpinionALaRuta makes a comment an idea in the Ruta, with this
+// person as its author, and has the AI draft its answer again, now saying
+// it was noted (an answered comment keeps what was sent).
+func (s *Server) pasarOpinionALaRuta(w http.ResponseWriter, r *http.Request, login string) {
+	if !s.opinionesVisibles(w) {
+		return
+	}
+	id, ok := opinionID(w, r)
+	if !ok {
+		return
+	}
+	e, err := s.Store.PasarALaRuta(r.Context(), id, login)
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		httpError(w, http.StatusNotFound, "no such comment")
+		return
+	case errors.Is(err, store.ErrYaEnLaRuta):
+		httpError(w, http.StatusConflict, "this comment is in the Ruta already")
+		return
+	case err != nil:
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	anotarDetalle(r, "ruta", strconv.FormatInt(e.ID, 10))
+	s.verOpinion(w, r, login)
+}
+
 // responderOpinion sends a person's answer to a comment, with their name:
 // by email to whoever wrote from the form; kept for the installation to
 // fetch when it came from the app. Once: what was sent was sent.

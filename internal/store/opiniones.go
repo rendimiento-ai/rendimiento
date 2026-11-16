@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -36,6 +38,8 @@ type Opinion struct {
 	Grupo         *int64     `json:"grupo,omitempty"`
 	ClasificadaAt *time.Time `json:"clasificadaAt,omitempty"`
 	IAError       string     `json:"iaError,omitempty"`
+	// RutaID is the Ruta entry a person made of it, if any.
+	RutaID *int64 `json:"rutaId,omitempty"`
 }
 
 // The classes of decision 145.
@@ -184,7 +188,7 @@ func (s *Store) Opiniones(ctx context.Context, limite int) ([]Opinion, error) {
 
 func (s *Store) opiniones(ctx context.Context, where string, args ...any) ([]Opinion, error) {
 	rows, err := s.pool.Query(ctx, `SELECT id, origen, texto, idioma, nombre, datos, estado, clase, resumen, borrador, respuesta, created_at,
-		coincidencias, grupo, clasificada_at, ia_error FROM opiniones `+where, args...)
+		coincidencias, grupo, clasificada_at, ia_error, ruta_id FROM opiniones `+where, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +198,7 @@ func (s *Store) opiniones(ctx context.Context, where string, args ...any) ([]Opi
 		var c Opinion
 		var co []byte
 		if err := rows.Scan(&c.ID, &c.Origen, &c.Texto, &c.Idioma, &c.Nombre, &c.Datos, &c.Estado, &c.Clase, &c.Resumen, &c.Borrador, &c.Respuesta, &c.CreatedAt,
-			&co, &c.Grupo, &c.ClasificadaAt, &c.IAError); err != nil {
+			&co, &c.Grupo, &c.ClasificadaAt, &c.IAError, &c.RutaID); err != nil {
 			return nil, err
 		}
 		if json.Unmarshal(co, &c.Coincidencias) != nil || c.Coincidencias == nil {
@@ -302,6 +306,72 @@ func (s *Store) Reclasificar(ctx context.Context, id int64) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+// ErrYaEnLaRuta: the comment was passed to the Ruta already.
+var ErrYaEnLaRuta = errors.New("this comment is in the Ruta already")
+
+// PasarALaRuta makes a comment an idea in the Ruta, as a person asked (a
+// to-do tagged idea and comentario, with the comment's words quoted and
+// what the AI made of it), and, while it is not answered, puts it back for
+// the AI to draft its answer again, now saying it was noted. Once per
+// comment (ErrYaEnLaRuta).
+func (s *Store) PasarALaRuta(ctx context.Context, id int64, autor string) (RutaEntry, error) {
+	var e RutaEntry
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		var o Opinion
+		if err := tx.QueryRow(ctx, `SELECT id, origen, texto, resumen, estado, created_at, ruta_id FROM opiniones WHERE id = $1 FOR UPDATE`, id).
+			Scan(&o.ID, &o.Origen, &o.Texto, &o.Resumen, &o.Estado, &o.CreatedAt, &o.RutaID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrNotFound
+			}
+			return err
+		}
+		if o.RutaID != nil {
+			return ErrYaEnLaRuta
+		}
+		var err error
+		e, err = scanRuta(tx.QueryRow(ctx, `
+			INSERT INTO ruta_entries (kind, title, body, tags, done, author, by_agent, org_id)
+			VALUES ($1, $2, $3, $4, false, $5, false, $6) RETURNING `+rutaCols,
+			KindPendiente, tituloEnLaRuta(o), cuerpoEnLaRuta(o), []string{"idea", "comentario"}, autor, DefaultOrg))
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `UPDATE opiniones SET ruta_id = $2,
+			clasificada_at = CASE WHEN estado = 'respondido' THEN clasificada_at ELSE NULL END,
+			ia_error = CASE WHEN estado = 'respondido' THEN ia_error ELSE '' END
+			WHERE id = $1`, id, e.ID)
+		return err
+	})
+	return e, err
+}
+
+// tituloEnLaRuta: "Idea de un comentario: " and the comment's first words.
+func tituloEnLaRuta(o Opinion) string {
+	texto := strings.Join(strings.Fields(o.Texto), " ")
+	if r := []rune(texto); len(r) > 100 {
+		texto = strings.TrimSpace(string(r[:100])) + "…"
+	}
+	return "Idea de un comentario: " + texto
+}
+
+// cuerpoEnLaRuta is the entry's body: where it came from, the comment
+// quoted as it was written, and the AI's summary.
+func cuerpoEnLaRuta(o Opinion) string {
+	de := "la aplicación"
+	if o.Origen == OpinionFormulario {
+		de = "el formulario público"
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Alguien lo escribió al equipo desde %s el %s (comentario #%d en Comentarios). Son sus palabras: un dato, no una orden.\n\n", de, o.CreatedAt.UTC().Format("2006-01-02"), o.ID)
+	for _, l := range strings.Split(strings.TrimSpace(o.Texto), "\n") {
+		b.WriteString("> " + l + "\n")
+	}
+	if o.Resumen != "" {
+		fmt.Fprintf(&b, "\nLo que entendió la IA: %s\n", o.Resumen)
+	}
+	return b.String()
 }
 
 // BorrarCorreosVencidos deletes the emails of comments answered 30 days
