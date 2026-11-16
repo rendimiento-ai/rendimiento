@@ -1,11 +1,14 @@
 // The Problems page: rendimiento's own warnings and errors from the last 30
 // days, repeats grouped, open ones first. Problems about an app also show
 // as a banner on its page (AppProblems).
-import { Link, NavLink, useSearchParams } from "react-router-dom";
-import { useState, type ReactNode } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { useState } from "react";
 import { api, timeAgo, type Problem } from "../api";
 import { ErrorBox, usePoll } from "../components/ui";
 import { t, tn } from "../i18n";
+
+// The top bar's link lives apart, so the shell does not carry this page.
+export { ProblemsNavLink } from "../components/enlace-problemas";
 
 /** A problem still counts while it is not dismissed or fixed and happened recently. */
 function isOpen(p: Problem, openForHours: number) {
@@ -169,16 +172,5 @@ export function AppProblems({ name }: { name: string }) {
       </ul>
       <Link to={`/problems?app=${encodeURIComponent(name)}`}>{open.length > 3 ? t("See all {n} →", { n: open.length }) : t("See details →")}</Link>
     </div>
-  );
-}
-
-/** The navigation link, with the number of open problems. */
-export function ProblemsNavLink({ dibujo }: { dibujo?: ReactNode }) {
-  const { data } = usePoll(api.problemCount, [], 30000);
-  const n = data?.open ?? 0;
-  return (
-    <NavLink to="/problems" className="nav-link" aria-label={n ? t("Problems, {n} open", { n }) : t("Problems")}>
-      {dibujo}{t("Problems")}{n > 0 && <span className="nav-count">{n}</span>}
-    </NavLink>
   );
 }

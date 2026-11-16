@@ -1,6 +1,8 @@
 // Spanish for every phrase in the UI, keyed by its English text (see ../i18n.ts).
 // Usted, and technical terms in Spanish (despliegue, construcción, versión, complemento…).
 export const es: Record<string, string> = {
+  "This page could not be loaded. You may be offline, or rendimiento was just updated.": "No se pudo cargar esta página. Quizá no tiene conexión, o rendimiento se acaba de actualizar.",
+  "Reload": "Volver a cargar",
   "Write to the team": "Escribirle al equipo",
   "Nothing leaves this installation: its señales are off. You can still write at rendimiento.ai/comentarios.": "Nada sale de esta instalación: sus señales están apagadas. Aun así puede escribir en rendimiento.ai/comentarios.",
   "An idea, something that did not work, a question: a person on the team reads it and answers it, in their own words. The answer comes back here and to your bell; it may take a few days.": "Una idea, algo que no funcionó, una pregunta: una persona del equipo lo lee y le responde, con sus propias palabras. La respuesta llega aquí y a su campana; puede tardar unos días.",
