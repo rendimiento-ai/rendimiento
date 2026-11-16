@@ -102,9 +102,10 @@ type Server struct {
 	// Summarizer writes the day's summary on the home page (nil: none).
 	Summarizer *agentes.Summarizer
 	AgentLang  string
-	routes     []route // authenticated routes and their roles (see Handler)
-	SetupToken string  // guards the one-time GitHub App setup
-	AppName    string  // name for the GitHub App, e.g. "rendimiento-example"
+	routes     []route     // authenticated routes and their roles (see Handler)
+	fallas     ritmoFallas // reports of the UI's error pages, per session (fallas.go)
+	SetupToken string      // guards the one-time GitHub App setup
+	AppName    string      // name for the GitHub App, e.g. "rendimiento-example"
 	// SetupTokenCommand says on the setup page how to read SetupToken
 	// ("": from its Kubernetes Secret).
 	SetupTokenCommand string
@@ -221,6 +222,9 @@ func (s *Server) Handler() http.Handler {
 		mux.Handle(pattern, s.requireRole(true, role, s.anotando(pattern, true, h)))
 	}
 	auth(store.MemberGuest, "GET /api/me", s.me)
+	// The UI's error pages, reported to the Problems page. Not in routes, so
+	// not in the bitácora either: who saw a broken page is not kept.
+	mux.Handle("POST /api/fallas", s.requireRole(false, store.MemberGuest, s.recibirFalla))
 	// Writing to the team from this installation, and its answers (decision 145).
 	auth(store.MemberGuest, "GET /api/al-equipo", s.verMisComentarios)
 	auth(store.MemberGuest, "POST /api/al-equipo", s.enviarMiComentario)

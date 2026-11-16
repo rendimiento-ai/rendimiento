@@ -654,4 +654,16 @@ var catalog = map[string]string{
 	"pull request #%d conflicted with %s only where both sides added lines: rendimiento joined them in %s (%s), and tests it now": "la solicitud n.º %s chocaba con %s solo donde los dos lados agregaron líneas: rendimiento las juntó en %s (%s), y ahora lo prueba",
 	"pull request #%d conflicts with %s in %s: not merged": "la solicitud n.º %s choca con %s en %s: no se integró",
 	"Encargo %d, delivered in rendimiento: %s\n\n%s\n\nOpened by rendimiento when the encargo was delivered, so its checks and its preview copy can be seen before merging.": "Encargo %s, entregado en rendimiento: %s\n\n%s\n\nLa abrió rendimiento al entregarse el encargo, para que sus revisiones y su copia de vista previa se vean antes de integrar.",
+
+	// The UI's error pages, on the Problems page (internal/api/fallas.go).
+	"page not found": "página no encontrada",
+	"page refused: no access": "página rechazada: sin acceso",
+	"a page failed to show": "una página falló al mostrarse",
+	"the UI could not reach rendimiento": "la interfaz no pudo comunicarse con rendimiento",
+	"too many reports for now": "demasiados avisos por ahora",
+	"not a report": "no es un aviso",
+	"unknown kind of page": "tipo de página desconocido",
+	"a page's path starts with / and has at most 300 characters": "la ruta de una página empieza con / y tiene como máximo 300 caracteres",
+	"not a version": "no es una versión",
+	"not a code": "no es un código",
 }

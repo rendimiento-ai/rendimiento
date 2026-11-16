@@ -61,6 +61,7 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | GET | `/api/problems` | las advertencias y errores de la propia plataforma, agrupados ([Problemas](../guide/problems.md)) |
 | GET | `/api/problems/count` | cuántos problemas están abiertos (la insignia de la barra superior) |
 | POST | `/api/problems/{id}/dismiss` | descartar un problema |
+| POST | `/api/fallas` | la interfaz informa una página de error que mostró (no existe, sin acceso, falló, sin respuesta) a [Problemas](../guide/problems.md#pages-that-could-not-be-shown); no se guarda quién la vio |
 | GET | `/api/ruta?kind=&q=` | las entradas de [la Ruta](../guide/ruta.md) |
 | POST | `/api/ruta` | agrega una entrada (la escribe la persona con la sesión) |
 | PUT | `/api/ruta/{id}` | cambia una entrada (se conserva la versión anterior) |
