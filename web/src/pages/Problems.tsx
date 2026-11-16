@@ -3,7 +3,7 @@
 // chosen on the right, with what happened and what to do. Problems about an
 // app also show as a banner on its page (AppProblems).
 import { Link, NavLink, useNavigate, useSearchParams } from "react-router-dom";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { api, timeAgo, type Problem } from "../api";
 import { ErrorBox, usePoll } from "../components/ui";
 import { locale, t, tn } from "../i18n";
@@ -363,12 +363,12 @@ export function AppProblems({ name }: { name: string }) {
 }
 
 /** The navigation link, with the number of open problems. */
-export function ProblemsNavLink() {
+export function ProblemsNavLink({ dibujo }: { dibujo?: ReactNode }) {
   const { data } = usePoll(api.problemCount, [], 30000);
   const n = data?.open ?? 0;
   return (
     <NavLink to="/problems" className="nav-link" aria-label={n ? t("Problems, {n} open", { n }) : t("Problems")}>
-      {t("Problems")}{n > 0 && <span className="nav-count">{n}</span>}
+      {dibujo}{t("Problems")}{n > 0 && <span className="nav-count">{n}</span>}
     </NavLink>
   );
 }

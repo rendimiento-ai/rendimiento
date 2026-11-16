@@ -58,6 +58,61 @@ test("the bell's panel fits a phone's screen", async ({ page, problemas }) => {
   expect(problemas).toEqual([]);
 });
 
+// On a phone the menu is a sheet that always peeks from the bottom, with
+// the pages and their drawings: nothing hides behind a button. Its handle
+// raises it to every page, then to the account; a page's link lowers it.
+// The top bar is one short row, and nothing is wider than the screen.
+test("on a phone the menu is a sheet that peeks from the bottom", async ({ page, problemas }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  expect((await page.locator("header.topbar").boundingBox())!.height, "one short row").toBeLessThan(70);
+  await expect(page.locator("header.topbar a.nav-link")).toHaveCount(0);
+  const hoja = page.locator(".menu-hoja");
+  const enlaces = hoja.locator(".menu-hoja-paginas a.nav-link");
+  await expect(enlaces.first()).toBeVisible();
+  await expect(enlaces.first().locator("svg.dibujo")).toBeVisible();
+  const asomada = (await hoja.boundingBox())!;
+  expect(asomada.height, "it peeks").toBeLessThan(130);
+  expect(asomada.y + asomada.height).toBeGreaterThan(840);
+  await hoja.locator(".menu-hoja-agarradera").click();
+  await expect(hoja).toHaveAttribute("data-altura", "1");
+  await hoja.locator(".menu-hoja-agarradera").click();
+  await expect(hoja).toHaveAttribute("data-altura", "2");
+  await expect(hoja.locator(".menu-hoja-cuenta button").last()).toBeInViewport(); // Sign out
+  await enlaces.nth(1).click();
+  await expect(hoja, "a page's link lowers it").toHaveAttribute("data-altura", "0");
+  // Dragging it up with a finger raises it; dragging it down lowers it.
+  await page.waitForTimeout(500); // the sheet has finished lowering
+  const caja = (await hoja.boundingBox())!;
+  const arrastra = async (desde: number, hasta: number) => {
+    const x = caja.x + caja.width / 2;
+    await hoja.dispatchEvent("pointerdown", { pointerId: 7, pointerType: "touch", button: 0, clientX: x, clientY: desde, bubbles: true });
+    for (const y of [desde + (hasta - desde) / 3, desde + ((hasta - desde) * 2) / 3, hasta]) {
+      await hoja.dispatchEvent("pointermove", { pointerId: 7, pointerType: "touch", clientX: x, clientY: y, bubbles: true });
+    }
+    await hoja.dispatchEvent("pointerup", { pointerId: 7, pointerType: "touch", clientX: x, clientY: hasta, bubbles: true });
+  };
+  await arrastra(caja.y + 40, caja.y - 30);
+  await expect(hoja, "dragged up").toHaveAttribute("data-altura", "1");
+  await page.waitForTimeout(500);
+  await arrastra(700, 800);
+  await expect(hoja, "dragged down").toHaveAttribute("data-altura", "0");
+  await page.locator("button.topbar-yo").click();
+  await expect(hoja).toHaveAttribute("data-altura", "2");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  expect(problemas).toEqual([]);
+});
+
+// On a wide screen each page's name has its drawing beside it.
+test("the top bar's pages have their drawings", async ({ page, problemas }) => {
+  await page.goto("/");
+  const enlaces = page.locator("header.topbar a.nav-link:has(svg.dibujo)");
+  await expect(enlaces.first()).toBeVisible(); // count() does not wait for the page to load
+  expect(await enlaces.count()).toBeGreaterThan(3);
+  await expect(page.locator(".menu-hoja")).toHaveCount(0);
+  expect(problemas).toEqual([]);
+});
+
 // The operators see what the señales would send, exactly, and turn them
 // off; the notice on the Apps page goes once seen.
 test("the señales: what goes, and the switch", async ({ page, problemas }, info) => {
@@ -80,5 +135,44 @@ test("the señales page", async ({ page, problemas }, info) => {
   await expect(page.locator("main h1").first()).toContainText("Señales de vida");
   await expect(page.locator("main")).toContainText(es ? "Mandadas desde aquí" : "Sent from here");
   await expect(page.locator("main")).toContainText(es ? "Recibidas de todas las instalaciones" : "Received from every installation");
+  expect(problemas).toEqual([]);
+});
+
+// The colors beside the day/night switch: a family and a mode, chosen apart,
+// both kept through a reload; the classic papel picado takes the family away.
+test("the colors and the day/night mode are kept", async ({ page, problemas }, info) => {
+  const es = info.project.name === "es";
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/");
+  const raiz = page.locator("html");
+  const boton = page.locator("header.topbar button.tema-boton");
+  await boton.click();
+  await expect(boton).toHaveAttribute("aria-expanded", "true");
+  await page.locator(".tema-panel").getByRole("button", { name: "Sierra" }).click();
+  await expect(raiz).toHaveAttribute("data-tema", "sierra");
+  await expect(page.locator(".tema-panel")).toBeHidden();
+  await expect(page.locator(".tema-franja")).toBeVisible(); // the family's band, in place of the papel picado
+  await expect(page.locator(".papel-picado")).toBeHidden();
+
+  await page.getByRole("button", { name: es ? "Cambiar a la noche" : "Switch to night" }).click();
+  await expect(raiz).toHaveAttribute("data-theme", "night");
+  await expect(raiz).toHaveAttribute("data-tema", "sierra");
+
+  await page.reload();
+  await expect(page.locator("header.topbar")).toBeVisible();
+  await expect(raiz).toHaveAttribute("data-theme", "night");
+  await expect(raiz).toHaveAttribute("data-tema", "sierra");
+
+  // Escape closes the list without choosing; then the classic one.
+  await boton.click();
+  await expect(page.locator(".tema-panel")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".tema-panel")).toBeHidden();
+  await expect(raiz).toHaveAttribute("data-tema", "sierra");
+  await boton.click();
+  await page.locator(".tema-panel").getByRole("button", { name: "Papel picado" }).click();
+  await expect(raiz).not.toHaveAttribute("data-tema", /.*/);
+  await expect(raiz).toHaveAttribute("data-theme", "night");
+  await expect(page.locator(".papel-picado")).toBeVisible();
   expect(problemas).toEqual([]);
 });

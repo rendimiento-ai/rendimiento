@@ -14,12 +14,34 @@ import (
 // StepUpdate implements pipeline.Recorder: persist, then notify the UI.
 func (p *Platform) StepUpdate(runID, stepID string, r pipeline.StepResult) {
 	id, _ := strconv.ParseInt(runID, 10, 64)
-	if err := p.Store.UpdateStep(context.Background(), id, stepID, r); err != nil {
+	started, finished, err := p.Store.UpdateStepTimes(context.Background(), id, stepID, r)
+	if err != nil {
 		p.Log.Error("update step", "run", runID, "step", stepID, "err", err)
+		started, finished = timeOrNil(r.Started), timeOrNil(r.Finished)
 	}
-	p.Hub.Publish(RunTopic(id), events.Event{Type: "step", Data: map[string]any{
-		"id": stepID, "status": r.Status, "digest": r.Digest, "message": r.Message,
-	}})
+	p.Hub.Publish(RunTopic(id), events.Event{Type: "step", Data: stepEvent(stepID, r, started, finished)})
+}
+
+// stepEvent is what the run's page is told of a step that changed: its
+// status and, with the names the API's steps use, when it started and
+// finished as stored, so a bar stops where the step did without a reload.
+// A time not known yet is left out.
+func stepEvent(stepID string, r pipeline.StepResult, started, finished *time.Time) map[string]any {
+	e := map[string]any{"id": stepID, "status": r.Status, "digest": r.Digest, "message": r.Message}
+	if started != nil {
+		e["startedAt"] = started.UTC()
+	}
+	if finished != nil {
+		e["finishedAt"] = finished.UTC()
+	}
+	return e
+}
+
+func timeOrNil(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t
 }
 
 // StepLog implements pipeline.Recorder. Lines reach the UI immediately;

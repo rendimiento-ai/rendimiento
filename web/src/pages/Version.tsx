@@ -1,17 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { envApi, session, timeAgo, type PlatformRelease, type Published } from "../api";
 import { usePoll } from "../components/ui";
 import { t } from "../i18n";
 
 // The Environment link, marked when a newer rendimiento is ready.
-export function EnvironmentNavLink() {
+export function EnvironmentNavLink({ dibujo }: { dibujo?: ReactNode }) {
   const { data } = usePoll(() => envApi.version().catch(() => undefined), [], 5 * 60000);
   const ready = data?.status?.available && data.status.latest;
   const deploy = !!data?.status?.manifests?.changed?.length;
   return (
     <NavLink to="/environment" className="nav-link" title={ready ? t("A new version of rendimiento is ready") : deploy ? t("make deploy is needed") : undefined}>
-      {t("Environment")}{ready ? <span className="nav-count">{t("new")}</span> : deploy && <span className="nav-count">make deploy</span>}
+      {dibujo}{t("Environment")}{ready ? <span className="nav-count">{t("new")}</span> : deploy && <span className="nav-count">make deploy</span>}
     </NavLink>
   );
 }

@@ -206,7 +206,7 @@ export class CaminosMap {
     this.decor = Array.from({ length: 70 }, () => ({ x: r2() * this.L.world, side: r2() < 0.5 ? -1 : 1, k: r2(), kind: r2() < 0.55 ? "nopal" : "maguey" }));
     this.readTheme();
     const obs = new MutationObserver(() => this.readTheme());
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-tema"] });
     this.cleanup.push(() => obs.disconnect());
     const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
     const onMq = () => this.readTheme();
