@@ -25,6 +25,7 @@ export function Campana({ role, operator, buzon }: { role?: string; operator?: b
   const { data: encargos } = usePoll(() => (actua ? api.encargos() : Promise.resolve([])), [actua], 30000);
   const { data: respuestas } = usePoll(() => (actua ? api.respuestas() : Promise.resolve([])), [actua], 30000);
   const { data: problemas } = usePoll(() => (operator ? api.problemCount() : Promise.resolve({ open: 0 })), [operator], 30000);
+  const { data: vigia } = usePoll(() => (operator ? api.vigiaNuevos() : Promise.resolve({ nuevos: 0 })), [operator], 5 * 60000);
   const { data: comentarios } = usePoll(() => (buzon ? api.opinionesPorRevisar() : Promise.resolve({ porRevisar: 0 })), [buzon], 60000);
   const { data: delEquipo } = usePoll(() => (role ? api.respuestasDelEquipo() : Promise.resolve({ sinVer: 0 })), [role], 5 * 60000);
   const historial = useHistorial();
@@ -88,6 +89,11 @@ export function Campana({ role, operator, buzon }: { role?: string; operator?: b
       clave: "comentarios",
       texto: tn(comentarios!.porRevisar, "{n} comment waits for your answer", "{n} comments wait for your answer"),
       a: "/buzon",
+    }] : []),
+    ...((vigia?.nuevos ?? 0) > 0 ? [{
+      clave: "vigia",
+      texto: tn(vigia!.nuevos, "The lookout saw {n} thing this week", "The lookout saw {n} things this week"),
+      a: "/registro",
     }] : []),
     ...((problemas?.open ?? 0) > 0 ? [{
       clave: "problemas",

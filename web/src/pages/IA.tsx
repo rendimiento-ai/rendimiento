@@ -4,6 +4,7 @@ import { ErrorBox, Switch, usePoll } from "../components/ui";
 import { t } from "../i18n";
 import { useConexion } from "../conexion";
 import { apagado } from "../components/conexion-aviso";
+import { VigiaIA } from "../components/vigia";
 
 const providerLabel: Record<AIProvider, string> = { local: "local model", own: "own key", platform: "the platform's" };
 const providerName: Record<AIProvider, string> = { local: "The local model", own: "Your own key", platform: "The platform's" };
@@ -33,6 +34,7 @@ export function IA() {
       {/* Without a local model nothing may answer: the place to connect one comes first. */}
       {data && session.operator && !data.localModel && <ModeloLocal onSaved={reload} />}
       {data && <Settings v={data} onSaved={reload} />}
+      {session.operator && <VigiaIA />}
       <Try onDone={reload} />
       {data && <Calls v={data} />}
       {session.operator && <Operator local={data?.localModel ? <ModeloLocal onSaved={reload} /> : null} />}

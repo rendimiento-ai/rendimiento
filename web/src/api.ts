@@ -720,6 +720,49 @@ export interface LogFilter {
   antes?: string;
 }
 
+// ---- the lookout (el vigía, internal/api/vigia.go) ----
+
+/** What a person decided of a finding: nothing yet, an encargo, a Ruta entry, or set aside. */
+export type EstadoHallazgo = "nuevo" | "encargo" | "ruta" | "descartado";
+
+/** One thing the lookout saw, with its evidence. Not accionable: a fact, with no work suggested. */
+export interface Hallazgo {
+  id: number;
+  revisionId: number;
+  clave: string;
+  titulo: string;
+  evidencia: string;
+  accionable: boolean;
+  app?: string;
+  estado: EstadoHallazgo;
+  decididoPor?: string;
+  decididoAt?: string;
+  encargoId?: number;
+  rutaId?: number;
+}
+
+/** One review of a week by the lookout. */
+export interface RevisionVigia {
+  id: number;
+  at: string;
+  desde: string;
+  pedidaPor?: string;
+  estado: "revisando" | "hecha" | "fallida";
+  nota?: string;
+  proveedor?: string;
+  modelo?: string;
+  costoMicros: number;
+  senales: number;
+  hallazgos: Hallazgo[];
+}
+
+export interface VigiaView {
+  revision?: RevisionVigia;
+  ajuste: { encendido: boolean; topeMicros: number; updatedBy?: string; updatedAt?: string };
+  gastadoMicros: number;
+  disponible: boolean;
+}
+
 // ---- delivery (the dashboard's DORA numbers) ----
 
 export interface DeliveryStats {
@@ -1179,6 +1222,11 @@ export const api = {
     request<ProblemList>("GET", `/api/problems?app=${encodeURIComponent(opts.app ?? "")}${opts.dismissed ? "&dismissed=1" : ""}`),
   problemCount: () => request<{ open: number }>("GET", "/api/problems/count"),
   dismissProblem: (id: number) => request<void>("POST", `/api/problems/${id}/dismiss`),
+  vigia: () => request<VigiaView>("GET", "/api/vigia"),
+  vigiaNuevos: () => request<{ nuevos: number }>("GET", "/api/vigia/nuevos"),
+  revisarVigia: () => request<{ id: number }>("POST", "/api/vigia/revisar"),
+  putVigia: (encendido: boolean, topeDolares: number) => request<VigiaView>("PUT", "/api/vigia", { encendido, topeDolares }),
+  decidirHallazgo: (id: number, que: "encargo" | "ruta" | "descartar") => request<Hallazgo>("POST", `/api/vigia/hallazgos/${id}/${que}`),
   registro: (f: LogFilter) =>
     request<LogPage>("GET", `/api/registro?${new URLSearchParams(Object.entries(f).filter(([, v]) => v).map(([k, v]) => [k, String(v)]))}`),
   ruta: (opts: { kind?: string; q?: string } = {}) =>

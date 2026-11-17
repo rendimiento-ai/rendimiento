@@ -237,6 +237,9 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	srv.IAKeys = aiKeys
 	srv.Translator, srv.AgentLang = &agentes.Translator{Model: srv.IA}, env("NOTIFY_LANG", "en")
 	srv.Summarizer = &agentes.Summarizer{Store: st, Model: srv.IA, Log: log.With("component", "summary")}
+	// The lookout reads the week's log, runs and use and proposes a few
+	// findings; a review an administrator asks for runs where it is asked.
+	srv.Vigia = &agentes.Vigia{Store: st, Model: srv.IA, Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "lookout")}
 	rutaSrv := &ruta.Server{Store: st, Log: log.With("component", "ruta"), Lang: env("NOTIFY_LANG", "en")}
 	rutaSrv.Plataforma = plataformaMCP{Store: st, p: p, srv: srv}
 	rutaSrv.Encargos = st
@@ -302,6 +305,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 		est := &agentes.Estimator{Store: st, Model: srv.IA, Lang: lang, Log: log.With("component", "agents")}
 		go est.Run(ctx)
 		go coder.Run(ctx)
+		go srv.Vigia.Run(ctx) // the weekly review
 		diag.Run(ctx)
 	}()
 	go func() {

@@ -961,6 +961,18 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 .registro-attr dt { color: var(--muted, inherit); margin: 0; }
 .registro-attr dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 760px) { .registro-attr { grid-template-columns: 1fr; gap: 0; } }
+/* The lookout (el vigía) on the Log page: a few findings, each with its evidence and three choices. */
+.vigia { margin: 0 0 18px; }
+.vigia-cabeza { gap: 12px; flex-wrap: wrap; }
+.vigia-cabeza h2 { margin: 0; }
+.vigia-sub, .vigia-cuando { margin: 6px 0; }
+.vigia-lista { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; }
+.vigia-hallazgo { border: 1px solid var(--border); border-left: 4px solid var(--cempasuchil); border-radius: 10px; padding: 10px 12px; background: var(--surface); }
+.vigia-hallazgo.vigia-encargo, .vigia-hallazgo.vigia-ruta { border-left-color: var(--ok); opacity: .85; }
+.vigia-titulo { display: block; overflow-wrap: anywhere; }
+.vigia-evidencia { margin: 4px 0 8px; color: var(--muted); overflow-wrap: anywhere; }
+.vigia-botones { gap: 8px; flex-wrap: wrap; }
+.vigia-decidido { margin: 0; }
 .ruta-bad { color: var(--bad); }
 .ruta-token { padding: 6px 10px; background: var(--code-bg); color: var(--code-text); border-radius: 6px; overflow-wrap: anywhere; flex: 1; }
 .ruta-snippet { flex: 1; margin: 0; padding: 10px 12px; background: var(--code-bg); color: var(--code-text); border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12.5px; }

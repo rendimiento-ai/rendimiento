@@ -101,6 +101,9 @@ type Server struct {
 	Translator *agentes.Translator
 	// Summarizer writes the day's summary on the home page (nil: none).
 	Summarizer *agentes.Summarizer
+	// Vigia is the lookout, for a review an administrator asks for (nil:
+	// this platform does not run it).
+	Vigia      *agentes.Vigia
 	AgentLang  string
 	routes     []route     // authenticated routes and their roles (see Handler)
 	fallas     ritmoFallas // reports of the UI's error pages, per session (fallas.go)
@@ -287,6 +290,14 @@ func (s *Server) Handler() http.Handler {
 	plat(store.MemberGuest, "GET /api/stats/delivery", s.delivery)
 	auth(store.MemberGuest, "GET /api/stats/visits", s.visitsSummary)
 	plat(store.MemberAdmin, "GET /api/registro", s.listRegistro)
+	// The lookout on the Log page (internal/api/vigia.go).
+	plat(store.MemberAdmin, "GET /api/vigia", s.getVigia)
+	plat(store.MemberAdmin, "GET /api/vigia/nuevos", s.vigiaNuevos)
+	plat(store.MemberAdmin, "PUT /api/vigia", s.putVigia)
+	plat(store.MemberAdmin, "POST /api/vigia/revisar", s.revisarVigia)
+	plat(store.MemberAdmin, "POST /api/vigia/hallazgos/{id}/encargo", s.decidirHallazgo(store.HallazgoEncargo))
+	plat(store.MemberAdmin, "POST /api/vigia/hallazgos/{id}/ruta", s.decidirHallazgo(store.HallazgoRuta))
+	plat(store.MemberAdmin, "POST /api/vigia/hallazgos/{id}/descartar", s.decidirHallazgo(store.HallazgoDescartado))
 	plat(store.MemberGuest, "GET /api/problems", s.listProblems)
 	plat(store.MemberGuest, "GET /api/problems/count", s.problemCount)
 	plat(store.MemberCollaborator, "POST /api/problems/{id}/dismiss", s.dismissProblem)

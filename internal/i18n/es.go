@@ -675,4 +675,13 @@ var catalog = map[string]string{
 	"a page's path starts with / and has at most 300 characters": "la ruta de una página empieza con / y tiene como máximo 300 caracteres",
 	"not a version": "no es una versión",
 	"not a code": "no es un código",
+	"the lookout spent its cap for this month (%s): it reviews again next month, or raise its cap on the AI page": "el vigía gastó su tope de este mes (%s): vuelve a revisar el mes que entra, o suba su tope en la página IA",
+	"nothing new worth your time this week": "nada nuevo que merezca su tiempo esta semana",
+	"the lookout does not run on this platform": "el vigía no corre en esta plataforma",
+	"the lookout is reviewing already; its findings come in a moment": "el vigía ya está revisando; sus hallazgos llegan en un momento",
+	"the lookout's cap is 0 to 100 dollars a month": "el tope del vigía es de 0 a 100 dólares al mes",
+	"not a finding of the lookout": "no es un hallazgo del vigía",
+	"this finding suggests no work: note it in the Ruta or set it aside": "este hallazgo no sugiere trabajo: anótelo en la Ruta o déjelo para después",
+	"someone decided this finding already": "alguien ya decidió sobre este hallazgo",
+	"the review stopped before it finished; ask for another": "la revisión se detuvo antes de terminar; pida otra",
 }

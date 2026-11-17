@@ -506,6 +506,9 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	// other language, once, by the same gateway.
 	srv.Translator, srv.AgentLang = &agentes.Translator{Model: srv.IA}, env("NOTIFY_LANG", "en")
 	srv.Summarizer = &agentes.Summarizer{Store: st, Model: srv.IA, Log: log.With("component", "summary")}
+	// The lookout reads the week's log, runs and use and proposes a few
+	// findings; a review an administrator asks for runs where it is asked.
+	srv.Vigia = &agentes.Vigia{Store: st, Model: srv.IA, Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "lookout")}
 	// La Ruta's MCP server, with the Mercado's tools when it is on (an unset
 	// *Mercado must stay a nil interface, or the tools would appear broken).
 	rutaSrv := &ruta.Server{Store: st, Log: log.With("component", "ruta"), Lang: env("NOTIFY_LANG", "en")}
@@ -723,6 +726,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 			if clas != nil {
 				go clas.Run(ctx)
 			}
+			go srv.Vigia.Run(ctx) // the weekly review
 			diag.Run(ctx)
 		}()
 	}
