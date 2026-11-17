@@ -388,6 +388,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/apps/{app}/mesa", s.appMesa)
 	auth(store.MemberCollaborator, "POST /api/apps/{app}/mesa/close", s.closeSpare)
 	auth(store.MemberGuest, "GET /api/mesa", s.mesaCounts)
+	auth(store.MemberGuest, "GET /api/corriendo", s.corriendo)
 	auth(store.MemberCollaborator, "POST /api/apps/{app}/runs", s.triggerRun)
 	auth(store.MemberGuest, "GET /api/universe", s.universe)
 	auth(store.MemberGuest, "GET /api/summary", s.getSummary)

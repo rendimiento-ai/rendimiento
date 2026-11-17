@@ -4,7 +4,7 @@ rendimiento speaks **English** and **Mexican Spanish** (es-MX).
 
 ## In the browser
 
-The top bar has a language switch (**ES** / **EN**). The first time, the language follows the browser's; after that, the choice is remembered in that browser. Dates and numbers follow the language too.
+The account's menu (your name, at the right of the top bar; on a phone, the sheet at the bottom) has a language switch (**ES** / **EN**). The first time, the language follows the browser's; after that, the choice is remembered in that browser. Dates and numbers follow the language too.
 
 The Spanish is formal (*usted*) and translates technical terms: *despliegue*, *construcción* (build), *versión*, *reversión*, *complemento*, *confirmación* (commit), *envío* (push), *solicitud de incorporación* (pull request), *cubeta* (bucket), *balanceador de carga*, *entrada* (ingress), *demonio* (daemon).
 

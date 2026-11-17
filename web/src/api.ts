@@ -1278,6 +1278,7 @@ export const api = {
   putSecret: (app: string, secret: string, data: Record<string, string | null>) =>
     request<void>("PUT", `/api/apps/${app}/secrets/${secret}`, data),
   run: (id: number) => request<Run>("GET", `/api/runs/${id}`),
+  corriendo: () => request<Corriendo>("GET", "/api/corriendo"),
   cancelRun: (id: number) => request<void>("POST", `/api/runs/${id}/cancel`),
   retryRun: (id: number) => request<Run>("POST", `/api/runs/${id}/retry`),
   approveMerge: (id: number) => request<Run>("POST", `/api/runs/${id}/merge`),
@@ -1317,6 +1318,14 @@ export function subscribe(path: string, handlers: Record<string, (data: any) => 
     if (again) clearTimeout(again);
     es?.close();
   };
+}
+
+/** A run with its app's name: going on (with its steps), or one of the last that ended. */
+export type RunNow = Run & { app: string };
+/** What goes on in the organization's apps (GET /api/corriendo): the Apps page's "Running now" and the search's runs. */
+export interface Corriendo {
+  ahora: RunNow[];
+  recientes: RunNow[];
 }
 
 /** The welcome page's "right now": runs going on and the latest releases, by app name only. */

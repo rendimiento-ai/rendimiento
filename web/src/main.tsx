@@ -2,7 +2,8 @@ import { StrictMode, Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { api, ApiError, session, type MemberRole, type Org } from "./api";
-import { OrgSwitch, memberRoleLabel } from "./components/cuenta";
+import { MenuCuenta, OrgSwitch, memberRoleLabel } from "./components/cuenta";
+import { Buscador, type PaginaBuscable } from "./components/buscador";
 import { t } from "./i18n";
 import { Dashboard } from "./pages/Dashboard";
 import { Setup } from "./pages/Setup";
@@ -102,6 +103,7 @@ function Shell() {
 
   // The pages and the account: in the top bar on a wide screen; on a phone,
   // in the sheet that peeks from the bottom (components/navegacion).
+  const salir = () => { olvidarGuardado(); api.logout().then(() => location.assign("/")); };
   const paginas = (
     <>
       <NavLink to="/" end className="nav-link"><Dibujo de="apps" />{t("Apps")}</NavLink>
@@ -127,22 +129,51 @@ function Shell() {
       <MovimientoSwitch />
       <LangSwitch />
       <BanderaSwitch />
-      <button onClick={() => { olvidarGuardado(); api.logout().then(() => location.assign("/")); }}>{t("Sign out")}</button>
+      <button onClick={salir}>{t("Sign out")}</button>
     </>
   );
+  // The same pages, by name, for the search; and a few more one can look for.
+  const muestra = {
+    servicios: !!(state.operator && state.cluster),
+    entorno: !!(state.operator && (state.cluster || state.sistema?.modo === "local")),
+    bitacora: !!(state.role && state.role !== "guest"),
+  };
+  const buscables: PaginaBuscable[] = [
+    { to: "/", nombre: t("Apps") },
+    { to: "/universe", nombre: t("Universe") },
+    ...(muestra.servicios ? [{ to: "/services", nombre: t("Services") }, { to: "/addons", nombre: t("Add-ons") }] : []),
+    ...(muestra.entorno ? [{ to: "/environment", nombre: t("Environment") }] : []),
+    { to: "/ruta", nombre: t("Ruta") },
+    ...(muestra.bitacora ? [{ to: "/bitacora", nombre: t("Bitácora") }] : []),
+    { to: "/ia", nombre: t("AI") },
+    ...(state.operator ? [{ to: "/problems", nombre: t("Problems") }] : []),
+    ...(state.buzon ? [{ to: "/buzon", nombre: t("Comments") }] : []),
+    ...(state.role === "admin" ? [{ to: "/new", nombre: t("New app") }] : []),
+    { to: "/members", nombre: t("Members") },
+    { to: "/escribir", nombre: t("My comments") },
+  ];
 
   return (
     <>
       <Cielo />
       <Techo />
+      {/* On a wide screen two rows: the brand, the search, the bell, New app and the account's menu; under them
+          every page. On a phone one short row, and the pages and the account in the sheet. */}
       <header className="topbar">
-        <Link to="/" className="brand"><Logo /> <span className="brand-name">rendimiento</span></Link>
-        {!telefono && paginas}
-        <span className="spacer" />
-        <Campana role={state.role} operator={state.operator} buzon={state.buzon} />
-        {telefono
-          ? <button type="button" className="topbar-yo" title={t("Your account and preferences")} onClick={() => setAltura(altura === 2 ? 0 : 2)}>{(state.login ?? "?").slice(0, 1)}<span className="sr-only">{t("Your account and preferences")}</span></button>
-          : cuenta}
+        <div className="topbar-fila">
+          <Link to="/" className="brand"><Logo /> <span className="brand-name">rendimiento</span></Link>
+          {!telefono && <Buscador paginas={buscables} />}
+          <span className="spacer" />
+          {telefono && <Buscador paginas={buscables} telefono />}
+          <Campana role={state.role} operator={state.operator} buzon={state.buzon} />
+          {telefono
+            ? <button type="button" className="topbar-yo" title={t("Your account and preferences")} onClick={() => setAltura(altura === 2 ? 0 : 2)}>{(state.login ?? "?").slice(0, 1)}<span className="sr-only">{t("Your account and preferences")}</span></button>
+            : <>
+              {state.role === "admin" && <Link to="/new" className="btn primary"><Semilla />{t("New app")}</Link>}
+              <MenuCuenta login={state.login} role={state.role} org={state.org} demo={state.demo} salir={salir} />
+            </>}
+        </div>
+        {!telefono && <nav className="topbar-secciones" aria-label={t("Pages")}>{paginas}</nav>}
       </header>
       {telefono && <Hoja altura={altura} poner={setAltura} paginas={paginas} cuenta={cuenta} />}
       <main>

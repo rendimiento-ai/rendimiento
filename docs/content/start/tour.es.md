@@ -1,6 +1,6 @@
 # Un recorrido por la interfaz
 
-El panel está en **https://rendimiento.example.com**. Se entra con GitHub; solo pasan los [miembros](../guide/members.md), cada uno con su función. La barra superior tiene cinco lugares: **Aplicaciones**, **Servicios**, **Complementos**, **Entorno** y el botón **Nueva aplicación**.
+El panel está en **https://rendimiento.example.com**. Se entra con GitHub; solo pasan los [miembros](../guide/members.md), cada uno con su función. La barra superior tiene dos renglones: arriba el buscador, la campana, **Nueva aplicación** y su cuenta; abajo, todas las páginas ([La barra superior](#top-bar)).
 
 ```mermaid
 flowchart TB
@@ -21,9 +21,20 @@ flowchart TB
 
 La franja al pie de cada página dice qué rendimiento contesta, a cualquiera con sesión: su versión (o la confirmación de la que se construyó), el sistema para el que es su programa, y si corre en una computadora o en un clúster de Kubernetes, como en `v0.2.1 · Linux arm64 · en una computadora`. Dé esa línea cuando reporte algo.
 
+## La barra superior {#top-bar}
+
+En una pantalla ancha, el primer renglón tiene la marca, el **buscador**, la campana, **Nueva aplicación** (administradores) y su **cuenta** (su inicial y su usuario). El segundo renglón tiene todas las páginas que puede abrir, cada una con su dibujo: Aplicaciones, Universo, Servicios y Complementos (operadores, en un clúster), Entorno, Ruta, Bitácora (no invitados), IA, Problemas con cuántos hay abiertos (operadores) y Comentarios.
+
+- **El buscador** encuentra, mientras escribe, aplicaciones por su nombre o su repositorio, ejecuciones por su número o su rama (entre las últimas de sus aplicaciones, o cualquier número que escriba) y páginas por su nombre, en su idioma y con o sin acentos. Pulse **/** en cualquier página para ir a él (no mientras escribe en una caja), las flechas para moverse, **Intro** para abrir el primer resultado y **Escape** para vaciarlo y cerrarlo. El buscador de la página Aplicaciones sigue filtrando el mosaico.
+- **El menú de su cuenta** tiene quién es usted (abre Miembros), la **organización** (una lista cuando pertenece a más de una), el **tema** (día o noche, la familia de colores y el movimiento), el **idioma** y la bandera, **Mis comentarios** (lo que le escribió al equipo y sus respuestas) y **Cerrar sesión**. Escape o un clic afuera lo cierra; las flechas se mueven entre sus renglones.
+
+En un teléfono la barra es un solo renglón corto: la marca, un botón de búsqueda que abre la caja sobre la parte de arriba de la pantalla, la campana y su inicial. Las páginas y la cuenta están en la hoja que asoma desde abajo.
+
 ## Aplicaciones {#apps}
 
 La página de inicio enumera cada aplicación con su fase (*Saludable*, *En curso*, *Degradado*, *Esperando la primera construcción*…), su última ejecución y sus direcciones públicas. Las fases se actualizan en vivo.
+
+Arriba, **Corriendo ahora** tiene una tarjeta por cada ejecución en cola o en curso: su aplicación (abre la aplicación), su rama, sus pasos como barritas (pasó, en curso, falló, por venir), el paso de ahora y cuánto lleva, y **Ver la ejecución N →**. Se actualiza sola. Cuando nada corre es una sola línea, **Todo en calma**, con la última ejecución que terminó.
 
 ## Nueva aplicación {#new-app}
 

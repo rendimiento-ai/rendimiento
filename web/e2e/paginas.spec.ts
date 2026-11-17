@@ -138,14 +138,17 @@ test("the señales page", async ({ page, problemas }, info) => {
   expect(problemas).toEqual([]);
 });
 
-// The colors beside the day/night switch: a family and a mode, chosen apart,
-// both kept through a reload; the classic papel picado takes the family away.
+// The colors beside the day/night switch, in the account's menu: a family
+// and a mode, chosen apart, both kept through a reload; the classic papel
+// picado takes the family away.
 test("the colors and the day/night mode are kept", async ({ page, problemas }, info) => {
   const es = info.project.name === "es";
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/");
   const raiz = page.locator("html");
-  const boton = page.locator("header.topbar button.tema-boton");
+  const cuenta = page.locator("header.topbar button.cuenta-boton");
+  const boton = page.locator("#menu-cuenta button.tema-boton");
+  await cuenta.click();
   await boton.click();
   await expect(boton).toHaveAttribute("aria-expanded", "true");
   await page.locator(".tema-panel").getByRole("button", { name: "Sierra" }).click();
@@ -163,11 +166,13 @@ test("the colors and the day/night mode are kept", async ({ page, problemas }, i
   await expect(raiz).toHaveAttribute("data-theme", "night");
   await expect(raiz).toHaveAttribute("data-tema", "sierra");
 
-  // Escape closes the list without choosing; then the classic one.
+  // Escape closes the list without choosing, and the menu stays; then the classic one.
+  await cuenta.click();
   await boton.click();
   await expect(page.locator(".tema-panel")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.locator(".tema-panel")).toBeHidden();
+  await expect(page.locator("#menu-cuenta")).toBeVisible();
   await expect(raiz).toHaveAttribute("data-tema", "sierra");
   await boton.click();
   await page.locator(".tema-panel").getByRole("button", { name: "Papel picado" }).click();

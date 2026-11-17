@@ -1,6 +1,6 @@
 # A tour of the UI
 
-The dashboard is at **https://rendimiento.example.com**. You sign in with GitHub; only [members](../guide/members.md) get in, each with a role. The top bar has five places: **Apps**, **Services**, **Add-ons**, **Environment**, and the **New app** button.
+The dashboard is at **https://rendimiento.example.com**. You sign in with GitHub; only [members](../guide/members.md) get in, each with a role. The top bar has two rows: the search, the bell, **New app** and your account above; every page below ([The top bar](#top-bar)).
 
 ```mermaid
 flowchart TB
@@ -21,9 +21,20 @@ flowchart TB
 
 The band at the foot of every page says which rendimiento answers, for anyone signed in: its version (or the commit it was built from), the system its program is for, and whether it runs on a computer or on a Kubernetes cluster, as in `v0.2.1 · Linux arm64 · on a computer`. Give that line when you report something.
 
+## The top bar {#top-bar}
+
+On a wide screen, the first row has the brand, the **search**, the bell, **New app** (administrators) and your **account** (your initial and login). The second row has every page you can open, each with its drawing: Apps, Universe, Services and Add-ons (operators, on a cluster), Environment, Ruta, Bitácora (not guests), AI, Problems with how many are open (operators) and Comments.
+
+- **The search** finds, as you type, apps by their name or repository, runs by their number or branch (among the last ones of your apps, or any number you type), and pages by their name, in your language and with or without accents. Press **/** on any page to go to it (not while writing in a box), the arrows to move, **Enter** to open the first result, **Escape** to empty it and close it. The search on the Apps page still filters the mosaic.
+- **Your account's menu** has who you are (it opens Members), the **organization** (a list when you belong to more than one), the **theme** (day or night, the family of colors and the movement), the **language** and the flag, **My comments** (what you wrote to the team, and its answers) and **Sign out**. Escape or a click outside closes it; the arrows move between its rows.
+
+On a phone the bar is one short row: the brand, a search button that opens the box over the top of the screen, the bell and your initial. The pages and the account are in the sheet that peeks from the bottom.
+
 ## Apps
 
 The home page lists every app with its phase (*Healthy*, *Progressing*, *Degraded*, *Waiting for first build*…), its latest run and its public addresses. Phases update live.
+
+At the top, **Running now** has a card for each run queued or running: its app (it opens the app), its branch, its steps as small bars (passed, running, failed, still to come), the step at hand and how long it has run, and **See run N →**. It updates by itself. When nothing runs it is one line, **All quiet**, with the last run that ended.
 
 ## New app
 

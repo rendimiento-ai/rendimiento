@@ -138,6 +138,7 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | Método | Ruta | Hace |
 |---|---|---|
 | GET | `/api/runs/{id}` | una ejecución con sus pasos (el grafo) |
+| GET | `/api/corriendo` | lo que pasa en las aplicaciones de la organización a las que la persona puede entrar: las ejecuciones en cola o en curso con sus pasos (`ahora`, el *Corriendo ahora* de Aplicaciones), y las últimas 30 que terminaron (`recientes`, también para el buscador de la barra superior) |
 | POST | `/api/runs/{id}/cancel` | la cancela; se borran sus pods de construcción |
 | GET | `/api/runs/{id}/steps/{step}/log` | el registro de un paso (guardado, o en vivo mientras corre) |
 | GET | `/api/runs/{id}/events` | SSE: el estado de los pasos y las líneas del registro |
