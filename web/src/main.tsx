@@ -24,6 +24,7 @@ import "./styles.css";
 // The first screen (setup, welcome, Apps, the public form) comes with the
 // shell; every other page loads when it is opened.
 const UsoPage = perezosa(() => import("./pages/Uso").then((m) => m.UsoPage));
+const Registro = perezosa(() => import("./pages/Registro").then((m) => m.Registro));
 const NewApp = perezosa(() => import("./pages/NewApp").then((m) => m.NewApp));
 const AppPage = perezosa(() => import("./pages/AppPage").then((m) => m.AppPage));
 const RunPage = perezosa(() => import("./pages/RunPage").then((m) => m.RunPage));
@@ -150,6 +151,7 @@ function Shell() {
           <Route path="/services" element={<Services />} />
           <Route path="/addons" element={<Addons />} />
           <Route path="/problems" element={<Problems />} />
+          <Route path="/registro" element={<Registro />} />
           <Route path="/ruta" element={<Ruta />} />
           <Route path="/bitacora" element={<Bitacora />} />
           <Route path="/senales" element={<SenalesPage />} />

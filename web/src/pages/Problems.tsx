@@ -4,7 +4,7 @@
 // app also show as a banner on its page (AppProblems).
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
-import { api, timeAgo, type Problem } from "../api";
+import { api, session, timeAgo, type Problem } from "../api";
 import { ErrorBox, usePoll } from "../components/ui";
 import { locale, t, tn } from "../i18n";
 import { anotar } from "../uso";
@@ -309,6 +309,7 @@ export function Problems() {
       <h1>{t("Problems")}</h1>
       <p className="sub">
         {t("Warnings and errors from rendimiento itself in the last 30 days: configs it rejected, emails it could not send, DNS or GitHub calls that failed. Repeats are grouped. A problem stays open for {n} hours after it last happened, until rendimiento sees it fixed (a later push accepted, a later email sent, or, for work it retries by itself, 30 minutes without failing again), or until dismissed; it reopens if it happens again. Outages of your apps are on each app's Reliability tab.", { n: data?.openForHours ?? 24 })}
+        {session.operator && <>{" "}<Link to="/registro" className="registro-enlace">{t("The platform's whole log")}</Link></>}
       </p>
       {data && (
         <div className="problema-cuentas" role="group" aria-label={t("Filter problems")}>

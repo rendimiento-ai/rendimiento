@@ -945,6 +945,19 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 .bitacora { width: 100%; border-collapse: collapse; }
 .bitacora th, .bitacora td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .bitacora td.mono { word-break: break-all; }
+/* The Log page (/registro): the platform's own lines, each opening to its attributes. */
+.registro-filtros .registro-buscar { flex: 1 1 220px; min-width: 0; }
+.registro-tabla td { white-space: nowrap; }
+.registro-tabla td.registro-mensaje { white-space: normal; overflow-wrap: anywhere; width: 100%; }
+.registro-fila.registro-error td { background: var(--bad-bg); }
+.registro-abrir { all: unset; cursor: pointer; display: inline; }
+.registro-abrir:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.registro-detalle td { background: var(--surface); }
+.registro-attrs { display: grid; gap: 2px; margin: 0; }
+.registro-attr { display: grid; grid-template-columns: minmax(80px, max-content) 1fr; gap: 12px; }
+.registro-attr dt { color: var(--muted, inherit); margin: 0; }
+.registro-attr dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 760px) { .registro-attr { grid-template-columns: 1fr; gap: 0; } }
 .ruta-bad { color: var(--bad); }
 .ruta-token { padding: 6px 10px; background: var(--code-bg); color: var(--code-text); border-radius: 6px; overflow-wrap: anywhere; flex: 1; }
 .ruta-snippet { flex: 1; margin: 0; padding: 10px 12px; background: var(--code-bg); color: var(--code-text); border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12.5px; }

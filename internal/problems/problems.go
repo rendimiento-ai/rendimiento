@@ -43,6 +43,11 @@ const Quiet = 30 * time.Minute
 // ResolvedQuiet is the resolution of a retried problem that went quiet.
 const ResolvedQuiet = "it was tried again and has not failed for 30 minutes"
 
+// LogOnly is the key of an attribute that keeps a warning out of the
+// Problems page: it stays in the platform's log only. Its value does not
+// matter; the log leaves the attribute out.
+const LogOnly = "log_only"
+
 // Recorder queues problems from its Handler and stores them in Run.
 type Recorder struct {
 	ch      chan store.Problem
@@ -182,6 +187,8 @@ func FromRecord(level slog.Level, msg string, at time.Time, attrs []slog.Attr) (
 	for _, a := range attrs {
 		v := a.Value.Resolve().String()
 		switch a.Key {
+		case LogOnly:
+			return p, false
 		case "app":
 			p.App = v
 		case "component", "controller":

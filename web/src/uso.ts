@@ -14,7 +14,7 @@ import { session } from "./api";
 export const RUTAS = [
   "/", "/new", "/mercado", "/mercado/nuevo", "/mercado/:app",
   "/environment", "/universe", "/universe/requests/:id", "/services",
-  "/addons", "/problems", "/ruta", "/bitacora", "/senales",
+  "/addons", "/problems", "/ruta", "/bitacora", "/senales", "/registro",
   "/ia", "/buzon", "/escribir", "/members", "/addons/:name",
   "/services/:ns/:name", "/apps/:name", "/apps/:name/:tab",
   "/apps/:name/runs/:id", "/uso",

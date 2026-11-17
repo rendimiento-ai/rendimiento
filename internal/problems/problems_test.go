@@ -85,3 +85,17 @@ func TestGroupsAndFullQueue(t *testing.T) {
 		t.Fatalf("queued %+v, dropped %d", ps, r.dropped.Load())
 	}
 }
+
+// A warning marked LogOnly stays in the log and off the Problems page.
+func TestLogOnlyIsNotAProblem(t *testing.T) {
+	var buf bytes.Buffer
+	r := NewRecorder()
+	log := slog.New(r.Handler(slog.NewJSONHandler(&buf, nil)))
+	log.Warn("request failed", "route", "GET /api/apps/{app}", "status", 500, LogOnly, true)
+	if ps := queued(r); len(ps) != 0 {
+		t.Fatalf("queued %+v", ps)
+	}
+	if !strings.Contains(buf.String(), "request failed") {
+		t.Fatalf("the real log lost it: %s", buf.String())
+	}
+}
