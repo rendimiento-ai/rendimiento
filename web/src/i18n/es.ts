@@ -2174,4 +2174,5 @@ export const es: Record<string, string> = {
   "You see what there was {when}.": "Usted ve lo que había {when}.",
   "It catches up by itself when it is back.": "Se pondrá al día sola cuando vuelva.",
   "Without a connection: actions that change something wait until it is back, and are never sent later by themselves.": "Sin conexión: las acciones que cambian algo esperan a que vuelva, y nunca se envían solas después.",
+  "Draft kept on this device": "Borrador guardado en este dispositivo",
 };

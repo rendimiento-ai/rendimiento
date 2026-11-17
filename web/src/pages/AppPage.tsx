@@ -15,6 +15,8 @@ import { Falla, NoExiste } from "../components/falla";
 import { outsideWhy } from "../components/barda";
 import { Flor, LluviaDePetalos } from "../components/ambiente";
 import { t, tn } from "../i18n";
+import { useConexion } from "../conexion";
+import { apagado, PorQueApagado } from "../components/conexion-aviso";
 
 const tabs = [
   { id: "", label: "At a glance", icon: "M12 3a4 4 0 0 1 4 4 4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-8 0 4 4 0 0 1-4-4 4 4 0 0 1 4-4 4 4 0 0 1 4-4zM12 12h.01" }, // labels are translated where shown
@@ -112,6 +114,7 @@ function BuildNow({ name, main, onDone }: { name: string; main: string; onDone: 
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const [branch, setBranch] = useState("");
+  const conexion = useConexion();
   const { data: runs } = usePoll(() => (open ? api.runs(name) : Promise.resolve([])), [name, open], 0);
   const recent = [...new Set((runs ?? []).map((r) => r.branch).filter((b) => b && b !== main))].slice(0, 12);
   const go = async (b?: string) => {
@@ -130,20 +133,19 @@ function BuildNow({ name, main, onDone }: { name: string; main: string; onDone: 
   const other = branch.trim();
   return (
     <div className="build-now">
-      <button className={`primary${busy ? " corre" : ""}`} disabled={busy} onClick={() => go()}
-        title={t("Builds {branch} and deploys it if it passes", { branch: main })}>{busy ? t("Starting…") : t("Build now")}</button>
-      <button className="build-now-mas" aria-expanded={open} aria-label={t("Test another branch")} disabled={busy} onClick={() => setOpen(!open)}>▾</button>
+      <button className={`primary${busy ? " corre" : ""}`} {...apagado(conexion, busy, t("Builds {branch} and deploys it if it passes", { branch: main }))} onClick={() => go()}>{busy ? t("Starting…") : t("Build now")}</button>
+      <button className="build-now-mas" aria-expanded={open} aria-label={t("Test another branch")} {...apagado(conexion, busy)} onClick={() => setOpen(!open)}>▾</button>
       {open && (
         <div className="card build-now-ramas">
           <strong className="small">{t("Test a branch")}</strong>
           <span className="small muted">{t("It builds and tests the branch; it never deploys it.")}</span>
           {recent.map((b) => (
-            <button key={b} className="link" disabled={busy} onClick={() => go(b)}>{b}</button>
+            <button key={b} className="link" {...apagado(conexion, busy)} onClick={() => go(b)}>{b}</button>
           ))}
           <div className="row" style={{ gap: 6 }}>
             <input value={branch} placeholder={t("another branch, by name")} onChange={(e) => setBranch(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && other && go(other)} />
-            <button disabled={busy || !other || other === main} onClick={() => go(other)}>{t("Test it")}</button>
+            <button {...apagado(conexion, busy || !other || other === main)} onClick={() => go(other)}>{t("Test it")}</button>
           </div>
         </div>
       )}
@@ -476,6 +478,7 @@ function Runs({ name, repo }: { name: string; repo: string }) {
 function Releases({ name, current }: { name: string; current?: number }) {
   const { data: rels, error, reload } = usePoll(() => api.releases(name), [name], 10000);
   const [busy, setBusy] = useState<number>();
+  const conexion = useConexion();
   const rollback = async (n: number) => {
     if (!confirm(t("Roll back {name} to release #{n}? This creates a new release with #{n}'s images.", { name, n }))) return;
     setBusy(n);
@@ -491,6 +494,7 @@ function Releases({ name, current }: { name: string; current?: number }) {
   return (
     <>
       <ErrorBox error={error} />
+      <PorQueApagado />
       {rels && rels.length === 0 && <div className="empty">{t("No releases yet. A release is created by every successful build of the default branch.")}</div>}
       <ul className="timeline">
         {rels?.map((r) => (
@@ -518,7 +522,7 @@ function Releases({ name, current }: { name: string; current?: number }) {
               </div>
             </div>
             {r.number !== current && r.verifyStatus !== "blocked" && (
-              <button disabled={busy !== undefined} onClick={() => rollback(r.number)}>{busy === r.number ? t("Rolling back…") : t("Roll back")}</button>
+              <button {...apagado(conexion, busy !== undefined)} onClick={() => rollback(r.number)}>{busy === r.number ? t("Rolling back…") : t("Roll back")}</button>
             )}
           </li>
         ))}

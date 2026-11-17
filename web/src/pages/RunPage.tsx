@@ -4,6 +4,8 @@ import { api, dollars, duration, session, subscribe, timeAgo, type App, type Dia
 import { RunBadge } from "../components/ui";
 import { Falla, NoExiste } from "../components/falla";
 import { lang, t, tn } from "../i18n";
+import { useConexion } from "../conexion";
+import { apagado } from "../components/conexion-aviso";
 import { TextoConFormato } from "../components/texto";
 import { Rama } from "../components/lo-ultimo";
 import { Pasos } from "../components/pasos";
@@ -108,7 +110,7 @@ export function RunPage() {
           <RunBadge status={run.status} />
         </div>
         {(run.status === "running" || run.status === "queued") && (
-          <button className="danger" onClick={() => api.cancelRun(run.id).catch((e) => alert(e.message))}>{t("Cancel")}</button>
+          <Cancelar id={run.id} />
         )}
         {run.status === "failed" && (
           <div className="row" style={{ gap: 8 }}>
@@ -204,6 +206,7 @@ function enVivo(x: Step, e: PasoEnVivo): Step {
  */
 function Retry({ run, app, onRetried }: { run: Run; app?: App; onRetried: (r: Run) => void }) {
   const [busy, setBusy] = useState(false);
+  const conexion = useConexion();
   if (session.role === "guest" || (run.retries ?? 0) >= (run.maxRetries ?? 2)) return null;
   if (run.deploy && app?.role !== "admin") return null;
   const go = () => {
@@ -211,10 +214,16 @@ function Retry({ run, app, onRetried }: { run: Run; app?: App; onRetried: (r: Ru
     api.retryRun(run.id).then((r) => { setBusy(false); onRetried(r); }, (e) => { setBusy(false); alert(e.message); });
   };
   return (
-    <button disabled={busy} onClick={go} title={t("Runs again only what did not pass; what passed keeps its result and its image.")}>
+    <button {...apagado(conexion, busy, t("Runs again only what did not pass; what passed keeps its result and its image."))} onClick={go}>
       {busy ? t("Retrying…") : t("Retry what failed")}
     </button>
   );
+}
+
+/** Cancel the run (switched off without a connection). */
+function Cancelar({ id }: { id: number }) {
+  const conexion = useConexion();
+  return <button className="danger" {...apagado(conexion)} onClick={() => api.cancelRun(id).catch((e) => alert(e.message))}>{t("Cancel")}</button>;
 }
 
 const errLine = /\b(error|errors|failed|fail|failure|panic|fatal)\b|^--- FAIL|^FAIL\b/i;
@@ -252,6 +261,7 @@ function formatLog(s?: string) {
  */
 function Approve({ run, app, onApproved }: { run: Run; app: App; onApproved: (r: Run) => void }) {
   const [busy, setBusy] = useState(false);
+  const conexion = useConexion();
   const alive = run.status === "queued" || run.status === "running" || run.status === "succeeded";
   if (!app.autoMerge || run.deploy || run.branch === app.defaultBranch || !alive || run.merge === "merged" || run.merge === "conflict") return null;
   if (run.approvedBy) {
@@ -268,7 +278,7 @@ function Approve({ run, app, onApproved }: { run: Run; app: App; onApproved: (r:
   if (session.role === "guest") return null;
   return (
     <div className="card row">
-      <button id="merge-approve" disabled={busy} onClick={() => {
+      <button id="merge-approve" {...apagado(conexion, busy)} onClick={() => {
         setBusy(true);
         api.approveMerge(run.id).then((r) => { setBusy(false); onApproved({ ...run, ...r, steps: run.steps }); }, (e) => { setBusy(false); alert(e.message); });
       }}>{t("Merge this branch")}</button>

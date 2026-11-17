@@ -1,13 +1,16 @@
 // La Ruta: what the platform's people and agents know, kept here rather than
 // in any one agent's session. Agents read and write it over MCP (/mcp) with a
 // key made on the Keys tab; lo vivido (what people lived) only people write.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api, timeAgo, type AgentKey, type AgentRole, type CreatedAgentKey, type RutaEntry, type RutaInput, type RutaKind } from "../api";
 import { Encargos } from "../components/encargos";
 import { Comentarios, porTrabajo } from "../components/comentarios";
 import { CopyButton, ErrorBox, usePoll } from "../components/ui";
 import { t, tn } from "../i18n";
+import { useConexion } from "../conexion";
+import { apagado, PorQueApagado } from "../components/conexion-aviso";
+import { BorradorGuardado, borradorDe, guardarBorrador, soltarBorrador } from "../components/borrador";
 import { TextoConFormato } from "../components/texto";
 
 type Tab = "ruta" | "encargos" | "vivido" | "cargos" | "llaves";
@@ -64,19 +67,34 @@ function Author({ e }: { e: RutaEntry }) {
 
 /** The form to write or change an entry: kind, title, text, tags and, for a to-do, done. */
 function EntryForm({ initial, kind, onDone, onCancel }: { initial?: RutaEntry; kind: RutaKind; onDone: () => void; onCancel?: () => void }) {
-  const [form, setForm] = useState<RutaInput>({
-    kind: initial?.kind ?? kind, title: initial?.title ?? "", body: initial?.body ?? "", tags: initial?.tags ?? [], done: initial?.done ?? false,
+  // What is being written is kept on this device as a draft until it is saved (components/borrador).
+  const caja = `ruta-${initial ? initial.id : "nueva"}`;
+  const [kept] = useState(() => {
+    try {
+      return JSON.parse(borradorDe(caja) ?? "null") as { title: string; body: string; tags: string } | null;
+    } catch {
+      return null;
+    }
   });
-  const [tags, setTags] = useState((initial?.tags ?? []).join(", "));
+  const [form, setForm] = useState<RutaInput>({
+    kind: initial?.kind ?? kind, title: kept?.title ?? initial?.title ?? "", body: kept?.body ?? initial?.body ?? "", tags: initial?.tags ?? [], done: initial?.done ?? false,
+  });
+  const [tags, setTags] = useState(kept?.tags ?? (initial?.tags ?? []).join(", "));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>();
+  const [guardado, setGuardado] = useState(!!kept);
+  const conexion = useConexion();
+  useEffect(() => {
+    const cambiado = form.title !== (initial?.title ?? "") || form.body !== (initial?.body ?? "") || tags !== (initial?.tags ?? []).join(", ");
+    setGuardado(guardarBorrador(caja, cambiado ? JSON.stringify({ title: form.title, body: form.body, tags }) : ""));
+  }, [caja, form.title, form.body, tags, initial]);
   const vivido = form.kind === "vivido";
   const save = () => {
     setBusy(true);
     setErr(undefined);
     const body = { ...form, tags: tags.split(",").map((s) => s.trim()).filter(Boolean) };
     (initial ? api.updateRuta(initial.id, body) : api.addRuta(body)).then(
-      () => { setBusy(false); onDone(); },
+      () => { setBusy(false); soltarBorrador(caja); onDone(); },
       (e) => { setBusy(false); setErr(e); },
     );
   };
@@ -107,8 +125,10 @@ function EntryForm({ initial, kind, onDone, onCancel }: { initial?: RutaEntry; k
       <p className="small muted" style={{ margin: 0 }}>{t("Never write passwords, tokens or keys here; say where they live instead.")}</p>
       <ErrorBox error={err} />
       <div className="row">
-        <button className="primary" disabled={busy || !form.title.trim()} onClick={save}>{initial ? t("Save") : vivido ? t("Keep this story") : t("Add")}</button>
-        {onCancel && <button onClick={onCancel}>{t("Cancel")}</button>}
+        <button className="primary" {...apagado(conexion, busy || !form.title.trim())} onClick={save}>{initial ? t("Save") : vivido ? t("Keep this story") : t("Add")}</button>
+        {onCancel && <button onClick={() => { soltarBorrador(caja); onCancel(); }}>{t("Cancel")}</button>}
+        <BorradorGuardado si={guardado} />
+        <PorQueApagado />
       </div>
     </div>
   );

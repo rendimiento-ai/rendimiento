@@ -102,6 +102,11 @@ export function quienEs(login: string, org?: string) {
 }
 
 let clave: string | undefined;
+
+/** The login signed in, as told by the page (empty before, or signed out). */
+export function quien(): string {
+  return clave?.split("\n")[0] ?? "";
+}
 function decirQuien() {
   if (clave) navigator.serviceWorker?.controller?.postMessage({ tipo: "quien", clave });
 }

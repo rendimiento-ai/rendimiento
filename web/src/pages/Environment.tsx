@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { ErrorBox, usePoll } from "../components/ui";
 import { outsideWhy } from "../components/barda";
 import { locale, t, tn } from "../i18n";
+import { useConexion } from "../conexion";
+import { apagado } from "../components/conexion-aviso";
 import { PlatformVersion, Publicada } from "./Version";
 import { BanderaSVG, useBandera } from "../banderas";
 
@@ -390,6 +392,7 @@ function Meter({ label: l, used, total, fmt }: { label: string; used?: number; t
  * the platform follows within 15 seconds, with no redeploy.
  */
 function Capacidad({ nodes }: { nodes: EnvNode[] }) {
+  const conexion = useConexion();
   const { data: v, setData } = usePoll(envApi.capacity, [], 60000);
   const [edit, setEdit] = useState<Capacity>();
   const [busy, setBusy] = useState(false);
@@ -476,7 +479,7 @@ function Capacidad({ nodes }: { nodes: EnvNode[] }) {
       <ErrorBox error={err} />
       {admin ? changed && (
         <div className="row" style={{ gap: 8 }}>
-          <button className="primary" disabled={busy} onClick={save}>{busy ? t("Saving…") : t("Save")}</button>
+          <button className="primary" {...apagado(conexion, busy)} onClick={save}>{busy ? t("Saving…") : t("Save")}</button>
           <button disabled={busy} onClick={() => setEdit(undefined)}>{t("Discard")}</button>
         </div>
       ) : <p className="small muted" style={{ margin: 0 }}>{t("Only administrators change this.")}</p>}
@@ -591,6 +594,7 @@ function Ajustes() {
 function AjusteRow({ s, edit, busy, onEdit, onSave, onForget, onTurnOn }: {
   s: LiveSetting; edit?: string; busy: boolean; onEdit: (v: string) => void; onSave: (v: string) => void; onForget: () => void; onTurnOn?: () => void;
 }) {
+  const conexion = useConexion();
   const value = edit ?? s.value;
   const differs = !!s.saved && s.saved.value !== s.env;
   const source = s.saved
@@ -612,7 +616,7 @@ function AjusteRow({ s, edit, busy, onEdit, onSave, onForget, onTurnOn }: {
       ) : (
         <span className="row" style={{ gap: 8 }}>
           <input id={`ajuste-${s.key}`} value={value} onChange={(e) => onEdit(e.target.value)} placeholder={t("not set")} style={{ flex: 1, minWidth: 0 }} />
-          {edit !== undefined && edit !== s.value && <button className="primary" disabled={busy} onClick={() => onSave(edit)}>{busy ? t("Saving…") : t("Save")}</button>}
+          {edit !== undefined && edit !== s.value && <button className="primary" {...apagado(conexion, busy)} onClick={() => onSave(edit)}>{busy ? t("Saving…") : t("Save")}</button>}
         </span>
       )}
       <span className="small muted">{settingHelp[s.key]?.()}</span>

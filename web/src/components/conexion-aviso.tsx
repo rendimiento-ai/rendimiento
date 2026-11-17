@@ -38,6 +38,7 @@ export function AvisoConexion() {
             {guardado !== undefined && t("You see what there was {when}.", { when: timeAgo(new Date(guardado).toISOString()) })}{" "}
             {t("It catches up by itself when it is back.")}
           </span>
+          <span className="conexion-porque small">{porQueApagado()}</span>
         </div>
       )}
     </>
