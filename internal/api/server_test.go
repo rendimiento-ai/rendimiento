@@ -1417,7 +1417,7 @@ func TestEveryChangeIsInTheBitacora(t *testing.T) {
 	want := map[string]bool{}
 	for _, rt := range e.s.routes {
 		method, path, _ := strings.Cut(rt.pattern, " ")
-		if method == "GET" {
+		if method == "GET" || rt.sinBitacora {
 			continue
 		}
 		want[rt.pattern] = true

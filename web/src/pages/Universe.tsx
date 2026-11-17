@@ -307,7 +307,7 @@ export function Universe() {
   return (
     <div className="stack">
       <div className="u-head">
-        <h1>{t("Universe")}</h1>
+        <h1 data-listo="">{t("Universe")}</h1>
         <p className="muted" style={{ margin: 0 }}>
           {t("{apps} apps in {barrios} barrios, seen from the hill.", { apps, barrios: world.barrios.size })}
         </p>

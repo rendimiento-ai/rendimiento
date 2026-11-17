@@ -226,6 +226,12 @@ func (s *Server) Handler() http.Handler {
 		mux.Handle(pattern, s.requireRole(true, role, s.anotando(pattern, true, h)))
 	}
 	auth(store.MemberGuest, "GET /api/me", s.me)
+	// How the interface is used, as totals (internal/api/uso.go). Not in the
+	// bitácora: that would tie each batch to who sent it.
+	s.routes = append(s.routes, route{pattern: "POST /api/uso", role: store.MemberGuest, sinBitacora: true})
+	mux.Handle("POST /api/uso", s.requireRole(false, store.MemberGuest, s.anotarUso))
+	plat(store.MemberAdmin, "GET /api/uso", s.verUso)
+	plat(store.MemberAdmin, "PUT /api/uso", s.putUso)
 	// The UI's error pages, reported to the Problems page. Not in routes, so
 	// not in the bitácora either: who saw a broken page is not kept.
 	mux.Handle("POST /api/fallas", s.requireRole(false, store.MemberGuest, s.recibirFalla))
@@ -502,6 +508,9 @@ func randomToken() string {
 type route struct {
 	pattern, role string
 	platform      bool
+	// sinBitacora: a change kept out of the bitácora on purpose, because
+	// a row would say who did it (the interface's use, which is anonymous).
+	sinBitacora bool
 }
 
 type roleKey struct{}

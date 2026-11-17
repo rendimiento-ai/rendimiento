@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Senales } from "../components/senales";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api, session, timeAgo, type MemberRole, type Org } from "../api";
 import { ErrorBox, usePoll } from "../components/ui";
 import { t } from "../i18n";
@@ -112,6 +112,13 @@ export function Members({ me, role, org }: { me: string; role: MemberRole; org?:
       {admin && <DemoLinks org={org} />}
       <Orgs />
       {session.operator && <Senales />}
+      {session.operator && (
+        <section id="uso" style={{ marginTop: 28 }}>
+          <h2>{t("Use of the interface")}</h2>
+          <p className="sub">{t("Which pages people open, how long they take to show their data and which buttons they use, as totals without names, to take clicks away.")}{" "}
+            <Link to="/uso">{t("See the use, and its switch")}</Link></p>
+        </section>
+      )}
     </>
   );
 }

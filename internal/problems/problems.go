@@ -66,6 +66,10 @@ func (r *Recorder) Run(ctx context.Context, st *store.Store, log *slog.Logger) {
 		if _, err := st.PruneProblems(ctx, time.Now().Add(-Keep)); err != nil && ctx.Err() == nil {
 			log.Warn("problems: could not delete old problems", "err", err)
 		}
+		// The interface's use is kept 90 days too, pruned on the same hour.
+		if err := st.PruneUso(ctx, time.Now().AddDate(0, 0, -store.UsoDias)); err != nil && ctx.Err() == nil {
+			log.Warn("problems: could not delete old use of the interface", "err", err)
+		}
 	}
 	resolve := func() {
 		if _, err := st.ResolveQuietProblems(ctx, Retried, time.Now().Add(-Quiet), ResolvedQuiet); err != nil && ctx.Err() == nil {

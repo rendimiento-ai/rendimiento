@@ -74,7 +74,7 @@ export function Environment() {
     <>
       <div className="row between">
         <div>
-          <h1>{t("Environment")}</h1>
+          <h1 data-listo="">{t("Environment")}</h1>
           <p className="sub" style={{ marginBottom: 0 }}>{t("The town where your apps live: its houses, its services and its notices.")}</p>
         </div>
         <div className="row small muted">

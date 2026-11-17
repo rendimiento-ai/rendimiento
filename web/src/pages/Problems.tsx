@@ -9,6 +9,7 @@ import { ErrorBox, usePoll } from "../components/ui";
 import { locale, t, tn } from "../i18n";
 import { useConexion } from "../conexion";
 import { apagado } from "../components/conexion-aviso";
+import { anotar } from "../uso";
 
 // The top bar's link lives apart, so the shell does not carry this page.
 export { ProblemsNavLink } from "../components/enlace-problemas";
@@ -230,7 +231,7 @@ function ProblemDetail({ p, open, appKnown, onDismiss }: { p: Problem; open: boo
         <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
           <AskAgent p={p} appKnown={appKnown} />
           <button {...apagado(conexion, busy, t("Hide it until it happens again"))}
-            onClick={() => { setBusy(true); api.dismissProblem(p.id).then(onDismiss, (e) => { setBusy(false); alert(e.message); }); }}>
+            onClick={() => { anotar("dismiss_problem"); setBusy(true); api.dismissProblem(p.id).then(onDismiss, (e) => { setBusy(false); alert(e.message); }); }}>
             {t("Dismiss")}
           </button>
         </div>
