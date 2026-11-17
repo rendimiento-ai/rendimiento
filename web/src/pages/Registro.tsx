@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { api, timeAgo, type LogFilter, type LogLine } from "../api";
 import { locale, t } from "../i18n";
 import { ErrorBox, usePoll } from "../components/ui";
+import { Vigia } from "../components/vigia";
 
 /** The processes of a cluster, and the single one of a computer. */
 const PROCESSES = ["api", "control", "worker", "agents", "traces", "all", "local"];
@@ -109,6 +110,7 @@ export function Registro() {
         {t("Every line rendimiento's own processes (api, control, worker, agents, traces) wrote at INFO and above, in one place: a restart no longer loses them. Requests slower than a second and answers that failed (5xx) are noted with their route. Lines are kept for 30 days. Secrets are removed before a line is kept: values that look like tokens, passwords or keys, and every attribute whose name says it holds one.")}{" "}
         <Link to="/problems">{t("Warnings and errors, grouped, are on the Problems page.")}</Link>
       </p>
+      <Vigia />
       <div className="rel-filters registro-filtros">
         <label className="small">{t("Process")}{" "}
           <select value={proceso} onChange={(e) => setProceso(e.target.value)}>
