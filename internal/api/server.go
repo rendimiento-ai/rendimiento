@@ -268,6 +268,7 @@ func (s *Server) Handler() http.Handler {
 	plat(store.MemberGuest, "GET /api/services", s.services)
 	plat(store.MemberGuest, "GET /api/stats/delivery", s.delivery)
 	auth(store.MemberGuest, "GET /api/stats/visits", s.visitsSummary)
+	plat(store.MemberAdmin, "GET /api/registro", s.listRegistro)
 	plat(store.MemberGuest, "GET /api/problems", s.listProblems)
 	plat(store.MemberGuest, "GET /api/problems/count", s.problemCount)
 	plat(store.MemberCollaborator, "POST /api/problems/{id}/dismiss", s.dismissProblem)
@@ -387,13 +388,13 @@ func (s *Server) Handler() http.Handler {
 
 	mux.Handle("/", s.ui())
 	if s.MCP == nil {
-		return s.redirectHosts(s.guard(localized(mux)))
+		return s.redirectHosts(s.guard(localized(s.registrando(mux))))
 	}
 	// /mcp has its own auth (agent keys) and speaks JSON-RPC, which the
 	// translating middleware must not touch.
 	outer := http.NewServeMux()
 	outer.Handle("/mcp", s.MCP)
-	outer.Handle("/", localized(mux))
+	outer.Handle("/", localized(s.registrando(mux)))
 	return s.redirectHosts(s.guard(outer))
 }
 

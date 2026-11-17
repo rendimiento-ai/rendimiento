@@ -17,7 +17,7 @@ type LogLine struct {
 	At      time.Time      `json:"at"`
 	Level   string         `json:"level"`
 	Process string         `json:"process"`
-	Message string         `json:"message"`
+	Message string         `json:"msg"` // not "message": the log is shown as it was written, untranslated
 	App     string         `json:"app,omitempty"`
 	Run     *int64         `json:"run,omitempty"`
 	Attrs   map[string]any `json:"attrs,omitempty"`
