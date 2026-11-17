@@ -683,4 +683,5 @@ var catalog = map[string]string{
 	"not a finding of the lookout": "no es un hallazgo del vigía",
 	"this finding suggests no work: note it in the Ruta or set it aside": "este hallazgo no sugiere trabajo: anótelo en la Ruta o déjelo para después",
 	"someone decided this finding already": "alguien ya decidió sobre este hallazgo",
+	"the review stopped before it finished; ask for another": "la revisión se detuvo antes de terminar; pida otra",
 }

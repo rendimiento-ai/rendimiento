@@ -30,6 +30,10 @@ type VigiaVista struct {
 	Disponible bool `json:"disponible"`
 }
 
+// vigiaParada is how long a review may go on before it is shown as one
+// that stopped (the store lets another start then too).
+const vigiaParada = 15 * time.Minute
+
 func (s *Server) vigiaVista(r *http.Request) (VigiaVista, error) {
 	ctx := r.Context()
 	v := VigiaVista{Disponible: s.Vigia != nil}
@@ -46,6 +50,10 @@ func (s *Server) vigiaVista(r *http.Request) (VigiaVista, error) {
 	}
 	if err != nil {
 		return v, err
+	}
+	if rev.Estado == store.RevisionEnCurso && time.Since(rev.At) > vigiaParada {
+		// Its process stopped (a restart, an update) before it finished.
+		rev.Estado, rev.Nota = store.RevisionFallida, i18n.M("the review stopped before it finished; ask for another")
 	}
 	rev.Nota = i18n.Translate(i18n.FromRequest(r), rev.Nota)
 	v.Revision = &rev
