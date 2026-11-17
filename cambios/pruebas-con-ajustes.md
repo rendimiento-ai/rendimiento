@@ -1,0 +1,1 @@
+- **Tests:** the browser tests' server keeps live settings, as every real process does, so the AI page's local model answers there instead of a 503 that failed a test now and then.
