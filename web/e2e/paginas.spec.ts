@@ -176,3 +176,43 @@ test("the colors and the day/night mode are kept", async ({ page, problemas }, i
   await expect(page.locator(".papel-picado")).toBeVisible();
   expect(problemas).toEqual([]);
 });
+
+// While a page's data is on its way, its skeleton stands where the page will
+// be (busy, with no title of its own); when the answer comes, the page
+// replaces it and no skeleton is left. The answer is held until the skeleton
+// was seen.
+test("a page's skeleton stands in until its data comes", async ({ page, problemas }) => {
+  const apps = (await (await page.request.get("/api/apps")).json()) as { name: string }[];
+  expect(apps.length, "apps made by nueva-app.spec.ts").toBeGreaterThan(0);
+  const esqueleto = page.locator("main .esq[aria-busy='true']");
+  const retener = async (patron: string) => {
+    let soltar = () => {};
+    const suelta = new Promise<void>((r) => (soltar = r));
+    await page.route(patron, async (ruta) => { await suelta; await ruta.continue(); });
+    // Released, the handlers still running finish before the route goes:
+    // removing it under them answers the request twice.
+    return () => { soltar(); return page.unrouteAll({ behavior: "wait" }); };
+  };
+
+  await test.step("Apps", async () => {
+    const soltar = await retener("**/api/apps");
+    await page.goto("/");
+    await expect(esqueleto.first()).toBeVisible();
+    await expect(page.locator("main .mosaico .teja")).toHaveCount(0);
+    await soltar();
+    await expect(page.locator("main .mosaico .teja").first()).toBeVisible();
+    await expect(page.locator("main .esq")).toHaveCount(0);
+  });
+
+  await test.step("an app's page", async () => {
+    const app = apps[0].name;
+    const soltar = await retener(`**/api/apps/${app}`);
+    await page.goto(`/apps/${app}`);
+    await expect(esqueleto.first()).toBeVisible();
+    await expect(page.locator("main h1"), "a skeleton has no title").toHaveCount(0);
+    await soltar();
+    await expect(page.locator("main h1").first()).toHaveText(app);
+    await expect(page.locator("main .esq")).toHaveCount(0);
+  });
+  expect(problemas).toEqual([]);
+});

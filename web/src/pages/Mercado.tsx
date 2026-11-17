@@ -8,6 +8,7 @@ import { ErrorBox, usePoll } from "../components/ui";
 import { api, timeAgo, type Pagina, type PaletaPagina, type Puesto, type TipoEnlace, type TipoPagina } from "../api";
 import { t } from "../i18n";
 import { marchita } from "./Dashboard";
+import { EsqListaDetalle } from "../components/esqueleto";
 
 const tipos: { id: TipoPagina; titulo: () => string; texto: () => string }[] = [
   { id: "personal", titulo: () => t("Personal"), texto: () => t("About you, and where to find you.") },
@@ -62,6 +63,7 @@ export function Mercado() {
       <h1>{t("The Mercado")}</h1>
       <p className="sub" style={{ marginBottom: 0 }}>{t("Web pages for people who don't write code. Choose a stall to see it as its visitors do.")}</p>
       <ErrorBox error={error} />
+      {!data && !error && <EsqListaDetalle cabeza={false} />}
       {data && !data.enabled && (
         <div className="card stack" style={{ marginTop: 16 }}>
           <strong>{t("The Mercado is not set up yet.")}</strong>

@@ -13,6 +13,7 @@ import { SenalesAviso } from "../components/senales";
 import { ResumenDelDia } from "../components/resumen";
 import { MesaAviso } from "../components/mesa";
 import { Publicada } from "./Version";
+import { EsqMosaico } from "../components/esqueleto";
 
 // Each app under an arch gets one of the papel picado colors for its band.
 const bandas = ["var(--grana)", "var(--cempasuchil)", "var(--anil)", "var(--rosa)", "var(--nopal)", "var(--maiz)"];
@@ -129,6 +130,7 @@ export function Dashboard() {
           <p className="small muted" style={{ margin: "12px 0 0" }}>{t("Nothing of your own to deploy yet?")} <a href={EXAMPLE_URL} target="_blank" rel="noreferrer">{t("Copy the example to your GitHub account")}</a>{t(", then choose your copy in New app.")}</p>
         </div>
       )}
+      {!apps && !error && <EsqMosaico cabeza={false} />}
       {apps && apps.length > 0 && (
         <>
           <div className="mosaico-cuentas" role="group" aria-label={t("Show")}>
