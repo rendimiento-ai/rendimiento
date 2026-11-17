@@ -71,6 +71,13 @@ func TestRequestLines(t *testing.T) {
 		time.Sleep(SlowRequest + 50*time.Millisecond)
 	})
 	mux.HandleFunc("GET /api/fast", func(w http.ResponseWriter, r *http.Request) {})
+	// Whoever asked leaves, the handler's work is cancelled and it answers 500 to nobody.
+	ido := make(chan struct{})
+	mux.HandleFunc("GET /api/slowly", func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+		httpError(w, http.StatusInternalServerError, "context canceled")
+		close(ido)
+	})
 	srv := httptest.NewServer(s.registrando(mux))
 	defer srv.Close()
 	for _, p := range []string{"/api/apps/tienda?token=abc", "/api/apps/caja?fail=1", "/api/runs/7", "/api/environment", "/api/runs/7/events", "/api/fast"} {
@@ -79,6 +86,19 @@ func TestRequestLines(t *testing.T) {
 			t.Fatal(err)
 		}
 		resp.Body.Close()
+	}
+
+	ctx, irse := context.WithCancel(context.Background())
+	req, _ := http.NewRequestWithContext(ctx, "GET", srv.URL+"/api/slowly", nil)
+	go func() { time.Sleep(100 * time.Millisecond); irse() }()
+	if resp, err := http.DefaultClient.Do(req); err == nil {
+		resp.Body.Close()
+	}
+	select {
+	case <-ido:
+		time.Sleep(50 * time.Millisecond) // the middleware runs after the handler returns
+	case <-time.After(5 * time.Second):
+		t.Fatal("the abandoned request's handler never saw its context end")
 	}
 
 	if len(c.recs) != 4 {

@@ -41,6 +41,12 @@ func (s *Server) registrando(next http.Handler) http.Handler {
 		tw := &timedWriter{statusWriter: statusWriter{ResponseWriter: w, status: http.StatusOK}}
 		next.ServeHTTP(tw, r)
 		// The mux has set the pattern on r by now.
+		if r.Context().Err() != nil && tw.status >= 500 {
+			// Whoever asked left before the answer (a page closed, a tab
+			// navigated away): the handler's query was cancelled and it
+			// answered 500 to nobody. Not a failure of the platform.
+			return
+		}
 		s.noteRequest(r.Method, r.Pattern, tw.status, time.Since(start), tw.streamed || streaming(r, tw.Header()))
 	})
 }
