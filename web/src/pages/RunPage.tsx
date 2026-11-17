@@ -9,6 +9,7 @@ import { apagado } from "../components/conexion-aviso";
 import { TextoConFormato } from "../components/texto";
 import { Rama } from "../components/lo-ultimo";
 import { Pasos } from "../components/pasos";
+import { EsqCosa } from "../components/esqueleto";
 import { anotar } from "../uso";
 
 /** A run's page: why it failed, its steps with when each ran, live as they go, and the log of the step chosen. */
@@ -99,7 +100,7 @@ export function RunPage() {
   // The page is about the run: one that is not there, or not for this account, is a page of its own.
   if (!Number.isInteger(runId) || runId <= 0) return <NoExiste />;
   if (error) return <Falla error={error} reintentar={() => { setError(undefined); setVuelta((v) => v + 1); }} />;
-  if (!run) return <p className="muted">{t("Loading…")}</p>;
+  if (!run) return <EsqCosa volver acciones cuerpo="pasos" />;
   const step = run.steps?.find((s) => s.id === selected);
 
   return (

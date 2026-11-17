@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiError, timeAgo, type ClaseOpinion, type EstadoOpinion, type Opinion, type OpinionDetalle } from "../api";
+import { EsqListaDetalle } from "../components/esqueleto";
 import { t, tn } from "../i18n";
 import { useConexion } from "../conexion";
 import { apagado, PorQueApagado } from "../components/conexion-aviso";
@@ -63,7 +64,8 @@ export function Buzon() {
         ))}
       </div>
       {error ? <p className="error">{error instanceof Error ? error.message : String(error)}</p> : null}
-      <div className="buzon-cuerpo">
+      {!data && !error && <EsqListaDetalle cabeza={false} />}
+      {(data || !!error) && <div className="buzon-cuerpo">
         <ul className="buzon-lista">
           {vistas.length === 0 && <li className="muted small">{t("No comments here.")}</li>}
           {vistas.map((o) => (
@@ -82,7 +84,7 @@ export function Buzon() {
           ))}
         </ul>
         {abierta ? <Detalle id={abierta} abrir={setAbierta} cambio={reload} lista={lista} /> : <div className="buzon-detalle muted">{t("Choose a comment to read it.")}</div>}
-      </div>
+      </div>}
     </div>
   );
 }

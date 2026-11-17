@@ -21,7 +21,7 @@ import (
 var rutasUso = map[string]bool{
 	"/": true, "/new": true, "/mercado": true, "/mercado/nuevo": true, "/mercado/:app": true,
 	"/environment": true, "/universe": true, "/universe/requests/:id": true, "/services": true,
-	"/addons": true, "/problems": true, "/ruta": true, "/bitacora": true, "/senales": true,
+	"/addons": true, "/problems": true, "/ruta": true, "/bitacora": true, "/senales": true, "/registro": true,
 	"/ia": true, "/buzon": true, "/escribir": true, "/members": true, "/addons/:name": true,
 	"/services/:ns/:name": true, "/apps/:name": true, "/apps/:name/:tab": true,
 	"/apps/:name/runs/:id": true, "/uso": true,

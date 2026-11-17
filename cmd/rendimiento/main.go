@@ -56,6 +56,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/platform"
 	"github.com/rendimiento-ai/rendimiento/internal/problems"
 	"github.com/rendimiento-ai/rendimiento/internal/registro"
+	"github.com/rendimiento-ai/rendimiento/internal/registrocentral"
 	"github.com/rendimiento-ai/rendimiento/internal/render"
 	"github.com/rendimiento-ai/rendimiento/internal/renovate"
 	"github.com/rendimiento-ai/rendimiento/internal/ruta"
@@ -79,13 +80,19 @@ func env(key, def string) string {
 
 // main runs the platform until it is stopped, logging why if it fails.
 func main() {
-	// Warnings and errors also go to the Problems page; plain is the same
-	// log without that, for the recorder's own messages.
+	// Warnings and errors also go to the Problems page, and every line at
+	// INFO and above to the platform's log (the Log page); plain is the
+	// same log without either, for the recorders' own messages.
 	plain := slog.NewJSONHandler(os.Stdout, nil)
+	process := env("ROLE", "all")
+	if env("MODE", "cluster") == "local" {
+		process = "local"
+	}
+	central := registrocentral.NewRecorder(process)
 	problemLog := problems.NewRecorder()
-	log := slog.New(problemLog.Handler(plain))
+	log := slog.New(problemLog.Handler(central.Handler(plain)))
 	ctrl.SetLogger(toLogr(log))
-	if err := run(log, problemLog, slog.New(plain)); err != nil {
+	if err := run(log, problemLog, central, slog.New(plain)); err != nil {
 		log.Error("fatal", "err", err)
 		os.Exit(1)
 	}
@@ -95,7 +102,7 @@ func main() {
 // Postgres and GitHub, wires every part of the platform together and runs
 // them: the API and UI, the controllers, and (on the leader) the CI
 // workers, schedulers and checks.
-func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) error {
+func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentral.Recorder, plain *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	// A stand-in for GitHub, for tests of an installed rendimiento
@@ -104,7 +111,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 	gh.OAuthBase = strings.TrimRight(env("GITHUB_URL", gh.OAuthBase), "/")
 	// MODE=local: one computer without Kubernetes (see local.go).
 	if env("MODE", "cluster") == "local" {
-		return runLocal(ctx, log, problemLog, plain)
+		return runLocal(ctx, log, problemLog, central, plain)
 	}
 
 	// ROLE is the part of the platform this process runs: api (the UI, the
@@ -137,7 +144,9 @@ func run(log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) er
 	if err := st.Migrate(ctx); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
-	go problemLog.Run(ctx, st, plain)
+	go central.Run(ctx, st, plain)
+	// The Problems recorder's own warnings are kept in the log.
+	go problemLog.Run(ctx, st, slog.New(central.Handler(plain.Handler())))
 	if n, err := st.SeedAdmins(ctx, users); err != nil {
 		return fmt.Errorf("members: %w", err)
 	} else if n > 0 {

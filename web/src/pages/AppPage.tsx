@@ -16,6 +16,7 @@ import { Falla, NoExiste } from "../components/falla";
 import { outsideWhy } from "../components/barda";
 import { Flor, LluviaDePetalos } from "../components/ambiente";
 import { t, tn } from "../i18n";
+import { EsqCosa } from "../components/esqueleto";
 import { useConexion } from "../conexion";
 import { apagado, PorQueApagado } from "../components/conexion-aviso";
 
@@ -54,7 +55,7 @@ export function AppPage() {
   // The page is about the app: one that is not there, or not for this account, is a page of its own.
   if (error) return <Falla error={error} reintentar={reload} />;
   if (asked && !tabs.some((tb) => tb.id === asked)) return <NoExiste />;
-  if (!app) return <p className="muted">{t("Loading…")}</p>;
+  if (!app) return <EsqCosa flor datos={4} pestanas />;
 
   const caida = (app.down?.length ?? 0) > 0 || app.status.phase === "Error" || app.status.phase === "Degraded";
   const lib = isLibrary(app.spec);

@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { api, ApiError, timeAgo, type AlEquipo as Vista } from "../api";
 import { t } from "../i18n";
 import { usePoll } from "../components/ui";
+import { EsqCosa } from "../components/esqueleto";
 import { useConexion } from "../conexion";
 import { apagado, PorQueApagado } from "../components/conexion-aviso";
 import { BorradorGuardado, useBorrador } from "../components/borrador";
@@ -43,7 +44,7 @@ export function AlEquipo() {
   }
 
   if (error) return <p className="error">{error instanceof Error ? error.message : String(error)}</p>;
-  if (!data) return <div className="muted">{t("Loading…")}</div>;
+  if (!data) return <EsqCosa />;
   const sale = { ...data.vista, texto: texto.trim() };
 
   return (

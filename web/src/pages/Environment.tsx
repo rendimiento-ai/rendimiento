@@ -8,6 +8,7 @@ import { useConexion } from "../conexion";
 import { apagado } from "../components/conexion-aviso";
 import { PlatformVersion, Publicada } from "./Version";
 import { BanderaSVG, useBandera } from "../banderas";
+import { EsqCosa } from "../components/esqueleto";
 
 const tone: Record<EnvStatus, string> = { ok: "ok", warning: "warn", missing: "bad", error: "bad" };
 const label: Record<EnvStatus, string> = { ok: "OK", warning: "Attention", missing: "Missing", error: "Error" }; // translated where shown
@@ -56,7 +57,7 @@ export function Environment() {
   };
 
   if (error) return <ErrorBox error={error} />;
-  if (!r) return <p className="muted">{t("Inspecting the cluster…")}</p>;
+  if (!r) return <EsqCosa acciones cuerpo="calle" />;
   const problems = r.problems ?? [];
   const nodo = r.nodes.find((n) => n.name === sel);
   const letreros: Letrero[] = [

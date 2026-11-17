@@ -12,6 +12,7 @@ import { useConexion } from "../conexion";
 import { apagado, PorQueApagado } from "../components/conexion-aviso";
 import { BorradorGuardado, borradorDe, guardarBorrador, soltarBorrador } from "../components/borrador";
 import { TextoConFormato } from "../components/texto";
+import { EsqRenglones } from "../components/esqueleto";
 
 type Tab = "ruta" | "encargos" | "vivido" | "cargos" | "llaves";
 const tabIds: Tab[] = ["ruta", "encargos", "vivido", "cargos", "llaves"];
@@ -162,6 +163,7 @@ function Entries() {
       </div>
       {adding && <EntryForm kind="nota" onDone={() => { setAdding(false); reload(); }} onCancel={() => setAdding(false)} />}
       <ErrorBox error={error} />
+      {!data && !error && <EsqRenglones n={8} />}
       {data && list.length === 0 && <p className="renglon-texto muted">{q ? t("Nothing matches.") : t("Nothing here yet. Agents add decisions, manuals and to-dos as they work; you can too.")}</p>}
       {kinds.map((k) => {
         const items = list.filter((e) => e.kind === k.id);
@@ -227,6 +229,7 @@ function Vivido() {
       <button className="primary" onClick={() => setAdding(!adding)}>{adding ? t("Close") : t("Tell a story")}</button>
       {adding && <div style={{ marginTop: 12 }}><EntryForm kind="vivido" onDone={() => { setAdding(false); reload(); }} onCancel={() => setAdding(false)} /></div>}
       <ErrorBox error={error} />
+      {!data && !error && <EsqRenglones />}
       {data && data.length === 0 && !adding && <div className="card empty" style={{ marginTop: 12 }}><p>{t("No stories yet.")}</p></div>}
       <div className="stack" style={{ marginTop: 16 }}>
         {data?.map((e) => editing === e.id
@@ -261,6 +264,7 @@ function Cargos() {
     <>
       <p className="sub">{t("A cargo is an agent's turn of work: taken with a purpose, handed over with what it did and what is left, so the next one (another session, another model, or a person) knows where things stand.")}</p>
       <ErrorBox error={error} />
+      {!data && !error && <EsqRenglones />}
       {data && data.cargos.length === 0 && <div className="card empty"><p>{t("No agent has taken a cargo yet.")}</p></div>}
       <ol className="ruta-cargos">
         {data?.cargos.map((c) => (

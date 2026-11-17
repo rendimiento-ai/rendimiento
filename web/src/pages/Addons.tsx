@@ -4,6 +4,7 @@ import { addonsApi, installedApi, timeAgo, type Addon, type AddonCatalogEntry, t
 import { ErrorBox, RunBadge, Switch, usePoll } from "../components/ui";
 import { AddonDetail, InstallForm, sourceLabel } from "./Installed";
 import { locale, t } from "../i18n";
+import { EsqListaDetalle } from "../components/esqueleto";
 
 const attentionPhases: AddonPhase[] = ["Error", "Blocked", "OutOfSync"];
 const phaseTone: Record<AddonPhase, string> = {
@@ -52,7 +53,8 @@ export function Addons() {
       {inst?.sync?.invalid && Object.entries(inst.sync.invalid).map(([f, e]) => (
         <div key={f} className="alert" style={{ marginTop: 12 }}>{t("{file} is invalid and was skipped: {err}", { file: `${inst.repo}/${f}`, err: e })}</div>
       ))}
-      <div className="lista-detalle">
+      {!inst && !instError && <EsqListaDetalle cabeza={false} />}
+      {(inst || instError) && <div className="lista-detalle">
         <aside className="ld-lista">
           <label className="ld-buscar">
             <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5 21 21" /></svg>
@@ -86,7 +88,7 @@ export function Addons() {
           </main>
         )}
         {!elegido && inst && <main className="ld-detalle"><p className="muted" style={{ margin: 0 }}>{t("Nothing installed yet. Pick something from the catalog below.")}</p></main>}
-      </div>
+      </div>}
     </>
   );
 }

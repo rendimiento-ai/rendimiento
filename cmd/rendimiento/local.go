@@ -33,6 +33,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/platform"
 	"github.com/rendimiento-ai/rendimiento/internal/problems"
+	"github.com/rendimiento-ai/rendimiento/internal/registrocentral"
 	"github.com/rendimiento-ai/rendimiento/internal/ruta"
 	"github.com/rendimiento-ai/rendimiento/internal/secretos"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
@@ -47,7 +48,7 @@ import (
 // secrets are sealed in Postgres by a key in DATA_DIR. Apps are built and
 // tested here, and run here by the local destination, reached through its
 // proxy at <app>.localhost.
-func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Recorder, plain *slog.Logger) error {
+func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Recorder, central *registrocentral.Recorder, plain *slog.Logger) error {
 	// The engines call iptables and friends, which live in the sbin folders
 	// that a service's PATH may leave out.
 	sbin(os.Getenv("PATH"))
@@ -138,7 +139,8 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	if err := st.Migrate(ctx); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
-	go problemLog.Run(ctx, st, plain)
+	go central.Run(ctx, st, plain)
+	go problemLog.Run(ctx, st, slog.New(central.Handler(plain.Handler())))
 	if _, err := st.SeedAdmins(ctx, users); err != nil {
 		return fmt.Errorf("members: %w", err)
 	}

@@ -945,6 +945,19 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 .bitacora { width: 100%; border-collapse: collapse; }
 .bitacora th, .bitacora td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .bitacora td.mono { word-break: break-all; }
+/* The Log page (/registro): the platform's own lines, each opening to its attributes. */
+.registro-filtros .registro-buscar { flex: 1 1 220px; min-width: 0; }
+.registro-tabla td { white-space: nowrap; }
+.registro-tabla td.registro-mensaje { white-space: normal; overflow-wrap: anywhere; width: 100%; }
+.registro-fila.registro-error td { background: var(--bad-bg); }
+.registro-abrir { all: unset; cursor: pointer; display: inline; }
+.registro-abrir:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.registro-detalle td { background: var(--surface); }
+.registro-attrs { display: grid; gap: 2px; margin: 0; }
+.registro-attr { display: grid; grid-template-columns: minmax(80px, max-content) 1fr; gap: 12px; }
+.registro-attr dt { color: var(--muted, inherit); margin: 0; }
+.registro-attr dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 760px) { .registro-attr { grid-template-columns: 1fr; gap: 0; } }
 .ruta-bad { color: var(--bad); }
 .ruta-token { padding: 6px 10px; background: var(--code-bg); color: var(--code-text); border-radius: 6px; overflow-wrap: anywhere; flex: 1; }
 .ruta-snippet { flex: 1; margin: 0; padding: 10px 12px; background: var(--code-bg); color: var(--code-text); border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12.5px; }
@@ -2435,13 +2448,60 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .falla-sabido { margin: 0; padding-left: 20px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
 .falla-botones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 .falla-codigo { font-family: var(--mono); font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
-/* A page's code on its way (components/cargando): quiet blocks of a fixed height, shown only after a moment. */
-.cargando { min-height: 420px; animation: cargando-aparece .3s ease .25s both; }
-.cargando > div { background: var(--surface-2); border-radius: var(--radius); }
-.cargando-titulo { height: 40px; width: 38%; margin: 8px 0 14px; }
-.cargando-linea { height: 16px; width: 62%; margin-bottom: 28px; }
-.cargando-bloque { height: 140px; margin-bottom: 16px; }
-@keyframes cargando-aparece { from { opacity: 0; } to { opacity: 1; } }
+/* Skeletons (components/esqueleto): grey bones with a slow sheen where each thing of a page will be, while its
+   code or its data is on its way. Each keeps the real page's outer sizes, so nothing jumps when it arrives. A
+   skeleton fades in only after a moment (a quick page never flashes it); one right after another that was seen
+   (code, then data) shows at once. .cargando marks the one for the code (the browser tests wait for it to go). */
+.esq { animation: esq-aparece .3s ease .25s both; }
+.esq.esq-sigue { animation: none; }
+@keyframes esq-aparece { from { opacity: 0; } to { opacity: 1; } }
+.esq-hueso { display: block; flex: none; max-width: 100%; border-radius: 8px;
+  background: var(--surface-2) linear-gradient(90deg, transparent 25%, color-mix(in srgb, var(--text) 7%, transparent) 50%, transparent 75%) 0 0 / 200% 100%;
+  animation: esq-brilla 1.6s linear infinite; }
+@keyframes esq-brilla { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+:root[data-motion="off"] .esq, :root[data-motion="off"] .esq-hueso { animation: none; }
+@media (prefers-reduced-motion: reduce) { .esq, .esq-hueso { animation: none; } }
+/* Text: a bone the height of its letters, with the line's height around it (h1 34px, body 15px/1.55). */
+.esq-cabeza-texto { flex: 1 1 300px; min-width: 0; }
+.esq-titulo { height: 28px; margin: 4.5px 0 8.5px; }
+.esq-titulo-grande { height: 38px; margin: 6px 0 10.6px; }
+.esq-renglon { height: 12px; margin: 5.6px 0; }
+.esq-volver { width: 140px; height: 12px; margin: 17px 0 17px; }
+.esq-cuerpo { display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
+/* (a) The mosaic (.mosaico-cuentas, .mosaico): the counters, the search and the cards. */
+.esq-buscar { height: 48px; border-radius: 999px; margin-bottom: 18px; }
+.esq-teja { height: 146px; border-radius: 16px; }
+/* (b) The list and the detail (.lista-detalle, .ld-lista, .ld-detalle). */
+.esq-cuenta { flex: 1 1 150px; height: 83px; border-radius: 16px; }
+.esq-ld-lista { flex: 1 1 300px; max-width: 380px; min-height: 420px; display: flex; flex-direction: column; gap: 10px; padding: 12px;
+  background: color-mix(in srgb, var(--border) 35%, var(--bg)); border: 1px solid var(--border); border-radius: 16px; }
+.esq-grupo { width: 40%; height: 12px; margin: 8px 10px 4px; }
+.esq-fila { height: 24px; margin: 10px; }
+.esq-ld-detalle { flex: 999 1 520px; min-width: 0; min-height: 420px; display: flex; flex-direction: column; gap: 22px; padding: 24px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 18px; }
+/* (c) The page of one thing: its figures (.datos), tabs, and a run's steps beside the log (.ejecucion). */
+.esq-dato { height: 103px; border-radius: 16px; }
+.esq-pestanas { display: flex; align-items: center; gap: 28px; height: 41px; margin: 20px 0 16px; padding: 0 14px; border-bottom: 1px solid var(--border); overflow: hidden; }
+.esq-lado { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; margin-top: 16px; }
+.esq-pasos { flex: 1 1 300px; max-width: 440px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.esq-registro { flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.esq-reg { height: min(360px, 55vh); }
+.esq-aviso { height: 57px; margin-top: 16px; }
+.esq-calle { height: 260px; margin-top: 20px; }
+.esq-hoja { height: 560px; margin-top: 8px; }
+/* (d) The Universe (.u-stage, .u-bar, .universe-side): the town in silhouette and its floating controls. */
+.esq-pueblo { position: relative; min-width: 0; height: clamp(440px, 72vh, 780px); overflow: hidden; border-radius: var(--radius); border: 1.5px solid var(--border); background: var(--bg); }
+.esq-pueblo > .esq-hueso, .esq-u-zoom { position: absolute; }
+.esq-casa { bottom: 12%; border-radius: 8px 8px 0 0; }
+.esq-suelo { left: 0; right: 0; bottom: 0; height: 12%; opacity: .7; }
+.esq-u-izq { top: 10px; left: 10px; height: 48px; width: min(440px, calc(100% - 300px)); }
+.esq-u-der { top: 10px; right: 10px; height: 48px; width: 262px; }
+.esq-u-zoom { bottom: 10px; right: 10px; display: flex; flex-direction: column; gap: 4px; }
+.esq-u-donde { left: 10px; bottom: 10px; height: 36px; width: min(220px, calc(100% - 76px)); }
+.esq-u-lado { min-height: 360px; display: flex; flex-direction: column; gap: 12px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+@media (max-width: 760px) { .esq-u-izq { width: calc(100% - 118px); } .esq-u-der { width: 86px; } }
+/* A few lines in a small panel: the Ruta's notebook, 32px a line. */
+.esq-renglones .esq-renglon { margin: 10px 0; }
 .cargando-fallo { min-height: 420px; padding-top: 24px; color: var(--muted); }
 .cargando-fallo p { margin: 0 0 14px; }
 

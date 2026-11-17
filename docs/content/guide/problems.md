@@ -53,5 +53,5 @@ flowchart LR
 
 - The platform's logger passes every record to its normal output; warnings and errors are **also** queued for the Problems page (`internal/problems`). Recording never slows the code that logs: if the queue is full, problems are counted and dropped.
 - The **fingerprint** of a problem is its level, component, app, message and error, with numbers and hashes blanked, so repeats land on one row.
-- Some warnings are left out on purpose: Kubernetes write conflicts that the controllers retry immediately, apps going down (the Reliability tab tracks those), and work stopped by a shutdown.
+- Some warnings are left out on purpose: Kubernetes write conflicts that the controllers retry immediately, apps going down (the Reliability tab tracks those), work stopped by a shutdown, and the API's 5xx answers other than 500 (a service upstream down, a page this computer does not have). A 500 is one problem per route. Everything, problems or not, is also in [the log](registro.md).
 - API: `GET /api/problems` (`?app=`, `?dismissed=1`), `GET /api/problems/count`, `POST /api/problems/{id}/dismiss`; the interface reports its error pages with `POST /api/fallas` (every field bounded, at most 20 reports per session in 10 minutes).

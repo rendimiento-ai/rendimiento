@@ -690,6 +690,36 @@ export interface ProblemList {
   problems: Problem[];
 }
 
+// ---- the platform's log (the Log page, internal/store/registro.go) ----
+
+/** One line the platform's processes logged at INFO or above, its secrets removed. */
+export interface LogLine {
+  id: number;
+  at: string;
+  level: "INFO" | "WARN" | "ERROR";
+  process: string;
+  msg: string;
+  app?: string;
+  run?: number;
+  attrs?: Record<string, unknown>;
+}
+
+/** A page of the log, newest first; next is the cursor of the older page. */
+export interface LogPage {
+  lines: LogLine[];
+  next?: string;
+}
+
+export interface LogFilter {
+  proceso?: string;
+  app?: string;
+  nivel?: "" | "WARN" | "ERROR";
+  desde?: string;
+  hasta?: string;
+  q?: string;
+  antes?: string;
+}
+
 // ---- delivery (the dashboard's DORA numbers) ----
 
 export interface DeliveryStats {
@@ -1149,6 +1179,8 @@ export const api = {
     request<ProblemList>("GET", `/api/problems?app=${encodeURIComponent(opts.app ?? "")}${opts.dismissed ? "&dismissed=1" : ""}`),
   problemCount: () => request<{ open: number }>("GET", "/api/problems/count"),
   dismissProblem: (id: number) => request<void>("POST", `/api/problems/${id}/dismiss`),
+  registro: (f: LogFilter) =>
+    request<LogPage>("GET", `/api/registro?${new URLSearchParams(Object.entries(f).filter(([, v]) => v).map(([k, v]) => [k, String(v)]))}`),
   ruta: (opts: { kind?: string; q?: string } = {}) =>
     request<RutaEntry[]>("GET", `/api/ruta?kind=${encodeURIComponent(opts.kind ?? "")}&q=${encodeURIComponent(opts.q ?? "")}`),
   addRuta: (e: RutaInput) => request<RutaEntry>("POST", "/api/ruta", e),
