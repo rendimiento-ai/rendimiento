@@ -24,3 +24,4 @@ Los secretos nunca llegan al registro. Antes de guardar una línea:
 - Filtre por **proceso**, **aplicación**, **nivel** (todo, avisos y errores, o solo errores) y **periodo** (la última hora, 24 horas, 7 o 30 días, **hasta** el momento que elija), y busque en los mensajes.
 - Una línea con valores se abre con un clic: sus atributos y un enlace a su ejecución.
 - Los avisos y errores también se agrupan, se cuentan y se siguen hasta que se arreglan en la página de [Problemas](problems.md); el registro es donde se ve lo que pasó alrededor de ellos.
+- Una vez por semana, [el vigía](vigia.md) lee este registro, las ejecuciones y el uso de la interfaz, y propone unos pocos hallazgos arriba en la página.

@@ -92,6 +92,7 @@ plugins:
             Notifications (email): Notificaciones (correo)
             Problems (what went wrong in the platform): Problemas (lo que salió mal en la plataforma)
             The log (every line of the platform, in one place): El registro (cada línea de la plataforma, en un solo lugar)
+            The lookout (a few findings each week): El vigía (unos pocos hallazgos cada semana)
             Visits (Umami): Visitas (Umami)
             The Mercado (pages without code): El Mercado (páginas sin código)
             Members and roles (who can sign in and do what): Miembros y funciones (quién entra y qué puede hacer)
@@ -195,6 +196,7 @@ nav:
       - Notifications (email): guide/notifications.md
       - Problems (what went wrong in the platform): guide/problems.md
       - The log (every line of the platform, in one place): guide/registro.md
+      - The lookout (a few findings each week): guide/vigia.md
       - Members and roles (who can sign in and do what): guide/members.md
       - "AI: the gateway, providers and caps": guide/ai.md
       - Built for agents (roles, tools, where it is going): guide/agents.md

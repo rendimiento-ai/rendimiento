@@ -24,3 +24,4 @@ Secrets never reach the log. Before a line is kept:
 - Filter by **process**, **app**, **level** (everything, warnings and errors, or errors only) and **period** (the last hour, 24 hours, 7 or 30 days, **until** a moment you choose), and search the messages.
 - A line with values opens with a click: its attributes, and a link to its run.
 - Warnings and errors are also grouped, counted and followed until they are fixed on the [Problems](problems.md) page; the log is where to see what happened around them.
+- Once a week, [the lookout](vigia.md) reads this log, the runs and the interface's use, and proposes a few findings at the top of the page.
