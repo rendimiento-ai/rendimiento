@@ -29,6 +29,17 @@ If a push has a `rendimiento.yaml` that cannot be used (a typo, a host listed tw
 
 Fix the file and push again: once that push is accepted, the problem is marked resolved.
 
+## Pages that could not be shown
+
+When a page of rendimiento cannot be shown, it says what happened, why it may have, and what to do, instead of a blank screen or a bare error:
+
+- **This page does not exist**: an address no page has, or an app, run or request that is not there. It suggests an app with a close name when there is one, says which page you came from, and offers *Go to Apps* and *Back*.
+- **You have no access to this page**: it exists, but your account has no entry to it. It says which organization you are in.
+- **Something failed showing this page**: the interface itself failed. The top bar and menu stay; *Try again* draws the page again, and *Tell the team* opens [the page for writing to the team](comentarios.md) with the page and a short code already written.
+- **rendimiento does not answer**: your connection, or the platform updating (under a minute). It tries again every 5 seconds and comes back to the page when it answers.
+
+Each one shown is recorded here once, grouped by kind and page, with the page the person came from and the interface's version (and, for a page that failed, its error): *page not found*, *page refused: no access*, *a page failed to show*, *the UI could not reach rendimiento* (recorded once it answers again). Who saw it is not kept. A broken link shows here the same day: fix the link, or dismiss the problem.
+
 ## How it works
 
 ```mermaid
@@ -43,4 +54,4 @@ flowchart LR
 - The platform's logger passes every record to its normal output; warnings and errors are **also** queued for the Problems page (`internal/problems`). Recording never slows the code that logs: if the queue is full, problems are counted and dropped.
 - The **fingerprint** of a problem is its level, component, app, message and error, with numbers and hashes blanked, so repeats land on one row.
 - Some warnings are left out on purpose: Kubernetes write conflicts that the controllers retry immediately, apps going down (the Reliability tab tracks those), and work stopped by a shutdown.
-- API: `GET /api/problems` (`?app=`, `?dismissed=1`), `GET /api/problems/count`, `POST /api/problems/{id}/dismiss`.
+- API: `GET /api/problems` (`?app=`, `?dismissed=1`), `GET /api/problems/count`, `POST /api/problems/{id}/dismiss`; the interface reports its error pages with `POST /api/fallas` (every field bounded, at most 20 reports per session in 10 minutes).

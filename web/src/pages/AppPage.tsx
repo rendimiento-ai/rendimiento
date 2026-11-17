@@ -11,6 +11,7 @@ import { tecnicoPrimero, Vistazo } from "../components/vistazo";
 import { MesaTab } from "../components/mesa";
 import { LoUltimo, Rama, VerifyBadge, verifyBadge } from "../components/lo-ultimo";
 import { AppProblems } from "./Problems";
+import { Falla, NoExiste } from "../components/falla";
 import { outsideWhy } from "../components/barda";
 import { Flor, LluviaDePetalos } from "../components/ambiente";
 import { t, tn } from "../i18n";
@@ -47,7 +48,9 @@ export function AppPage() {
 
   useEffect(() => subscribe(`/api/apps/${name}/events`, { run: reload, release: reload }), [name]);
 
-  if (error) return <ErrorBox error={error} />;
+  // The page is about the app: one that is not there, or not for this account, is a page of its own.
+  if (error) return <Falla error={error} reintentar={reload} />;
+  if (asked && !tabs.some((tb) => tb.id === asked)) return <NoExiste />;
   if (!app) return <p className="muted">{t("Loading…")}</p>;
 
   const caida = (app.down?.length ?? 0) > 0 || app.status.phase === "Error" || app.status.phase === "Degraded";

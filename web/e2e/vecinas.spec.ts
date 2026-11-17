@@ -39,7 +39,7 @@ test("two organizations: neither sees the other's", async ({ page, browser, base
           expect((await suya.request.get(`/api/apps/${app.name}${ruta}`)).status(), `GET /api/apps/${app.name}${ruta}`).toBe(404);
         }
         await suya.goto(`/apps/${app.name}`);
-        await expect(suya.locator("main .alert").first(), "the page says it does not exist").toBeVisible();
+        await expect(suya.locator('main [data-falla="not_found"]'), "the page says it does not exist").toBeVisible();
         await expect(suya.locator("main")).not.toContainText(app.repo);
       });
     }
