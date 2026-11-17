@@ -2416,3 +2416,13 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
     color-scheme: dark;
   }
 }
+
+/* A page's code on its way (components/cargando): quiet blocks of a fixed height, shown only after a moment. */
+.cargando { min-height: 420px; animation: cargando-aparece .3s ease .25s both; }
+.cargando > div { background: var(--surface-2); border-radius: var(--radius); }
+.cargando-titulo { height: 40px; width: 38%; margin: 8px 0 14px; }
+.cargando-linea { height: 16px; width: 62%; margin-bottom: 28px; }
+.cargando-bloque { height: 140px; margin-bottom: 16px; }
+@keyframes cargando-aparece { from { opacity: 0; } to { opacity: 1; } }
+.cargando-fallo { min-height: 420px; padding-top: 24px; color: var(--muted); }
+.cargando-fallo p { margin: 0 0 14px; }

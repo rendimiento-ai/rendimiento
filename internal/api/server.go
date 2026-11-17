@@ -1906,9 +1906,16 @@ func (s *Server) ui() http.Handler {
 			httpError(w, http.StatusNotFound, "no such endpoint")
 			return
 		}
-		// Single-page app: unknown paths get index.html.
+		// Single-page app: unknown paths get index.html. Not under assets/: a page's code that is gone (an
+		// update replaced it) must fail as such, or the browser would read the page as a script.
 		p := strings.TrimPrefix(r.URL.Path, "/")
-		if _, err := fs.Stat(s.UI, p); p == "" || p == "index.html" || err != nil {
+		_, err := fs.Stat(s.UI, p)
+		if err != nil && strings.HasPrefix(p, "assets/") {
+			w.Header().Set("Cache-Control", "no-store")
+			http.NotFound(w, r)
+			return
+		}
+		if p == "" || p == "index.html" || err != nil {
 			r = r.Clone(r.Context())
 			r.URL.Path = "/"
 			w.Header().Set("Cache-Control", "no-cache")
