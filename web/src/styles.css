@@ -2443,6 +2443,6 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .conexion-aviso .btn { margin-left: auto; }
 .conexion-nueva { background: var(--surface-2); border-color: var(--border); }
 .conexion-nueva b { color: var(--text); }
-.conexion-guardado ~ * .card, .conexion-guardado ~ .card { opacity: .62; }
+.conexion-guardado ~ * .card:not(:has(input, textarea, select)), .conexion-guardado ~ .card:not(:has(input, textarea, select)) { opacity: .62; }
 .conexion-porque { flex-basis: 100%; }
 .conexion-borrador { font-size: 13px; color: var(--muted); }

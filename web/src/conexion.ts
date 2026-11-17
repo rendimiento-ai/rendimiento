@@ -17,6 +17,8 @@ const SELLO = "X-Rendimiento-Guardado";
 const PRUEBA_MS = 5000;
 
 let fallo = false; // the last API call did not reach rendimiento
+// The browser says it is offline, but rendimiento answers: it runs on this computer (one computer, the desktop window).
+let aqui = false;
 let guardado: number | undefined;
 let estado: Conexion = calcular();
 const oyentes = new Set<() => void>();
@@ -27,7 +29,7 @@ function enLinea() {
 }
 
 function calcular(): Conexion {
-  return { sin: !enLinea() || fallo || guardado !== undefined, guardado };
+  return { sin: (!enLinea() && !aqui) || fallo || guardado !== undefined, guardado };
 }
 
 function cambio() {
@@ -78,6 +80,7 @@ export async function probar(ms = 4000): Promise<boolean> {
   try {
     const r = await fetch("/healthz", { cache: "no-store", credentials: "same-origin", signal: ctl.signal });
     if (!r.ok) return false;
+    aqui = !enLinea();
     fallo = false;
     guardado = undefined;
     cambio();
@@ -95,8 +98,9 @@ export function sinConexion(): boolean {
 }
 
 if (typeof window !== "undefined") {
-  window.addEventListener("online", () => { cambio(); void probar(); });
-  window.addEventListener("offline", cambio);
+  window.addEventListener("online", () => { aqui = false; cambio(); void probar(); });
+  window.addEventListener("offline", () => { aqui = false; cambio(); void probar(); });
+  if (!enLinea()) void probar();
 }
 
 /** The connection, for a component: it draws again when it changes. */
