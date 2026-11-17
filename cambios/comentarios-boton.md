@@ -1,1 +1,0 @@
-- **Comments:** every installation has **Write to the team** (`/escribir`), at the foot of every page and in the Windows icon's menu: it shows exactly what will be sent (the text and the version, mode, engine and system; never names or apps), sends it the way señales go (not when they are off), and brings the team's answer back to the page and to the bell.

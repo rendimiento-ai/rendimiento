@@ -1,1 +1,0 @@
-- **CI:** a step whose pod waits to start (an image to pull, room on a node) no longer fails to clone with "could not read Username": clone tokens are handed out with at least 40 minutes left, not 5.
