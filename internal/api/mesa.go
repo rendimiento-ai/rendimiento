@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/rendimiento-ai/rendimiento/internal/platform"
+	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
 // appMesa is the app's work board: what is open on each branch and who it
@@ -37,17 +38,18 @@ func (s *Server) mesaCounts(w http.ResponseWriter, r *http.Request, _ string) {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	out := []MesaCount{}
+	var mine []*store.App
 	for _, a := range apps {
-		if accessOf(r).Role(a) == "" {
-			continue
+		if accessOf(r).Role(a) != "" {
+			mine = append(mine, a)
 		}
-		b, err := s.Platform.Mesa(r.Context(), a)
-		if err != nil {
-			s.Log.Warn("work board", "app", a.Name, "err", err) // the others still count
-			continue
-		}
-		if n := b.You(); n > 0 {
+	}
+	// Kept counts, made again behind the page: making every board now asks
+	// GitHub about each app, and took up to 17 s.
+	waiting := s.Platform.MesaWaiting(r.Context(), mine)
+	out := []MesaCount{}
+	for _, a := range mine {
+		if n := waiting[a.ID]; n > 0 {
 			out = append(out, MesaCount{App: a.Name, You: n})
 		}
 	}

@@ -17,7 +17,11 @@
 // - the API's GETs ask rendimiento first; each 200 answer is kept with
 //   the time, and without a connection the copy answers, marked with the
 //   X-Rendimiento-Guardado header (the time it was kept), which the page
-//   reads (conexion.ts) to say how old what it shows is.
+//   reads (conexion.ts) to say how old what it shows is. "Without a
+//   connection" is: the request failed, the proxy answered 502-504 while
+//   rendimiento restarts, or no answer came in 8 s while the browser says
+//   it is offline. Online, a slow answer is waited for up to 30 s: a slow
+//   page is not an offline one (it said so, and the notice blinked).
 // What it never does: keep or answer anything that is not a GET (an order
 // never waits here to leave later), event streams, logs, sign-in, /mcp,
 // /healthz, the signals, other sites' files, answers that are not 200 or
@@ -38,6 +42,7 @@ interface EventoFetch extends Evento { request: Request; respondWith(r: Response
 interface EventoMensaje extends Evento { data: unknown; ports: readonly MessagePort[] }
 interface Ambito {
   location: Location;
+  navigator: { onLine: boolean };
   clients: { claim(): Promise<void> };
   skipWaiting(): Promise<void>;
   addEventListener(tipo: "install" | "activate", f: (e: Evento) => void): void;
@@ -55,7 +60,8 @@ export function trabajador(datos: DatosTrabajador) {
   const MAXIMO = 200;
   const EDAD_MS = 7 * 24 * 3600 * 1000;
   const ESPERA_PAGINA_MS = 3000;
-  const ESPERA_API_MS = 8000;
+  const ESPERA_API_MS = 8000; // the browser says it is offline
+  const ESPERA_LENTA_MS = 30000; // it says it is online: rendimiento is only slow
   const actuales = new Set(datos.todos);
 
   // Paths whose page is the server's, not the UI's: never answered with the kept page.
@@ -195,7 +201,8 @@ export function trabajador(datos: DatosTrabajador) {
     const copia = await copiaDe(req).catch(() => undefined);
     if (!copia) return red; // a failure stays a failure: the page says rendimiento does not answer
     try {
-      const r = await aTiempo(red, ESPERA_API_MS);
+      let r = await aTiempo(red, ESPERA_API_MS);
+      if (!r && sw.navigator.onLine !== false) r = await aTiempo(red, ESPERA_LENTA_MS - ESPERA_API_MS);
       if (r && !reiniciando(r)) return r;
     } catch {
       /* no connection */
