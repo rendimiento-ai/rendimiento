@@ -1,9 +1,14 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"net/http"
 	"strings"
 	"sync"
 	"testing"
@@ -189,15 +194,32 @@ func TestAlEquipoYDeVuelta(t *testing.T) {
 	if r, _ := e.do(t, "POST", fmt.Sprintf("/api/opiniones/%d/respuesta", mios[0].Remoto), `{"respuesta":"¡Ya está! Véalo al pie."}`, me, nil); r.StatusCode != 200 {
 		t.Fatalf("answer: %d", r.StatusCode)
 	}
-	e.s.Senales.Recoger(ctx, e.store)
-	if _, body := e.do(t, "GET", "/api/al-equipo/sin-ver", "", me, nil); !strings.Contains(body, `"sinVer":1`) {
-		t.Fatalf("the bell: %s", body)
-	}
+	// Opening the page asks right then: the answer is there without waiting for the next round.
 	if _, body := e.do(t, "GET", "/api/al-equipo", "", me, nil); !strings.Contains(body, "¡Ya está! Véalo al pie.") || !strings.Contains(body, `"respondidoPor":"p0dxD"`) {
 		t.Fatalf("the answer here: %s", body)
 	}
 	if _, body := e.do(t, "GET", "/api/al-equipo/sin-ver", "", me, nil); !strings.Contains(body, `"sinVer":0`) {
 		t.Fatalf("seen: %s", body)
+	}
+	// One that comes in the background counts in the bell until the page is opened.
+	ficha2 := strings.Repeat("ab", 32)
+	h2 := sha256.Sum256([]byte(ficha2))
+	remoto2, err := e.store.GuardarOpinion(ctx, store.NuevaOpinion{Origen: store.OpinionApp, Texto: "otra idea", Idioma: "es", Ficha: hex.EncodeToString(h2[:]), Remitente: "192.0.2.42"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.store.GuardarMiComentario(ctx, "p0dxD", "otra idea", remoto2, ficha2); err != nil {
+		t.Fatal(err)
+	}
+	if r, _ := e.do(t, "POST", fmt.Sprintf("/api/opiniones/%d/respuesta", remoto2), `{"respuesta":"Gracias por la idea."}`, me, nil); r.StatusCode != 200 {
+		t.Fatalf("answer: %d", r.StatusCode)
+	}
+	e.s.Senales.Recoger(ctx, e.store)
+	if _, body := e.do(t, "GET", "/api/al-equipo/sin-ver", "", me, nil); !strings.Contains(body, `"sinVer":1`) {
+		t.Fatalf("the bell: %s", body)
+	}
+	if _, body := e.do(t, "GET", "/api/al-equipo", "", me, nil); !strings.Contains(body, "Gracias por la idea.") {
+		t.Fatalf("the second answer here: %s", body)
 	}
 	e.s.Senales.Off = true
 	if r, _ := e.do(t, "POST", "/api/al-equipo", `{"texto":"otro"}`, me, nil); r.StatusCode != 409 {
@@ -246,5 +268,20 @@ func TestOpinionALaRuta(t *testing.T) {
 	_ = e.store.ResponderOpinion(ctx, b, "Thanks, noted.", "p0dxD")
 	if r, body := e.do(t, "POST", fmt.Sprintf("/api/opiniones/%d/ruta", b), `{}`, me, nil); r.StatusCode != 200 || !strings.Contains(body, `"clasificadaAt"`) || !strings.Contains(body, `"respuesta":"Thanks, noted."`) {
 		t.Fatalf("an answered one: %d %s", r.StatusCode, body)
+	}
+}
+
+// An installation asking for an answer leaves a line in the log with the
+// comment's number and what it got, never the token.
+func TestNotaRespuesta(t *testing.T) {
+	var buf bytes.Buffer
+	s := &Server{Log: slog.New(slog.NewJSONHandler(&buf, nil))}
+	s.notaRespuesta(42, http.StatusNoContent)
+	var l map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &l); err != nil {
+		t.Fatal(err)
+	}
+	if l["level"] != "INFO" || l["comment"] != float64(42) || l["status"] != float64(204) || l["component"] != "comentarios" || len(l) != 6 {
+		t.Fatalf("the line: %s", buf.String())
 	}
 }

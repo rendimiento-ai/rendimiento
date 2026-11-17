@@ -240,7 +240,7 @@ func (s *Server) Handler() http.Handler {
 	// not in the bitácora either: who saw a broken page is not kept.
 	mux.Handle("POST /api/fallas", s.requireRole(false, store.MemberGuest, s.recibirFalla))
 	// Writing to the team from this installation, and its answers (decision 145).
-	auth(store.MemberGuest, "GET /api/al-equipo", s.verMisComentarios)
+	auth(store.MemberGuest, "GET /api/al-equipo", s.abrirMisComentarios)
 	auth(store.MemberGuest, "POST /api/al-equipo", s.enviarMiComentario)
 	auth(store.MemberGuest, "GET /api/al-equipo/sin-ver", s.respuestasEquipoSinVer)
 	auth(store.MemberGuest, "GET /api/orgs", s.listOrgs)

@@ -22,7 +22,7 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | POST | `/api/opiniones/{id}/reclasificar` | ask the AI to sort it and draft again |
 | POST | `/api/opiniones/{id}/respuesta` | send the answer `{respuesta}`, once, with your name: by email to the form's sender; kept for an installation |
 | GET | `/api/senales/comentarios/{id}/respuesta` | the answer to comment `id`, only for the installation whose token (header `X-Ficha`) hashes to the one it sent: 204 while there is none |
-| GET | `/api/al-equipo` | writing to the team from this installation: whether comments may go (señales on), exactly what would go, and your comments with their answers (it marks them seen) |
+| GET | `/api/al-equipo` | writing to the team from this installation: whether comments may go (señales on), exactly what would go, and your comments with their answers (it marks them seen); it first asks rendimiento.ai for the missing answers, at most once a minute and for at most 3 seconds |
 | POST | `/api/al-equipo` | send a comment `{texto}` to the team, the way señales go |
 | GET | `/api/al-equipo/sin-ver` | how many answers you have not seen: `{sinVer}` |
 | POST | `/api/senales/comentarios` | a comment for the team, where señales are received: `{texto, idioma, correo, nombre}` from the [public form](../future/comentarios.md) or `{texto, idioma, datos, ficha}` from an installation; up to 2,000 characters, 3 an hour per sender and 200 a day in all (429 past that) |

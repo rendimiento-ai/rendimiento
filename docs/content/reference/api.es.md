@@ -23,7 +23,7 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | POST | `/api/opiniones/{id}/reclasificar` | pide a la IA ordenarlo y redactarlo de nuevo |
 | POST | `/api/opiniones/{id}/respuesta` | envía la respuesta `{respuesta}`, una sola vez, con su nombre: por correo a quien escribió en el formulario; guardada para una instalación |
 | GET | `/api/senales/comentarios/{id}/respuesta` | la respuesta al comentario `id`, solo para la instalación cuya ficha (encabezado `X-Ficha`) da la huella que envió: 204 mientras no hay |
-| GET | `/api/al-equipo` | escribirle al equipo desde esta instalación: si pueden salir comentarios (señales encendidas), exactamente lo que saldría, y sus comentarios con sus respuestas (las marca como vistas) |
+| GET | `/api/al-equipo` | escribirle al equipo desde esta instalación: si pueden salir comentarios (señales encendidas), exactamente lo que saldría, y sus comentarios con sus respuestas (las marca como vistas); antes le pregunta a rendimiento.ai por las respuestas que faltan, a lo más una vez por minuto y por no más de 3 segundos |
 | POST | `/api/al-equipo` | envía un comentario `{texto}` al equipo, por el camino de las señales |
 | GET | `/api/al-equipo/sin-ver` | cuántas respuestas no ha visto: `{sinVer}` |
 | POST | `/api/senales/comentarios` | un comentario para el equipo, donde se reciben señales: `{texto, idioma, correo, nombre}` desde el [formulario público](../future/comentarios.md) o `{texto, idioma, datos, ficha}` desde una instalación; hasta 2,000 caracteres, 3 por hora por remitente y 200 al día en total (429 al pasarse) |

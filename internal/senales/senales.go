@@ -63,6 +63,9 @@ type Enviador struct {
 	// the first one of an installation (ten minutes, so a person sees the
 	// notice before it goes).
 	Cada, Primera time.Duration
+	// Respuestas is when the answers to this installation's comments are
+	// asked for (comentarios.go).
+	Respuestas Recogida
 }
 
 // Rango is how many people use an installation, as a range.
