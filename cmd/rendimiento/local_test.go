@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -40,5 +41,27 @@ func TestSbin(t *testing.T) {
 	sbin("/home/u/.local/bin:/usr/bin:/usr/sbin")
 	if got := os.Getenv("PATH"); got != "/home/u/.local/bin:/usr/bin:/usr/sbin:/usr/local/sbin:/sbin" {
 		t.Fatalf("PATH: %s", got)
+	}
+}
+
+// The settings file is the one the installer's unit names, or the WSL
+// distribution's, and none when neither exists.
+func TestArchivoDeAjustes(t *testing.T) {
+	dir := t.TempDir()
+	linux, wsl := filepath.Join(dir, "env"), filepath.Join(dir, "etc-env")
+	if got := archivoDeAjustes(linux, wsl); got.Path != "" {
+		t.Fatalf("no file: %+v", got)
+	}
+	if err := os.WriteFile(wsl, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := archivoDeAjustes("", wsl); got.Path != wsl || got.Inside == "" || !strings.Contains(got.Restart, "wsl -d rendimiento") {
+		t.Fatalf("WSL: %+v", got)
+	}
+	if err := os.WriteFile(linux, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := archivoDeAjustes(linux, wsl); got.Path != linux || got.Inside != "" || got.Restart != "systemctl --user restart rendimiento" {
+		t.Fatalf("Linux: %+v", got)
 	}
 }

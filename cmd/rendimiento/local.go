@@ -258,6 +258,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	}
 	srv.Senales = enviadorDeSenales(st, "local", motorSenal, log)
 	srv.Version, srv.Modo = version, "local"
+	srv.Ajustes = archivoDeAjustes(os.Getenv("SETTINGS_FILE"), "/etc/rendimiento/env")
 	// rendimiento changes its own program here (decision 138): a release
 	// installed from the Version card, checked, kept or put back.
 	if exe, err := os.Executable(); err == nil {
@@ -477,4 +478,22 @@ func openWhenReady(ctx context.Context, dsn string, wait time.Duration) (*store.
 		case <-time.After(2 * time.Second):
 		}
 	}
+}
+
+// archivoDeAjustes is the file this computer's service reads its settings
+// from, for the Environment page: the one the Linux installer's unit names
+// (SETTINGS_FILE, a service of the user), or else wsl, the WSL
+// distribution's (a system service, reached from Windows with wsl -d).
+// None when neither is there, as when rendimiento was started by hand or in
+// a container: its settings are then the environment it started with.
+func archivoDeAjustes(file, wsl string) api.ArchivoAjustes {
+	if file != "" {
+		if _, err := os.Stat(file); err == nil {
+			return api.ArchivoAjustes{Path: file, Restart: "systemctl --user restart rendimiento"}
+		}
+	}
+	if _, err := os.Stat(wsl); err == nil {
+		return api.ArchivoAjustes{Path: wsl, Restart: "wsl -d rendimiento -- systemctl restart rendimiento", Inside: "wsl -d rendimiento"}
+	}
+	return api.ArchivoAjustes{}
 }

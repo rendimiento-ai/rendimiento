@@ -152,6 +152,10 @@ type Server struct {
 	// here), and UltimoCambio says what its last update did.
 	Programa     *actualizar.Programa
 	UltimoCambio *actualizar.Marca
+	// Ajustes is where a computer keeps its settings, for the Environment
+	// page (zero: none known, as when it was started by hand or in a
+	// container, whose settings are the environment it started with).
+	Ajustes ArchivoAjustes
 	// Metrics reads the traced service graph for the Universe page (nil:
 	// the map shows no latency).
 	Metrics *universe.Metrics

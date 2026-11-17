@@ -108,7 +108,7 @@ function Shell() {
       <NavLink to="/universe" className="nav-link"><Dibujo de="universo" />{t("Universe")}</NavLink>
       {state.operator && state.cluster && <NavLink to="/services" className="nav-link"><Dibujo de="servicios" />{t("Services")}</NavLink>}
       {state.operator && state.cluster && <NavLink to="/addons" className="nav-link"><Dibujo de="complementos" />{t("Add-ons")}</NavLink>}
-      {state.operator && state.cluster && <EnvironmentNavLink dibujo={<Dibujo de="entorno" />} />}
+      {state.operator && (state.cluster || state.sistema?.modo === "local") && <EnvironmentNavLink dibujo={<Dibujo de="entorno" />} />}
       <NavLink to="/ruta" className="nav-link"><Dibujo de="ruta" />{t("Ruta")}</NavLink>
       {state.role && state.role !== "guest" && <NavLink to="/bitacora" className="nav-link"><Dibujo de="bitacora" />{t("Bitácora")}</NavLink>}
       <NavLink to="/ia" className="nav-link"><Dibujo de="ia" />{t("AI")}</NavLink>

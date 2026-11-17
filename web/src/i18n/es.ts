@@ -2275,4 +2275,11 @@ export const es: Record<string, string> = {
   "Noted a finding of the lookout in the Ruta": "Anotó en la Ruta un hallazgo del vigía",
   "Set a finding of the lookout aside": "Dejó para después un hallazgo del vigía",
   "Changed the lookout's settings": "Cambió los ajustes del vigía",
+  "This computer, where your apps live: its version and its settings.": "Esta computadora, donde viven sus aplicaciones: su versión y sus ajustes.",
+  "rendimiento reads its settings from environment variables when it starts.": "rendimiento lee sus ajustes de variables de entorno al arrancar.",
+  "Every one is in the book": "Cada una está en el libro",
+  "On this computer they are in this file, inside the WSL distribution (open it with {cmd}):": "En esta computadora están en este archivo, dentro de la distribución de WSL (entre a ella con {cmd}):",
+  "On this computer they are in this file:": "En esta computadora están en este archivo:",
+  "One NAME=value per line; a value there wins over the service's own. After a change, restart rendimiento so it reads it:": "Un NOMBRE=valor por línea; un valor ahí gana sobre el del servicio. Después de un cambio, reinicie rendimiento para que lo lea:",
+  "This rendimiento was not started by its installer, so its settings are the environment it was started with: in a container, its -e or --env-file options; by hand, the variables before the command. Change them there and start it again.": "Este rendimiento no lo arrancó su instalador, así que sus ajustes son el entorno con el que arrancó: en un contenedor, sus opciones -e o --env-file; a mano, las variables antes del comando. Cámbielas ahí y arránquelo de nuevo.",
 };

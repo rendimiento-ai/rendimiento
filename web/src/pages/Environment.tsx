@@ -3,7 +3,7 @@ import { envApi, session, timeAgo, type BoundaryCheck, type Capacity, type EnvCh
 import { Link } from "react-router-dom";
 import { ErrorBox, usePoll } from "../components/ui";
 import { outsideWhy } from "../components/barda";
-import { locale, t, tn } from "../i18n";
+import { lang, locale, t, tn } from "../i18n";
 import { useConexion } from "../conexion";
 import { apagado } from "../components/conexion-aviso";
 import { PlatformVersion, Publicada } from "./Version";
@@ -36,12 +36,57 @@ interface Letrero {
   check?: EnvCheck;
 }
 
+/** The Environment page: the town of a cluster, or, on one computer, its version and where its settings are. */
+export function Environment() {
+  return session.cluster ? <Pueblo /> : <EnEstaComputadora />;
+}
+
+/** The book's Settings page, at the part about one computer, in the reader's language. */
+const LIBRO_AJUSTES = lang === "es" ? "https://aprende.rendimiento.ai/reference/config/#on-one-computer" : "https://learn.rendimiento.ai/reference/config/#on-one-computer";
+
 /**
- * The Environment page, as a Cotija town: the bando with the platform's version, the nodes as houses on a cobbled street
+ * The Environment page on one computer, which has no cluster to draw: the Version card (with its switch for installing fix
+ * releases) and where the settings are kept, since they change only by editing a file and restarting.
+ */
+function EnEstaComputadora() {
+  const { data, error } = usePoll(() => envApi.published(), [], 30 * 60000);
+  if (error) return <ErrorBox error={error} />;
+  if (!data) return <EsqCosa />;
+  const a = data.settings;
+  return (
+    <>
+      <div>
+        <h1 data-listo="">{t("Environment")}</h1>
+        <p className="sub" style={{ marginBottom: 0 }}>{t("This computer, where your apps live: its version and its settings.")}</p>
+      </div>
+      <div style={{ marginTop: 16 }}><Publicada /></div>
+      <section className="card stack ajustes">
+        <div>
+          <h2 style={{ margin: 0 }}>{t("Platform settings")}</h2>
+          <p className="small muted" style={{ margin: 0 }}>{t("rendimiento reads its settings from environment variables when it starts.")}{" "}
+            <a href={LIBRO_AJUSTES} target="_blank" rel="noreferrer">{t("Every one is in the book")}</a></p>
+        </div>
+        {a ? (
+          <>
+            <span>{a.inside ? t("On this computer they are in this file, inside the WSL distribution (open it with {cmd}):", { cmd: a.inside }) : t("On this computer they are in this file:")}</span>
+            <pre className="file">{a.path}</pre>
+            <span className="small">{t("One NAME=value per line; a value there wins over the service's own. After a change, restart rendimiento so it reads it:")}</span>
+            <pre className="file">{a.restart}</pre>
+          </>
+        ) : (
+          <span className="small">{t("This rendimiento was not started by its installer, so its settings are the environment it was started with: in a container, its -e or --env-file options; by hand, the variables before the command. Change them there and start it again.")}</span>
+        )}
+      </section>
+    </>
+  );
+}
+
+/**
+ * The Environment page of a cluster, as a Cotija town: the bando with the platform's version, the nodes as houses on a cobbled street
  * (the control plane is the presidencia municipal), the providers as hanging signs that open their ventanilla, the cluster's problems
  * pinned to a cork board, and what the town needs.
  */
-export function Environment() {
+function Pueblo() {
   const [refreshing, setRefreshing] = useState(false);
   const { data: r, error, setData } = usePoll(() => envApi.report(), [], 30000);
   const [sel, setSel] = useState<string>();

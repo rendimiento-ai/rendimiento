@@ -30,6 +30,20 @@ type Published struct {
 	Auto       bool              `json:"auto"`
 	Previous   string            `json:"previous,omitempty"`
 	LastChange *actualizar.Marca `json:"lastChange,omitempty"`
+	// Settings is where this computer keeps its settings (only on a
+	// computer, and only when its service reads such a file).
+	Settings *ArchivoAjustes `json:"settings,omitempty"`
+}
+
+// ArchivoAjustes is the file of NAME=value lines a computer's service
+// reads its settings from when it starts, and how to restart it to read
+// them again.
+type ArchivoAjustes struct {
+	Path string `json:"path"`
+	// Restart restarts rendimiento; Inside, when not empty, is the command
+	// that opens where the file is (the WSL distribution, from Windows).
+	Restart string `json:"restart"`
+	Inside  string `json:"inside,omitempty"`
 }
 
 // platformPublished is the update card: only for the platform's own
@@ -40,6 +54,10 @@ func (s *Server) platformPublished(w http.ResponseWriter, r *http.Request, _ str
 	switch {
 	case s.Modo == "local":
 		out.How = "computer"
+		if s.Ajustes.Path != "" {
+			a := s.Ajustes
+			out.Settings = &a
+		}
 	case s.Update != nil:
 		out.How = "self"
 	}
