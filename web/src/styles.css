@@ -17,6 +17,9 @@
 
   --bg: #FBF5EA;
   --surface: #FFFDF8;
+  /* A card on the page: the same as the surface, in every theme and family (this name was used all over and never
+     defined, so those backgrounds came out transparent). */
+  --card: var(--surface);
   --surface-2: #F4EADA;
   --border: #E9DCC8;
   --text: #2B1B12;
