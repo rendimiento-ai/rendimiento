@@ -1639,6 +1639,8 @@ export interface RenovateRepoResult {
   prs?: string[];
   automerged?: string[];
   errors?: string[];
+  /** Lockfiles Renovate could not regenerate, with the tool's error lines. */
+  artifactErrors?: { branch?: string; file?: string; error?: string }[];
 }
 
 export interface AddonRun {
