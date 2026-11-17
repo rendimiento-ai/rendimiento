@@ -31,6 +31,19 @@ La configuración actual integra sola las actualizaciones **de parche y menores*
 
 La primera petición de Renovate para cada repositorio lee sus incidencias (el panel de dependencias), así que la aplicación necesita **Issues: lectura y escritura** y **Commit statuses: solo lectura**, además de contenido, solicitudes de incorporación y comprobaciones. La página Complementos enumera lo que falte y lleva adonde se otorga; las ejecuciones no empiezan hasta que la instalación lo acepta.
 
+Con solo lectura de los estados de confirmación, rendimiento le indica a Renovate que no ponga los suyos (`renovate/artifacts`, `renovate/stability-days`, `renovate/merge-confidence`, `renovate/config-validation`): ponerlos falla, y entonces Renovate abandona todo el repositorio como `repository-changed`. Lo que decide una integración son las comprobaciones de rendimiento. Una instalación con **Commit statuses: lectura y escritura** conserva los estados de Renovate.
+
+## Archivos de bloqueo {#lockfiles}
+
+Cuando Renovate cambia una dependencia también regenera el archivo de bloqueo que la acompaña (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `go.sum`…): la imagen de Renovate instala dentro del pod la herramienta adecuada (node y npm, Python y Poetry…) cuando la necesita y la ejecuta ahí. Para eso el pod no necesita más de lo que el espacio de nombres de construcción ya permite: internet (los registros de paquetes y las descargas de las herramientas) y un `/tmp` en el que se pueda escribir.
+
+Si la herramienta falla (un conflicto de dependencias entre pares, una versión que no existe, un registro privado al que el pod no llega), Renovate abre de todos modos la solicitud de incorporación con solo el manifiesto cambiado, y comenta en ella el error de la herramienta bajo *Artifact update problem*. La construcción de la aplicación falla entonces con el archivo de bloqueo desactualizado (`npm ci`: *lock file … does not satisfy …*). rendimiento guarda cada uno de esos errores:
+
+- en los resultados de la ejecución, por repositorio (`artifactErrors`: rama, archivo y las líneas de error de la herramienta), que se muestran bajo la ejecución en la página Complementos y en la página de la aplicación;
+- en la página **Problemas**, como *Renovate no pudo actualizar un archivo de bloqueo*, con la aplicación, el repositorio, la rama y el archivo.
+
+Corrija la causa en el repositorio de la aplicación y después marque la casilla de reintento (*rebase/retry*) en la solicitud de incorporación (o en el panel de dependencias): Renovate no vuelve a intentar por sí solo el archivo de bloqueo de una rama hasta que el manifiesto necesite otro cambio.
+
 ## Ramas que dejó un Renovate anterior {#branches-left-by-an-earlier-renovate}
 
 Renovate solo toca las ramas que creó su propia identidad. Las ramas de una configuración anterior (con un token personal) aparecen como *editadas por alguien más*: se omiten **y aun así** cuentan para el límite de ramas abiertas, lo que puede detener todas las solicitudes nuevas. Elimínelas (sus confirmaciones se pueden recuperar con sus SHA), o agregue `ignorePrAuthor: true` y `gitIgnoredAuthors: [<correo del autor anterior>]` a la configuración para adoptarlas.

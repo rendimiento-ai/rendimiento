@@ -4,6 +4,7 @@
 // Decorations are aria-hidden; everything they show is also said in text.
 import { useEffect, useRef, useState, type KeyboardEvent as TeclaReact } from "react";
 import { t } from "../i18n";
+import { anotar } from "../uso";
 
 // ---- day / night and movement ----
 
@@ -39,6 +40,7 @@ export function TemaSwitch() {
   return (
     <>
       <button className="icon-btn" onClick={() => {
+        anotar("switch_theme");
         document.documentElement.dataset.theme = otro;
         guardar("rendimiento.tema", otro);
         setTema(otro);

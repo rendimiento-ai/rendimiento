@@ -342,3 +342,29 @@ func TestCoderMergesTheDefaultBranch(t *testing.T) {
 		t.Fatalf("not delivered: gave back %q", st.gaveBack)
 	}
 }
+
+// A file left out of the branch's snapshot for its size (a package-lock.json
+// over 256 KB) is still read and edited by its path, from the branch.
+func TestCoderReadsAndEditsABigFile(t *testing.T) {
+	run := int64(811)
+	lock := `{"name":"web","packages":{"node_modules/react":{"version":"19.2.8"}}}` + strings.Repeat("\n", 300<<10)
+	st := &coderStore{runID: &run, runs: []*store.Run{{ID: 811, AppID: 4, Branch: "renovate/react", SHA: "abc", Status: store.RunFailed}}}
+	r := &repos{st: st, branch: "renovate/react", files: map[string][]byte{"package.json": []byte(`{"dependencies":{"react":"19.3.1"}}`)},
+		at: map[string]map[string][]byte{"renovate/react": {"package-lock.json": []byte(lock)}}, results: []string{store.RunSucceeded}}
+	m := &script{t: t, cost: 10_000, turns: [][]ia.ToolCall{
+		{call("read_file", map[string]any{"path": "package-lock.json", "from_line": 1, "to_line": 1})},
+		{call("edit_file", map[string]string{"path": "package-lock.json", "old_text": `"version":"19.2.8"`, "new_text": `"version":"19.3.1"`})},
+		{call("read_file", map[string]string{"path": "no-such.json"})},
+		{call("commit_and_test", map[string]string{"message": "Lockfile"})},
+		{call("deliver", map[string]string{"summary": "Listo."})},
+	}}
+	if err := newCoder(st, r, m).Do(context.Background(), store.Encargo{ID: 12, OrgID: 1, App: "tienda", RunID: &run}); err != nil {
+		t.Fatal(err)
+	}
+	if len(m.seen) < 3 || !strings.Contains(m.seen[0], `"version":"19.2.8"`) || m.seen[1] != "edited package-lock.json" || !strings.Contains(m.seen[2], "no such file") {
+		t.Fatalf("results %q", m.seen)
+	}
+	if len(r.commits) != 1 || !strings.Contains(string(r.commits[0]["package-lock.json"]), `"version":"19.3.1"`) {
+		t.Fatalf("commits %d", len(r.commits))
+	}
+}

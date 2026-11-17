@@ -61,6 +61,7 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | GET | `/api/problems/count` | how many problems are open (the top bar's badge) |
 | POST | `/api/problems/{id}/dismiss` | dismiss a problem |
 | GET | `/api/registro` | the platform's log, newest first, for its administrators ([The log](../guide/registro.md)); `?proceso=`, `?app=`, `?nivel=WARN` or `ERROR` (that level and worse), `?desde=` and `?hasta=` (RFC 3339), `?q=` (in the message), `?antes=` (the `next` cursor of the page before), `?limite=` (up to 200) |
+| POST | `/api/fallas` | the interface reports an error page it showed (not found, no access, failed, no answer) to [Problems](../guide/problems.md#pages-that-could-not-be-shown); who saw it is not kept |
 | GET | `/api/ruta?kind=&q=` | [la Ruta](../guide/ruta.md)'s entries |
 | POST | `/api/ruta` | add an entry (written by the signed-in person) |
 | PUT | `/api/ruta/{id}` | change an entry (the previous version is kept) |

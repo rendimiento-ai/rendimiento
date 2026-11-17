@@ -11,7 +11,8 @@ const MAX = 2000;
 
 export function AlEquipo() {
   const { data, error, setData } = usePoll(() => api.alEquipo(), []);
-  const [texto, setTexto] = useState("");
+  // A page that failed can open this one with its code already written (?texto=).
+  const [texto, setTexto] = useState(() => (new URLSearchParams(location.search).get("texto") ?? "").slice(0, MAX));
   const [enviando, setEnviando] = useState(false);
   const [fallo, setFallo] = useState("");
   const [listo, setListo] = useState(false);

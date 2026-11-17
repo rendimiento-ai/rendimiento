@@ -267,6 +267,12 @@ function RunRow({ run, open, onToggle }: { run: AddonRun; open: boolean; onToggl
               {r.prs?.length ? ` · ${t("opened {list}", { list: r.prs.join(", ") })}` : ""}
               {r.automerged?.length ? ` · ${t("merged {list}", { list: r.automerged.join(", ") })}` : ""}
               {r.errors?.length ? <span style={{ color: "var(--bad)" }}> · {r.errors.join("; ")}</span> : null}
+              {r.artifactErrors?.map((a, i) => (
+                <div key={i} style={{ color: "var(--bad)" }}>
+                  {t("could not update {file} on {branch}", { file: a.file ?? "?", branch: a.branch ?? "?" })}
+                  {a.error && <pre className="log" style={{ margin: "4px 0", maxHeight: 160 }}>{a.error}</pre>}
+                </div>
+              ))}
             </div>
           ))}
           {full?.log ? <pre className="log" style={{ marginTop: 8, maxHeight: 400 }}>{full.log}</pre> : run.status === "running" && <p className="small muted">{t("The log appears when the run finishes.")}</p>}

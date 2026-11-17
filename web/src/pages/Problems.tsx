@@ -2,11 +2,15 @@
 // days, repeats grouped: the list on the left (open ones first), the one
 // chosen on the right, with what happened and what to do. Problems about an
 // app also show as a banner on its page (AppProblems).
-import { Link, NavLink, useNavigate, useSearchParams } from "react-router-dom";
-import { useState, type ReactNode } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useState } from "react";
 import { api, session, timeAgo, type Problem } from "../api";
 import { ErrorBox, usePoll } from "../components/ui";
 import { locale, t, tn } from "../i18n";
+import { anotar } from "../uso";
+
+// The top bar's link lives apart, so the shell does not carry this page.
+export { ProblemsNavLink } from "../components/enlace-problemas";
 
 /** A problem still counts while it is not dismissed or fixed and happened recently. */
 function isOpen(p: Problem, openForHours: number) {
@@ -72,6 +76,11 @@ const hints: Record<string, Hint> = {
     es: "falló el correo de notificación",
     what: () => t("An alert email could not be sent."),
     todo: () => t("Check the mail server rendimiento sends through, as the detail says. Once an email is sent, the problem is marked resolved."),
+  },
+  "Renovate could not update a lockfile": {
+    es: "Renovate no pudo actualizar un archivo de bloqueo",
+    what: () => t("Renovate changed a dependency on a branch but could not regenerate its lockfile (package-lock.json, poetry.lock…), so the branch changes only the manifest and the app's build fails on the stale lockfile. The detail has the tool's error; the attributes name the repository, branch and file."),
+    todo: () => t("Fix what the error says in the app's repository (a peer-dependency conflict, a version that does not exist, a private registry Renovate cannot reach). Then tick the rebase box in the pull request, or in the Dependency Dashboard: Renovate does not retry a branch's lockfile by itself."),
   },
   "notification dropped: hourly email limit reached": {
     what: () => t("More alert emails were due in one hour than the limit allows, so this one was not sent."),
@@ -219,7 +228,7 @@ function ProblemDetail({ p, open, appKnown, onDismiss }: { p: Problem; open: boo
         <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
           <AskAgent p={p} appKnown={appKnown} />
           <button disabled={busy} title={t("Hide it until it happens again")}
-            onClick={() => { setBusy(true); api.dismissProblem(p.id).then(onDismiss, (e) => { setBusy(false); alert(e.message); }); }}>
+            onClick={() => { anotar("dismiss_problem"); setBusy(true); api.dismissProblem(p.id).then(onDismiss, (e) => { setBusy(false); alert(e.message); }); }}>
             {t("Dismiss")}
           </button>
         </div>
@@ -360,16 +369,5 @@ export function AppProblems({ name }: { name: string }) {
       </ul>
       <Link to={`/problems?app=${encodeURIComponent(name)}`}>{open.length > 3 ? t("See all {n} →", { n: open.length }) : t("See details →")}</Link>
     </div>
-  );
-}
-
-/** The navigation link, with the number of open problems. */
-export function ProblemsNavLink({ dibujo }: { dibujo?: ReactNode }) {
-  const { data } = usePoll(api.problemCount, [], 30000);
-  const n = data?.open ?? 0;
-  return (
-    <NavLink to="/problems" className="nav-link" aria-label={n ? t("Problems, {n} open", { n }) : t("Problems")}>
-      {dibujo}{t("Problems")}{n > 0 && <span className="nav-count">{n}</span>}
-    </NavLink>
   );
 }

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, dollars, duration, session, subscribe, timeAgo, type App, type Diagnosis, type Run, type Step } from "../api";
-import { ErrorBox, RunBadge } from "../components/ui";
+import { RunBadge } from "../components/ui";
+import { Falla, NoExiste } from "../components/falla";
 import { lang, t, tn } from "../i18n";
 import { TextoConFormato } from "../components/texto";
 import { Rama } from "../components/lo-ultimo";
 import { Pasos } from "../components/pasos";
+import { anotar } from "../uso";
 
 /** A run's page: why it failed, its steps with when each ran, live as they go, and the log of the step chosen. */
 export function RunPage() {
@@ -13,6 +15,7 @@ export function RunPage() {
   const runId = Number(id);
   const [run, setRun] = useState<Run>();
   const [error, setError] = useState<unknown>();
+  const [vuelta, setVuelta] = useState(0); // bumped to load the run again after rendimiento did not answer
   const [selected, setSelected] = useState<string>();
   const [logs, setLogs] = useState<Record<string, string>>({});
   const [diagnosis, setDiagnosis] = useState<Diagnosis | null>();
@@ -49,7 +52,7 @@ export function RunPage() {
       step: (e: PasoEnVivo) => setRun((cur) => cur && { ...cur, steps: cur.steps?.map((x) => (x.id === e.id ? enVivo(x, e) : x)) }),
       log: (l: { step: string; text: string }) => setLogs((cur) => ({ ...cur, [l.step]: (cur[l.step] ?? "") + l.text })),
     }, () => recargar(true));
-  }, [runId, recargar]);
+  }, [runId, recargar, vuelta]);
   const anda = run?.status === "queued" || run?.status === "running";
   useEffect(() => {
     const visto = () => { if (document.visibilityState === "visible") recargar(true); };
@@ -91,7 +94,9 @@ export function RunPage() {
     if (el && follow.current) el.scrollTop = el.scrollHeight;
   }, [logs, selected]);
 
-  if (error) return <ErrorBox error={error} />;
+  // The page is about the run: one that is not there, or not for this account, is a page of its own.
+  if (!Number.isInteger(runId) || runId <= 0) return <NoExiste />;
+  if (error) return <Falla error={error} reintentar={() => { setError(undefined); setVuelta((v) => v + 1); }} />;
   if (!run) return <p className="muted">{t("Loading…")}</p>;
   const step = run.steps?.find((s) => s.id === selected);
 
@@ -100,11 +105,11 @@ export function RunPage() {
       <p className="small"><Link to={`/apps/${name}/runs`}>{t("← {name} runs", { name })}</Link></p>
       <div className="row between">
         <div className="row">
-          <h1>{t("Run #{n}", { n: run.id })}</h1>
+          <h1 data-listo="">{t("Run #{n}", { n: run.id })}</h1>
           <RunBadge status={run.status} />
         </div>
         {(run.status === "running" || run.status === "queued") && (
-          <button className="danger" onClick={() => api.cancelRun(run.id).catch((e) => alert(e.message))}>{t("Cancel")}</button>
+          <button className="danger" onClick={() => { anotar("cancel_run"); api.cancelRun(run.id).catch((e) => alert(e.message)); }}>{t("Cancel")}</button>
         )}
         {run.status === "failed" && (
           <div className="row" style={{ gap: 8 }}>
@@ -127,7 +132,7 @@ export function RunPage() {
 
       {run.steps?.length ? (
         <div className="ejecucion">
-          <Pasos run={run} antes={antes} selected={selected} onSelect={setSelected} />
+          <Pasos run={run} antes={antes} selected={selected} onSelect={(id) => { anotar("select_step"); setSelected(id); }} />
           {step && (
             <div className="ejecucion-registro">
               <div className="row">
@@ -204,6 +209,7 @@ function Retry({ run, app, onRetried }: { run: Run; app?: App; onRetried: (r: Ru
   if (run.deploy && app?.role !== "admin") return null;
   const go = () => {
     setBusy(true);
+    anotar("retry");
     api.retryRun(run.id).then((r) => { setBusy(false); onRetried(r); }, (e) => { setBusy(false); alert(e.message); });
   };
   return (
@@ -266,6 +272,7 @@ function Approve({ run, app, onApproved }: { run: Run; app: App; onApproved: (r:
     <div className="card row">
       <button id="merge-approve" disabled={busy} onClick={() => {
         setBusy(true);
+        anotar("merge");
         api.approveMerge(run.id).then((r) => { setBusy(false); onApproved({ ...run, ...r, steps: run.steps }); }, (e) => { setBusy(false); alert(e.message); });
       }}>{t("Merge this branch")}</button>
       <span className="small muted">
@@ -349,7 +356,7 @@ function WhyFailed({ run, d, setD }: { run: Run; d: Diagnosis | null | undefined
     const every = setInterval(load, 8000);
     return () => { live = false; clearInterval(every); };
   }, [run.id, setD]);
-  const ask = () => { setAsking(true); api.askDiagnosis(run.id).then(() => { setAsking(false); setD({ runId: run.id, status: "pending", costMicros: 0, updatedAt: new Date().toISOString() }); }, (e) => { setAsking(false); alert(e.message); }); };
+  const ask = () => { anotar("ask_agent"); setAsking(true); api.askDiagnosis(run.id).then(() => { setAsking(false); setD({ runId: run.id, status: "pending", costMicros: 0, updatedAt: new Date().toISOString() }); }, (e) => { setAsking(false); alert(e.message); }); };
   const canAsk = session.role !== "guest";
   return (
     <div className="card why-failed">

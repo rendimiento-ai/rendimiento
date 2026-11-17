@@ -330,6 +330,7 @@ export interface Me {
   os: string; // the system its program was built for (Go's GOOS: linux, windows, darwin)
   arch: string; // and the processor (GOARCH: amd64, arm64)
   buzon?: boolean; // this platform receives the comments people write to the team, and this person answers them
+  uso?: boolean; // the interface notes how it is used, as totals (uso.ts); false when off and in a demo
 }
 
 /** A comment someone wrote to the team (internal/store.Opinion), as the team's page shows it. */
@@ -432,6 +433,19 @@ export interface Senal {
   equipo?: boolean;
 }
 
+/** A page's totals over the period (internal/store.PaginaUso): cubetas count the measured views under 0.5, 1, 2 and 4 s, and 4 s or more. */
+export interface PaginaUso { ruta: string; vistas: number; medidas: number; msTotal: number; cubetas: [number, number, number, number, number] }
+/** The Use page (api.UsoView): the switch and the totals of the last days. */
+export interface UsoView {
+  encendido: boolean;
+  updatedBy?: string;
+  updatedAt?: string;
+  dias: number;
+  paginas: PaginaUso[];
+  pasos: { desde: string; hacia: string; veces: number }[];
+  acciones: { ruta: string; accion: string; veces: number }[];
+}
+
 /** What the operators see of the señales (api.SenalesView), and where they are received, what they say. */
 export interface SenalesView {
   encendidas: boolean;
@@ -468,7 +482,7 @@ export interface BitacoraCheck {
 // person's account ("Use this template").
 export const EXAMPLE_URL = "https://github.com/rendimiento-ai/hola/generate";
 
-export const session: { operator: boolean; role: MemberRole; cluster: boolean; mercado: boolean; appPrefix: string } = { operator: false, role: "guest", cluster: false, mercado: false, appPrefix: "" };
+export const session: { operator: boolean; role: MemberRole; cluster: boolean; mercado: boolean; appPrefix: string; uso: boolean } = { operator: false, role: "guest", cluster: false, mercado: false, appPrefix: "", uso: false };
 
 // The AI gateway (internal/ia, api.IAView).
 export type AIProvider = "local" | "own" | "platform";
@@ -1067,7 +1081,8 @@ export interface SummaryView {
 export const api = {
   summary: () => request<SummaryView>("GET", "/api/summary"),
   redoSummary: (day: string) => request<void>("POST", "/api/summary/redo", { day }),
-  me: () => request<Me>("GET", "/api/me"),
+  // Whether the interface notes its use is learnt here, with who is signed in (uso.ts reads it).
+  me: () => request<Me>("GET", "/api/me").then((me) => { session.uso = !!me.uso && !me.demo; return me; }),
   alEquipo: () => request<AlEquipo>("GET", "/api/al-equipo"),
   escribirAlEquipo: (texto: string) => request<AlEquipo>("POST", "/api/al-equipo", { texto }),
   respuestasDelEquipo: () => request<{ sinVer: number }>("GET", "/api/al-equipo/sin-ver"),
@@ -1172,6 +1187,8 @@ export const api = {
     request<BitacoraRow[]>("GET", `/api/bitacora?${new URLSearchParams(Object.entries(f).filter(([, v]) => v).map(([k, v]) => [k, String(v)]))}`),
   verificarBitacora: () => request<BitacoraCheck>("GET", "/api/bitacora/verificar"),
   senales: () => request<SenalesView>("GET", "/api/senales/estado"),
+  uso: (dias: number) => request<UsoView>("GET", `/api/uso?dias=${dias}`),
+  putUso: (encendido: boolean, dias: number) => request<UsoView>("PUT", `/api/uso?dias=${dias}`, { encendido }),
   putSenales: (cambio: { encendidas?: boolean; avisoVisto?: boolean }) => request<SenalesView>("PUT", "/api/senales/estado", cambio),
   instalaciones: () => request<Instalacion[]>("GET", "/api/senales/instalaciones"),
   marcarEquipo: (id: string, equipo: boolean) => request<void>("PUT", `/api/senales/instalaciones/${id}/equipo`, { equipo }),
@@ -1671,6 +1688,8 @@ export interface RenovateRepoResult {
   prs?: string[];
   automerged?: string[];
   errors?: string[];
+  /** Lockfiles Renovate could not regenerate, with the tool's error lines. */
+  artifactErrors?: { branch?: string; file?: string; error?: string }[];
 }
 
 export interface AddonRun {

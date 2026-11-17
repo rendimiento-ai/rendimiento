@@ -1,1 +1,0 @@
-- **Merges:** when rendimiento merges the main branch into a branch by itself, each file keeps its mode: scripts stay executable (before, they were written without it and the steps that run them failed with "Permission denied").

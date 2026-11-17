@@ -10,7 +10,9 @@ import { CaminosTab } from "../components/caminos-tab";
 import { tecnicoPrimero, Vistazo } from "../components/vistazo";
 import { MesaTab } from "../components/mesa";
 import { LoUltimo, Rama, VerifyBadge, verifyBadge } from "../components/lo-ultimo";
+import { anotar } from "../uso";
 import { AppProblems } from "./Problems";
+import { Falla, NoExiste } from "../components/falla";
 import { outsideWhy } from "../components/barda";
 import { Flor, LluviaDePetalos } from "../components/ambiente";
 import { t, tn } from "../i18n";
@@ -47,7 +49,9 @@ export function AppPage() {
 
   useEffect(() => subscribe(`/api/apps/${name}/events`, { run: reload, release: reload }), [name]);
 
-  if (error) return <ErrorBox error={error} />;
+  // The page is about the app: one that is not there, or not for this account, is a page of its own.
+  if (error) return <Falla error={error} reintentar={reload} />;
+  if (asked && !tabs.some((tb) => tb.id === asked)) return <NoExiste />;
   if (!app) return <p className="muted">{t("Loading…")}</p>;
 
   const caida = (app.down?.length ?? 0) > 0 || app.status.phase === "Error" || app.status.phase === "Degraded";
@@ -60,7 +64,7 @@ export function AppPage() {
         <Flor estado={lib ? (app.lastRun?.status === "failed" ? "marchita" : app.lastRun?.status === "succeeded" ? "viva" : "brote") : !app.status.release ? "brote" : caida ? "marchita" : "viva"} size={64}
           label={lib ? t("A library: tested on every push") : !app.status.release ? t("A bud: not live yet") : (app.down?.length ?? 0) > 0 ? t("Withered: {checks}", { checks: app.down!.join(", ") }) : caida ? t("Withered flower") : t("Blooming flower")} />
         <div className="app-titulo">
-          <h1>{app.name}</h1>
+          <h1 data-listo="">{app.name}</h1>
           <div className="row small muted">
             <PhaseBadge status={app.status} library={lib} />
             <a href={`https://github.com/${app.repo}`} target="_blank" rel="noreferrer">{app.repo}</a>
@@ -114,6 +118,7 @@ function BuildNow({ name, main, onDone }: { name: string; main: string; onDone: 
   const go = async (b?: string) => {
     setBusy(true);
     try {
+      anotar("build_now");
       await api.triggerRun(name, b);
       setOpen(false);
       setBranch("");
@@ -369,6 +374,7 @@ function DependencyUpdates({ name }: { name: string }) {
               {res?.prs?.length ? <span>{tn(res.prs.length, "opened {n} PR", "opened {n} PRs")}</span> : null}
               {res?.automerged?.length ? <span>{t("merged {n}", { n: res.automerged.length })}</span> : null}
               {res?.errors?.length ? <span style={{ color: "var(--bad)" }}>{res.errors[0]}</span> : null}
+              {res?.artifactErrors?.length ? <span style={{ color: "var(--bad)" }}>{t("could not update {file} on {branch}", { file: res.artifactErrors[0].file ?? "?", branch: res.artifactErrors[0].branch ?? "?" })}</span> : null}
             </>
           ) : <span className="muted">{t("Not run yet for this app.")}</span>}
           <a href={r.prsUrl} target="_blank" rel="noreferrer">{t("Open update PRs ↗")}</a>
@@ -476,6 +482,7 @@ function Releases({ name, current }: { name: string; current?: number }) {
     if (!confirm(t("Roll back {name} to release #{n}? This creates a new release with #{n}'s images.", { name, n }))) return;
     setBusy(n);
     try {
+      anotar("rollback");
       await api.rollback(name, n);
       reload();
     } catch (e) {

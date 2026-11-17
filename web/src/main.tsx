@@ -1,37 +1,48 @@
-import { StrictMode, useEffect, useState } from "react";
+import { StrictMode, Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { api, ApiError, session, type MemberRole, type Org } from "./api";
-import { Members, OrgSwitch, memberRoleLabel } from "./pages/Members";
-import { IA } from "./pages/IA";
+import { OrgSwitch, memberRoleLabel } from "./components/cuenta";
 import { t } from "./i18n";
 import { Dashboard } from "./pages/Dashboard";
-import { NewApp } from "./pages/NewApp";
-import { AppPage } from "./pages/AppPage";
-import { RunPage } from "./pages/RunPage";
 import { Setup } from "./pages/Setup";
-import { Environment } from "./pages/Environment";
-import { Services } from "./pages/Services";
-import { Universe } from "./pages/Universe";
-import { RequestPage } from "./pages/Request";
-import { Addons } from "./pages/Addons";
-import { Problems, ProblemsNavLink } from "./pages/Problems";
-import { Mercado, PuestoEditor } from "./pages/Mercado";
-import { Ruta } from "./pages/Ruta";
-import { Bitacora } from "./pages/Bitacora";
-import { Registro } from "./pages/Registro";
-import { SenalesPage } from "./pages/SenalesPage";
+import { ProblemsNavLink } from "./components/enlace-problemas";
+import { useUso } from "./uso";
 import { EnvironmentNavLink } from "./pages/Version";
 import { ComentarioPublico } from "./pages/ComentarioPublico";
-import { Buzon } from "./pages/Buzon";
-import { AlEquipo } from "./pages/AlEquipo";
 import { Cielo, Guardapolvo, MovimientoSwitch, TemaSwitch, Techo, type Sistema } from "./components/ambiente";
 import { BanderaSwitch, LangSwitch, Logo, Semilla } from "./components/marca";
 import { Bienvenida, type BookLinks } from "./pages/Bienvenida";
 import { Avisos } from "./components/avisos";
 import { Campana } from "./components/campana";
 import { Dibujo, Hoja, useTelefono, type Altura } from "./components/navegacion";
+import { FallaFrontera, NoExiste } from "./components/falla";
+import { Cargando } from "./components/cargando";
+import { perezosa } from "./components/perezosa";
 import "./styles.css";
+
+// The first screen (setup, welcome, Apps, the public form) comes with the
+// shell; every other page loads when it is opened.
+const UsoPage = perezosa(() => import("./pages/Uso").then((m) => m.UsoPage));
+const Registro = perezosa(() => import("./pages/Registro").then((m) => m.Registro));
+const NewApp = perezosa(() => import("./pages/NewApp").then((m) => m.NewApp));
+const AppPage = perezosa(() => import("./pages/AppPage").then((m) => m.AppPage));
+const RunPage = perezosa(() => import("./pages/RunPage").then((m) => m.RunPage));
+const Environment = perezosa(() => import("./pages/Environment").then((m) => m.Environment));
+const Services = perezosa(() => import("./pages/Services").then((m) => m.Services));
+const Universe = perezosa(() => import("./pages/Universe").then((m) => m.Universe));
+const RequestPage = perezosa(() => import("./pages/Request").then((m) => m.RequestPage));
+const Addons = perezosa(() => import("./pages/Addons").then((m) => m.Addons));
+const Problems = perezosa(() => import("./pages/Problems").then((m) => m.Problems));
+const Mercado = perezosa(() => import("./pages/Mercado").then((m) => m.Mercado));
+const PuestoEditor = perezosa(() => import("./pages/Mercado").then((m) => m.PuestoEditor));
+const Ruta = perezosa(() => import("./pages/Ruta").then((m) => m.Ruta));
+const Bitacora = perezosa(() => import("./pages/Bitacora").then((m) => m.Bitacora));
+const SenalesPage = perezosa(() => import("./pages/SenalesPage").then((m) => m.SenalesPage));
+const IA = perezosa(() => import("./pages/IA").then((m) => m.IA));
+const Buzon = perezosa(() => import("./pages/Buzon").then((m) => m.Buzon));
+const AlEquipo = perezosa(() => import("./pages/AlEquipo").then((m) => m.AlEquipo));
+const Members = perezosa(() => import("./pages/Members").then((m) => m.Members));
 
 /**
  * The app's frame: setup until the GitHub App exists, the welcome page until you sign in, then the menu and pages.
@@ -40,6 +51,7 @@ function Shell() {
   const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; buzon?: boolean; sistema?: Sistema; configured?: boolean; book?: BookLinks; activity?: boolean; loading: boolean }>({ loading: true });
   const telefono = useTelefono();
   const [altura, setAltura] = useState<Altura>(0);
+  useUso(!!state.login);
 
   useEffect(() => {
     (async () => {
@@ -125,6 +137,8 @@ function Shell() {
       </header>
       {telefono && <Hoja altura={altura} poner={setAltura} paginas={paginas} cuenta={cuenta} />}
       <main>
+        <FallaFrontera version={state.sistema?.version} org={state.org?.name}>
+        <Suspense fallback={<Cargando />}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/new" element={<NewApp />} />
@@ -141,6 +155,7 @@ function Shell() {
           <Route path="/ruta" element={<Ruta />} />
           <Route path="/bitacora" element={<Bitacora />} />
           <Route path="/senales" element={<SenalesPage />} />
+          <Route path="/uso" element={<UsoPage />} />
           <Route path="/ia" element={<IA />} />
           <Route path="/buzon" element={<Buzon />} />
           <Route path="/escribir" element={<AlEquipo />} />
@@ -151,8 +166,10 @@ function Shell() {
           <Route path="/apps/:name/:tab" element={<AppPage />} />
           <Route path="/apps/:name/runs/:id" element={<RunPage />} />
           <Route path="/setup" element={<Navigate to="/" />} />
-          <Route path="*" element={<div className="empty">{t("Page not found.")} <Link to="/">{t("Go home")}</Link></div>} />
+          <Route path="*" element={<NoExiste />} />
         </Routes>
+        </Suspense>
+        </FallaFrontera>
       </main>
       <Avisos />
       <Guardapolvo sistema={state.sistema} />

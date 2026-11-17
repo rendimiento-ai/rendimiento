@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { universeApi, type KeptTrace, type TraceSpan } from "../api";
 import { ms } from "../components/maqueta";
-import { ErrorBox } from "../components/ui";
+import { Falla } from "../components/falla";
 import { locale, t, tn } from "../i18n";
 import { reasonLabel } from "./Universe";
 
@@ -52,21 +52,23 @@ export function RequestPage() {
   const [data, setData] = useState<{ trace: KeptTrace; spans: TraceSpan[] }>();
   const [error, setError] = useState<unknown>();
   const [open, setOpen] = useState<string>();
+  const [vuelta, setVuelta] = useState(0); // bumped to load it again after rendimiento did not answer
   useEffect(() => {
     universeApi.trace(id).then((d) => {
       setData(d);
       setOpen(d.spans.find((s) => s.error)?.id);
     }, setError);
-  }, [id]);
+  }, [id, vuelta]);
   const list = useMemo(() => (data ? rows(data.spans, new Date(data.trace.startedAt).getTime()) : []), [data]);
-  if (error) return <ErrorBox error={error} />;
+  // A request that is not kept (or no longer) is a page of its own.
+  if (error) return <Falla error={error} reintentar={() => { setError(undefined); setVuelta((v) => v + 1); }} />;
   if (!data) return <p className="muted">{t("Loading…")}</p>;
   const { trace } = data;
   const total = Math.max(trace.durationUs, 1);
   return (
     <div className="wf-page">
       <p className="small"><Link to="/universe">{t("Universe")}</Link> / {t("Request")}</p>
-      <h1 className="wf-title">{trace.name}</h1>
+      <h1 className="wf-title" data-listo="">{trace.name}</h1>
       <p className="muted wf-meta">
         <span className={`badge ${trace.error ? "bad" : trace.reason === "slow" ? "warn" : "ok"}`}>{t(reasonLabel[trace.reason])}</span>
         <span>{ms(trace.durationUs / 1000)}</span>
