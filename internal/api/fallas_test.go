@@ -27,7 +27,7 @@ func TestFallasUI(t *testing.T) {
 		}
 	}
 	// Another run of the same missing app counts as the same problem.
-	if r, _ := e.do(t, "POST", "/api/fallas", `{"kind":"not_found","path":"/apps/nada/runs/89"}`, me, nil); r.StatusCode != 204 {
+	if r, _ := e.do(t, "POST", "/api/fallas", `{"kind":"not_found","path":"/apps/nada/runs/89","from":"/universe"}`, me, nil); r.StatusCode != 204 {
 		t.Fatalf("another run: %d", r.StatusCode)
 	}
 
@@ -81,6 +81,7 @@ func TestFallasUI(t *testing.T) {
 		!strings.Contains(cr.Attrs, "code=a81f") || !strings.Contains(cr.Attrs, "version=0.2.3") || len(cr.Detail) > 2100 {
 		t.Fatalf("crash: %+v", cr)
 	}
+	// A problem keeps the attributes of the last time it happened: where that one came from.
 	if !strings.Contains(nf.Attrs, "from=/universe") {
 		t.Fatalf("where from: %q", nf.Attrs)
 	}
