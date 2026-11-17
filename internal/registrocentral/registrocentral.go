@@ -147,8 +147,11 @@ type handler struct {
 	prefix string      // the current group, "a.b."
 }
 
-// Enabled is the wrapped handler's.
-func (h *handler) Enabled(ctx context.Context, l slog.Level) bool { return h.inner.Enabled(ctx, l) }
+// Enabled is INFO and above, and whatever the wrapped handler wants: the
+// log keeps INFO even where stdout is quieter.
+func (h *handler) Enabled(ctx context.Context, l slog.Level) bool {
+	return l >= slog.LevelInfo || h.inner.Enabled(ctx, l)
+}
 
 // WithAttrs keeps the attributes for the log too.
 func (h *handler) WithAttrs(as []slog.Attr) slog.Handler {
@@ -168,7 +171,10 @@ func (h *handler) WithGroup(name string) slog.Handler {
 
 // Handle logs the record as usual and queues it for the Log page.
 func (h *handler) Handle(ctx context.Context, rec slog.Record) error {
-	err := h.inner.Handle(ctx, rec)
+	var err error
+	if h.inner.Enabled(ctx, rec.Level) {
+		err = h.inner.Handle(ctx, rec)
+	}
 	if rec.Level >= slog.LevelInfo {
 		all := append([]slog.Attr{}, h.attrs...)
 		rec.Attrs(func(a slog.Attr) bool {

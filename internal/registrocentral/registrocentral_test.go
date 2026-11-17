@@ -140,6 +140,21 @@ func TestBounds(t *testing.T) {
 	}
 }
 
+// Where stdout is quieter (WARN), the log still keeps INFO.
+func TestKeepsInfoUnderAQuietLog(t *testing.T) {
+	var buf bytes.Buffer
+	r := NewRecorder("interfaz")
+	log := slog.New(r.Handler(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelWarn})))
+	log.Info("listening")
+	log.Debug("noise")
+	if buf.Len() != 0 {
+		t.Fatalf("stdout got %q", buf.String())
+	}
+	if ls := queued(r); len(ls) != 1 || ls[0].Message != "listening" {
+		t.Fatalf("queued %+v", ls)
+	}
+}
+
 // When the writer is behind, lines are dropped and counted, never waited for.
 func TestDropsWhenFull(t *testing.T) {
 	r := newRecorder("api", 3)

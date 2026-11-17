@@ -44,6 +44,7 @@ import (
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
 	"github.com/rendimiento-ai/rendimiento/internal/platform"
+	"github.com/rendimiento-ai/rendimiento/internal/registrocentral"
 	"github.com/rendimiento-ai/rendimiento/internal/senales"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/spec/ejemplos"
@@ -63,14 +64,17 @@ func main() {
 	ui := flag.String("ui", "web/dist", "the built UI")
 	estado := flag.String("estado", "web/e2e/.estado.json", "where to write Playwright's storage state (the session cookie)")
 	flag.Parse()
-	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
-	if err := run(*addr, *ui, *estado, log); err != nil {
+	// Warnings to stderr; the platform's log (the Log page) keeps INFO too.
+	plain := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})
+	central := registrocentral.NewRecorder("interfaz")
+	log := slog.New(central.Handler(plain))
+	if err := run(*addr, *ui, *estado, log, central, slog.New(plain)); err != nil {
 		fmt.Fprintln(os.Stderr, "interfaz:", err)
 		os.Exit(1)
 	}
 }
 
-func run(addr, ui, estado string, log *slog.Logger) error {
+func run(addr, ui, estado string, log *slog.Logger, central *registrocentral.Recorder, plain *slog.Logger) error {
 	ctx := context.Background()
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -84,6 +88,7 @@ func run(addr, ui, estado string, log *slog.Logger) error {
 	if err := st.Migrate(ctx); err != nil {
 		return err
 	}
+	go central.Run(ctx, st, plain)
 	if _, err := st.SeedAdmins(ctx, []string{persona}); err != nil {
 		return err
 	}
@@ -149,6 +154,7 @@ func run(addr, ui, estado string, log *slog.Logger) error {
 		return err
 	}
 	fmt.Printf("interfaz: listening on %s, signed in as %s (%s)\n", base, persona, estado)
+	log.Info("the browser tests' rendimiento is listening", "addr", addr, "login", persona)
 	return http.Serve(ln, srv.Handler())
 }
 

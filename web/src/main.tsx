@@ -19,6 +19,7 @@ import { Problems, ProblemsNavLink } from "./pages/Problems";
 import { Mercado, PuestoEditor } from "./pages/Mercado";
 import { Ruta } from "./pages/Ruta";
 import { Bitacora } from "./pages/Bitacora";
+import { Registro } from "./pages/Registro";
 import { SenalesPage } from "./pages/SenalesPage";
 import { EnvironmentNavLink } from "./pages/Version";
 import { ComentarioPublico } from "./pages/ComentarioPublico";
@@ -136,6 +137,7 @@ function Shell() {
           <Route path="/services" element={<Services />} />
           <Route path="/addons" element={<Addons />} />
           <Route path="/problems" element={<Problems />} />
+          <Route path="/registro" element={<Registro />} />
           <Route path="/ruta" element={<Ruta />} />
           <Route path="/bitacora" element={<Bitacora />} />
           <Route path="/senales" element={<SenalesPage />} />
