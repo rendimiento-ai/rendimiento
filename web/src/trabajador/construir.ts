@@ -3,7 +3,7 @@
 // page's entry file, which the page also knows (registro.ts): a new build is
 // a new worker.
 import type { Plugin } from "vite";
-import { trabajador, type DatosTrabajador } from "./sw";
+import { trabajador, type DatosTrabajador } from "./sw.ts";
 
 /** The page's files at the root, besides index.html (web/public). */
 const FIJOS = ["/manifest.webmanifest", "/icono.svg", "/icono-mascara.svg", "/icono-180.png", "/icono-512.png"];

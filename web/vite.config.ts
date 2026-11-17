@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { construirTrabajador } from "./src/trabajador/construir";
+import { construirTrabajador } from "./src/trabajador/construir.ts";
 
 export default defineConfig({
   plugins: [react(), construirTrabajador()], // sw.js: the page opens without a connection (src/trabajador)

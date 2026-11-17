@@ -2166,4 +2166,12 @@ export const es: Record<string, string> = {
   "login refused": "se rechazó una entrada",
   "señal de vida not sent; trying again in an hour": "no se envió la señal de vida; se vuelve a intentar en una hora",
   "a saved setting does not check out; using the environment's": "un ajuste guardado no es válido; se usa el del entorno",
+  // Without a connection (conexion.ts, components/conexion-aviso.tsx).
+  "Without a connection: nothing was sent. Try again when it is back.": "Sin conexión: no se envió nada. Vuelva a intentarlo cuando regrese.",
+  "There is a new version of rendimiento.": "Hay una versión nueva de rendimiento.",
+  "It loads when you reload the page.": "Se carga cuando usted vuelva a cargar la página.",
+  "Without a connection.": "Sin conexión.",
+  "You see what there was {when}.": "Usted ve lo que había {when}.",
+  "It catches up by itself when it is back.": "Se pondrá al día sola cuando vuelva.",
+  "Without a connection: actions that change something wait until it is back, and are never sent later by themselves.": "Sin conexión: las acciones que cambian algo esperan a que vuelva, y nunca se envían solas después.",
 };

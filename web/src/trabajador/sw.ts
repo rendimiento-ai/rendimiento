@@ -119,7 +119,8 @@ export function trabajador(datos: DatosTrabajador) {
   const aTiempo = (p: Promise<Response>, ms: number) =>
     Promise.race([p, new Promise<undefined>((ok) => setTimeout(() => ok(undefined), ms))]);
 
-  const reiniciando = (r: Response) => r.status === 502 || r.status === 503 || r.status === 504;
+  // The proxy in front answers 502-504 while rendimiento restarts; rendimiento's own errors are JSON, and shown.
+  const reiniciando = (r: Response) => r.status >= 502 && r.status <= 504 && !(r.headers.get("Content-Type") ?? "").includes("json");
 
   /** Opening a page: rendimiento's, if it answers in a few seconds; else the one kept. */
   const abrir = async (req: Request) => {
