@@ -114,8 +114,8 @@ desinstalar() {
 		return 0
 	fi
 	step "Your data" "Sus datos"
-	say "Still on this computer (the database, the images, the caches, your apps' data, and the key that opens the secrets):" \
-		"Siguen en esta computadora (la base de datos, las imágenes, las cachés, los datos de sus aplicaciones y la llave que abre los secretos):"
+	say "Still on this computer (the database, the images, the caches, your apps' data, your settings, and the key that opens the secrets):" \
+		"Siguen en esta computadora (la base de datos, las imágenes, las cachés, los datos de sus aplicaciones, sus ajustes y la llave que abre los secretos):"
 	for v in $volumes; do printf '  %s (volume)\n' "${v#*:}"; done
 	[ -d "$data" ] && printf '  %s\n' "$data"
 	if [ "${RENDIMIENTO_BORRAR_DATOS:-}" = 1 ] || askno "Delete them too? This cannot be undone." "¿Borrarlos también? No se puede deshacer."; then
@@ -258,8 +258,44 @@ esac
 
 # ---- the service ----
 step "Service" "Servicio"
+# The person's own settings: a file of NAME=value lines that the service
+# reads at every start. It is made once, with a header that says how, and
+# never written again: the unit below is rewritten on every install and
+# update, so what a person changes goes here, not there.
+data="${XDG_CONFIG_HOME:-$HOME/.config}/rendimiento"
+settings="$data/env"
+[ -d "$data" ] || mkdir -p -m 0700 "$data"
+if [ ! -e "$settings" ]; then
+	(
+		umask 077
+		cat >"$settings" <<'EOF'
+# rendimiento's settings on this computer.
+# One NAME=value per line, such as NOTIFY_LANG=es; lines starting with # are
+# notes. They win over the service's own (MODE, ALLOWED_USERS, PATH). Every
+# variable is in the book's Settings page:
+#   https://learn.rendimiento.ai/reference/config/
+# After a change, restart rendimiento to read it:
+#   systemctl --user restart rendimiento
+# The installer never rewrites this file.
+#
+# Los ajustes de rendimiento en esta computadora.
+# Un NOMBRE=valor por línea, como NOTIFY_LANG=es; las líneas que empiezan
+# con # son notas. Ganan sobre los del servicio (MODE, ALLOWED_USERS, PATH).
+# Cada variable está en la página Ajustes del libro:
+#   https://aprende.rendimiento.ai/reference/config/
+# Después de un cambio, reinicie rendimiento para que lo lea:
+#   systemctl --user restart rendimiento
+# El instalador nunca vuelve a escribir este archivo.
+EOF
+	)
+fi
 unit="$HOME/.config/systemd/user/rendimiento.service"
 mkdir -p "$(dirname "$unit")"
+# systemd applies the file after every Environment= line, whatever their
+# order (systemd.exec: "Settings from these files override settings made
+# with Environment="), so a value in it wins over the defaults here. The
+# leading - lets the service start if the file is gone. SETTINGS_FILE tells
+# rendimiento where it is, for the Environment page.
 cat >"$unit" <<EOF
 [Unit]
 Description=rendimiento: deploy any app; AI agents fix what breaks
@@ -270,6 +306,8 @@ Wants=containerd.service buildkit.service
 Environment=MODE=local
 Environment=ALLOWED_USERS=$GITHUB
 Environment=PATH=$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
+Environment=SETTINGS_FILE=$settings
+EnvironmentFile=-$settings
 ExecStart=$HOME/.local/bin/rendimiento
 Restart=on-failure
 RestartSec=5
@@ -293,6 +331,8 @@ say "rendimiento runs at http://localhost:8080, and your apps at http://<app>.lo
 	"rendimiento corre en http://localhost:8080, y sus aplicaciones en http://<app>.localhost:8000."
 say "The setup page asks for a token; read it with:" "La página de configuración pide una ficha; léala con:"
 printf '  cat %s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/rendimiento/ficha-configuracion"
+say "Your settings go in $settings (restart it after a change: systemctl --user restart rendimiento)." \
+	"Sus ajustes van en $settings (reinícielo después de un cambio: systemctl --user restart rendimiento)."
 say "Stop it with: systemctl --user stop rendimiento" "Deténgalo con: systemctl --user stop rendimiento"
 say "Take it off the computer with: curl -fsSL https://rendimiento.ai/instalar | sh -s -- --desinstalar" \
 	"Quítelo de la computadora con: curl -fsSL https://rendimiento.ai/instalar | sh -s -- --desinstalar"
