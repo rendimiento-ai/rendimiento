@@ -14,21 +14,30 @@ import { t } from "../i18n";
 
 /** How long a skeleton waits before it fades in (.esq in styles.css): a page that arrives sooner never shows it. */
 const APARECE_MS = 250;
-/** When the last skeleton that was seen went away. */
+/** The skeletons on the page, and when the last one that was seen went away. */
+const montados = new Set<{ desde: number; sigue: boolean }>();
 let vistoHasta = 0;
 
 /**
- * What every skeleton is inside (codigo: the page's code is on its way, the Suspense fallback): busy for a screen reader, which hears "Loading…". One that comes right after
- * another that was seen (the page's code arrived, now its data) shows at once: one continuous placeholder.
+ * What every skeleton is inside (codigo: the page's code is on its way, the Suspense fallback): busy for a screen
+ * reader, which hears "Loading…". One that comes while or right after another that was seen (the page's code
+ * arrived, now its data) shows at once: one continuous placeholder. The new one renders before the old one goes,
+ * so both are looked for.
  */
 export function Esqueleto({ children, className, codigo }: { children: ReactNode; className?: string; codigo?: boolean }) {
-  const [sigue] = useState(() => performance.now() - vistoHasta < 400);
+  const [yo] = useState(() => {
+    const ahora = performance.now();
+    const visto = (m: { desde: number; sigue: boolean }) => m.sigue || ahora - m.desde >= APARECE_MS;
+    return { desde: ahora, sigue: ahora - vistoHasta < 400 || [...montados].some(visto) };
+  });
   useEffect(() => {
-    const desde = performance.now();
+    montados.add(yo);
     return () => {
-      if (sigue || performance.now() - desde >= APARECE_MS) vistoHasta = performance.now();
+      montados.delete(yo);
+      if (yo.sigue || performance.now() - yo.desde >= APARECE_MS) vistoHasta = performance.now();
     };
-  }, [sigue]);
+  }, [yo]);
+  const sigue = yo.sigue;
   // .cargando marks the page's code on its way (the browser tests wait for it to go).
   const clases = ["esq", sigue && "esq-sigue", codigo && "cargando", className].filter(Boolean).join(" ");
   return (

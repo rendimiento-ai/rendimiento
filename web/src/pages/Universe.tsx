@@ -11,6 +11,7 @@ import { Maqueta, ms, rate, worst, type Engine, type MapBarda, type MapModel, ty
 import { outsideWhy } from "../components/barda";
 import { ErrorBox, usePoll } from "../components/ui";
 import { t, tn } from "../i18n";
+import { EsqPueblo } from "../components/esqueleto";
 
 const windows: { id: UniverseWindow; label: string; short: string }[] = [
   { id: "15m", label: "Last 15 minutes", short: "15 min" },
@@ -294,7 +295,7 @@ export function Universe() {
   }, [sel, barrio, pueblo]);
 
   if (error && !data) return <ErrorBox error={error} />;
-  if (!data || !world) return <div className="empty">{t("Loading…")}</div>;
+  if (!data || !world) return <EsqPueblo />;
 
   const apps = data.systems.filter((s) => s.kind === "app").length;
   const here = barrio ? world.barrios.get(barrio) : undefined;

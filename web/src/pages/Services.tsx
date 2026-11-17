@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { catalogApi, timeAgo, type CatalogEntry, type CatalogGroup } from "../api";
 import { ErrorBox, usePoll } from "../components/ui";
 import { t, tn } from "../i18n";
+import { EsqListaDetalle } from "../components/esqueleto";
 
 // Labels and blurbs are translated where shown.
 const groups: { id: CatalogGroup; label: string; blurb: string }[] = [
@@ -75,7 +76,7 @@ export function Services() {
   };
 
   if (error) return <ErrorBox error={error} />;
-  if (!data) return <p className="muted">{t("Looking around the cluster…")}</p>;
+  if (!data) return <EsqListaDetalle acciones />;
   const focus = ns && name ? `${ns}/${name}` : undefined;
   const chosen = data.entries.find((e) => e.id === focus) ?? shown[0];
   // A link to a service of another group shows that group.

@@ -5,6 +5,7 @@ import {
   type AddonCatalogEntry, type AddonDefinition, type AddonPhase, type CatalogEntry, type CatalogField, type InstalledAddon,
 } from "../api";
 import { ErrorBox, usePoll } from "../components/ui";
+import { EsqRenglones } from "../components/esqueleto";
 import { t } from "../i18n";
 
 const phaseTone: Record<AddonPhase, string> = {
@@ -221,7 +222,7 @@ export function AddonDetail({ name }: { name: string }) {
   };
   if (appearing) return <main className="ld-detalle"><p className="muted">{t("Installing {name}… it appears here in a few seconds.", { name })}</p></main>;
   if (error) return <main className="ld-detalle"><ErrorBox error={error} /></main>;
-  if (!a) return <main className="ld-detalle"><p className="muted">{t("Loading…")}</p></main>;
+  if (!a) return <main className="ld-detalle"><EsqRenglones n={6} /></main>;
   const st = a.status;
   const p = st.preview;
   const changesWaiting = (p?.create ?? 0) + (p?.update ?? 0) + (p?.prune ?? 0) > 0;

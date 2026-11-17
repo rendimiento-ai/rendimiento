@@ -7,6 +7,7 @@ import { useState } from "react";
 import { api, timeAgo, type Problem } from "../api";
 import { ErrorBox, usePoll } from "../components/ui";
 import { locale, t, tn } from "../i18n";
+import { EsqListaDetalle, Esqueleto, Hueso } from "../components/esqueleto";
 
 // The top bar's link lives apart, so the shell does not carry this page.
 export { ProblemsNavLink } from "../components/enlace-problemas";
@@ -309,6 +310,7 @@ export function Problems() {
       <p className="sub">
         {t("Warnings and errors from rendimiento itself in the last 30 days: configs it rejected, emails it could not send, DNS or GitHub calls that failed. Repeats are grouped. A problem stays open for {n} hours after it last happened, until rendimiento sees it fixed (a later push accepted, a later email sent, or, for work it retries by itself, 30 minutes without failing again), or until dismissed; it reopens if it happens again. Outages of your apps are on each app's Reliability tab.", { n: data?.openForHours ?? 24 })}
       </p>
+      {!data && !error && <Esqueleto><div className="problema-cuentas">{Array.from({ length: 4 }, (_, i) => <Hueso key={i} className="esq-cuenta" />)}</div></Esqueleto>}
       {data && (
         <div className="problema-cuentas" role="group" aria-label={t("Filter problems")}>
           {filtros.map((f) => (
@@ -331,6 +333,7 @@ export function Problems() {
         </label>
       </div>
       <ErrorBox error={error} />
+      {!data && !error && <EsqListaDetalle cabeza={false} />}
       {data && all.length === 0 && (
         <div className="card empty"><p>{app ? t("No problems in the last 30 days for {app}.", { app }) : t("No problems in the last 30 days.")}</p></div>
       )}

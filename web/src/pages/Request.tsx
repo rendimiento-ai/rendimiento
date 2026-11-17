@@ -5,6 +5,7 @@ import { ms } from "../components/maqueta";
 import { Falla } from "../components/falla";
 import { locale, t, tn } from "../i18n";
 import { reasonLabel } from "./Universe";
+import { EsqCosa } from "../components/esqueleto";
 
 interface Row {
   span: TraceSpan;
@@ -62,7 +63,7 @@ export function RequestPage() {
   const list = useMemo(() => (data ? rows(data.spans, new Date(data.trace.startedAt).getTime()) : []), [data]);
   // A request that is not kept (or no longer) is a page of its own.
   if (error) return <Falla error={error} reintentar={() => { setError(undefined); setVuelta((v) => v + 1); }} />;
-  if (!data) return <p className="muted">{t("Loading…")}</p>;
+  if (!data) return <EsqCosa />;
   const { trace } = data;
   const total = Math.max(trace.durationUs, 1);
   return (
