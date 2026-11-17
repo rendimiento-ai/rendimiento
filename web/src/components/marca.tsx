@@ -1,5 +1,6 @@
 // The brand mark and the language switch, shared by the top bar and the welcome page.
 import { lang, locale, setLang, t } from "../i18n";
+import { anotar } from "../uso";
 import { BANDERAS, BanderaSVG, nombrePais, ponerBandera, useBandera } from "../banderas";
 
 /** rendimiento's mark: the sun over the furrows, the worked field (it sways a little when the pointer is on it). */
@@ -27,7 +28,7 @@ export function Semilla() {
 export function LangSwitch() {
   const other = lang === "es" ? "en" : "es";
   return (
-    <button className="lang-switch" onClick={() => setLang(other)} title={other === "es" ? "Cambiar a español" : "Switch to English"}
+    <button className="lang-switch" onClick={() => { anotar("switch_language"); setLang(other); }} title={other === "es" ? "Cambiar a español" : "Switch to English"}
       aria-label={other === "es" ? "Cambiar a español" : "Switch to English"}>
       {other.toUpperCase()}
     </button>

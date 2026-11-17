@@ -68,7 +68,7 @@ export function RequestPage() {
   return (
     <div className="wf-page">
       <p className="small"><Link to="/universe">{t("Universe")}</Link> / {t("Request")}</p>
-      <h1 className="wf-title">{trace.name}</h1>
+      <h1 className="wf-title" data-listo="">{trace.name}</h1>
       <p className="muted wf-meta">
         <span className={`badge ${trace.error ? "bad" : trace.reason === "slow" ? "warn" : "ok"}`}>{t(reasonLabel[trace.reason])}</span>
         <span>{ms(trace.durationUs / 1000)}</span>
