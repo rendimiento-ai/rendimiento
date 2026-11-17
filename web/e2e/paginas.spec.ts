@@ -189,7 +189,9 @@ test("a page's skeleton stands in until its data comes", async ({ page, problema
     let soltar = () => {};
     const suelta = new Promise<void>((r) => (soltar = r));
     await page.route(patron, async (ruta) => { await suelta; await ruta.continue(); });
-    return () => { soltar(); return page.unroute(patron); };
+    // Released, the handlers still running finish before the route goes:
+    // removing it under them answers the request twice.
+    return () => { soltar(); return page.unrouteAll({ behavior: "wait" }); };
   };
 
   await test.step("Apps", async () => {
