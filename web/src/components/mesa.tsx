@@ -106,7 +106,7 @@ function Fila({ app, l, onClosed }: { app: App; l: MesaLine; onClosed: () => voi
 }
 
 /** What a line's state means, in words. */
-function porque(l: MesaLine, app: App): string {
+export function porque(l: MesaLine, app: App): string {
   const at = l.at && !l.at.startsWith("0001") ? timeAgo(l.at) : "";
   switch (l.why) {
     case "passed": return t("passed: it can be merged");

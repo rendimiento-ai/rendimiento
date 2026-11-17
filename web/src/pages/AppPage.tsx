@@ -19,6 +19,7 @@ import { t, tn } from "../i18n";
 import { EsqCosa } from "../components/esqueleto";
 import { useConexion } from "../conexion";
 import { apagado, PorQueApagado } from "../components/conexion-aviso";
+import { BuildNow, puedeConstruir } from "../components/construir";
 
 const tabs = [
   { id: "", label: "At a glance", icon: "M12 3a4 4 0 0 1 4 4 4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-8 0 4 4 0 0 1-4-4 4 4 0 0 1 4-4 4 4 0 0 1 4-4zM12 12h.01" }, // labels are translated where shown
@@ -55,7 +56,7 @@ export function AppPage() {
   // The page is about the app: one that is not there, or not for this account, is a page of its own.
   if (error) return <Falla error={error} reintentar={reload} />;
   if (asked && !tabs.some((tb) => tb.id === asked)) return <NoExiste />;
-  if (!app) return <EsqCosa flor datos={4} pestanas />;
+  if (!app) return <EsqCosa flor datos={4} pestanas vistazo={tab === ""} />;
 
   const caida = (app.down?.length ?? 0) > 0 || app.status.phase === "Error" || app.status.phase === "Degraded";
   const lib = isLibrary(app.spec);
@@ -74,10 +75,13 @@ export function AppPage() {
             {app.status.release ? <span>· {t("release #{n}", { n: app.status.release })}</span> : null}
           </div>
         </div>
-        <div className="row">
-          {site && <a className="btn-link" href={site} target="_blank" rel="noreferrer">{t("Open the site ↗")}</a>}
-          <BuildNow name={name} main={app.defaultBranch} onDone={reload} />
-        </div>
+        {/* On the glance its own head carries the site and the buttons. */}
+        {tab !== "" && (
+          <div className="row">
+            {site && <a className="btn-link" href={site} target="_blank" rel="noreferrer">{t("Open the site ↗")}</a>}
+            {puedeConstruir(app) && <BuildNow name={name} main={app.defaultBranch} onDone={reload} />}
+          </div>
+        )}
       </div>
       {app.status.message && app.status.phase !== "Healthy" && (
         <div className={`alert ${app.status.phase === "Error" || app.status.phase === "Degraded" ? "" : "info"}`} style={{ marginTop: 12 }}>{app.status.message}</div>
@@ -94,7 +98,7 @@ export function AppPage() {
         ))}
       </nav>
       <div className="app-vista" key={tab}>
-      {tab === "" && <Vistazo app={app} />}
+      {tab === "" && <Vistazo app={app} onBuilt={reload} />}
       {tab === "mesa" && <MesaTab app={app} />}
       {tab === "overview" && <Overview name={name} app={app} />}
       {tab === "runs" && <Runs name={name} repo={app.repo} />}
@@ -105,54 +109,6 @@ export function AppPage() {
       {tab === "settings" && <Settings name={name} app={app} secrets={appSecretNames(app.spec)} />}
       </div>
     </>
-  );
-}
-
-/**
- * "Build now", shimmering while the run is being asked for: the default branch, which deploys. Beside it, testing
- * another branch: one of those that ran lately, or any by name; it only builds and tests, and never deploys.
- */
-function BuildNow({ name, main, onDone }: { name: string; main: string; onDone: () => void }) {
-  const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [branch, setBranch] = useState("");
-  const conexion = useConexion();
-  const { data: runs } = usePoll(() => (open ? api.runs(name) : Promise.resolve([])), [name, open], 0);
-  const recent = [...new Set((runs ?? []).map((r) => r.branch).filter((b) => b && b !== main))].slice(0, 12);
-  const go = async (b?: string) => {
-    setBusy(true);
-    try {
-      anotar("build_now");
-      await api.triggerRun(name, b);
-      setOpen(false);
-      setBranch("");
-      onDone();
-    } catch (e) {
-      alert((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  const other = branch.trim();
-  return (
-    <div className="build-now">
-      <button className={`primary${busy ? " corre" : ""}`} {...apagado(conexion, busy, t("Builds {branch} and deploys it if it passes", { branch: main }))} onClick={() => go()}>{busy ? t("Starting…") : t("Build now")}</button>
-      <button className="build-now-mas" aria-expanded={open} aria-label={t("Test another branch")} {...apagado(conexion, busy)} onClick={() => setOpen(!open)}>▾</button>
-      {open && (
-        <div className="card build-now-ramas">
-          <strong className="small">{t("Test a branch")}</strong>
-          <span className="small muted">{t("It builds and tests the branch; it never deploys it.")}</span>
-          {recent.map((b) => (
-            <button key={b} className="link" {...apagado(conexion, busy)} onClick={() => go(b)}>{b}</button>
-          ))}
-          <div className="row" style={{ gap: 6 }}>
-            <input value={branch} placeholder={t("another branch, by name")} onChange={(e) => setBranch(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && other && go(other)} />
-            <button {...apagado(conexion, busy || !other || other === main)} onClick={() => go(other)}>{t("Test it")}</button>
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 
