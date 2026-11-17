@@ -361,6 +361,51 @@ func TestUIMissingAsset(t *testing.T) {
 	}
 }
 
+// The service worker and the manifest are asked for again each time (no-cache), with their own types; with
+// SERVICE_WORKER=off (or a UI built without it) /sw.js is the worker that unregisters itself, marked so the
+// page registers none.
+func TestUIServiceWorker(t *testing.T) {
+	ui := fstest.MapFS{
+		"index.html":           {Data: []byte("<html>ui</html>")},
+		"sw.js":                {Data: []byte("// the real worker")},
+		"manifest.webmanifest": {Data: []byte(`{"name":"rendimiento"}`)},
+		"icono.svg":            {Data: []byte("<svg/>")},
+	}
+	get := func(s *Server, method, path string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		s.ui().ServeHTTP(w, httptest.NewRequest(method, path, nil))
+		return w
+	}
+	on := &Server{UI: ui}
+	w := get(on, "GET", "/sw.js")
+	if w.Code != 200 || w.Body.String() != "// the real worker" || w.Header().Get("Cache-Control") != "no-cache" ||
+		!strings.HasPrefix(w.Header().Get("Content-Type"), "text/javascript") || w.Header().Get("X-Rendimiento-Trabajador") != "" {
+		t.Fatalf("sw.js: %d %v %s", w.Code, w.Header(), w.Body.String())
+	}
+	if w := get(on, "HEAD", "/sw.js"); w.Code != 200 || w.Header().Get("X-Rendimiento-Trabajador") != "" {
+		t.Fatalf("HEAD sw.js: %d %v", w.Code, w.Header())
+	}
+	if w := get(on, "GET", "/manifest.webmanifest"); w.Code != 200 || w.Header().Get("Content-Type") != "application/manifest+json" || w.Header().Get("Cache-Control") != "no-cache" {
+		t.Fatalf("manifest: %d %v", w.Code, w.Header())
+	}
+	if w := get(on, "GET", "/icono.svg"); w.Code != 200 || w.Header().Get("Content-Type") != "image/svg+xml" || w.Header().Get("Cache-Control") != "no-cache" {
+		t.Fatalf("icon: %d %v", w.Code, w.Header())
+	}
+
+	off := &Server{UI: ui, NoServiceWorker: true}
+	for _, s := range []*Server{off, {UI: fstest.MapFS{"index.html": {Data: []byte("<html>ui</html>")}}}} {
+		w := get(s, "GET", "/sw.js")
+		if w.Code != 200 || !strings.Contains(w.Body.String(), "unregister()") || strings.Contains(w.Body.String(), "<html>") ||
+			w.Header().Get("X-Rendimiento-Trabajador") != "retirado" || w.Header().Get("Cache-Control") != "no-cache" ||
+			!strings.HasPrefix(w.Header().Get("Content-Type"), "text/javascript") {
+			t.Fatalf("retired sw.js: %d %v %s", w.Code, w.Header(), w.Body.String())
+		}
+		if w := get(s, "HEAD", "/sw.js"); w.Header().Get("X-Rendimiento-Trabajador") != "retirado" || w.Body.Len() != 0 {
+			t.Fatalf("HEAD retired sw.js: %v %q", w.Header(), w.Body.String())
+		}
+	}
+}
+
 func TestUIFallback(t *testing.T) {
 	e := newEnv(t, true)
 	if r, body := e.do(t, "GET", "/apps/shop/runs/3", "", nil, nil); !strings.Contains(body, "<html>ui</html>") || r.Header.Get("Cache-Control") != "no-cache" {

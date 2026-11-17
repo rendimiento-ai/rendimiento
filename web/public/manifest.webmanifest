@@ -1,0 +1,16 @@
+{
+  "name": "rendimiento",
+  "short_name": "rendimiento",
+  "description": "Builds, tests and deploys your apps.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#8E1B2C",
+  "background_color": "#FBF5EA",
+  "icons": [
+    { "src": "/icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icono-mascara.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" },
+    { "src": "/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
