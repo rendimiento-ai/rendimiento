@@ -12,6 +12,14 @@ test("the log shows the platform's lines, and its filters work", async ({ page }
   await expect(page.locator("main h1").first()).toHaveText(es ? "Registro" : "Log");
 
   const tabla = page.locator("table.registro-tabla");
+  await expect(tabla.locator("tr.registro-fila").first()).toBeVisible();
+
+  // By now the test server has written hundreds of lines, and the page shows
+  // the newest hundred: the search finds the first one it wrote.
+  const buscar = page.getByRole("searchbox", { name: es ? "Buscar en los mensajes" : "Search the messages" });
+  await buscar.fill("nothing-logs-this-zzz");
+  await expect(page.locator(".card.empty")).toBeVisible();
+  await buscar.fill("is listening");
   const linea = tabla.locator("tr.registro-fila", { hasText: "is listening" }).first();
   await expect(linea).toBeVisible();
   await expect(linea).toContainText("interfaz");
@@ -19,13 +27,6 @@ test("the log shows the platform's lines, and its filters work", async ({ page }
   // It opens to its attributes.
   await linea.locator("button.registro-abrir").click();
   await expect(page.locator(".registro-attrs").first()).toContainText("addr");
-
-  // A search that matches nothing, then one that matches.
-  const buscar = page.getByRole("searchbox", { name: es ? "Buscar en los mensajes" : "Search the messages" });
-  await buscar.fill("nothing-logs-this-zzz");
-  await expect(page.locator(".card.empty")).toBeVisible();
-  await buscar.fill("listening");
-  await expect(linea).toBeVisible();
 
   // Errors only: the INFO line is gone.
   await page.getByLabel(es ? "Nivel" : "Level").selectOption("ERROR");
