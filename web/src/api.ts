@@ -323,7 +323,7 @@ export interface Me {
   org: Org;
   operator: boolean;
   demo?: boolean; // signed in by a demo link: read-only
-  cluster: boolean; // false on a computer without Kubernetes: no Environment, Services or Add-ons
+  cluster: boolean; // false on a computer without Kubernetes: no Services or Add-ons, and Environment shows only its version and settings
   mercado?: boolean; // the Mercado is set up here (reached from the Apps page)
   appPrefix?: string; // what this organization's app names begin with ("" in the platform's)
   version?: string; // the rendimiento that answers: a release ("0.2.1") or the commit it was built from
@@ -1468,6 +1468,8 @@ export interface Published {
   auto: boolean; // fix releases install themselves
   previous?: string; // the version kept to go back to
   lastChange?: { de: string; a: string; cuando: string; regreso?: boolean; quien?: string };
+  /** On a computer, the file of NAME=value lines its service reads at start (api.ArchivoAjustes); none when it was started by hand or in a container. */
+  settings?: { path: string; restart: string; inside?: string };
 }
 
 export interface PlatformVersion {

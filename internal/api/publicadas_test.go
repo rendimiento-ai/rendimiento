@@ -47,6 +47,22 @@ func TestPlatformPublished(t *testing.T) {
 	if got.CanInstall {
 		t.Fatal("a cluster cannot install a program")
 	}
+	if got.Settings != nil {
+		t.Fatalf("a settings file nobody said: %s", body)
+	}
+
+	// Where this computer's settings are, when its service reads a file.
+	e.s.Ajustes = ArchivoAjustes{Path: "/home/example/.config/rendimiento/env", Restart: "systemctl --user restart rendimiento"}
+	r, body = e.do(t, "GET", "/api/platform/published", "", e.session(t, "p0dxD"), nil)
+	got = Published{}
+	if r.StatusCode != 200 || json.Unmarshal([]byte(body), &got) != nil || got.Settings == nil || *got.Settings != e.s.Ajustes {
+		t.Fatalf("settings file: %d %s", r.StatusCode, body)
+	}
+	// A cluster's settings are its ConfigMap's, not a file's.
+	e.s.Modo = "kubernetes"
+	if _, body := e.do(t, "GET", "/api/platform/published", "", e.session(t, "p0dxD"), nil); strings.Contains(body, `"settings"`) {
+		t.Fatalf("a cluster shows a settings file: %s", body)
+	}
 }
 
 // On a computer, the latest signed version is installed from the card and

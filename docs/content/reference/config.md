@@ -1,6 +1,19 @@
 # Settings
 
-rendimiento is configured only through **environment variables**, read once at startup in `cmd/rendimiento/main.go`. On a cluster, they come from the `rendimiento` ConfigMap and a few Secrets (`deploy/rendimiento.yaml` has example values; keep a real cluster's values in a private overlay, see [How the platform is deployed](../environment/deploy.md#your-own-settings)). To change a setting, edit the ConfigMap and run `kubectl -n rendimiento-system rollout restart deploy` (every service).
+rendimiento is configured only through **environment variables**, read once at startup in `cmd/rendimiento/main.go`. On a cluster, they come from the `rendimiento` ConfigMap and a few Secrets (`deploy/rendimiento.yaml` has example values; keep a real cluster's values in a private overlay, see [How the platform is deployed](../environment/deploy.md#your-own-settings)). To change a setting, edit the ConfigMap and run `kubectl -n rendimiento-system rollout restart deploy` (every service). [On one computer](#on-one-computer) they come from a file of its service instead.
+
+## On one computer {#on-one-computer}
+
+[Installed on one computer](../environment/deploy.md#on-one-computer) (`MODE=local`), rendimiento's service reads its settings from a file when it starts, one `NAME=value` per line (lines starting with `#` are notes):
+
+| Where | The file | After a change |
+|---|---|---|
+| Linux, with the installer | `~/.config/rendimiento/env` (in `DATA_DIR`) | `systemctl --user restart rendimiento` |
+| Windows, inside its WSL distribution | `/etc/rendimiento/env` (`wsl -d rendimiento`) | `wsl -d rendimiento -- systemctl restart rendimiento` |
+
+The installer makes the Linux file the first time, with a header that says this, readable only by you, and never writes it again: the service's unit (`~/.config/systemd/user/rendimiento.service`) is written anew on every install and update, so change settings in the file, not there. A value in the file wins over the unit's own (`MODE`, `ALLOWED_USERS`, `PATH`): systemd applies `EnvironmentFile=` over `Environment=`. Uninstalling lists it with the rest of your data and deletes it only if you say so. An install made before the file existed gets it the next time you run the installer. On Windows the app writes `ALLOWED_USERS` there and keeps the other lines. The **Environment** page shows which file this computer reads and the command that restarts it.
+
+Started by hand or in a container, rendimiento reads no file: its settings are the environment it was started with (the variables before the command, or `docker run -e NAME=value` and `--env-file`), and change by starting it again with others. Either way, `AI_LOCAL_URL` and `AI_LOCAL_MODEL` are only where the AI page's local model starts ([AI](#ai)): it changes there without a restart; the other [live settings](#organizations-in-the-cluster) are a cluster's, on its Environment page.
 
 ## Core
 
