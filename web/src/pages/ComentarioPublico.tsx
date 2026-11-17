@@ -7,11 +7,16 @@ import { api, ApiError } from "../api";
 import { lang, t } from "../i18n";
 import { Cielo, Guardapolvo, MovimientoSwitch, TemaSwitch, Techo } from "../components/ambiente";
 import { LangSwitch, Logo } from "../components/marca";
+import { useConexion } from "../conexion";
+import { apagado, PorQueApagado } from "../components/conexion-aviso";
+import { BorradorGuardado, useBorrador } from "../components/borrador";
 
 const MAX = 2000;
 
 export function ComentarioPublico() {
-  const [texto, setTexto] = useState("");
+  const borrador = useBorrador("comentario-publico");
+  const texto = borrador.texto;
+  const conexion = useConexion();
   const [correo, setCorreo] = useState("");
   const [nombre, setNombre] = useState("");
   const [sitio, setSitio] = useState(""); // people never see it; robots fill it
@@ -25,6 +30,7 @@ export function ComentarioPublico() {
     try {
       await api.enviarComentario({ texto, correo: correo.trim(), nombre: nombre.trim(), idioma: lang, sitio });
       setEstado("enviado");
+      borrador.limpiar();
     } catch (err) {
       setEstado("");
       const status = err instanceof ApiError ? err.status : 0;
@@ -62,9 +68,10 @@ export function ComentarioPublico() {
             <form className="buzon-carta" onSubmit={enviar}>
               <label>
                 <span>{t("Your comment")}</span>
-                <textarea value={texto} onChange={(e) => setTexto(e.target.value)} maxLength={MAX} rows={7} required
+                <textarea value={texto} onChange={(e) => borrador.poner(e.target.value)} maxLength={MAX} rows={7} required
                   placeholder={t("What would you like rendimiento to do, or what got in your way?")} />
                 <span className="small muted buzon-cuenta">{texto.length.toLocaleString(lang)} / {MAX.toLocaleString(lang)}</span>
+                <BorradorGuardado si={borrador.guardado} />
               </label>
               <label>
                 <span>{t("Your email")} <span className="muted small">({t("required, only to answer you")})</span></span>
@@ -79,7 +86,8 @@ export function ComentarioPublico() {
                 <input tabIndex={-1} autoComplete="off" value={sitio} onChange={(e) => setSitio(e.target.value)} />
               </label>
               {error && <p className="error" role="alert">{error}</p>}
-              <button className="btn primary big" disabled={estado === "enviando" || !texto.trim() || !correo.trim()}>
+              <PorQueApagado />
+              <button className="btn primary big" {...apagado(conexion, estado === "enviando" || !texto.trim() || !correo.trim())}>
                 {estado === "enviando" ? t("Sending…") : t("Send")}
               </button>
               <p className="small muted">

@@ -599,6 +599,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	srv.RedirectHosts = splitList(os.Getenv("REDIRECT_HOSTS"))
 	srv.PublicStats = env("PUBLIC_STATS", "false") == "true"
 	srv.PublicActivity = env("PUBLIC_ACTIVITY", "false") == "true"
+	srv.NoServiceWorker = env("SERVICE_WORKER", "on") == "off"
 	srv.PublicOrigins = splitList(os.Getenv("PUBLIC_STATS_ORIGINS"))
 	srv.PublicTimeZone = env("PUBLIC_STATS_TZ", "UTC")
 	// Visitor numbers from Umami, read with a view-only Umami user.

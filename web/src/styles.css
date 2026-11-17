@@ -2504,3 +2504,14 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .esq-renglones .esq-renglon { margin: 10px 0; }
 .cargando-fallo { min-height: 420px; padding-top: 24px; color: var(--muted); }
 .cargando-fallo p { margin: 0 0 14px; }
+
+/* Without a connection (components/conexion-aviso.tsx): the notice under the top bar, what was kept shown dimmed, and
+   the why beside a switched-off action. */
+.conexion-aviso { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 0 0 16px; padding: 9px 12px; border-radius: 12px; background: var(--warn-bg); color: var(--text); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); font-size: 14px; }
+.conexion-aviso b { color: var(--warn); }
+.conexion-aviso .btn { margin-left: auto; }
+.conexion-nueva { background: var(--surface-2); border-color: var(--border); }
+.conexion-nueva b { color: var(--text); }
+.conexion-guardado ~ * .card:not(:has(input, textarea, select)), .conexion-guardado ~ .card:not(:has(input, textarea, select)) { opacity: .62; }
+.conexion-porque { flex-basis: 100%; }
+.conexion-borrador { font-size: 13px; color: var(--muted); }

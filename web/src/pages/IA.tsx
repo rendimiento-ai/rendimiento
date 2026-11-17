@@ -2,6 +2,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { api, dollars, session, timeAgo, type AIProvider, type AutoEncargo, type CodeAgent, type IAAnswer, type IAView, type LocalProbe } from "../api";
 import { ErrorBox, Switch, usePoll } from "../components/ui";
 import { t } from "../i18n";
+import { useConexion } from "../conexion";
+import { apagado } from "../components/conexion-aviso";
 
 const providerLabel: Record<AIProvider, string> = { local: "local model", own: "own key", platform: "the platform's" };
 const providerName: Record<AIProvider, string> = { local: "The local model", own: "Your own key", platform: "The platform's" };
@@ -139,6 +141,7 @@ function Tile({ name, checked, disabled, onPick, title, cost, status }: {
 }
 
 function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
+  const conexion = useConexion();
   const admin = session.role === "admin";
   const s = v.settings;
   const [provider, setProvider] = useState<AIProvider>(s.provider);
@@ -312,7 +315,7 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
             <ul>{changes.map(([what, from, to]) => <li key={what}>{what}: <span className="muted">{from}</span> → <strong>{to}</strong></li>)}</ul>
           </div>
           <div className="row" style={{ gap: 8 }}>
-            <button className="primary" disabled={busy} onClick={() => save()}>{busy ? t("Saving…") : t("Save")}</button>
+            <button className="primary" {...apagado(conexion, busy)} onClick={() => save()}>{busy ? t("Saving…") : t("Save")}</button>
             <button disabled={busy} onClick={reset}>{t("Discard")}</button>
           </div>
         </div>
@@ -441,6 +444,7 @@ function AllowanceRow({ org, name, uses, spent, allowance, onSaved }: { org: num
  * answers for every organization within seconds, without a restart (the live settings AI_LOCAL_URL and AI_LOCAL_MODEL).
  */
 function ModeloLocal({ onSaved }: { onSaved: () => void }) {
+  const conexion = useConexion();
   const { data: now, reload } = usePoll(api.localModel, [], 0);
   const urlNow = now?.url ?? "", modelNow = now?.model ?? "";
   const [url, setUrl] = useState<string>();
@@ -484,7 +488,7 @@ function ModeloLocal({ onSaved }: { onSaved: () => void }) {
       <ErrorBox error={err} />
       <div className="row">
         <button type="button" disabled={!u.trim() || busy !== ""} onClick={tryIt}>{busy === "probe" ? t("Trying…") : t("Try it")}</button>
-        <button type="button" className="primary" disabled={!u.trim() || busy !== "" || (u.trim() === urlNow && m.trim() === modelNow)} onClick={() => save(u)}>{t("Save")}</button>
+        <button type="button" className="primary" {...apagado(conexion, !u.trim() || busy !== "" || (u.trim() === urlNow && m.trim() === modelNow))} onClick={() => save(u)}>{t("Save")}</button>
         {urlNow && <button type="button" disabled={busy !== ""} onClick={() => save("")}>{t("Disconnect it")}</button>}
         {saved && <span className="small">{t("Saved: it answers within a few seconds.")}</span>}
       </div>

@@ -6,6 +6,9 @@ import { Link } from "react-router-dom";
 import { api, ApiError, timeAgo, type ClaseOpinion, type EstadoOpinion, type Opinion, type OpinionDetalle } from "../api";
 import { EsqListaDetalle } from "../components/esqueleto";
 import { t, tn } from "../i18n";
+import { useConexion } from "../conexion";
+import { apagado, PorQueApagado } from "../components/conexion-aviso";
+import { BorradorGuardado, borradorDe, guardarBorrador, soltarBorrador } from "../components/borrador";
 import { usePoll } from "../components/ui";
 
 const clases: Record<ClaseOpinion, string> = {
@@ -93,17 +96,22 @@ function Detalle({ id, abrir, cambio, lista }: { id: number; abrir: (id: number)
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState("");
   const [grupo, setGrupo] = useState("");
+  const conexion = useConexion();
+  // The answer being written is kept on this device until it is sent; it wins over the AI's draft (components/borrador).
+  const caja = `respuesta-${id}`;
+  const [guardado, setGuardado] = useState(false);
 
   useEffect(() => {
     setO(undefined);
     setError("");
     setSeguro(false);
+    setGuardado(!!borradorDe(caja));
     api.opinion(id).then((d) => {
       setO(d);
-      setRespuesta(d.borrador ?? "");
+      setRespuesta(borradorDe(caja) ?? d.borrador ?? "");
       setGrupo(d.grupo ? String(d.grupo) : "");
     }, (e) => setError(e instanceof Error ? e.message : String(e)));
-  }, [id]);
+  }, [id, caja]);
 
   // While the AI sorts it (or drafts it again), look every few seconds, and
   // put its new draft in the answer when it comes.
@@ -114,7 +122,7 @@ function Detalle({ id, abrir, cambio, lista }: { id: number; abrir: (id: number)
       api.opinion(id).then((d) => {
         if (!d.clasificadaAt && !d.iaError) return;
         setO(d);
-        if (d.estado !== "respondido") setRespuesta(d.borrador ?? "");
+        if (d.estado !== "respondido" && !borradorDe(caja)) setRespuesta(d.borrador ?? "");
         cambio();
       }, () => undefined);
     }, 4000);
@@ -128,7 +136,8 @@ function Detalle({ id, abrir, cambio, lista }: { id: number; abrir: (id: number)
       const d = await f();
       if (d) {
         setO(d);
-        setRespuesta(d.respuesta || d.borrador || "");
+        if (d.estado === "respondido") { soltarBorrador(caja); setGuardado(false); }
+        setRespuesta((d.estado !== "respondido" && borradorDe(caja)) || d.respuesta || d.borrador || "");
       }
       cambio();
     } catch (e) {
@@ -213,7 +222,8 @@ function Detalle({ id, abrir, cambio, lista }: { id: number; abrir: (id: number)
         <div className="buzon-respuesta">
           <label>
             <span className="small muted">{t("Your answer (the AI's draft: make it yours)")}</span>
-            <textarea rows={8} value={respuesta} onChange={(e) => { setRespuesta(e.target.value); setSeguro(false); }} maxLength={8000} />
+            <textarea rows={8} value={respuesta} onChange={(e) => { setRespuesta(e.target.value); setGuardado(guardarBorrador(caja, e.target.value)); setSeguro(false); }} maxLength={8000} />
+            <BorradorGuardado si={guardado} />
           </label>
           <div className="small muted">
             {o.origen === "formulario"
@@ -222,11 +232,12 @@ function Detalle({ id, abrir, cambio, lista }: { id: number; abrir: (id: number)
           </div>
           {error && <p className="error" role="alert">{error}</p>}
           <div className="buzon-acciones">
-            <button type="button" className="btn primary" disabled={ocupado || !respuesta.trim()} onClick={() => (seguro ? hacer(() => api.responderOpinion(o.id, respuesta)) : setSeguro(true))}>
+            <button type="button" className="btn primary" {...apagado(conexion, ocupado || !respuesta.trim())} onClick={() => (seguro ? hacer(() => api.responderOpinion(o.id, respuesta)) : setSeguro(true))}>
               {seguro ? t("Yes, send it") : t("Send the answer")}
             </button>
             {seguro && <button type="button" onClick={() => setSeguro(false)}>{t("Not yet")}</button>}
-            <button type="button" disabled={ocupado} onClick={() => hacer(() => api.cambiarOpinion(o.id, { estado: "descartado" }))}>{t("Set aside")}</button>
+            <button type="button" {...apagado(conexion, ocupado)} onClick={() => hacer(() => api.cambiarOpinion(o.id, { estado: "descartado" }))}>{t("Set aside")}</button>
+            <PorQueApagado />
           </div>
         </div>
       )}

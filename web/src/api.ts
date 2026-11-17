@@ -1,4 +1,5 @@
 import { lang, t } from "./i18n";
+import { falloDeRed, probar, respuesta, sinConexion } from "./conexion";
 
 // Typed client for the rendimiento API. Types mirror the Go JSON structs.
 
@@ -935,12 +936,15 @@ export class ApiError extends Error {
  * Calls the API in the reader's language; an error answer becomes an ApiError with the server's message.
  */
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  // Without a connection an order is not sent, and never kept to leave later (conexion.ts).
+  if (method !== "GET" && sinConexion() && !(await probar(2500))) throw new ApiError(0, t("Without a connection: nothing was sent. Try again when it is back."));
   const res = await fetch(path, {
     method,
     headers: { "Accept-Language": lang, ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
     body: body !== undefined ? JSON.stringify(body) : undefined,
     credentials: "same-origin",
-  });
+  }).catch((e: unknown) => { falloDeRed(); throw e; });
+  respuesta(res);
   if (!res.ok) {
     let msg = res.statusText;
     try {

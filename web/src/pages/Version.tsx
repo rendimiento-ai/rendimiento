@@ -3,6 +3,8 @@ import { Link, NavLink } from "react-router-dom";
 import { envApi, session, timeAgo, type PlatformRelease, type Published } from "../api";
 import { usePoll } from "../components/ui";
 import { t } from "../i18n";
+import { useConexion } from "../conexion";
+import { apagado } from "../components/conexion-aviso";
 
 // The Environment link, marked when a newer rendimiento is ready.
 export function EnvironmentNavLink({ dibujo }: { dibujo?: ReactNode }) {
@@ -24,6 +26,7 @@ export function PlatformVersion() {
   const { data, error, setData } = usePoll(envApi.version, [], 60000);
   const [target, setTarget] = useState<number>();
   const [failed, setFailed] = useState<string>();
+  const conexion = useConexion();
 
   // While it restarts the API stops answering; once it answers with the new
   // release, reload the page so the new UI loads too.
@@ -66,7 +69,7 @@ export function PlatformVersion() {
           {target ? (
             <span className="badge warn">{t("Updating… the page reloads when the new version answers")}</span>
           ) : (
-            <button className="sello" onClick={() => update(st.latest!.release)}>{t("Update")}</button>
+            <button className="sello" {...apagado(conexion)} onClick={() => update(st.latest!.release)}>{t("Update")}</button>
           )}
         </>
       )}
@@ -104,6 +107,7 @@ export function Publicada({ onlyNewer = false }: { onlyNewer?: boolean }) {
   const { data, setData } = usePoll(() => (session.operator ? envApi.published() : Promise.resolve(undefined as Published | undefined)), [], 30 * 60000);
   const [busy, setBusy] = useState<string>();
   const [failed, setFailed] = useState<string>();
+  const conexion = useConexion();
 
   // While it restarts it does not answer; once it answers in another version, reload so the new UI loads too.
   useEffect(() => {
@@ -143,7 +147,7 @@ export function Publicada({ onlyNewer = false }: { onlyNewer?: boolean }) {
       {l && !data.newer && <span className="sello puesto">{t("Up to date")} ✓</span>}
       {busy && <span className="badge warn">{t("Restarting in the other version… the page reloads when it answers")}</span>}
       {!busy && data.previous && (
-        <button className="sello" onClick={() => act("back", () => envApi.goBack())}>{t("Go back to {v}", { v: data.previous })}</button>
+        <button className="sello" {...apagado(conexion)} onClick={() => act("back", () => envApi.goBack())}>{t("Go back to {v}", { v: data.previous })}</button>
       )}
       {l && data.newer && (
         <>
@@ -151,7 +155,7 @@ export function Publicada({ onlyNewer = false }: { onlyNewer?: boolean }) {
           <span className={`badge ${data.onlyFix ? "ok" : "warn"}`}>{data.onlyFix ? t("fixes") : t("new features")}</span>
           {!l.firmada && <span className="badge bad">{t("not signed: rendimiento will not install it by itself")}</span>}
           {data.canInstall && !busy && (
-            <button className="sello" onClick={() => act("install", () => envApi.install(l.version))}>{t("Update to {v}", { v: l.version })}</button>
+            <button className="sello" {...apagado(conexion)} onClick={() => act("install", () => envApi.install(l.version))}>{t("Update to {v}", { v: l.version })}</button>
           )}
           {resumen(l.notas).length > 0 && (
             <ul className="small publicada-notas">{resumen(l.notas).map((n, i) => <li key={i}>{n}</li>)}</ul>

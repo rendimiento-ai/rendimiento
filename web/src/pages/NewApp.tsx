@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { api, catalogApi, EXAMPLE_URL, session, timeAgo, type CatalogEntry, type Installation, type Need, type Proposal, type Repo, type Service, type Size } from "../api";
 import { ErrorBox } from "../components/ui";
 import { t } from "../i18n";
+import { useConexion } from "../conexion";
+import { apagado } from "../components/conexion-aviso";
 
 const langBadge: Record<string, string> = { go: "Go", node: "JS", python: "Py", java: "Jv", static: "</>", docker: "🐳" };
 // Labels are translated where shown.
@@ -19,6 +21,7 @@ type Result = Awaited<ReturnType<typeof api.createApp>>;
  * services with their address, size, instances and needs (more options folded away), then the pull request (or a build right away).
  */
 export function NewApp() {
+  const conexion = useConexion();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [installs, setInstalls] = useState<{ installations: Installation[]; connectable: Installation[]; installURL: string }>();
   const [inst, setInst] = useState<number>();
@@ -328,7 +331,7 @@ export function NewApp() {
             </details>
 
             <div className="nueva-pie">
-              <button className="primary big" disabled={busy || !name} onClick={deploy}>
+              <button className="primary big" {...apagado(conexion, busy || !name)} onClick={deploy}>
                 {busy ? t("Working…") : adopt ? t("Migrate & deploy") : proposal.existing ? t("Deploy") : t("Open PR & deploy")}
               </button>
             </div>

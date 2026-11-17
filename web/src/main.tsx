@@ -16,10 +16,14 @@ import { Bienvenida, type BookLinks } from "./pages/Bienvenida";
 import { Avisos } from "./components/avisos";
 import { Campana } from "./components/campana";
 import { Dibujo, Hoja, useTelefono, type Altura } from "./components/navegacion";
-import { FallaFrontera, NoExiste } from "./components/falla";
+import { FallaFrontera, NoExiste, NoResponde, claseDe } from "./components/falla";
 import { Cargando } from "./components/cargando";
 import { perezosa } from "./components/perezosa";
+import { AvisoConexion } from "./components/conexion-aviso";
+import { olvidarGuardado, quienEs, registrarTrabajador } from "./trabajador/registro";
 import "./styles.css";
+
+registrarTrabajador(); // the page opens without a connection, from what this browser kept
 
 // The first screen (setup, welcome, Apps, the public form) comes with the
 // shell; every other page loads when it is opened.
@@ -48,17 +52,20 @@ const Members = perezosa(() => import("./pages/Members").then((m) => m.Members))
  * The app's frame: setup until the GitHub App exists, the welcome page until you sign in, then the menu and pages.
  */
 function Shell() {
-  const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; buzon?: boolean; sistema?: Sistema; configured?: boolean; book?: BookLinks; activity?: boolean; loading: boolean }>({ loading: true });
+  const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; buzon?: boolean; sistema?: Sistema; configured?: boolean; book?: BookLinks; activity?: boolean; loading: boolean; sinRespuesta?: boolean }>({ loading: true });
   const telefono = useTelefono();
   const [altura, setAltura] = useState<Altura>(0);
   useUso(!!state.login);
 
   useEffect(() => {
     (async () => {
-      const setup = await api.setupStatus().catch(() => ({ configured: false, book: undefined, activity: false }));
+      // Nothing answers and nothing was kept: say so (it comes back by itself), not the setup page.
+      const setup = await api.setupStatus().catch((e) => (claseDe(e) === "unreachable" ? null : { configured: false, book: undefined, activity: false }));
+      if (!setup) return setState({ loading: false, sinRespuesta: true });
       if (!setup.configured) return setState({ configured: false, loading: false });
       try {
         const me = await api.me();
+        quienEs(me.login, me.org?.name);
         session.operator = me.operator;
         session.role = me.role;
         session.cluster = !!me.cluster;
@@ -67,6 +74,7 @@ function Shell() {
         setState({ login: me.login, role: me.role, org: me.org, operator: me.operator, demo: me.demo, cluster: me.cluster, buzon: me.buzon,
           sistema: { version: me.version, modo: me.modo, os: me.os, arch: me.arch }, configured: true, loading: false });
       } catch (e) {
+        if (claseDe(e) === "unreachable") return setState({ loading: false, sinRespuesta: true });
         if (!(e instanceof ApiError && e.status === 401)) throw e;
         // GitHub brings the person back here once they chose the repositories (the GitHub App's setup URL, with
         // setup_action): signing in is what follows, so it starts without asking.
@@ -77,6 +85,7 @@ function Shell() {
   }, []);
 
   if (state.loading) return <div className="center muted">{t("Loading…")}</div>;
+  if (state.sinRespuesta) return <main><NoResponde /></main>;
 
   if (!state.configured) {
     return (
@@ -118,7 +127,7 @@ function Shell() {
       <MovimientoSwitch />
       <LangSwitch />
       <BanderaSwitch />
-      <button onClick={() => api.logout().then(() => location.assign("/"))}>{t("Sign out")}</button>
+      <button onClick={() => { olvidarGuardado(); api.logout().then(() => location.assign("/")); }}>{t("Sign out")}</button>
     </>
   );
 
@@ -137,6 +146,7 @@ function Shell() {
       </header>
       {telefono && <Hoja altura={altura} poner={setAltura} paginas={paginas} cuenta={cuenta} />}
       <main>
+        <AvisoConexion />
         <FallaFrontera version={state.sistema?.version} org={state.org?.name}>
         <Suspense fallback={<Cargando />}>
         <Routes>

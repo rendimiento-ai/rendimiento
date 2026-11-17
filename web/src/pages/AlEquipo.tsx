@@ -7,13 +7,19 @@ import { api, ApiError, timeAgo, type AlEquipo as Vista } from "../api";
 import { t } from "../i18n";
 import { usePoll } from "../components/ui";
 import { EsqCosa } from "../components/esqueleto";
+import { useConexion } from "../conexion";
+import { apagado, PorQueApagado } from "../components/conexion-aviso";
+import { BorradorGuardado, useBorrador } from "../components/borrador";
 
 const MAX = 2000;
 
 export function AlEquipo() {
   const { data, error, setData } = usePoll(() => api.alEquipo(), []);
   // A page that failed can open this one with its code already written (?texto=).
-  const [texto, setTexto] = useState(() => (new URLSearchParams(location.search).get("texto") ?? "").slice(0, MAX));
+  // What was being written is kept as a draft on this device, never sent by itself (components/borrador).
+  const borrador = useBorrador("al-equipo", (new URLSearchParams(location.search).get("texto") ?? "").slice(0, MAX), true);
+  const texto = borrador.texto;
+  const conexion = useConexion();
   const [enviando, setEnviando] = useState(false);
   const [fallo, setFallo] = useState("");
   const [listo, setListo] = useState(false);
@@ -25,7 +31,7 @@ export function AlEquipo() {
     try {
       const v: Vista = await api.escribirAlEquipo(texto);
       setData(v);
-      setTexto("");
+      borrador.limpiar();
       setListo(true);
     } catch (err) {
       const status = err instanceof ApiError ? err.status : 0;
@@ -54,9 +60,10 @@ export function AlEquipo() {
         <form className="buzon-carta" onSubmit={enviar}>
           <label>
             <span>{t("Your comment")}</span>
-            <textarea value={texto} onChange={(e) => { setTexto(e.target.value); setListo(false); }} maxLength={MAX} rows={6} required
+            <textarea value={texto} onChange={(e) => { borrador.poner(e.target.value); setListo(false); }} maxLength={MAX} rows={6} required
               placeholder={t("What would you like rendimiento to do, or what got in your way?")} />
             <span className="small muted buzon-cuenta">{texto.length.toLocaleString()} / {MAX.toLocaleString()}</span>
+            <BorradorGuardado si={borrador.guardado} />
           </label>
           <details>
             <summary className="small">{t("Exactly what will be sent")}</summary>
@@ -65,7 +72,8 @@ export function AlEquipo() {
           </details>
           {fallo && <p className="error" role="alert">{fallo}</p>}
           {listo && <p className="small" role="status">{t("Sent. The answer will come back here and to your bell.")}</p>}
-          <button className="btn primary" disabled={enviando || !texto.trim()}>{enviando ? t("Sending…") : t("Send")}</button>
+          <button className="btn primary" {...apagado(conexion, enviando || !texto.trim())}>{enviando ? t("Sending…") : t("Send")}</button>
+          <PorQueApagado />
         </form>
       )}
 

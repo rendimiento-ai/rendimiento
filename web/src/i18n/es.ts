@@ -2231,4 +2231,13 @@ export const es: Record<string, string> = {
   "Every line rendimiento's own processes (api, control, worker, agents, traces) wrote at INFO and above, in one place: a restart no longer loses them. Requests slower than a second and answers that failed (5xx) are noted with their route. Lines are kept for 30 days. Secrets are removed before a line is kept: values that look like tokens, passwords or keys, and every attribute whose name says it holds one.": "Cada línea que escribieron los procesos de rendimiento (api, control, worker, agents, traces) en nivel INFO o superior, en un solo lugar: un reinicio ya no las pierde. Las solicitudes que tardan más de un segundo y las respuestas que fallaron (5xx) se anotan con su ruta. Las líneas se guardan 30 días. Los secretos se quitan antes de guardar una línea: los valores que parecen fichas, contraseñas o llaves, y todo atributo cuyo nombre dice que guarda uno.",
   "Warnings and errors, grouped, are on the Problems page.": "Los avisos y errores, agrupados, están en la página de Problemas.",
   "The platform's whole log": "El registro completo de la plataforma",
+  // Without a connection (conexion.ts, components/conexion-aviso.tsx).
+  "Without a connection: nothing was sent. Try again when it is back.": "Sin conexión: no se envió nada. Vuelva a intentarlo cuando regrese.",
+  "There is a new version of rendimiento.": "Hay una versión nueva de rendimiento.",
+  "It loads when you reload the page.": "Se carga cuando usted vuelva a cargar la página.",
+  "Without a connection.": "Sin conexión.",
+  "You see what there was {when}.": "Usted ve lo que había {when}.",
+  "It catches up by itself when it is back.": "Se pondrá al día sola cuando vuelva.",
+  "Without a connection: actions that change something wait until it is back, and are never sent later by themselves.": "Sin conexión: las acciones que cambian algo esperan a que vuelva, y nunca se envían solas después.",
+  "Draft kept on this device": "Borrador guardado en este dispositivo",
 };

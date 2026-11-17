@@ -126,6 +126,10 @@ type Server struct {
 	// is Umami's public address, for links.
 	Analytics    Analytics
 	AnalyticsURL string
+	// NoServiceWorker serves, at /sw.js, a worker that throws away what the
+	// browser kept and unregisters itself (SERVICE_WORKER=off): the page then
+	// opens only with a connection, as before.
+	NoServiceWorker bool
 	// Tracker is Umami's script tag for rendimiento's own pages (TrackerTag;
 	// empty: its visits are not counted).
 	Tracker string
@@ -1928,6 +1932,29 @@ func (s *Server) ui() http.Handler {
 			w.Header().Set("Cache-Control", "no-store")
 			http.NotFound(w, r)
 			return
+		}
+		// The service worker, the manifest and the icons, at the root and asked for again each time, so a new
+		// build (or the switch below) is seen at the browser's next check.
+		switch p {
+		case "sw.js":
+			w.Header().Set("Cache-Control", "no-cache")
+			if s.NoServiceWorker || err != nil {
+				w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+				w.Header().Set("X-Rendimiento-Trabajador", "retirado")
+				if r.Method != http.MethodHead {
+					io.WriteString(w, workerRetirado)
+				}
+				return
+			}
+		case "manifest.webmanifest":
+			if err == nil {
+				w.Header().Set("Cache-Control", "no-cache")
+				w.Header().Set("Content-Type", "application/manifest+json")
+			}
+		case "icono.svg", "icono-mascara.svg", "icono-180.png", "icono-512.png":
+			if err == nil {
+				w.Header().Set("Cache-Control", "no-cache")
+			}
 		}
 		if p == "" || p == "index.html" || err != nil {
 			r = r.Clone(r.Context())

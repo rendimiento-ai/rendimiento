@@ -8,6 +8,8 @@ import { api, session, timeAgo, type Problem } from "../api";
 import { ErrorBox, usePoll } from "../components/ui";
 import { locale, t, tn } from "../i18n";
 import { EsqListaDetalle, Esqueleto, Hueso } from "../components/esqueleto";
+import { useConexion } from "../conexion";
+import { apagado } from "../components/conexion-aviso";
 import { anotar } from "../uso";
 
 // The top bar's link lives apart, so the shell does not carry this page.
@@ -195,6 +197,7 @@ function AskAgent({ p, appKnown }: { p: Problem; appKnown: boolean }) {
 /** One problem, in full: what happened, what to do, its 30 days, the buttons and the technical detail. */
 function ProblemDetail({ p, open, appKnown, onDismiss }: { p: Problem; open: boolean; appKnown: boolean; onDismiss: () => void }) {
   const [busy, setBusy] = useState(false);
+  const conexion = useConexion();
   const tone = toneOf(p);
   const hint = hintFor(p.message);
   return (
@@ -228,7 +231,7 @@ function ProblemDetail({ p, open, appKnown, onDismiss }: { p: Problem; open: boo
       {open && (
         <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
           <AskAgent p={p} appKnown={appKnown} />
-          <button disabled={busy} title={t("Hide it until it happens again")}
+          <button {...apagado(conexion, busy, t("Hide it until it happens again"))}
             onClick={() => { anotar("dismiss_problem"); setBusy(true); api.dismissProblem(p.id).then(onDismiss, (e) => { setBusy(false); alert(e.message); }); }}>
             {t("Dismiss")}
           </button>

@@ -1,8 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { construirTrabajador } from "./src/trabajador/construir.ts";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), construirTrabajador()], // sw.js: the page opens without a connection (src/trabajador)
   server: { proxy: { "/api": "http://localhost:8080" } },
   // three.js (the Universe in 3D) is its own file of about 600 kB, loaded only when 3D is chosen.
   // Each page is its own file too (main.tsx); React and the router, which change seldom, one of their own,

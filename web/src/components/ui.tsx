@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AppStatus, ResourceNode, Run, Step } from "../api";
 import { t } from "../i18n";
+import { DE_VUELTA } from "../conexion";
 
 type Tone = "ok" | "warn" | "bad" | "idle";
 
@@ -65,9 +66,12 @@ export function usePoll<T>(load: () => Promise<T>, deps: unknown[], intervalMs =
       );
     go();
     const t = intervalMs ? setInterval(go, intervalMs) : undefined;
+    // When the connection is back, at once: what was kept on screen catches up (conexion.ts).
+    window.addEventListener(DE_VUELTA, go);
     return () => {
       alive = false;
       if (t) clearInterval(t);
+      window.removeEventListener(DE_VUELTA, go);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick]);
