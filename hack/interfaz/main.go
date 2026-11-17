@@ -37,6 +37,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
 	"github.com/rendimiento-ai/rendimiento/internal/api"
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
 	"github.com/rendimiento-ai/rendimiento/internal/events"
@@ -121,7 +122,15 @@ func run(addr, ui, estado string, log *slog.Logger) error {
 		Store: st, GitHub: holder, Generator: generate.Templates{}, Hub: events.NewHub(), Log: log,
 		Config: platform.Config{Registry: "localhost:5000", BaseURL: base},
 	}
+	// Live settings, as every real process has: the pages that read them
+	// (the AI page's local model) answer here as they do there.
+	settings := &ajustes.Holder{Store: st, Boot: ajustes.FromEnv(func(string) string { return "" }), Log: log}
+	if err := settings.Start(); err != nil {
+		return err
+	}
+	go settings.Run(ctx)
 	srv := &api.Server{
+		Settings: settings,
 		Platform: p, Store: st, GitHub: holder, Credentials: &credenciales{c: &creds}, DNS: dns.Noop{}, Log: log,
 		BaseURL: base, AllowedUsers: []string{persona}, SetupToken: "pruebas", AppName: creds.Slug, UI: os.DirFS(ui),
 		IA: &ia.Gateway{Store: st, LocalModel: ia.DefaultLocalModel, PlatformModel: ia.DefaultAnthropicModel},
