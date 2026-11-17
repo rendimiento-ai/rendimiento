@@ -37,6 +37,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rendimiento-ai/rendimiento/internal/agentes"
 	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
 	"github.com/rendimiento-ai/rendimiento/internal/api"
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
@@ -144,6 +145,12 @@ func run(addr, ui, estado string, log *slog.Logger, central *registrocentral.Rec
 		Senales:        &senales.Enviador{Store: st, URL: "http://127.0.0.1:1/nadie", Version: "0.0.0-e2e", Modo: "local", Motor: "docker"},
 		SenalesRecibir: true,
 	}
+	// The lookout, with a fake model (no AI is called) and a week the
+	// log remembers: three repeated lines for it to find.
+	srv.Vigia = &agentes.Vigia{Store: st, Model: modeloVigia{}, Lang: "en", Log: log}
+	if err := semanaDelVigia(ctx, st); err != nil {
+		return err
+	}
 	cookie, err := srv.Session(ctx, persona, 24*time.Hour)
 	if err != nil {
 		return err
@@ -165,6 +172,45 @@ func run(addr, ui, estado string, log *slog.Logger, central *registrocentral.Rec
 	fmt.Printf("interfaz: listening on %s, signed in as %s (%s)\n", base, persona, estado)
 	log.Info("the browser tests' rendimiento is listening", "addr", addr, "login", persona)
 	return http.Serve(ln, srv.Handler())
+}
+
+// semanaDelVigia writes lines of a past week to the platform's log, so the
+// lookout always has something to find.
+func semanaDelVigia(ctx context.Context, st *store.Store) error {
+	var lines []store.LogLine
+	at := time.Now().Add(-time.Hour)
+	for i, l := range []struct {
+		level, process, msg string
+		n                   int
+	}{{"WARN", "control", "e2e: the registry did not answer", 12}, {"WARN", "worker", "e2e: a webhook came late", 8}, {"ERROR", "worker", "e2e: a push was refused", 2}} {
+		for j := range l.n {
+			lines = append(lines, store.LogLine{At: at.Add(-time.Duration(i*24+j) * time.Hour), Level: l.level, Process: l.process, Message: l.msg})
+		}
+	}
+	return st.AddLogLines(ctx, lines)
+}
+
+// modeloVigia is the lookout's fake model: a finding for each of the first
+// three signals it is given, the third with no work suggested.
+type modeloVigia struct{}
+
+func (modeloVigia) Complete(_ context.Context, _ int64, _ string, req ia.Request) (ia.Response, error) {
+	var out []map[string]any
+	for _, line := range strings.Split(req.Messages[0].Content, "\n") {
+		if !strings.HasPrefix(line, "- [") || len(out) == 3 {
+			continue
+		}
+		clave, texto, ok := strings.Cut(strings.TrimPrefix(line, "- ["), "] ")
+		if !ok {
+			continue
+		}
+		if r := []rune(texto); len(r) > 90 {
+			texto = string(r[:90])
+		}
+		out = append(out, map[string]any{"clave": clave, "titulo": "Seen: " + texto, "evidencia": "test evidence · " + clave, "accionable": len(out) < 2})
+	}
+	b, err := json.Marshal(out)
+	return ia.Response{Text: string(b), Provider: store.AILocal, Model: "fake"}, err
 }
 
 // guardarEstado writes Playwright's storage state: the session cookie.
