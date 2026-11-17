@@ -76,6 +76,11 @@ const hints: Record<string, Hint> = {
     what: () => t("An alert email could not be sent."),
     todo: () => t("Check the mail server rendimiento sends through, as the detail says. Once an email is sent, the problem is marked resolved."),
   },
+  "Renovate could not update a lockfile": {
+    es: "Renovate no pudo actualizar un archivo de bloqueo",
+    what: () => t("Renovate changed a dependency on a branch but could not regenerate its lockfile (package-lock.json, poetry.lock…), so the branch changes only the manifest and the app's build fails on the stale lockfile. The detail has the tool's error; the attributes name the repository, branch and file."),
+    todo: () => t("Fix what the error says in the app's repository (a peer-dependency conflict, a version that does not exist, a private registry Renovate cannot reach). Then tick the rebase box in the pull request, or in the Dependency Dashboard: Renovate does not retry a branch's lockfile by itself."),
+  },
   "notification dropped: hourly email limit reached": {
     what: () => t("More alert emails were due in one hour than the limit allows, so this one was not sent."),
     todo: () => t("Usually nothing: the limit keeps a burst of alerts from filling your inbox. If it happens often, look at which alerts keep repeating."),

@@ -1,6 +1,7 @@
 package agentes
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -11,6 +12,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
@@ -91,7 +93,8 @@ const (
 	maxTurns    = 80
 	runWait     = 50 * time.Minute
 	noRunWait   = 5 * time.Minute // for the push to start a run
-	maxFileSize = 256 << 10
+	maxFileSize = 256 << 10       // a file in the branch's snapshot (listed and searched)
+	maxBigFile  = 8 << 20         // a bigger one (a lockfile), read only when a tool names it
 	readChars   = 40_000
 	maxMatches  = 120
 	minBudget   = 300_000 // 30 cents, for an encargo with no estimate
@@ -381,7 +384,7 @@ How to work:
 var coderTools = []ia.Tool{
 	{Name: "list_files", Description: "List the repository's files under a folder (all of them when it is empty), optionally only those whose name matches a glob like *.go.",
 		InputSchema: schema(map[string]any{"folder": str("a folder, like web/src; empty for all"), "glob": str("a name pattern, like *.tsx")})},
-	{Name: "read_file", Description: "Read a file as it is now on your branch (with your changes), whole or from line to line; with ref, as it is on another branch or commit (the default branch, say).",
+	{Name: "read_file", Description: "Read a file as it is now on your branch (with your changes), whole or from line to line; with ref, as it is on another branch or commit (the default branch, say). Files over 256 KB (a package-lock.json, say) are not listed or searched, but can be read and edited by their path.",
 		InputSchema: schema(map[string]any{"path": str("the file's path"), "from_line": num("first line, from 1"), "to_line": num("last line"), "ref": str("a branch or commit; empty for yours")}, "path")},
 	{Name: "search", Description: "Search the repository's files for a regular expression (Go syntax); answers path:line: text, up to 120 matches.",
 		InputSchema: schema(map[string]any{"pattern": str("a regular expression"), "folder": str("only under this folder")}, "pattern")},
@@ -425,6 +428,14 @@ func (j *job) tool(ctx context.Context, call ia.ToolCall) (string, bool) {
 		return "the input is not valid JSON: " + err.Error(), true
 	}
 	in.Path = strings.TrimPrefix(path.Clean("/"+in.Path), "/")
+	switch call.Name {
+	case "read_file", "edit_file", "delete_file":
+		if in.Ref == "" || call.Name != "read_file" {
+			if msg := j.fetchBig(ctx, in.Path); msg != "" {
+				return msg, true
+			}
+		}
+	}
 	switch call.Name {
 	case "list_files":
 		return j.list(in.Folder, in.Glob), false
@@ -470,6 +481,38 @@ func (j *job) tool(ctx context.Context, call ia.ToolCall) (string, bool) {
 		return "given back", false
 	}
 	return "no such tool: " + call.Name, true
+}
+
+// fetchBig brings in a file the branch's snapshot left out for its size
+// (Files skips those over maxFileSize), so read_file and edit_file find it
+// by its path. It answers why it could not, or "" (also when there is no
+// such file: the tool then says so).
+func (j *job) fetchBig(ctx context.Context, p string) string {
+	if p == "" || j.removed[p] {
+		return ""
+	}
+	if _, ok := j.changed[p]; ok {
+		return ""
+	}
+	if _, ok := j.files[p]; ok {
+		return ""
+	}
+	f, err := j.c.Repos.FileAt(ctx, j.app.InstallationID, j.app.Repo, p, j.branch)
+	switch {
+	case gh.IsNotFound(err):
+		return ""
+	case err != nil:
+		return fmt.Sprintf("could not read %s: %v", p, err)
+	case len(f) > maxBigFile:
+		return fmt.Sprintf("%s has %d bytes, more than the %d MB a file may have here", p, len(f), maxBigFile>>20)
+	case !utf8.Valid(f) || bytes.ContainsRune(f, 0):
+		return p + " is not a text file"
+	}
+	if j.files == nil {
+		j.files = map[string][]byte{}
+	}
+	j.files[p] = f
+	return ""
 }
 
 // file is a file as it is now: with the changes, without the removed.

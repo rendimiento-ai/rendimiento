@@ -395,6 +395,7 @@ var catalog = map[string]string{
 	"not ready": "no está listo",
 	"nothing under %s changed since release #%d":                                "nada cambió en %s desde la versión n.º %d",
 	"notification email failed":                                                 "falló el correo de notificación",
+	"Renovate could not update a lockfile": "Renovate no pudo actualizar un archivo de bloqueo",
 	"NOTIFY_EMAIL_TO is set but there is no RESEND_API_KEY, so nothing is sent": "NOTIFY_EMAIL_TO está configurado, pero no hay RESEND_API_KEY, así que no se envía nada",
 	"email notifications are not set up: set NOTIFY_EMAIL_TO and RESEND_API_KEY": "las notificaciones por correo no están configuradas: defina NOTIFY_EMAIL_TO y RESEND_API_KEY",
 	"no such request":    "no existe esa solicitud",
