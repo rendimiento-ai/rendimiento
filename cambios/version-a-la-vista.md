@@ -1,1 +1,0 @@
-- **Version:** the foot of every page says which rendimiento runs: its version (or commit), the system (as in `Linux arm64`) and whether it is on a computer or on a Kubernetes cluster.
