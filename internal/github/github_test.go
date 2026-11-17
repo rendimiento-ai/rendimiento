@@ -392,3 +392,34 @@ func TestCommitMergeKeepsModes(t *testing.T) {
 		}
 	}
 }
+
+// A file over 1 MB comes from the contents API without its content; it is
+// read from its blob.
+func TestFileAtLargeFileFromItsBlob(t *testing.T) {
+	big := strings.Repeat(`{"name":"web","lockfileVersion":3}`+"\n", 40_000) // ~1.4 MB
+	a, _ := newApp(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/access_tokens"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"token": "t", "expires_at": time.Now().Add(time.Hour)})
+		case r.URL.Path == "/repos/o/r/contents/package-lock.json" && r.URL.Query().Get("ref") == "renovate/react":
+			_ = json.NewEncoder(w).Encode(map[string]any{"type": "file", "encoding": "none", "content": "", "size": len(big), "sha": "b10b"})
+		case r.URL.Path == "/repos/o/r/contents/small.txt":
+			_ = json.NewEncoder(w).Encode(map[string]any{"type": "file", "encoding": "base64", "content": base64.StdEncoding.EncodeToString([]byte("hola")), "size": 4, "sha": "5a11"})
+		case r.URL.Path == "/repos/o/r/git/blobs/b10b":
+			_ = json.NewEncoder(w).Encode(map[string]any{"encoding": "base64", "content": base64.StdEncoding.EncodeToString([]byte(big)), "size": len(big)})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	c := a.Client(7)
+	got, err := c.FileAt(context.Background(), "o/r", "package-lock.json", "renovate/react")
+	if err != nil || string(got) != big {
+		t.Fatalf("large file: %d bytes, %v", len(got), err)
+	}
+	if got, err := c.FileAt(context.Background(), "o/r", "small.txt", "main"); err != nil || string(got) != "hola" {
+		t.Fatalf("small file: %q, %v", got, err)
+	}
+	if _, err := c.FileAt(context.Background(), "o/r", "missing.txt", "main"); !IsNotFound(err) {
+		t.Fatalf("missing file: %v", err)
+	}
+}

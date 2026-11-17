@@ -31,6 +31,19 @@ The current configuration auto-merges **patch and minor** updates once rendimien
 
 Renovate's first request for each repository reads its issues (the Dependency Dashboard), so the App needs **Issues: Read and write** and **Commit statuses: Read-only** in addition to contents, pull requests and checks. The Add-ons page lists anything missing and links to where to grant it; runs do not start until the installation has accepted it.
 
+With only read access to commit statuses, rendimiento tells Renovate not to set its own (`renovate/artifacts`, `renovate/stability-days`, `renovate/merge-confidence`, `renovate/config-validation`): setting one fails, and Renovate then abandons the whole repository as `repository-changed`. rendimiento's own checks are what gate a merge. An installation granted **Commit statuses: Read and write** keeps Renovate's statuses.
+
+## Lockfiles
+
+When Renovate changes a dependency it also regenerates the lockfile beside it (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `go.sum`…): the Renovate image installs the right tool (node and npm, Python and Poetry…) inside the pod as it needs it and runs it there. For that the pod needs nothing more than the build namespace already allows: the internet (the package registries and the tools' downloads) and a writable `/tmp`.
+
+If the tool fails (a peer-dependency conflict, a version that does not exist, a private registry the pod cannot reach), Renovate still opens the pull request with only the manifest changed, and comments the tool's error on it under *Artifact update problem*. The app's build then fails on the stale lockfile (`npm ci`: *lock file … does not satisfy …*). rendimiento keeps each such error:
+
+- in the run's results, per repository (`artifactErrors`: branch, file and the tool's error lines), shown under the run on the Add-ons page and on the app's page;
+- on the **Problems** page, as *Renovate could not update a lockfile*, with the app, repository, branch and file.
+
+Fix the cause in the app's repository, then tick the rebase/retry box in the pull request (or in the Dependency Dashboard): Renovate does not retry a branch's lockfile by itself until the manifest needs another change.
+
 ## Branches left by an earlier Renovate
 
 Renovate only touches branches its own identity created. Branches from an earlier setup (a personal token) look *edited by someone else*: they are skipped **and** still count toward the limit on open branches, which can stop all new PRs. Delete them (their commits can be restored from their SHAs), or add `ignorePrAuthor: true` and `gitIgnoredAuthors: [<old author email>]` to the config to adopt them.

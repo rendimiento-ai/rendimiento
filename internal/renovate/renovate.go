@@ -361,6 +361,7 @@ func (r *Runner) execute(ctx context.Context, run *store.AddonRun, s Settings, t
 			notes = append(notes, err.Error())
 		}
 	}
+	r.warnArtifactErrors(results)
 	msg := summarize(results)
 	if len(notes) > 0 {
 		msg = strings.Join(append(notes, msg), "; ")
@@ -369,6 +370,39 @@ func (r *Runner) execute(ctx context.Context, run *store.AddonRun, s Settings, t
 		r.Log.Error("renovate: record run", "run", run.ID, "err", err)
 	}
 	r.Log.Info("renovate run finished", "run", run.ID, "status", status, "message", msg)
+}
+
+// warnArtifactErrors puts every lockfile Renovate could not update on the
+// Problems page, with the app it belongs to.
+func (r *Runner) warnArtifactErrors(results map[string]json.RawMessage) {
+	apps := map[string]string{}
+	if r.Store != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		if list, err := r.Store.AppsWithAddon(ctx, Name); err == nil {
+			for _, a := range list {
+				apps[strings.ToLower(a.Repo)] = a.Name
+			}
+		}
+		cancel()
+	}
+	repos := make([]string, 0, len(results))
+	for repo := range results {
+		repos = append(repos, repo)
+	}
+	sort.Strings(repos)
+	for _, repo := range repos {
+		var res RepoResult
+		if json.Unmarshal(results[repo], &res) != nil {
+			continue
+		}
+		for _, a := range res.ArtifactErrors {
+			attrs := []any{"component", "renovate", "repo", repo, "branch", a.Branch, "file", a.File, "err", a.Error}
+			if app := apps[strings.ToLower(repo)]; app != "" {
+				attrs = append(attrs, "app", app)
+			}
+			r.Log.Warn(MsgArtifactError, attrs...)
+		}
+	}
 }
 
 // required are the GitHub App permissions Renovate needs: it reads each
@@ -426,7 +460,29 @@ type RepoResult struct {
 	PRs        []string `json:"prs,omitempty"`    // PRs created
 	Automerged []string `json:"automerged,omitempty"`
 	Errors     []string `json:"errors,omitempty"`
+	// ArtifactErrors are the lockfiles (package-lock.json, poetry.lock…)
+	// Renovate could not regenerate: its branch then changes only the
+	// manifest, and the app's build fails on the stale lockfile.
+	ArtifactErrors []ArtifactError `json:"artifactErrors,omitempty"`
 }
+
+// ArtifactError is one lockfile Renovate could not update on one branch.
+type ArtifactError struct {
+	Branch string `json:"branch,omitempty"`
+	File   string `json:"file,omitempty"`
+	Error  string `json:"error,omitempty"` // the tool's first error lines
+}
+
+// MsgArtifactError is the platform's warning (on the Problems page) when
+// Renovate could not regenerate a lockfile; internal/i18n has its Spanish.
+const MsgArtifactError = "Renovate could not update a lockfile"
+
+// Bounds on what a run keeps of artifact errors.
+const (
+	maxArtifactErrors = 10 // per repository
+	maxErrorLines     = 12 // of a tool's output
+	maxErrorBytes     = 1500
+)
 
 // summarize is a run's one line: pull requests opened, merged by itself,
 // and repositories that failed.
@@ -473,6 +529,7 @@ func (r *Runner) runPod(ctx context.Context, runID int64, t target, s Settings, 
 	if missing := MissingPermissions(perms); len(missing) > 0 {
 		return nil, "", "", fmt.Errorf("the GitHub App needs more permissions: %s", strings.Join(missing, ", "))
 	}
+	extraEnv = append(extraEnv, statusChecksEnv(perms)...)
 	reposJSON, _ := json.Marshal(t.repos)
 	name := fmt.Sprintf("renovate-%d-%d", runID, t.installation)
 	labels := map[string]string{"app.kubernetes.io/managed-by": "rendimiento", "rendimiento.ai/addon": Name}
@@ -501,6 +558,25 @@ func (r *Runner) runPod(ctx context.Context, runID int64, t target, s Settings, 
 		return results, log, note, fmt.Errorf("renovate exited with an error (see the log)")
 	}
 	return results, log, note, nil
+}
+
+// statusChecksOff switches off the commit statuses Renovate sets itself
+// (renovate/artifacts, renovate/stability-days, renovate/merge-confidence,
+// renovate/config-validation): a null name skips the status.
+const statusChecksOff = `{"artifactError":null,"configValidation":null,"mergeConfidence":null,"minimumReleaseAge":null}`
+
+// statusChecksEnv is what an installation that may only read commit
+// statuses needs. Renovate sets a red renovate/artifacts status on a branch
+// whose lockfile it could not update; without write access that call fails,
+// Renovate stops the whole repository as "repository-changed" right after
+// opening the pull request, and never logs the lockfile's error nor
+// comments it on the pull request. rendimiento's own checks gate merges, so
+// these statuses are not needed; an installation granted write keeps them.
+func statusChecksEnv(perms map[string]string) []corev1.EnvVar {
+	if perms["statuses"] == "write" {
+		return nil
+	}
+	return []corev1.EnvVar{{Name: "RENOVATE_STATUS_CHECK_NAMES", Value: statusChecksOff}}
 }
 
 // pod is the Renovate pod: its configuration and token from a secret of
@@ -672,8 +748,75 @@ func Parse(rd io.Reader, repos []string) (string, map[string]*RepoResult) {
 		if e.Level >= 50 {
 			res.Errors = append(res.Errors, text)
 		}
+		if e.Level >= 40 && (e.Msg == "artifactErrors" || e.Msg == "Branch not created because artifact update failed") {
+			addArtifactErrors(res, e.Branch, line)
+		}
 	}
 	return out.String(), results
+}
+
+// addArtifactErrors reads the lockfiles a warning says Renovate could not
+// update: "artifactErrors" (a pull request was opened or updated anyway) has
+// them in artifactErrors, "Branch not created because artifact update
+// failed" in errors. Each is {fileName, stderr} (lockFile in older
+// versions). Repeats of a branch and file are kept once.
+func addArtifactErrors(res *RepoResult, branch, line string) {
+	var f struct {
+		ArtifactErrors []rawArtifactError `json:"artifactErrors"`
+		Errors         []rawArtifactError `json:"errors"`
+	}
+	if json.Unmarshal([]byte(line), &f) != nil {
+		return
+	}
+	for _, a := range append(f.ArtifactErrors, f.Errors...) {
+		file := firstNonEmpty(a.FileName, a.LockFile)
+		dup := false
+		for _, have := range res.ArtifactErrors {
+			dup = dup || (have.Branch == branch && have.File == file)
+		}
+		if dup || len(res.ArtifactErrors) >= maxArtifactErrors {
+			continue
+		}
+		res.ArtifactErrors = append(res.ArtifactErrors, ArtifactError{Branch: branch, File: file, Error: errorLines(a.Stderr)})
+	}
+}
+
+type rawArtifactError struct {
+	FileName string `json:"fileName"`
+	LockFile string `json:"lockFile"`
+	Stderr   string `json:"stderr"`
+}
+
+// errorLines keeps what says why a tool failed: the lines that mention an
+// error (npm prints many warnings first), or else the first lines, bounded.
+func errorLines(stderr string) string {
+	var all, errs []string
+	for _, l := range strings.Split(stderr, "\n") {
+		l = strings.TrimRight(l, " \t\r")
+		if strings.TrimSpace(l) == "" {
+			continue
+		}
+		all = append(all, l)
+		if low := strings.ToLower(l); strings.Contains(low, "err") || strings.Contains(low, "fail") || strings.Contains(low, "conflict") || strings.Contains(low, "could not") {
+			errs = append(errs, l)
+		}
+	}
+	keep := errs
+	if len(keep) == 0 {
+		keep = all
+	}
+	more := len(keep) > maxErrorLines
+	if more {
+		keep = keep[:maxErrorLines]
+	}
+	s := strings.Join(keep, "\n")
+	if len(s) > maxErrorBytes {
+		s, more = strings.ToValidUTF8(s[:maxErrorBytes], ""), true
+	}
+	if more {
+		s += "\n…"
+	}
+	return s
 }
 
 // standardFields are rendered already (or are noise) in a formatted line.

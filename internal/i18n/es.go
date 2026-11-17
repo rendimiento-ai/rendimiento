@@ -395,6 +395,7 @@ var catalog = map[string]string{
 	"not ready": "no está listo",
 	"nothing under %s changed since release #%d":                                "nada cambió en %s desde la versión n.º %d",
 	"notification email failed":                                                 "falló el correo de notificación",
+	"Renovate could not update a lockfile": "Renovate no pudo actualizar un archivo de bloqueo",
 	"NOTIFY_EMAIL_TO is set but there is no RESEND_API_KEY, so nothing is sent": "NOTIFY_EMAIL_TO está configurado, pero no hay RESEND_API_KEY, así que no se envía nada",
 	"email notifications are not set up: set NOTIFY_EMAIL_TO and RESEND_API_KEY": "las notificaciones por correo no están configuradas: defina NOTIFY_EMAIL_TO y RESEND_API_KEY",
 	"no such request":    "no existe esa solicitud",
@@ -660,4 +661,16 @@ var catalog = map[string]string{
 	"not an action the interface notes":       "no es una acción que la interfaz anote",
 	"the period is 7, 14 or 30 days":          "el periodo es de 7, 14 o 30 días",
 	"say whether it is on: {\"encendido\": true}": "diga si está encendido: {\"encendido\": true}",
+
+	// The UI's error pages, on the Problems page (internal/api/fallas.go).
+	"page not found": "página no encontrada",
+	"page refused: no access": "página rechazada: sin acceso",
+	"a page failed to show": "una página falló al mostrarse",
+	"the UI could not reach rendimiento": "la interfaz no pudo comunicarse con rendimiento",
+	"too many reports for now": "demasiados avisos por ahora",
+	"not a report": "no es un aviso",
+	"unknown kind of page": "tipo de página desconocido",
+	"a page's path starts with / and has at most 300 characters": "la ruta de una página empieza con / y tiene como máximo 300 caracteres",
+	"not a version": "no es una versión",
+	"not a code": "no es un código",
 }

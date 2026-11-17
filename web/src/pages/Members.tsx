@@ -4,8 +4,10 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api, session, timeAgo, type MemberRole, type Org } from "../api";
 import { ErrorBox, usePoll } from "../components/ui";
 import { t } from "../i18n";
+import { memberRoleLabel } from "../components/cuenta";
 
-export const memberRoleLabel: Record<MemberRole, string> = { guest: "Guest", collaborator: "Collaborator", admin: "Administrator" };
+// The shell shows these too: they live in components/cuenta, apart from this page.
+export { memberRoleLabel, OrgSwitch } from "../components/cuenta";
 
 const roleHelp: Record<MemberRole, string> = {
   guest: "sees everything: apps, runs, logs, the Universe and the Ruta",
@@ -220,22 +222,6 @@ function AddMember({ onDone, onCancel }: { onDone: (login: string) => void; onCa
       </div>
       <p className="small muted" style={{ margin: 0 }}>{t("They sign in with GitHub at this same address.")}</p>
     </main>
-  );
-}
-
-/**
- * The organization the person works in, as a choice in the top bar when
- * they belong to more than one; choosing another reloads the page in it.
- */
-export function OrgSwitch({ current }: { current?: Org }) {
-  const { data } = usePoll(api.orgs, [], 0);
-  if (!current || !data || data.length < 2) return null;
-  return (
-    <select className="org-switch" aria-label={t("Organization")} value={current.id} onChange={(e) => {
-      api.switchOrg(Number(e.target.value)).then(() => location.assign("/"), (err: Error) => alert(err.message));
-    }}>
-      {data.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-    </select>
   );
 }
 

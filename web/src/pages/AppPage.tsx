@@ -12,6 +12,7 @@ import { MesaTab } from "../components/mesa";
 import { LoUltimo, Rama, VerifyBadge, verifyBadge } from "../components/lo-ultimo";
 import { anotar } from "../uso";
 import { AppProblems } from "./Problems";
+import { Falla, NoExiste } from "../components/falla";
 import { outsideWhy } from "../components/barda";
 import { Flor, LluviaDePetalos } from "../components/ambiente";
 import { t, tn } from "../i18n";
@@ -48,7 +49,9 @@ export function AppPage() {
 
   useEffect(() => subscribe(`/api/apps/${name}/events`, { run: reload, release: reload }), [name]);
 
-  if (error) return <ErrorBox error={error} />;
+  // The page is about the app: one that is not there, or not for this account, is a page of its own.
+  if (error) return <Falla error={error} reintentar={reload} />;
+  if (asked && !tabs.some((tb) => tb.id === asked)) return <NoExiste />;
   if (!app) return <p className="muted">{t("Loading…")}</p>;
 
   const caida = (app.down?.length ?? 0) > 0 || app.status.phase === "Error" || app.status.phase === "Degraded";
@@ -371,6 +374,7 @@ function DependencyUpdates({ name }: { name: string }) {
               {res?.prs?.length ? <span>{tn(res.prs.length, "opened {n} PR", "opened {n} PRs")}</span> : null}
               {res?.automerged?.length ? <span>{t("merged {n}", { n: res.automerged.length })}</span> : null}
               {res?.errors?.length ? <span style={{ color: "var(--bad)" }}>{res.errors[0]}</span> : null}
+              {res?.artifactErrors?.length ? <span style={{ color: "var(--bad)" }}>{t("could not update {file} on {branch}", { file: res.artifactErrors[0].file ?? "?", branch: res.artifactErrors[0].branch ?? "?" })}</span> : null}
             </>
           ) : <span className="muted">{t("Not run yet for this app.")}</span>}
           <a href={r.prsUrl} target="_blank" rel="noreferrer">{t("Open update PRs ↗")}</a>

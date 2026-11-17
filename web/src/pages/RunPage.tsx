@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, dollars, duration, session, subscribe, timeAgo, type App, type Diagnosis, type Run, type Step } from "../api";
-import { ErrorBox, RunBadge } from "../components/ui";
+import { RunBadge } from "../components/ui";
+import { Falla, NoExiste } from "../components/falla";
 import { lang, t, tn } from "../i18n";
 import { TextoConFormato } from "../components/texto";
 import { Rama } from "../components/lo-ultimo";
@@ -14,6 +15,7 @@ export function RunPage() {
   const runId = Number(id);
   const [run, setRun] = useState<Run>();
   const [error, setError] = useState<unknown>();
+  const [vuelta, setVuelta] = useState(0); // bumped to load the run again after rendimiento did not answer
   const [selected, setSelected] = useState<string>();
   const [logs, setLogs] = useState<Record<string, string>>({});
   const [diagnosis, setDiagnosis] = useState<Diagnosis | null>();
@@ -50,7 +52,7 @@ export function RunPage() {
       step: (e: PasoEnVivo) => setRun((cur) => cur && { ...cur, steps: cur.steps?.map((x) => (x.id === e.id ? enVivo(x, e) : x)) }),
       log: (l: { step: string; text: string }) => setLogs((cur) => ({ ...cur, [l.step]: (cur[l.step] ?? "") + l.text })),
     }, () => recargar(true));
-  }, [runId, recargar]);
+  }, [runId, recargar, vuelta]);
   const anda = run?.status === "queued" || run?.status === "running";
   useEffect(() => {
     const visto = () => { if (document.visibilityState === "visible") recargar(true); };
@@ -92,7 +94,9 @@ export function RunPage() {
     if (el && follow.current) el.scrollTop = el.scrollHeight;
   }, [logs, selected]);
 
-  if (error) return <ErrorBox error={error} />;
+  // The page is about the run: one that is not there, or not for this account, is a page of its own.
+  if (!Number.isInteger(runId) || runId <= 0) return <NoExiste />;
+  if (error) return <Falla error={error} reintentar={() => { setError(undefined); setVuelta((v) => v + 1); }} />;
   if (!run) return <p className="muted">{t("Loading…")}</p>;
   const step = run.steps?.find((s) => s.id === selected);
 
