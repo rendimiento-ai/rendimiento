@@ -94,6 +94,9 @@ type Platform struct {
 	// mesaInMain keeps whether each branch commit the work board asked
 	// about is in its app's default branch.
 	mesaInMain inMainCache
+	// mesaCounts keeps how many lines of each app's board wait for a
+	// person, for the home page (MesaWaiting).
+	mesaCounts mesaCountCache
 	// Verify configures release verification and automatic rollback.
 	Verify VerifySettings
 	// VerifyElsewhere, in a process that does not watch releases (the CI

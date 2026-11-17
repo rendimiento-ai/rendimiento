@@ -4,6 +4,11 @@
 // worker's copy, with the time it was kept: X-Rendimiento-Guardado). The
 // notice under the top bar reads it, and so do the actions that change
 // something: they are switched off without a connection, never queued.
+//
+// While the browser says it is online, one call that did not arrive (or a
+// copy the worker answered) is not enough: /healthz is asked first, and the
+// notice shows only if it does not answer either. A slow answer is not "no
+// connection", and the worker waits for it (trabajador/sw.ts).
 import { useSyncExternalStore } from "react";
 
 export interface Conexion {
@@ -15,6 +20,7 @@ export interface Conexion {
 
 const SELLO = "X-Rendimiento-Guardado";
 const PRUEBA_MS = 5000;
+const CONFIRMAR_MS = 4000; // how long /healthz may take to say a failure was only one call's
 
 let fallo = false; // the last API call did not reach rendimiento
 // The browser says it is offline, but rendimiento answers: it runs on this computer (one computer, the desktop window).
@@ -56,21 +62,38 @@ export function respuesta(res: Response) {
   const sello = res.headers.get(SELLO);
   if (sello) {
     const cuando = Date.parse(sello);
-    if (!Number.isNaN(cuando)) guardado = guardado === undefined ? cuando : Math.min(guardado, cuando);
-    fallo = true;
+    sospecha(Number.isNaN(cuando) ? undefined : cuando);
   } else if (res.status >= 502 && res.status <= 504 && !(res.headers.get("Content-Type") ?? "").includes("json")) {
-    fallo = true; // the proxy in front answered, not rendimiento (its errors are JSON): it may be restarting
+    sospecha(); // the proxy in front answered, not rendimiento (its errors are JSON): it may be restarting
   } else {
     fallo = false;
     guardado = undefined;
+    cambio();
   }
-  cambio();
 }
 
 /** An API call did not reach rendimiento (fetch rejected). */
 export function falloDeRed() {
-  fallo = true;
-  cambio();
+  sospecha();
+}
+
+let confirmando: Promise<boolean> | undefined;
+
+/**
+ * Something did not reach rendimiento (a copy came, kept at `copia`, or
+ * nothing came). Offline, or with the notice already showing, it counts at
+ * once; online, only once /healthz does not answer either: one call lost
+ * on the way does not make the notice blink.
+ */
+function sospecha(copia?: number) {
+  const marcar = () => {
+    if (copia !== undefined) guardado = guardado === undefined ? copia : Math.min(guardado, copia);
+    fallo = true;
+    cambio();
+  };
+  if (!enLinea() || estado.sin) return marcar();
+  confirmando ??= probar(CONFIRMAR_MS).finally(() => { confirmando = undefined; });
+  void confirmando.then((responde) => { if (!responde) marcar(); });
 }
 
 /** Asks rendimiento whether it answers (within ms); true and the notice goes when it does. */

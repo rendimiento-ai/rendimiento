@@ -12,6 +12,10 @@ Lo que se muestra de la copia se ve más tenue. El aviso se va en cuanto rendimi
 
 Nunca se guardan: los registros en vivo y los flujos de eventos, el inicio de sesión, `/mcp`, `/healthz`, nada que no sea una simple lectura. Las copias son a lo más 200 respuestas y de hasta 7 días.
 
+## Lento no es sin conexión {#slow-is-not-offline}
+
+«Sin conexión» quiere decir que rendimiento no se alcanza: el navegador dice que no tiene conexión, una solicitud falla, o el intermediario de enfrente responde *502–504* mientras rendimiento se reinicia. A una página que solo tarda se le espera: hasta 30 segundos mientras el navegador tiene conexión (8 segundos cuando dice que no la tiene) antes de mostrar la copia. Y mientras el navegador tiene conexión, una solicitud que se perdió en el camino no trae el aviso: la página primero pregunta a `/healthz`, y el aviso aparece solo si tampoco responde.
+
 ## Lo que se apaga, y por qué {#what-is-switched-off-and-why}
 
 Sin conexión, toda acción que cambia algo se apaga y dice por qué: Construir ahora, probar una rama, Reintentar, Cancelar, Integrar esta rama, Revertir, Actualizar, Descartar, guardar los ajustes, agregar a la Ruta, enviar un comentario. Cualquier otra cosa que enviaría algo falla de inmediato con *Sin conexión: no se envió nada*.

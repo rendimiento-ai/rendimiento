@@ -34,7 +34,9 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rendimiento-ai/rendimiento/internal/agentes"
@@ -171,7 +173,43 @@ func run(addr, ui, estado string, log *slog.Logger, central *registrocentral.Rec
 	}
 	fmt.Printf("interfaz: listening on %s, signed in as %s (%s)\n", base, persona, estado)
 	log.Info("the browser tests' rendimiento is listening", "addr", addr, "login", persona)
-	return http.Serve(ln, srv.Handler())
+	return http.Serve(ln, lentas(srv.Handler()))
+}
+
+// lentas lets a test make rendimiento slow: POST /e2e/lenta?ruta=/api/apps&ms=11000
+// holds every GET of that path until ms from now (a slow answer, not a
+// lost one: the page must not say it is offline).
+func lentas(h http.Handler) http.Handler {
+	var mu sync.Mutex
+	hasta := map[string]time.Time{}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/e2e/lenta" {
+			ms, err := strconv.Atoi(r.URL.Query().Get("ms"))
+			ruta := r.URL.Query().Get("ruta")
+			if err != nil || ms <= 0 || ms > 60_000 || !strings.HasPrefix(ruta, "/api/") {
+				http.Error(w, "ruta=/api/... and ms=1..60000", http.StatusBadRequest)
+				return
+			}
+			mu.Lock()
+			hasta[ruta] = time.Now().Add(time.Duration(ms) * time.Millisecond)
+			mu.Unlock()
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		if r.Method == http.MethodGet {
+			mu.Lock()
+			until := hasta[r.URL.Path]
+			mu.Unlock()
+			if d := time.Until(until); d > 0 {
+				select {
+				case <-time.After(d):
+				case <-r.Context().Done():
+					return
+				}
+			}
+		}
+		h.ServeHTTP(w, r)
+	})
 }
 
 // semanaDelVigia writes lines of a past week to the platform's log, so the

@@ -12,6 +12,10 @@ What is shown from the copy is dimmed. The notice goes once rendimiento answers 
 
 Never kept: live logs and event streams, sign-in, `/mcp`, `/healthz`, anything that is not a plain read. The copies are at most 200 answers and 7 days old.
 
+## Slow is not offline {#slow-is-not-offline}
+
+"Without a connection" means rendimiento cannot be reached: the browser says it is offline, a request fails, or the proxy in front answers *502–504* while rendimiento restarts. A page that is merely slow is waited for: up to 30 seconds while the browser is online (8 seconds when it says it is offline) before the copy is shown. And while the browser is online, one request lost on the way does not bring the notice: the page first asks `/healthz`, and the notice shows only if that does not answer either.
+
 ## What is switched off, and why {#what-is-switched-off-and-why}
 
 Without a connection, every action that changes something is switched off and says why: Build now, testing a branch, Retry, Cancel, Merge this branch, Roll back, Update, Dismiss, saving settings, adding to the Ruta, sending a comment. Anything else that would send something fails at once with *Without a connection: nothing was sent*.

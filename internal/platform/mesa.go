@@ -163,3 +163,125 @@ func (p *Platform) CloseSpare(ctx context.Context, a *store.App, branch, who str
 	}
 	return &NotApprovable{Why: M("%s is not spare on the work board: only a copy or a forgotten branch is closed here", branch)}
 }
+
+// mesaCountTTL is how long the home page's count of an app's board is new.
+// An older count is still the answer, while a new one is made behind it:
+// the board asks GitHub about each app, and the home page must not wait
+// for all of them each time it looks (it waited up to 17 s, and a page that
+// waits that long looks offline).
+const mesaCountTTL = 45 * time.Second
+
+// mesaCountWait is how long the home page waits for the counts it never
+// made; those that take longer come on its next look.
+const mesaCountWait = 4 * time.Second
+
+// mesaCountBuild is how long one count may take, behind the page.
+const mesaCountBuild = 2 * time.Minute
+
+// mesaCountParallel is how many boards are made at once.
+const mesaCountParallel = 4
+
+type mesaCountEntry struct {
+	n  int
+	at time.Time
+}
+
+// mesaCountCache keeps each app's count and the counts being made.
+type mesaCountCache struct {
+	mu     sync.Mutex
+	byApp  map[int64]mesaCountEntry
+	making map[int64]chan struct{} // closed when the count is made (or failed)
+	slots  chan struct{}
+	// build makes an app's count; nil is the board's (tests replace it).
+	build func(context.Context, *store.App) (int, error)
+}
+
+// MesaWaiting is, for the home page, how many lines of each app's board
+// wait for a person, by app ID (an app whose count is not known yet is
+// left out). A count younger than mesaCountTTL is answered as it is; an
+// older one too, while a new one is made in the background; one never made
+// is made now, all at once, and waited for at most mesaCountWait.
+func (p *Platform) MesaWaiting(ctx context.Context, apps []*store.App) map[int64]int {
+	c := &p.mesaCounts
+	now := time.Now()
+	out := map[int64]int{}
+	var wait []chan struct{}
+	c.mu.Lock()
+	if c.byApp == nil {
+		c.byApp, c.making = map[int64]mesaCountEntry{}, map[int64]chan struct{}{}
+		c.slots = make(chan struct{}, mesaCountParallel)
+	}
+	for _, a := range apps {
+		e, known := c.byApp[a.ID]
+		if known {
+			out[a.ID] = e.n
+			if now.Sub(e.at) < mesaCountTTL {
+				continue
+			}
+		}
+		done, busy := c.making[a.ID]
+		if !busy {
+			done = make(chan struct{})
+			c.making[a.ID] = done
+			go p.makeMesaCount(context.WithoutCancel(ctx), a, done)
+		}
+		if !known {
+			wait = append(wait, done)
+		}
+	}
+	c.mu.Unlock()
+	if len(wait) == 0 {
+		return out
+	}
+	timer := time.NewTimer(mesaCountWait)
+	defer timer.Stop()
+waiting:
+	for _, done := range wait {
+		select {
+		case <-done:
+		case <-timer.C:
+			break waiting
+		case <-ctx.Done():
+			break waiting
+		}
+	}
+	c.mu.Lock()
+	for _, a := range apps {
+		if e, ok := c.byApp[a.ID]; ok {
+			out[a.ID] = e.n
+		}
+	}
+	c.mu.Unlock()
+	return out
+}
+
+// makeMesaCount makes one app's count and keeps it; on a failure the old
+// count (if any) stays, and the next look tries again.
+func (p *Platform) makeMesaCount(ctx context.Context, a *store.App, done chan struct{}) {
+	c := &p.mesaCounts
+	defer func() {
+		c.mu.Lock()
+		delete(c.making, a.ID)
+		c.mu.Unlock()
+		close(done)
+	}()
+	c.slots <- struct{}{}
+	defer func() { <-c.slots }()
+	ctx, cancel := context.WithTimeout(ctx, mesaCountBuild)
+	defer cancel()
+	build := c.build
+	if build == nil {
+		build = func(ctx context.Context, a *store.App) (int, error) {
+			b, err := p.Mesa(ctx, a)
+			return b.You(), err
+		}
+	}
+	n, err := build(ctx, a)
+	if err != nil {
+		p.Log.Warn("work board", "app", a.Name, "err", err) // the others still count
+		return
+	}
+	c.mu.Lock()
+	c.byApp[a.ID] = mesaCountEntry{n: n, at: time.Now()}
+	c.mu.Unlock()
+}

@@ -62,3 +62,38 @@ test("without a connection the page opens with what was kept, and switches order
   expect(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("rendimiento.borrador.")))).toEqual([]);
   expect(problemas).toEqual([]);
 });
+
+// Online, a slow answer is not "without a connection": the worker waits
+// for it (it used to answer with its copy after 8 s, and the notice blinked
+// on and off for a person who was online). The test server holds the
+// page's /api/apps for 11 s; the notice must never show, and the answer
+// that comes is rendimiento's, not the copy.
+test("a slow answer while online does not say there is no connection", async ({ page, problemas }) => {
+  test.setTimeout(150_000);
+  await page.addInitScript(() => {
+    localStorage.setItem("rendimiento.trabajador", "si");
+    const w = window as unknown as { avisoVisto?: boolean };
+    new MutationObserver(() => { if (document.querySelector(".conexion-aviso")) w.avisoVisto = true; })
+      .observe(document, { childList: true, subtree: true });
+  });
+  await page.goto("/");
+  await page.waitForFunction(() => !!navigator.serviceWorker?.controller, undefined, { timeout: 60_000 });
+  const guardada = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/apps" && r.status() === 200);
+  await page.reload();
+  await guardada; // through the worker: now it has a copy to answer with
+
+  const lenta = await page.request.post("/e2e/lenta?ruta=/api/apps&ms=11000");
+  expect(lenta.status()).toBe(204);
+  const inicio = Date.now();
+  const viva = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/apps", { timeout: 45_000 });
+  await page.reload();
+  const r = await viva;
+  expect(Date.now() - inicio, "the answer was held").toBeGreaterThan(10_000);
+  expect(r.status()).toBe(200);
+  expect(r.headers()["x-rendimiento-guardado"], "rendimiento's answer, not the copy").toBeUndefined();
+  await expect(page.locator("main h1").first()).toBeVisible();
+  await page.waitForTimeout(1000);
+  expect(await page.evaluate(() => (window as unknown as { avisoVisto?: boolean }).avisoVisto ?? false), "the notice showed").toBe(false);
+  await expect(page.locator(".conexion-aviso")).toHaveCount(0);
+  expect(problemas).toEqual([]);
+});

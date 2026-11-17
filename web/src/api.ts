@@ -986,7 +986,10 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     headers: { "Accept-Language": lang, ...(body !== undefined ? { "Content-Type": "application/json" } : {}) },
     body: body !== undefined ? JSON.stringify(body) : undefined,
     credentials: "same-origin",
-  }).catch((e: unknown) => { falloDeRed(); throw e; });
+  }).catch((e: unknown) => {
+    if (!(e instanceof DOMException && e.name === "AbortError")) falloDeRed(); // a call called off is not a lost connection
+    throw e;
+  });
   respuesta(res);
   if (!res.ok) {
     let msg = res.statusText;
