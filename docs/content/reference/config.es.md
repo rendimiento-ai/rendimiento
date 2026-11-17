@@ -1,6 +1,19 @@
 # Ajustes
 
-rendimiento se configura solo con **variables de entorno**, que se leen una vez al arrancar en `cmd/rendimiento/main.go`. En un clúster vienen del ConfigMap `rendimiento` y de unos cuantos Secrets (`deploy/rendimiento.yaml` trae valores de ejemplo; guarde los valores de un clúster real en una capa privada, vea [Cómo se despliega la plataforma](../environment/deploy.md#your-own-settings)). Para cambiar un ajuste, edite el ConfigMap y corra `kubectl -n rendimiento-system rollout restart deploy` (todos los servicios).
+rendimiento se configura solo con **variables de entorno**, que se leen una vez al arrancar en `cmd/rendimiento/main.go`. En un clúster vienen del ConfigMap `rendimiento` y de unos cuantos Secrets (`deploy/rendimiento.yaml` trae valores de ejemplo; guarde los valores de un clúster real en una capa privada, vea [Cómo se despliega la plataforma](../environment/deploy.md#your-own-settings)). Para cambiar un ajuste, edite el ConfigMap y corra `kubectl -n rendimiento-system rollout restart deploy` (todos los servicios). [En una computadora](#on-one-computer) vienen, en cambio, de un archivo de su servicio.
+
+## En una computadora {#on-one-computer}
+
+[Instalado en una computadora](../environment/deploy.md#on-one-computer) (`MODE=local`), el servicio de rendimiento lee sus ajustes de un archivo al arrancar, un `NOMBRE=valor` por línea (las líneas que empiezan con `#` son notas):
+
+| Dónde | El archivo | Después de un cambio |
+|---|---|---|
+| Linux, con el instalador | `~/.config/rendimiento/env` (en `DATA_DIR`) | `systemctl --user restart rendimiento` |
+| Windows, dentro de su distribución de WSL | `/etc/rendimiento/env` (`wsl -d rendimiento`) | `wsl -d rendimiento -- systemctl restart rendimiento` |
+
+El instalador hace el archivo de Linux la primera vez, con un encabezado que dice esto, que solo usted puede leer, y nunca lo vuelve a escribir: la unidad del servicio (`~/.config/systemd/user/rendimiento.service`) se escribe de nuevo en cada instalación y actualización, así que cambie los ajustes en el archivo, no ahí. Un valor del archivo gana sobre los de la unidad (`MODE`, `ALLOWED_USERS`, `PATH`): systemd aplica `EnvironmentFile=` encima de `Environment=`. Al desinstalar aparece con el resto de sus datos y solo se borra si usted lo dice. Una instalación hecha antes de que existiera el archivo lo recibe la próxima vez que corra el instalador. En Windows, la aplicación escribe ahí `ALLOWED_USERS` y conserva las demás líneas. La página **Entorno** muestra qué archivo lee esta computadora y el comando que la reinicia.
+
+Arrancado a mano o en un contenedor, rendimiento no lee ningún archivo: sus ajustes son el entorno con el que arrancó (las variables antes del comando, o `docker run -e NOMBRE=valor` y `--env-file`), y cambian al arrancarlo de nuevo con otras. En cualquier caso, `AI_LOCAL_URL` y `AI_LOCAL_MODEL` solo son el punto de partida del modelo local de la página IA ([IA](#ai)): ahí cambia sin reiniciar; los demás [ajustes en vivo](#organizations-in-the-cluster) son de un clúster, en su página Entorno.
 
 ## Básicos {#core}
 
