@@ -7,6 +7,7 @@ import { t } from "./i18n";
 import { Dashboard } from "./pages/Dashboard";
 import { Setup } from "./pages/Setup";
 import { ProblemsNavLink } from "./components/enlace-problemas";
+import { useUso } from "./uso";
 import { EnvironmentNavLink } from "./pages/Version";
 import { ComentarioPublico } from "./pages/ComentarioPublico";
 import { Cielo, Guardapolvo, MovimientoSwitch, TemaSwitch, Techo, type Sistema } from "./components/ambiente";
@@ -22,6 +23,7 @@ import "./styles.css";
 
 // The first screen (setup, welcome, Apps, the public form) comes with the
 // shell; every other page loads when it is opened.
+const UsoPage = perezosa(() => import("./pages/Uso").then((m) => m.UsoPage));
 const NewApp = perezosa(() => import("./pages/NewApp").then((m) => m.NewApp));
 const AppPage = perezosa(() => import("./pages/AppPage").then((m) => m.AppPage));
 const RunPage = perezosa(() => import("./pages/RunPage").then((m) => m.RunPage));
@@ -48,6 +50,7 @@ function Shell() {
   const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; buzon?: boolean; sistema?: Sistema; configured?: boolean; book?: BookLinks; activity?: boolean; loading: boolean }>({ loading: true });
   const telefono = useTelefono();
   const [altura, setAltura] = useState<Altura>(0);
+  useUso(!!state.login);
 
   useEffect(() => {
     (async () => {
@@ -150,6 +153,7 @@ function Shell() {
           <Route path="/ruta" element={<Ruta />} />
           <Route path="/bitacora" element={<Bitacora />} />
           <Route path="/senales" element={<SenalesPage />} />
+          <Route path="/uso" element={<UsoPage />} />
           <Route path="/ia" element={<IA />} />
           <Route path="/buzon" element={<Buzon />} />
           <Route path="/escribir" element={<AlEquipo />} />

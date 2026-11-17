@@ -2417,6 +2417,15 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
   }
 }
 
+/* Use of the interface (pages/Uso.tsx): the slow pages' bars in the warning color, what is noted in two
+   columns, and the longest common path as a row of pages. */
+.uso-lentas .vis-bar { background: linear-gradient(90deg, color-mix(in srgb, var(--viz-warning) 45%, transparent), var(--viz-warning)); }
+.uso-valor { white-space: nowrap; }
+.uso-columnas { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.uso-columnas ul { margin: 6px 0 0; padding-left: 18px; }
+.uso-camino { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.uso-camino b { display: inline-block; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--viz-series-1) 14%, transparent); font-weight: 600; font-size: 13px; }
+.uso-camino em { font-style: normal; color: var(--muted); margin-right: 6px; }
 /* Error pages (components/falla.tsx): what happened, why, and the way out. */
 .falla-pagina { max-width: 560px; margin: 40px auto; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
 .falla-pagina h1 { margin: 0; }

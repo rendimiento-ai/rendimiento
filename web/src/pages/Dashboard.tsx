@@ -99,7 +99,7 @@ export function Dashboard() {
       <div className="hero-vida">
         <div>
           <h1>{t("Your apps,")} <em>{t("alive")}</em>.</h1>
-          <p className="sub" style={{ marginBottom: 0 }}>
+          <p className="sub" style={{ marginBottom: 0 }} data-listo={apps ? "" : undefined}>
             {apps && (caidas > 0
               ? `${tn(vivas, "{n} blooming", "{n} blooming")} · ${tn(caidas, "{n} withered", "{n} withered")}`
               : tn(vivas, "{n} app blooming on the internet", "{n} apps blooming on the internet"))}
