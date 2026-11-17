@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, envApi, EXAMPLE_URL, isLibrary, timeAgo, type App, session } from "../api";
 import { ErrorBox, PhaseBadge, RunBadge, usePoll } from "../components/ui";
@@ -6,6 +6,7 @@ import { fmtPct } from "../components/reliability";
 import { DeliveryPanel } from "../components/delivery";
 import { VisitsPanel } from "../components/visits";
 import { Flor, LluviaDePetalos } from "../components/ambiente";
+import { Semilla } from "../components/marca";
 import { t, tn } from "../i18n";
 import { AprobacionesAviso } from "../components/aprobaciones";
 import { SenalesAviso } from "../components/senales";
@@ -103,10 +104,13 @@ export function Dashboard() {
               : tn(vivas, "{n} app blooming on the internet", "{n} apps blooming on the internet"))}
           </p>
         </div>
-        <svg className="latido" width="300" height="64" viewBox="0 0 300 64" aria-hidden="true">
-          <path d="M0 40 L90 40 L102 40 L110 20 L122 60 L132 4 L144 50 L154 40 L220 40 L228 30 L236 40 L300 40" fill="none" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </div>
+        {/* The hills of Cotija: the ridge, the ground below it and the sun, drawn in one after another. */}
+        <svg className="cerros" width="300" height="45" viewBox="0 0 600 90" aria-hidden="true" fill="none" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
+          <path pathLength={1} style={{ "--i": 0 } as CSSProperties} d="M0 72L70 46l50 16 70-40 70 38 60-26 80 30 70-36 60 24 70-10" />
+          <path pathLength={1} style={{ "--i": 1 } as CSSProperties} className="cerros-suelo" d="M0 84q150-14 300 0t300 0" />
+          <circle pathLength={1} style={{ "--i": 2 } as CSSProperties} cx="330" cy="22" r="10" />
+          <path pathLength={1} style={{ "--i": 3 } as CSSProperties} d="M330 4v5M312 22h-5M353 22h-5M317 9l3.5 3.5M343 9l-3.5 3.5" />
+        </svg>      </div>
       <ErrorBox error={error} />
       <Publicada onlyNewer />
       {apps && apps.length > 0 && <MesaAviso />}
@@ -121,7 +125,7 @@ export function Dashboard() {
       {apps && apps.length === 0 && (
         <div className="card empty">
           <p>{t("No apps yet.")}</p>
-          <Link to="/new" className="btn primary big">{t("Deploy your first app")}</Link>
+          <Link to="/new" className="btn primary big"><Semilla />{t("Deploy your first app")}</Link>
           <p className="small muted" style={{ margin: "12px 0 0" }}>{t("Nothing of your own to deploy yet?")} <a href={EXAMPLE_URL} target="_blank" rel="noreferrer">{t("Copy the example to your GitHub account")}</a>{t(", then choose your copy in New app.")}</p>
         </div>
       )}

@@ -1,1 +1,0 @@
-- **Comments:** where comments are received, the platform's AI sorts each one (it exists already, new, a failure, nonsense), sums it up in a line, links what it matches in the book and the Ruta, groups it with earlier ones that ask the same, and drafts an answer for a person to rewrite and send.

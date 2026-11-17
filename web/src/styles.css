@@ -131,17 +131,11 @@ code, pre, .mono { font-family: var(--mono); font-size: 0.9em; }
 }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text); }
 .brand:hover { text-decoration: none; }
-/* The mark's beat: a stretch of the line runs from left to right over a fainter trace, and the
-   tile swells a little as it passes the peak. Without movement the line is whole, as before. */
-.logo-fondo { opacity: .4; }
-.logo-latido { animation: logo-latido 2.6s linear infinite; }
-.logo { animation: logo-pulso 2.6s ease-in-out infinite; }
-.brand:hover .logo-latido, .brand:hover .logo { animation-duration: 1.1s; }
-@keyframes logo-latido {
-  from { stroke-dasharray: 34 66; stroke-dashoffset: 34; }
-  to { stroke-dasharray: 34 66; stroke-dashoffset: -100; }
-}
-@keyframes logo-pulso { 0%, 34%, 62%, 100% { transform: scale(1); } 46% { transform: scale(1.09); } }
+/* The mark (components/marca): the sun over the furrows. It is still; with the pointer on it, it sways a little,
+   from the ground. Movement off (or asked off by the device) leaves it still, as every animation here. */
+.logo svg { display: block; transform-origin: 50% 85%; }
+.brand:hover .logo svg { animation: logo-mece 3s ease-in-out infinite; }
+@keyframes logo-mece { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
 .brand .logo { width: 26px; height: 26px; border-radius: 7px; background: var(--accent); display: grid; place-items: center; }
 .topbar .spacer { flex: 1; }
 
@@ -430,7 +424,11 @@ button.nota:hover{transform:rotate(0) translateY(-2px)}
 .menu-hoja-paginas .nav-link.active { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--cempasuchil); font-weight: 700; box-shadow: none; }
 .menu-hoja-paginas .nav-count { position: absolute; top: 0; right: 6px; margin: 0; min-width: 16px; line-height: 16px; font-size: 10px; }
 .menu-hoja-cuenta { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 14px 8px; padding-top: 14px; border-top: 1px solid var(--border); }
-.menu-hoja-cuenta .btn.primary { flex-basis: 100%; text-align: center; }
+.menu-hoja-cuenta .btn.primary { flex-basis: 100%; justify-content: center; text-align: center; }
+/* The seed of New app: it sprouts, from its base, when the button is pointed at or reached with the keyboard. */
+.semilla { flex: none; transform-origin: 50% 90%; }
+.btn:hover .semilla, .btn:focus-visible .semilla { animation: semilla-brota .9s cubic-bezier(.2, .8, .3, 1) both; }
+@keyframes semilla-brota { from { transform: scale(.35); } to { transform: scale(1); } }
 .menu-hoja-espacio { height: calc(112px + env(safe-area-inset-bottom, 0px)); }
 @media (prefers-reduced-motion: reduce) { .menu-hoja { transition: none; } }
 @media (max-width: 640px) {
@@ -701,14 +699,11 @@ textarea.code { width: 100%; min-height: 280px; font-family: var(--mono); font-s
   display: inline-block; min-width: 18px; margin-left: 6px; padding: 0 5px; border-radius: 9px;
   background: var(--bad); color: var(--surface); font-size: 11px; font-weight: 600; line-height: 18px; text-align: center;
 }
-.problem-h { font-size: 15px; margin: 0 0 4px; }
-.problem-detail { margin: 0; padding: 8px 10px; border-radius: 6px; background: var(--idle-bg); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
 .problem-list { margin: 6px 0; padding-left: 18px; }
 .problem-list li { word-break: break-word; }
 .rel-filters label { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
 .rel-filters label select { width: auto; }
 .rel-filters input[type="checkbox"] { width: auto; margin: 0; }
-.problem-resolved { color: var(--ok); white-space: nowrap; }
 .lang-switch { font-weight: 600; font-size: 12px; letter-spacing: .04em; min-width: 40px; }
 /* The flag picker: the flag shows, and the native list of countries opens over it (components/marca.tsx). */
 .bandera-switch { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 30px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
@@ -722,16 +717,27 @@ textarea.code { width: 100%; min-height: 280px; font-family: var(--mono); font-s
 .problema-cuenta[aria-pressed="true"]{border-color:var(--text)}
 .problema-cuenta span{font-size:13px;font-weight:700;color:var(--muted)}
 .problema-cuenta b{font:800 30px/1.1 Fraunces,Georgia,serif}
-.problem{animation:problema-entra .4s ease both;animation-delay:var(--d);transition:opacity .35s,transform .35s}
-.problem.fuera{opacity:0;transform:translateX(30px)}
-.problem.resuelto{background:color-mix(in srgb,var(--ok) 6%,var(--card));border-color:color-mix(in srgb,var(--ok) 25%,var(--border))}
-@keyframes problema-entra{from{opacity:0;transform:translateY(8px)}}
 .dias{display:grid;grid-template-columns:repeat(30,minmax(0,1fr));gap:2px}
 .dias span{height:14px;border-radius:3px;background:var(--border)}
 .dias span.si{background:var(--c);animation:dias-late 2.4s ease-in-out infinite;animation-delay:var(--d)}
 @keyframes dias-late{50%{opacity:.6}}
 .dias-pie{display:flex;justify-content:space-between;margin-top:3px}
-@media (prefers-reduced-motion: reduce){.problem,.dias span.si{animation:none;transition:none}}
+@media (prefers-reduced-motion: reduce){.dias span.si{animation:none;transition:none}}
+/* Problems: the list on the left, the one chosen on the right (.lista-detalle). */
+.problemas .ld-lista{gap:2px}
+.problema-fila{align-items:flex-start;padding:10px}
+.problema-fila-texto{display:block;min-width:0;flex:1;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+.problema-fila .ld-sub{white-space:normal;margin-top:2px}
+.problema-detalle{gap:18px}
+.problema-titulo{font-size:24px;line-height:1.25;margin-top:10px}
+.problema-detalle .ld-sec p{margin:0 0 6px;line-height:1.5;overflow-wrap:anywhere}
+.problema-resuelto{color:var(--ok)}
+.problema-tecnico summary{cursor:pointer;color:var(--muted);font-size:13px}
+.problema-crudo{margin:8px 0;padding:8px 10px;border-radius:8px;background:var(--idle-bg);font-size:12px;white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto}
+.problema-tecnico dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:8px 0 0}
+.problema-tecnico dt{color:var(--muted)}
+.problema-tecnico dd{margin:0;overflow-wrap:anywhere}
+@media (max-width:700px){.problema-detalle{padding:16px}.problema-titulo{font-size:21px}}
 
 /* ---- Cotija: roof, papel picado, night sky, guardapolvo ---- */
 :root { --cede-display: block; --farol-display: none; --cielo-display: none; --bg-image: none; }
@@ -859,13 +865,16 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 .hero-vida { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 18px; }
 .hero-vida h1 { font-size: 46px; }
 .hero-vida h1 em { font-style: normal; color: var(--accent); }
-.latido { flex: none; }
-.latido path { stroke: var(--anil); stroke-dasharray: 700; animation: latido 2.8s ease-out infinite; }
-:root[data-theme="night"] .latido path { stroke: var(--cempasuchil-2); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="day"]) .latido path { stroke: var(--cempasuchil-2); } }
-@keyframes latido { 0% { stroke-dashoffset: 700; } 60%, 100% { stroke-dashoffset: 0; } }
+/* The hills of Cotija over the apps: each line draws itself in, one after another, when the page appears
+   (pathLength=1 on each, --i its turn). The offset only lives in the animation, so without movement they are whole. */
+.cerros { flex: none; overflow: visible; }
+.cerros > * { stroke: var(--anil); stroke-dasharray: 1; animation: cerros-traza 1.1s ease-out both; animation-delay: calc(var(--i, 0) * .16s); }
+.cerros > .cerros-suelo { opacity: .55; }
+:root[data-theme="night"] .cerros > * { stroke: var(--cempasuchil-2); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="day"]) .cerros > * { stroke: var(--cempasuchil-2); } }
+@keyframes cerros-traza { from { stroke-dashoffset: 1; opacity: 0; } 2% { opacity: 1; } to { stroke-dashoffset: 0; } }
 @media (max-width: 640px) {
-  .hero-vida h1 { font-size: 34px; } .latido { display: none; } .papel-picado { height: 44px; } .bandera { height: 36px; }
+  .hero-vida h1 { font-size: 34px; } .cerros { display: none; } .papel-picado { height: 44px; } .bandera { height: 36px; }
   .topbar { gap: 8px 12px; } .topbar .nav-link { font-size: 14px; }
 }
 
@@ -1539,6 +1548,10 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 .campana { position: relative; }
 .campana-boton { display: inline-flex; align-items: center; gap: 4px; background: none; border: 1px solid transparent; }
 .campana-boton.con { color: var(--warn); }
+/* The bell rings, from its yoke, every few seconds while something waits; with nothing waiting it hangs still. */
+.campana-dibujo { display: block; transform-origin: 50% 14%; }
+.campana-boton.con .campana-dibujo { animation: campana-repica 5s ease-in-out infinite; }
+@keyframes campana-repica { 0%, 78%, 100% { transform: rotate(0deg); } 82% { transform: rotate(13deg); } 87% { transform: rotate(-11deg); } 92% { transform: rotate(7deg); } 96% { transform: rotate(-4deg); } }
 .campana-panel { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; width: min(360px, calc(100vw - 32px));
   max-height: 70vh; overflow-y: auto; background: var(--card, var(--bg)); border: 1px solid var(--border); border-radius: 10px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, .18); padding: 10px; display: flex; flex-direction: column; gap: 4px; }
@@ -2413,3 +2426,12 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .falla-sabido { margin: 0; padding-left: 20px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
 .falla-botones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 .falla-codigo { font-family: var(--mono); font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+/* A page's code on its way (components/cargando): quiet blocks of a fixed height, shown only after a moment. */
+.cargando { min-height: 420px; animation: cargando-aparece .3s ease .25s both; }
+.cargando > div { background: var(--surface-2); border-radius: var(--radius); }
+.cargando-titulo { height: 40px; width: 38%; margin: 8px 0 14px; }
+.cargando-linea { height: 16px; width: 62%; margin-bottom: 28px; }
+.cargando-bloque { height: 140px; margin-bottom: 16px; }
+@keyframes cargando-aparece { from { opacity: 0; } to { opacity: 1; } }
+.cargando-fallo { min-height: 420px; padding-top: 24px; color: var(--muted); }
+.cargando-fallo p { margin: 0 0 14px; }

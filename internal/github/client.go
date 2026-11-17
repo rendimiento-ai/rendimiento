@@ -370,13 +370,32 @@ func (c *Client) UpdateCheckRun(ctx context.Context, repo string, id int64, cr C
 	return c.do(ctx, http.MethodPatch, fmt.Sprintf("/repos/%s/check-runs/%d", repo, id), cr, nil)
 }
 
-// FileAt returns a file at a ref, or IsNotFound.
+// FileAt returns a file at a ref, or IsNotFound. GitHub's contents API
+// leaves out the content of a file over 1 MB (encoding "none"); such a
+// file is read from its blob instead (up to 100 MB).
 func (c *Client) FileAt(ctx context.Context, repo, filePath, ref string) ([]byte, error) {
 	var out struct {
-		Content string `json:"content"`
+		Type     string `json:"type"`
+		Content  string `json:"content"`
+		Encoding string `json:"encoding"`
+		Size     int64  `json:"size"`
+		SHA      string `json:"sha"`
 	}
 	if err := c.do(ctx, http.MethodGet, "/repos/"+repo+"/contents/"+filePath+"?ref="+url.QueryEscape(ref), nil, &out); err != nil {
 		return nil, err
+	}
+	if out.Content == "" && out.Size > 0 && out.SHA != "" && (out.Type == "" || out.Type == "file") {
+		var blob struct {
+			Content  string `json:"content"`
+			Encoding string `json:"encoding"`
+		}
+		if err := c.do(ctx, http.MethodGet, "/repos/"+repo+"/git/blobs/"+out.SHA, nil, &blob); err != nil {
+			return nil, err
+		}
+		if blob.Encoding != "" && blob.Encoding != "base64" {
+			return []byte(blob.Content), nil
+		}
+		out.Content = blob.Content
 	}
 	return base64.StdEncoding.DecodeString(strings.ReplaceAll(out.Content, "\n", ""))
 }

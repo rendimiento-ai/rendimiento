@@ -372,6 +372,7 @@ function DependencyUpdates({ name }: { name: string }) {
               {res?.prs?.length ? <span>{tn(res.prs.length, "opened {n} PR", "opened {n} PRs")}</span> : null}
               {res?.automerged?.length ? <span>{t("merged {n}", { n: res.automerged.length })}</span> : null}
               {res?.errors?.length ? <span style={{ color: "var(--bad)" }}>{res.errors[0]}</span> : null}
+              {res?.artifactErrors?.length ? <span style={{ color: "var(--bad)" }}>{t("could not update {file} on {branch}", { file: res.artifactErrors[0].file ?? "?", branch: res.artifactErrors[0].branch ?? "?" })}</span> : null}
             </>
           ) : <span className="muted">{t("Not run yet for this app.")}</span>}
           <a href={r.prsUrl} target="_blank" rel="noreferrer">{t("Open update PRs ↗")}</a>

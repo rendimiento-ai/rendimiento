@@ -1,3 +1,0 @@
-- **App page:** the glance shows where the app answers (its addresses, as links), its diary (runs, releases, encargos, the day it was born), and, while its numbers are missing, the steps that bring them.
-- **App page:** branch names link to the branch on GitHub: on the glance, the latest run, the runs table, a run's page and the work board.
-- **Work board:** "What shall we change?" asks an agent for a change to the app without leaving it (it makes an encargo).

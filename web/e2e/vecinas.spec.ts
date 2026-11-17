@@ -55,6 +55,7 @@ test("two organizations: neither sees the other's", async ({ page, browser, base
       await test.step(`vecina: ${href}`, async () => {
         await suya.goto(href);
         await expect(suya.locator("main").first()).toBeVisible();
+        await expect(suya.locator("main .cargando")).toHaveCount(0); // the page's code has arrived (pages load when opened)
         await suya.waitForTimeout(700); // the page's first answers
         const texto = await suya.locator("body").innerText();
         for (const marca of ajeno) expect(texto, `${href} shows vecina "${marca}"`).not.toContain(marca);

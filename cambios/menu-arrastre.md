@@ -1,1 +1,0 @@
-- **Phone:** the menu's sheet follows a finger: drag it up to see every page and the account, down to lower it. Its handle is bigger, the sheet no longer lets the page show through, and the account's initial is centered in its circle.

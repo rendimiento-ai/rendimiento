@@ -101,8 +101,9 @@ export function Campana({ role, operator, buzon }: { role?: string; operator?: b
     <div className="campana" ref={caja}>
       <button type="button" ref={boton} className={`campana-boton${n ? " con" : ""}`} aria-expanded={abierta} onClick={() => (abierta ? setAbierta(false) : abrir())}
         aria-label={n ? tn(n, "{n} thing waits for you", "{n} things wait for you") : t("Notices")} title={t("Notices")}>
-        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" />
+        {/* The town bell on its wooden yoke: it rings, now and then, while something waits. */}
+        <svg className="campana-dibujo" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5.5 4h13M12 4v2.5M7.5 17c1.5-2 1.5-5 1.5-7.5a3 3 0 0 1 6 0c0 2.5 0 5.5 1.5 7.5M6.5 17h11M12 17v2.3" /><circle cx="12" cy="20.3" r=".9" />
         </svg>
         {n > 0 && <span className="nav-count">{n}</span>}
       </button>

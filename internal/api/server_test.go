@@ -350,6 +350,17 @@ func TestBranchKinds(t *testing.T) {
 	}
 }
 
+// A file under assets/ that is not there (an older release's page code) is a 404, not the page: the
+// browser would otherwise read the HTML as a script; and the 404 is not kept by a cache.
+func TestUIMissingAsset(t *testing.T) {
+	s := &Server{UI: fstest.MapFS{"index.html": {Data: []byte("<html>ui</html>")}, "assets/app.js": {Data: []byte("js")}}}
+	w := httptest.NewRecorder()
+	s.ui().ServeHTTP(w, httptest.NewRequest("GET", "/assets/Universe-gone.js", nil))
+	if w.Code != 404 || strings.Contains(w.Body.String(), "<html>ui</html>") || w.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("missing asset: %d %v %s", w.Code, w.Header(), w.Body.String())
+	}
+}
+
 func TestUIFallback(t *testing.T) {
 	e := newEnv(t, true)
 	if r, body := e.do(t, "GET", "/apps/shop/runs/3", "", nil, nil); !strings.Contains(body, "<html>ui</html>") || r.Header.Get("Cache-Control") != "no-cache" {
