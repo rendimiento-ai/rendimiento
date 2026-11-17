@@ -1,0 +1,5 @@
+- **Offline:** the page opens without a connection, or while rendimiento restarts, from what the browser kept, and says how old it is; it catches up by itself when the connection is back. A service worker (`/sw.js`) keeps the page and the API's plain reads, never anything that would change something.
+- **Offline:** actions that change something (Build now, Retry, Cancel, Merge this branch, Roll back, Update, Dismiss, Save…) are switched off without a connection and say why; they are never kept to be sent later. Text being written to the team, an answer to a comment and Ruta notes are kept as drafts on the device.
+- **Offline:** a new version of rendimiento shows "There is a new version" with a Reload button, instead of staying on the old page.
+- **Offline:** rendimiento can be installed on a phone as an app (web app manifest and icons).
+- **Offline:** `SERVICE_WORKER=off` turns it all off without a new build: each browser throws away what it kept at its next visit.

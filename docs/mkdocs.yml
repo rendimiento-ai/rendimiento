@@ -98,6 +98,7 @@ plugins:
             Built for agents (roles, tools, where it is going): Hecha para agentes (funciones, herramientas, hacia dónde va)
             La Ruta (memory for people and agents, over MCP): La Ruta (la memoria de personas y agentes, por MCP)
             Languages (English, Spanish): Idiomas (inglés y español)
+            Without a connection (and installing it on a phone): Sin conexión (y cómo instalarla en el teléfono)
             "Señales de vida (anonymous counts, and turning them off)": "Señales de vida (conteos anónimos, y cómo apagarlos)"
             Comments (writing to the team): Comentarios (escribirle al equipo)
             Comments for p0dxD (design): Comentarios para p0dxD (diseño)
@@ -196,6 +197,7 @@ nav:
       - Built for agents (roles, tools, where it is going): guide/agents.md
       - La Ruta (memory for people and agents, over MCP): guide/ruta.md
       - Languages (English, Spanish): guide/languages.md
+      - Without a connection (and installing it on a phone): guide/sin-conexion.md
       - "Señales de vida (anonymous counts, and turning them off)": guide/senales.md
       - Comments (writing to the team): guide/comentarios.md
       - Needs and the services catalog: guide/needs.md
