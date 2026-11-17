@@ -1,0 +1,2 @@
+- **Log:** every line the platform's processes write at INFO and above is also kept in the database for 30 days, secrets removed, and platform administrators read it on a new Log page (`/registro`, linked from Problems; `GET /api/registro`). A migration adds the `registro` table.
+- **Log:** the API notes requests slower than a second and answers that failed with a 5xx, by route pattern; a 500 also becomes a problem, one per route.
