@@ -12,7 +12,7 @@ A comment from an installation goes the way the [señales de vida](senales.md) g
 
 ## The answer {#the-answer}
 
-- **In the app:** every three hours an installation asks for the answers it is missing, with each comment's token. When one comes, the bell says **The team answered your comment** until you open `/escribir`, where each of your comments shows its answer.
+- **In the app:** an installation asks for the answers it is missing, with each comment's token (only the comment's number and its token go): a minute after it starts, then every 30 minutes while a comment waits; a comment that has waited more than a day is asked about every 3 hours, and one older than 90 days no more. Opening `/escribir` asks right then too (at most once a minute, waiting no more than 3 seconds), so a computer that is often off or restarted still gets its answers. rendimiento.ai notes each ask in its log, with the comment's number and what it answered (200 the answer, 204 none yet, 404 no such comment or another token), never the token. When one comes, the bell says **The team answered your comment** until you open `/escribir`, where each of your comments shows its answer.
 - **By email:** an answer to the form goes once, from the person who wrote it, with the comment it answers. Nothing else is ever sent to that address.
 
 ## What the team sees {#what-the-team-sees}

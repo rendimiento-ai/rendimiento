@@ -276,7 +276,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	srv.Publicadas = &actualizar.Consultor{API: env("GITHUB_API_URL", "")}
 	go srv.Senales.Run(ctx)
 	// The answers to the comments its people wrote to the team (decision 145).
-	go srv.Senales.RecogerRespuestas(ctx, st, 0)
+	go srv.Senales.RecogerRespuestas(ctx, st)
 
 	// GitHub cannot send webhooks to this computer: ask it for new commits.
 	every, err := time.ParseDuration(env("POLL_INTERVAL", "1m"))

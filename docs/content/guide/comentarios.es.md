@@ -12,7 +12,7 @@ Un comentario desde una instalación sale por el camino de las [señales de vida
 
 ## La respuesta {#the-answer}
 
-- **En la aplicación:** cada tres horas una instalación pregunta por las respuestas que le faltan, con la ficha de cada comentario. Cuando llega una, la campana dice **El equipo respondió su comentario** hasta que abre `/escribir`, donde cada comentario suyo muestra su respuesta.
+- **En la aplicación:** una instalación pregunta por las respuestas que le faltan, con la ficha de cada comentario (solo salen el número del comentario y su ficha): un minuto después de arrancar, y luego cada 30 minutos mientras un comentario espera; por uno que lleva más de un día esperando pregunta cada 3 horas, y por uno de más de 90 días ya no. Al abrir `/escribir` también pregunta en ese momento (a lo más una vez por minuto, y sin esperar más de 3 segundos), así que una computadora que se apaga o se reinicia seguido también recibe sus respuestas. rendimiento.ai anota cada pregunta en su registro, con el número del comentario y lo que contestó (200 la respuesta, 204 aún no hay, 404 no existe o es otra ficha), nunca la ficha. Cuando llega una, la campana dice **El equipo respondió su comentario** hasta que abre `/escribir`, donde cada comentario suyo muestra su respuesta.
 - **Por correo:** la respuesta a un comentario del formulario sale una sola vez, de parte de la persona que la escribió, con el comentario al que responde. A esa dirección no se le envía nada más.
 
 ## Lo que ve el equipo {#what-the-team-sees}

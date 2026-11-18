@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rendimiento-ai/rendimiento/internal/store"
@@ -154,39 +155,161 @@ type ComentariosStore interface {
 	GuardarRespuestaRecibida(ctx context.Context, id int64, respuesta, por string, at time.Time) error
 }
 
-// RecogerRespuestas asks for the answers of the comments that wait for one,
-// every few hours (each), until ctx ends. Asking says nothing but the
-// comment's number and its token.
-func (e *Enviador) RecogerRespuestas(ctx context.Context, st ComentariosStore, cada time.Duration) {
-	if cada <= 0 {
-		cada = 3 * time.Hour
+// When an installation asks for the answers to its comments. The first ask
+// comes soon after the process starts, so a computer that restarts or
+// sleeps often still asks; then every RespuestasCada while comments wait.
+// A comment that has waited longer than RespuestasViejo is asked about
+// only every RespuestasCadaViejo. A comment older than 90 days is not
+// asked about at all (ComentariosSinRespuesta).
+const (
+	RespuestasPrimera   = time.Minute
+	RespuestasCada      = 30 * time.Minute
+	RespuestasViejo     = 24 * time.Hour
+	RespuestasCadaViejo = 3 * time.Hour
+	// RespuestasPagina is how often opening the comments page may ask.
+	RespuestasPagina = time.Minute
+)
+
+// Recogida is when this installation asks for its comments' answers; the
+// zero value is the schedule above.
+type Recogida struct {
+	Primera, Cada, Viejo, CadaViejo, Pagina time.Duration
+	// Ahora is the clock (time.Now when nil).
+	Ahora func() time.Time
+
+	mu         sync.Mutex
+	preguntado map[int64]time.Time // comment → when it was last asked about
+	pagina     time.Time           // when the page last asked
+}
+
+func (r *Recogida) ahora() time.Time {
+	if r.Ahora != nil {
+		return r.Ahora()
 	}
+	return time.Now()
+}
+
+func porOmision(d, def time.Duration) time.Duration {
+	if d > 0 {
+		return d
+	}
+	return def
+}
+
+// Toca is whether comment c is asked about now: always the first time
+// since this process started, then once its interval has passed (a
+// minute's slack, so a tick a little early still counts).
+func (r *Recogida) Toca(c store.MiComentario, ahora time.Time) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	ultima, ok := r.preguntado[c.ID]
+	if !ok {
+		return true
+	}
+	cada := porOmision(r.Cada, RespuestasCada)
+	if ahora.Sub(c.CreatedAt) >= porOmision(r.Viejo, RespuestasViejo) {
+		cada = porOmision(r.CadaViejo, RespuestasCadaViejo)
+	}
+	return ahora.Sub(ultima)+time.Minute >= cada
+}
+
+func (r *Recogida) anotar(id int64, at time.Time) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.preguntado == nil {
+		r.preguntado = map[int64]time.Time{}
+	}
+	r.preguntado[id] = at
+}
+
+// olvidar drops the comments that no longer wait.
+func (r *Recogida) olvidar(espera []store.MiComentario) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	siguen := make(map[int64]bool, len(espera))
+	for _, c := range espera {
+		siguen[c.ID] = true
+	}
+	for id := range r.preguntado {
+		if !siguen[id] {
+			delete(r.preguntado, id)
+		}
+	}
+}
+
+// PuedePagina is whether opening the page may ask now (at most once per
+// Pagina), and notes that it does.
+func (r *Recogida) PuedePagina(ahora time.Time) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.pagina.IsZero() && ahora.Sub(r.pagina) < porOmision(r.Pagina, RespuestasPagina) {
+		return false
+	}
+	r.pagina = ahora
+	return true
+}
+
+// RecogerRespuestas asks for the answers of the comments that wait for one
+// (see Recogida for when) until ctx ends. Asking says nothing but the
+// comment's number and its token.
+func (e *Enviador) RecogerRespuestas(ctx context.Context, st ComentariosStore) {
+	r := &e.Respuestas
+	espera := porOmision(r.Primera, RespuestasPrimera)
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(cada):
+		case <-time.After(espera):
 		}
-		e.Recoger(ctx, st)
+		e.recoger(ctx, st, false)
+		espera = porOmision(r.Cada, RespuestasCada)
 	}
 }
 
-// Recoger asks once for the answers that are missing, and keeps those that came.
+// Recoger asks once for every answer that is missing, and keeps those that came.
 func (e *Enviador) Recoger(ctx context.Context, st ComentariosStore) {
+	e.recoger(ctx, st, true)
+}
+
+// RecogerAlVer asks for the missing answers because a person opened their
+// comments: at most once per RespuestasPagina, and for no longer than
+// espera, so the page does not wait long. A network failure stays quiet.
+func (e *Enviador) RecogerAlVer(ctx context.Context, st ComentariosStore, espera time.Duration) {
+	pendientes, err := st.ComentariosSinRespuesta(ctx)
+	if err != nil || len(pendientes) == 0 || !e.Respuestas.PuedePagina(e.Respuestas.ahora()) {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, espera)
+	defer cancel()
+	e.pedir(ctx, st, pendientes, true)
+}
+
+func (e *Enviador) recoger(ctx context.Context, st ComentariosStore, todos bool) {
 	espera, err := st.ComentariosSinRespuesta(ctx)
 	if err != nil {
 		return
 	}
+	e.Respuestas.olvidar(espera)
+	e.pedir(ctx, st, espera, todos)
+}
+
+func (e *Enviador) pedir(ctx context.Context, st ComentariosStore, espera []store.MiComentario, todos bool) {
+	r := &e.Respuestas
 	for _, c := range espera {
-		r, ok, err := e.PedirRespuesta(ctx, c.Remoto, c.Ficha)
+		ahora := r.ahora()
+		if !todos && !r.Toca(c, ahora) {
+			continue
+		}
+		res, ok, err := e.PedirRespuesta(ctx, c.Remoto, c.Ficha)
 		if err != nil {
 			if e.Log != nil {
 				e.Log.Warn("comments: asking for an answer", "comment", c.ID, "err", err)
 			}
 			return // rendimiento.ai cannot be reached now: next time
 		}
+		r.anotar(c.ID, ahora)
 		if ok {
-			_ = st.GuardarRespuestaRecibida(ctx, c.ID, r.Respuesta, r.RespondidoPor, r.RespondidoAt)
+			_ = st.GuardarRespuestaRecibida(ctx, c.ID, res.Respuesta, res.RespondidoPor, res.RespondidoAt)
 		}
 	}
 }

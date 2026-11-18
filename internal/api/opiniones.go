@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/rendimiento-ai/rendimiento/internal/senales"
@@ -387,6 +388,9 @@ func (s *Server) respuestaOpinion(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	token := r.Header.Get("X-Ficha")
 	if err != nil || id <= 0 || len(token) != 64 {
+		if err == nil && id > 0 {
+			s.notaRespuesta(id, http.StatusNotFound)
+		}
 		httpError(w, http.StatusNotFound, "no such comment")
 		return
 	}
@@ -396,11 +400,25 @@ func (s *Server) respuestaOpinion(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		httpError(w, http.StatusInternalServerError, err.Error())
 	case !ok:
+		s.notaRespuesta(id, http.StatusNotFound)
 		httpError(w, http.StatusNotFound, "no such comment")
 	case !answered:
+		s.notaRespuesta(id, http.StatusNoContent)
 		w.WriteHeader(http.StatusNoContent)
 	default:
+		s.notaRespuesta(id, http.StatusOK)
 		writeJSON(w, map[string]any{"respuesta": d.Respuesta, "respondidoPor": d.RespondidoPor, "respondidoAt": d.RespondidoAt})
+	}
+}
+
+// notaRespuesta notes in the platform's log that an installation asked for
+// the answer to comment id, and what it got (200 the answer, 204 none yet,
+// 404 no such comment or not its token): so one can tell later whether an
+// installation asked. Only the number and the status, never the token or
+// anything about who asked.
+func (s *Server) notaRespuesta(id int64, status int) {
+	if s.Log != nil {
+		s.Log.Info("an installation asked for a comment's answer", "component", "comentarios", "comment", id, "status", status)
 	}
 }
 
@@ -419,6 +437,21 @@ func idiomaDe(r *http.Request) string {
 		return "es"
 	}
 	return "en"
+}
+
+// AlVerEspera is how long opening the comments page may wait for
+// rendimiento.ai's answers before it shows what is here.
+const AlVerEspera = 3 * time.Second
+
+// abrirMisComentarios is the page to write to the team as a person opens
+// it: it first asks rendimiento.ai for the answers still missing (at most
+// once a minute, for at most AlVerEspera), so an answer shows as soon as
+// someone looks for it.
+func (s *Server) abrirMisComentarios(w http.ResponseWriter, r *http.Request, login string) {
+	if s.Senales != nil {
+		s.Senales.RecogerAlVer(r.Context(), s.Store, AlVerEspera)
+	}
+	s.verMisComentarios(w, r, login)
 }
 
 // verMisComentarios is the page to write to the team; it marks the
