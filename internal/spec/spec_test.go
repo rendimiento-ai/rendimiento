@@ -493,3 +493,36 @@ func TestTasksOnly(t *testing.T) {
 		t.Fatalf("a task-only spec: %v", err)
 	}
 }
+
+// Fixes: their path defaults to the root, their names are unique among
+// themselves too, and their timeout and patterns are checked.
+func TestFixes(t *testing.T) {
+	s, err := Parse([]byte("services: [{name: web}]\nfixes:\n  - name: candado\n    recipe: npm\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f, ok := s.FixNamed("candado"); !ok || f.Path != "." || f.Recipe != "npm" {
+		t.Fatalf("got %+v %v", f, ok)
+	}
+	for yaml, want := range map[string]string{
+		"fixes: [{name: a, recipe: go}, {name: a, recipe: npm}]":                            `fixes[1].name "a" is already used by a fix`,
+		"fixes: [{name: a, recipe: go, timeout: 4000}]":                                     "fixes[0].timeout 4000",
+		"fixes: [{name: a, image: x, command: y, writes: ['[']}]":                           "is not a valid pattern",
+		"fixes: [{name: a, image: x, command: y, writes: [.git/config]}]":                   "cannot write git's own files",
+		"fixes: [{name: a, recipe: go, path: /abs}]":                                        "must be relative to the repo root",
+		"fixes: [{name: A_b, recipe: go}]":                                                  "must be a lowercase DNS label",
+		"tasks: [{name: a, image: x, command: y}]\nfixes: [{name: a, recipe: go}]":          "already used by a task",
+		"fixes: [{name: a, image: node:22, command: 'npm i', writes: [package-lock.json]}]": "",
+	} {
+		_, err := Parse([]byte("services: [{name: web}]\n" + yaml))
+		if want == "" {
+			if err != nil {
+				t.Errorf("%s: %v", yaml, err)
+			}
+			continue
+		}
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: %v, want %q", yaml, err, want)
+		}
+	}
+}

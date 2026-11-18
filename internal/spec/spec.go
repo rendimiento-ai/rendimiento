@@ -9,7 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"path"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -60,6 +62,50 @@ type Spec struct {
 	// Tests are the app's own browser tests, run against each release once
 	// it is live, judged test by test (see Tests).
 	Tests *Tests `json:"tests,omitempty"`
+	// Fixes are commands that regenerate files of the repository (a
+	// lockfile, go.sum) when they no longer match: the coding agent runs
+	// them with run_fix, a person with the run page's button, and Renovate's
+	// branches get them by themselves. Only these run: rendimiento reads
+	// them from the default branch, never from the branch being fixed.
+	Fixes []Fix `json:"fixes,omitempty"`
+}
+
+// Fix is one declared fix: a known recipe (npm, go, …) that brings its own
+// command, image and files, or a command of the app's own, in an image,
+// with the files it may write. It runs in a pod with the branch checked
+// out, without the app's secrets or environment, and only the files it may
+// write come back, as a commit on the same branch.
+type Fix struct {
+	Name string `json:"name"`
+	// Path is the folder it runs in, relative to the repo root (default ".").
+	Path string `json:"path,omitempty"`
+	// Recipe is one of npm, pnpm, yarn, go, uv, poetry or pip-tools.
+	Recipe string `json:"recipe,omitempty"`
+	// Image, Command and Writes are a fix of the app's own, instead of a
+	// recipe: the command runs with sh -c in Path, and only the files
+	// matching Writes (globs relative to Path) are kept.
+	Image   string   `json:"image,omitempty"`
+	Command string   `json:"command,omitempty"`
+	Writes  []string `json:"writes,omitempty"`
+	// Timeout stops it after this many seconds (default 300; at most the
+	// platform's step timeout).
+	Timeout int `json:"timeout,omitempty"`
+}
+
+// The recipes a fix can name.
+var FixRecipes = []string{"npm", "pnpm", "yarn", "go", "uv", "poetry", "pip-tools"}
+
+// DefaultFixTimeout is how long a fix runs unless it says otherwise, in seconds.
+const DefaultFixTimeout = 300
+
+// FixNamed is the app's fix of that name.
+func (s *Spec) FixNamed(name string) (Fix, bool) {
+	for _, f := range s.Fixes {
+		if f.Name == name {
+			return f, true
+		}
+	}
+	return Fix{}, false
 }
 
 // Observed reports whether svc sends traces: its own observe, else the app's.
@@ -808,6 +854,11 @@ func (s *Spec) Marshal() ([]byte, error) { return yaml.Marshal(s) }
 
 // Default fills in defaults (path, port, size, replicas, Dockerfile) in place.
 func (s *Spec) Default() {
+	for i := range s.Fixes {
+		if s.Fixes[i].Path == "" {
+			s.Fixes[i].Path = "."
+		}
+	}
 	for i := range s.Tasks {
 		t := &s.Tasks[i]
 		if t.Path == "" {
@@ -1050,6 +1101,7 @@ func (s *Spec) Validate() error {
 	errs = append(errs, s.validateJobs(seen)...)
 	errs = append(errs, s.validateBuilds()...)
 	errs = append(errs, s.validateTasks()...)
+	errs = append(errs, s.validateFixes()...)
 	if v := s.Verify; v != nil && v.Window != 0 && (v.Window < 60 || v.Window > 3600) {
 		errs = append(errs, fmt.Errorf("verify.window %d must be between 60 and 3600 seconds", v.Window))
 	}
@@ -1229,6 +1281,65 @@ func (s *Spec) validateTasks() []error {
 		if state[t.Name] == 0 && !visit(t.Name) {
 			errs = append(errs, fmt.Errorf("tasks: %q is part of a cycle of after: references", t.Name))
 			break
+		}
+	}
+	return errs
+}
+
+// validateFixes checks the fixes: unique names (among everything that has
+// one), a relative path, and either a known recipe or an image, a command
+// and the files it may write.
+func (s *Spec) validateFixes() []error {
+	var errs []error
+	used := map[string]string{}
+	for _, svc := range s.Services {
+		used[svc.Name] = "service"
+	}
+	for _, j := range s.Jobs {
+		used[j.Name] = "job"
+	}
+	for _, b := range s.Builds {
+		used[b.Name] = "build"
+	}
+	for _, t := range s.Tasks {
+		used[t.Name] = "task"
+	}
+	for i, f := range s.Fixes {
+		p := fmt.Sprintf("fixes[%d]", i)
+		if !dnsLabel.MatchString(f.Name) || len(f.Name) > 40 {
+			errs = append(errs, fmt.Errorf("%s.name %q must be a lowercase DNS label of at most 40 characters", p, f.Name))
+		}
+		if kind, dup := used[f.Name]; dup {
+			errs = append(errs, fmt.Errorf("%s.name %q is already used by a %s", p, f.Name, kind))
+		}
+		used[f.Name] = "fix"
+		if strings.HasPrefix(f.Path, "/") || strings.Contains(f.Path, "..") {
+			errs = append(errs, fmt.Errorf("%s.path %q must be relative to the repo root", p, f.Path))
+		}
+		switch {
+		case f.Recipe != "":
+			if !slices.Contains(FixRecipes, f.Recipe) {
+				errs = append(errs, fmt.Errorf("%s.recipe %q must be one of %s", p, f.Recipe, strings.Join(FixRecipes, ", ")))
+			}
+			if f.Image != "" || f.Command != "" || len(f.Writes) > 0 {
+				errs = append(errs, fmt.Errorf("%s: a recipe brings its own image, command and writes; use either recipe or all three", p))
+			}
+		case f.Image == "" || strings.TrimSpace(f.Command) == "" || len(f.Writes) == 0:
+			errs = append(errs, fmt.Errorf("%s needs a recipe (%s), or image, command and writes", p, strings.Join(FixRecipes, ", ")))
+		}
+		for _, w := range f.Writes {
+			_, err := path.Match(w, "x")
+			switch {
+			case w == "" || strings.HasPrefix(w, "/") || strings.Contains(w, ".."):
+				errs = append(errs, fmt.Errorf("%s.writes %q must be a pattern relative to the fix's path", p, w))
+			case w == ".git" || strings.HasPrefix(w, ".git/"):
+				errs = append(errs, fmt.Errorf("%s.writes %q: a fix cannot write git's own files", p, w))
+			case err != nil:
+				errs = append(errs, fmt.Errorf("%s.writes %q is not a valid pattern", p, w))
+			}
+		}
+		if f.Timeout < 0 || f.Timeout > 3600 {
+			errs = append(errs, fmt.Errorf("%s.timeout %d must be between 1 and 3600 seconds", p, f.Timeout))
 		}
 	}
 	return errs

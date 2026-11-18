@@ -1,0 +1,7 @@
+# error: fixes[0]: a recipe brings its own image, command and writes
+services:
+  - name: web
+fixes:
+  - name: candado
+    recipe: pnpm
+    command: pnpm install

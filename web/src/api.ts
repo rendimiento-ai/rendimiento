@@ -59,6 +59,26 @@ export interface Spec {
   builds?: unknown[];
   previews?: Previews;
   tests?: AppTests;
+  fixes?: Fix[];
+}
+
+/** The recipes a declared fix can name (spec.FixRecipes). */
+export const fixRecipes = ["npm", "pnpm", "yarn", "go", "uv", "poetry", "pip-tools"] as const;
+export type FixRecipe = (typeof fixRecipes)[number];
+
+/**
+ * A declared fix (spec.Fix): a command that regenerates files, such as a
+ * lockfile, read from the default branch. Either a recipe, or an image, a
+ * command and the files it may write (globs relative to path).
+ */
+export interface Fix {
+  name: string;
+  path?: string; // "." by default
+  recipe?: FixRecipe;
+  image?: string;
+  command?: string;
+  writes?: string[];
+  timeout?: number; // seconds (300)
 }
 
 /** A live copy for each pull request, at pr-<number>.<domain> (spec.Previews); never a copy of production's data. */

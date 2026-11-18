@@ -1,0 +1,6 @@
+# error: fixes[0].recipe "bundler" must be one of
+services:
+  - name: web
+fixes:
+  - name: gemas
+    recipe: bundler

@@ -1,0 +1,1 @@
+- **Declared fixes:** a new `fixes:` section in `rendimiento.yaml` names commands that regenerate files, such as a lockfile: a recipe (`npm`, `pnpm`, `yarn`, `go`, `uv`, `poetry`, `pip-tools`) or an image, a command and the files it may write. They run in a pod of the build namespace, with no secrets, and are always read from the default branch.
