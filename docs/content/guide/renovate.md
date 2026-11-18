@@ -22,7 +22,7 @@ flowchart LR
     GH -- push to main --> Deploy[rendimiento deploys]
 ```
 
-The current configuration auto-merges **patch and minor** updates once rendimiento's checks pass, except **Docker minor/major** tags (a new language runtime can break builds) and **SQLAlchemy minor/major** (2.1 changed the default Postgres driver). Major updates always wait for you. Repositories without a rendimiento app (like `main_configs`) have no build check.
+The current configuration auto-merges **patch and minor** updates once rendimiento's checks pass, except **Docker minor/major** tags (a new language runtime can break builds) and **SQLAlchemy minor/major** (2.1 changed the default Postgres driver). Major updates always wait for you. Repositories without a rendimiento app (like `main_configs`) have no build check. An update to a folder no step builds or tests (a `mobile/` app with no step of its own) gets an *Action required* check instead of a green one, so Renovate leaves it for a person: see [What no step tests](builds.md#what-no-step-tests).
 
 !!! warning "A passing build is not a passing app"
     For apps without tests, the check only proves the image builds. An update can still break at runtime, as SQLAlchemy 2.1 would have for wellness. Add tests, or exclude risky packages from auto-merge in the config.

@@ -28,6 +28,25 @@ En los dos casos:
 - **Un conflicto donde los dos lados solo agregaron líneas lo junta rendimiento.** Dos ramas que agregan cada una una línea después de la misma (una página al menú del libro, una frase a las traducciones) chocan para git, aunque no hay nada que decidir. rendimiento une la rama principal en la rama con una unión de tres vías: si en cada archivo que los dos cambiaron los dos lados solo agregaron líneas en los mismos lugares, conserva las dos (primero lo de la rama principal), hace la confirmación de la unión en la rama a través de GitHub y la prueba. La ejecución dice qué archivos juntó. El sí que se dio a la rama vale para esa confirmación, porque no trae nada nuevo: se integra cuando pasa. Si choca algo más (una línea que los dos cambiaron, un archivo que uno borró y el otro cambió), no se confirma nada.
 - **Cualquier otro conflicto nunca se integra.** La ejecución nombra los archivos, y su página ofrece **Pedírselo a un agente**: eso crea un [encargo](agents.md) para su propio agente, que tiene git; el agente de la plataforma no puede unir ramas. La nueva confirmación corre, y se integra si pasa.
 
+### Lo que ningún paso prueba {#what-no-step-tests}
+
+Una ejecución que pasó responde solo por lo que leyeron sus pasos. Cuando una rama cambia además una carpeta que ningún paso construye ni prueba (una app `mobile/` junto a servicios en `api/` y `web/`, por ejemplo), su ejecución pasa de todos modos, pero:
+
+- rendimiento **no** la integra por sí solo: una solicitud abierta no es el sí para ella; solo lo es **Integrar esta rama** de una persona (o un encargo aceptado).
+- Su comprobación en GitHub termina en **Action required** (se requiere una acción) en lugar de éxito, con el título *No step builds or tests `mobile/`: a person must merge this*. Las herramientas que esperan comprobaciones en verde también esperan: Renovate no la integra solo, ni GitHub cuando las reglas de la rama exigen la comprobación.
+- La página de la ejecución nombra esas carpetas o archivos. El sí de una persona ahí pone la comprobación en verde y la integra.
+
+Qué cuenta como probado en la ejecución de una rama: la carpeta de cada servicio, imagen y trabajo que se construye, con sus rutas de `watch` y su Dockerfile; y la carpeta y las rutas de `watch` de cada tarea con `when: always` (una tarea que solo corre al desplegar, o antes o después de un despliegue, no prueba ninguna rama). Un paso cuya carpeta es la raíz (`path: .`, o ninguna en un servicio) lee todo el repositorio, así que entonces todo queda probado, incluidos los archivos de bloqueo de la raíz. `rendimiento.yaml` siempre cuenta, porque la ejecución lo lee, y también los archivos que ninguna construcción lee: Markdown, licencias y los ajustes de git, de los editores y de Renovate (`renovate.json`). Para que se pruebe una carpeta, dele un paso:
+
+```yaml
+tasks:
+  - name: mobile
+    image: node:22
+    path: mobile
+    command: npm ci && npm test
+    when: always
+```
+
 ## Dockerfile o Railpack {#dockerfile-or-railpack}
 
 | La carpeta del servicio tiene… | rendimiento usa… |

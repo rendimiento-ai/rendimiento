@@ -1191,3 +1191,107 @@ func TestFusionAutomatica(t *testing.T) {
 		t.Fatalf("the encargo's branch: merge %q, approved by %q", enc.Merge, enc.ApprovedBy)
 	}
 }
+
+// A branch whose change touches what no step builds or tests (a mobile app
+// beside the tested folders) passes, but is not merged by itself: its check
+// asks for a person (action_required, so Renovate's automerge waits too),
+// and a person's yes turns it green and merges it.
+func TestFusionSinPruebas(t *testing.T) {
+	p, fake, _, _ := setup(t)
+	ctx := context.Background()
+	yaml := "tasks:\n" +
+		"  - name: web\n    image: node:20\n    command: npm test\n    path: web\n    when: always\n" +
+		"  - name: api\n    image: python:3.12\n    command: pytest\n    path: api\n    when: always\n"
+	fake.files["main"] = fstest.MapFS{"rendimiento.yaml": {Data: []byte(yaml)}}
+	sp, err := spec.Parse([]byte(yaml))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := p.Onboard(ctx, OnboardRequest{Installation: 7, Repo: "p0dxD/sinpruebas", DefaultBranch: "main", Name: "sinpruebas", Spec: *sp}, false); err != nil {
+		t.Fatalf("onboarding: %v", err)
+	}
+	app, err := p.Store.GetApp(ctx, "sinpruebas")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Any open pull request is the yes: what is left is the untested part.
+	if err := p.Store.SetAppAutoMerge(ctx, app.ID, true, true); err != nil {
+		t.Fatal(err)
+	}
+	yes := true
+	push := func(number int, branch, sha string, changed []string) *store.Run {
+		t.Helper()
+		fake.mu.Lock()
+		fake.files[sha] = fake.files["main"]
+		if fake.changed == nil {
+			fake.changed = map[string][]string{}
+		}
+		fake.changed["main..."+sha] = changed
+		pr := gh.PullInfo{Number: number, State: "open", Mergeable: &yes, MergeableState: "clean"}
+		pr.Head.Ref, pr.Head.SHA, pr.Base.Ref = branch, sha, "main"
+		fake.pulls = append(fake.pulls, pr)
+		fake.mu.Unlock()
+		runs, err := p.HandlePush(ctx, PushEvent{Installation: 7, Repo: "p0dxD/sinpruebas", Branch: branch, SHA: sha})
+		if err != nil || len(runs) != 1 {
+			t.Fatalf("push to %s: %v %v", branch, runs, err)
+		}
+		r := waitRun(t, p, runs[0].ID)
+		if r.Status != store.RunSucceeded {
+			t.Fatalf("run of %s: %s %q", branch, r.Status, r.Message)
+		}
+		return r
+	}
+	check := func(r *store.Run) gh.CheckRun {
+		t.Helper()
+		if r.CheckRun == nil {
+			t.Fatalf("run %d has no check", r.ID)
+		}
+		fake.mu.Lock()
+		defer fake.mu.Unlock()
+		return fake.checks[*r.CheckRun]
+	}
+	merged := func() []int {
+		fake.mu.Lock()
+		defer fake.mu.Unlock()
+		return append([]int(nil), fake.merged...)
+	}
+	waitMerged := func(r *store.Run) *store.Run {
+		t.Helper()
+		for deadline := time.Now().Add(15 * time.Second); r.Merge != store.MergeMerged && time.Now().Before(deadline); {
+			time.Sleep(50 * time.Millisecond)
+			r, _ = p.Store.GetRun(ctx, r.ID)
+		}
+		return r
+	}
+
+	// A web change: tested, green, merged.
+	web := waitMerged(push(20, "solo-web", strings.Repeat("1", 40), []string{"web/package.json", "README.md"}))
+	if web.Merge != store.MergeMerged || len(web.Untested) != 0 || check(web).Conclusion != "success" {
+		t.Fatalf("the web change: merge %q, untested %v, check %+v", web.Merge, web.Untested, check(web))
+	}
+
+	// A mobile change: it passes, but nobody tested mobile/.
+	mobile := push(21, "renovate/react-native-0.x", strings.Repeat("2", 40), []string{"mobile/package.json", "mobile/package-lock.json", "web/x.ts"})
+	if len(mobile.Untested) != 1 || mobile.Untested[0] != "mobile/" {
+		t.Fatalf("untested = %v, want [mobile/]", mobile.Untested)
+	}
+	if c := check(mobile); c.Conclusion != "action_required" || c.Output == nil || !strings.Contains(c.Output.Title, "no step builds or tests `mobile/`: a person must merge this") {
+		t.Fatalf("the check of the mobile change: %+v %+v", c, c.Output)
+	}
+	push(22, "otra-movil", strings.Repeat("3", 40), []string{"mobile/app.json"})
+	p.MergeReady(ctx, app)
+	if got := merged(); len(got) != 1 || got[0] != 20 {
+		t.Fatalf("merged %v, want only #20", got)
+	}
+
+	// A person's yes: the check turns green and it is merged.
+	if _, err := p.ApproveMerge(ctx, mobile.ID, "ana"); err != nil {
+		t.Fatal(err)
+	}
+	if r := waitMerged(mobile); r.Merge != store.MergeMerged {
+		t.Fatalf("the approved mobile change: merge %q (%s)", r.Merge, r.Message)
+	}
+	if c := check(mobile); c.Conclusion != "success" || !strings.Contains(c.Output.Title, "ana approved merging it") {
+		t.Fatalf("the check after the yes: %+v %+v", c, c.Output)
+	}
+}
