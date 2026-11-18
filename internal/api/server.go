@@ -233,6 +233,12 @@ func (s *Server) Handler() http.Handler {
 		mux.Handle(pattern, s.requireRole(true, role, s.anotando(pattern, true, h)))
 	}
 	auth(store.MemberGuest, "GET /api/me", s.me)
+	// The home page as each person lays it out, and the default (internal/api/inicio.go).
+	auth(store.MemberGuest, "GET /api/inicio", s.verInicio)
+	auth(store.MemberGuest, "PUT /api/inicio", s.putInicio)
+	auth(store.MemberGuest, "DELETE /api/inicio", s.borrarInicio)
+	plat(store.MemberAdmin, "PUT /api/inicio/predeterminado", s.putInicioPredeterminado)
+	plat(store.MemberAdmin, "DELETE /api/inicio/predeterminado", s.borrarInicioPredeterminado)
 	// How the interface is used, as totals (internal/api/uso.go). Not in the
 	// bitácora: that would tie each batch to who sent it.
 	s.routes = append(s.routes, route{pattern: "POST /api/uso", role: store.MemberGuest, sinBitacora: true})

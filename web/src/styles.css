@@ -2506,6 +2506,9 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 /* (a) The mosaic (.mosaico-cuentas, .mosaico): the counters, the search and the cards. */
 .esq-buscar { height: 48px; border-radius: 999px; margin-bottom: 18px; }
 .esq-teja { height: 146px; border-radius: 16px; }
+.esq-franja { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 18px; }
+.esq-tarjeta { height: 132px; border-radius: var(--radius); }
+@media (max-width: 760px) { .esq-franja { grid-template-columns: minmax(0, 1fr); gap: 12px; } }
 /* (b) The list and the detail (.lista-detalle, .ld-lista, .ld-detalle). */
 .esq-cuenta { flex: 1 1 150px; height: 83px; border-radius: 16px; }
 .esq-ld-lista { flex: 1 1 300px; max-width: 380px; min-height: 420px; display: flex; flex-direction: column; gap: 10px; padding: 12px;
@@ -2602,27 +2605,58 @@ button.menu-cuenta-fila { width: 100%; border: 0; background: none; font: inheri
 .menu-cuenta .demo-badge { align-self: flex-start; margin: 6px 10px; }
 .menu-cuenta hr { width: 100%; margin: 4px 0; border: 0; border-top: 1px solid var(--border); }
 
-/* Running now, at the top of the Apps page (components/corriendo): a card per run, or one quiet line. */
-.ahora { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; padding: 12px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); }
-.ahora header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
-.ahora h2 { margin: 0; font-family: var(--body); font-size: 15px; font-weight: 800; }
-.ahora-carriles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: 10px; }
-.ahora-carril { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 10px 12px; background: var(--bg); border: 1.5px solid var(--border); border-radius: 12px; }
-.ahora-arriba { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.ahora-arriba a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-weight: 700; }
+/* The home page's Today band (components/hoy): three cards of the same size, Running, Waiting for you and Need help;
+   stacked on a phone. --n is how many come together. */
+.hoy { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 16px; margin-bottom: 18px; }
+@media (max-width: 760px) { .hoy { grid-template-columns: minmax(0, 1fr); gap: 12px; } }
+.hoy-tarjeta { display: flex; flex-direction: column; gap: 8px; min-width: 0; margin: 0; padding: 14px 16px; }
+.hoy-tarjeta header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.hoy-tarjeta h2 { margin: 0; font-family: var(--body); font-size: 15px; font-weight: 800; }
+.hoy-cifra { font-family: var(--display); font-size: 28px; line-height: 1; font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hoy-cifra.va { color: var(--warn); }
+.hoy-cifra.mal { color: var(--bad); }
+.hoy-lineas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.hoy-lineas a { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 13.5px; text-decoration: none; }
+.hoy-lineas a:hover, .hoy-lineas a:focus-visible { border-color: var(--accent); }
+.hoy-lineas b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; flex: 0 1 auto; }
+.hoy-paso { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12.5px; }
+.hoy-paso .mono { font-size: 12px; color: var(--text); }
+.hoy-tiempo { flex: none; color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.hoy-cuenta { flex: none; margin-left: auto; padding: 0 8px; border-radius: 999px; background: var(--bad-bg); color: var(--bad); font-weight: 800; font-size: 12.5px; }
+.hoy-mal { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
+.hoy-mas, .hoy-nada { margin: 0; }
+.hoy-nada { font-size: 14px; color: var(--muted); }
+.hoy-corre.cola .ahora-punto { background: var(--muted); animation: none; }
 .ahora-punto { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--warn); animation: ahora-late 1.2s ease-in-out infinite; }
-.ahora-carril.cola .ahora-punto { background: var(--muted); animation: none; }
 @keyframes ahora-late { 50% { opacity: .35; } }
-.ahora-rama { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--muted); }
-.ahora-pasos { display: flex; gap: 3px; }
-.ahora-pasos i { flex: 1; min-width: 3px; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--muted) 28%, transparent); }
-.ahora-pasos i.ok { background: var(--ok); }
-.ahora-pasos i.va { background: var(--warn); animation: ahora-late 1.2s ease-in-out infinite; }
-.ahora-pasos i.mal { background: var(--bad); }
-.ahora-pasos i.salto { background: color-mix(in srgb, var(--muted) 55%, transparent); }
-.ahora-paso { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--muted); }
-.ahora-paso > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ahora-paso b { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text); }
-.ahora-ir { font-size: 13px; font-weight: 600; }
-.ahora-calma { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 16px; font-size: 14px; }
+.ahora-calma { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; margin: 0; font-size: 14px; }
 .ahora-calma > i { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+@media (prefers-reduced-motion: reduce) { .ahora-punto { animation: none; } }
+
+/* The greeting's folded scoreboard, Customize home, and the quiet line under the mosaic: links that look like links. */
+.inicio-sub button.link, .inicio-personalizar, .inicio-pie button.link, .inicio-ajustes button.link {
+  background: none; border: none; padding: 0; color: var(--link); cursor: pointer; font: inherit; text-align: left; }
+.inicio-sub button.link:hover, .inicio-personalizar:hover, .inicio-pie button.link:hover, .inicio-ajustes button.link:hover { text-decoration: underline; }
+.inicio-personalizar { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 14px; font-weight: 600; }
+.inicio-pie { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 28px; color: var(--muted); }
+
+/* Customize home (components/personalizar): a row per section, dragged or moved with its arrows, with its switch. */
+.inicio-ajustes { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; border: 1.5px solid var(--accent); }
+.inicio-ajustes header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
+.inicio-ajustes h2 { margin: 0; font-family: var(--body); font-size: 16px; font-weight: 800; }
+.inicio-ajustes-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.inicio-ajustes-lista li { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 8px; border-radius: 10px; border: 1px dashed transparent; background: var(--bg); cursor: grab; }
+.inicio-ajustes-lista li:hover { background: var(--surface-2); }
+.inicio-ajustes-lista li.arrastrando { opacity: .5; }
+.inicio-ajustes-lista li.sobre { border-color: var(--accent); }
+.inicio-asa { flex: none; color: var(--muted); letter-spacing: -2px; user-select: none; }
+.inicio-ajuste-nombre { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.inicio-flechas { display: inline-flex; gap: 4px; flex: none; }
+.inicio-mover { width: 32px; height: 32px; padding: 0; border-radius: 8px; line-height: 1; }
+.inicio-mover:disabled { opacity: .35; cursor: default; }
+.inicio-ajustes-botones { flex-wrap: wrap; gap: 8px 12px; }
+.inicio-ajustes-admin { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+/* The Numbers page: the panels that used to close the home page. */
+.numeros { display: flex; flex-direction: column; gap: 16px; }
+.numeros .dlv { margin: 0; }

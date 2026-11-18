@@ -39,6 +39,11 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 
 | Método | Ruta | Hace |
 |---|---|---|
+| GET | `/api/inicio` | la página de inicio de la persona con la sesión: sus secciones en orden, cada una `{id, on}` (`secciones`), si la eligió (`propias`), la predeterminada (`predeterminado`, y `predeterminadoPor` cuando la fijó un administrador), y si puede fijarla (`puedeFijar`) |
+| PUT | `/api/inicio` | guarda la página de inicio propia, `{"secciones": [{"id": "apps", "on": true}, …]}` (cualquier función; no en una demostración) |
+| DELETE | `/api/inicio` | *Volver a lo de siempre*: olvida la página de inicio propia |
+| PUT | `/api/inicio/predeterminado` | la página de inicio de quienes nunca eligieron la suya (los administradores de la plataforma) |
+| DELETE | `/api/inicio/predeterminado` | vuelve a la predeterminada de fábrica (los administradores de la plataforma) |
 | GET | `/api/me` | la cuenta con la sesión iniciada, y qué rendimiento contesta: `version`, `modo` (`local` o `kubernetes`), `os`, `arch` |
 | GET | `/api/installations` | las instalaciones de la aplicación de GitHub |
 | GET | `/api/installations/{id}/repos` | los repositorios de una instalación |
@@ -138,7 +143,7 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | Método | Ruta | Hace |
 |---|---|---|
 | GET | `/api/runs/{id}` | una ejecución con sus pasos (el grafo) |
-| GET | `/api/corriendo` | lo que pasa en las aplicaciones de la organización a las que la persona puede entrar: las ejecuciones en cola o en curso con sus pasos (`ahora`, el *Corriendo ahora* de Aplicaciones), y las últimas 30 que terminaron (`recientes`, también para el buscador de la barra superior) |
+| GET | `/api/corriendo` | lo que pasa en las aplicaciones de la organización a las que la persona puede entrar: las ejecuciones en cola o en curso con sus pasos (`ahora`, la tarjeta *En ejecución* del inicio), y las últimas 30 que terminaron (`recientes`, también para el buscador de la barra superior) |
 | POST | `/api/runs/{id}/cancel` | la cancela; se borran sus pods de construcción |
 | GET | `/api/runs/{id}/steps/{step}/log` | el registro de un paso (guardado, o en vivo mientras corre) |
 | GET | `/api/runs/{id}/events` | SSE: el estado de los pasos y las líneas del registro |

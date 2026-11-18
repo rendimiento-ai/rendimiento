@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { api, session, timeAgo, type Aprobacion } from "../api";
-import { lang, t, tn } from "../i18n";
+import { lang, t } from "../i18n";
 import { ErrorBox, usePoll } from "./ui";
 
 /**
@@ -63,17 +62,6 @@ function Pedido({ a, onDone }: { a: Aprobacion; onDone: () => void }) {
       ) : (
         <div className="small muted">{t("An administrator decides.")}</div>
       )}
-    </div>
-  );
-}
-
-/** A line on the Apps page when agents wait for a decision. */
-export function AprobacionesAviso() {
-  const { data } = usePoll(() => api.aprobaciones(true), [], 30000);
-  if (!data || data.length === 0) return null;
-  return (
-    <div className="alert" role="status">
-      {tn(data.length, "{n} change to production waits for a person's approval.", "{n} changes to production wait for a person's approval.")} <Link to="/bitacora">{t("Approve or reject")}</Link>
     </div>
   );
 }

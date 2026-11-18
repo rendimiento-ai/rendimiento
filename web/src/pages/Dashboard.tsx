@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { api, envApi, EXAMPLE_URL, isLibrary, timeAgo, type App, session } from "../api";
+import { api, envApi, EXAMPLE_URL, isLibrary, timeAgo, type App, type SeccionInicio, session } from "../api";
 import { ErrorBox, PhaseBadge, RunBadge, usePoll } from "../components/ui";
 import { fmtPct } from "../components/reliability";
 import { DeliveryPanel } from "../components/delivery";
@@ -8,13 +8,12 @@ import { VisitsPanel } from "../components/visits";
 import { Flor, LluviaDePetalos } from "../components/ambiente";
 import { Semilla } from "../components/marca";
 import { t, tn } from "../i18n";
-import { AprobacionesAviso } from "../components/aprobaciones";
-import { SenalesAviso } from "../components/senales";
-import { ResumenDelDia } from "../components/resumen";
-import { MesaAviso } from "../components/mesa";
-import { Publicada } from "./Version";
+import { ResumenDelDia, diaCorto, ultimoTablero, useResumen } from "../components/resumen";
 import { EsqMosaico } from "../components/esqueleto";
-import { Corriendo } from "../components/corriendo";
+import { HoyAyuda, HoyCorriendo, HoyEsperan, PieDelInicio, necesitanAyuda } from "../components/hoy";
+import { Personalizar, ofrecida } from "../components/personalizar";
+import { TARJETAS, completar, useInicio } from "../inicio";
+import { anotar } from "../uso";
 
 // Each app under an arch gets one of the papel picado colors for its band.
 const bandas = ["var(--grana)", "var(--cempasuchil)", "var(--anil)", "var(--rosa)", "var(--nopal)", "var(--maiz)"];
@@ -49,12 +48,37 @@ function resaltar(text: string, q: string): ReactNode {
   return <>{text.slice(0, at)}<mark>{text.slice(at, at + s.length)}</mark>{text.slice(at + s.length)}</>;
 }
 
-/** The Apps page: every app with its state, last run, uptime and visitors, and the delivery numbers. */
+/** The cogwheel of Customize home. */
+function Engrane() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" />
+    </svg>
+  );
+}
+
+/**
+ * The Apps page, the home: the greeting with the hills, then the sections each person lays out (Customize home): the
+ * Today band (Running, Waiting for you, Need help), the mosaic of apps with its filters and search, and, when chosen,
+ * yesterday's scoreboard, visits and delivery. Under them one quiet line of links. Only what is urgent stays above
+ * whatever was chosen: the environment's warning. The rest of the notices are in the bell.
+ */
 export function Dashboard() {
   const { data: apps, error } = usePoll(api.apps, [], 10000);
   const nav = useNavigate();
   // The environment report is the cluster's: a computer has none.
   const { data: env } = usePoll(() => (session.cluster ? envApi.report() : Promise.resolve(undefined)), [], 60000);
+  const resumen = useResumen();
+  const ultimo = ultimoTablero(resumen.data);
+  const inicio = useInicio();
+  // While Customize home is open, the page shows what is being chosen.
+  const [borrador, setBorrador] = useState<SeccionInicio[]>();
+  const secciones = (borrador ?? inicio.secciones).filter((s) => ofrecida(s.id));
+  const on = (id: string) => secciones.some((s) => s.id === id && s.on);
+  // The scoreboard: folded into a line of the greeting, unless chosen unfolded.
+  const [marcadorAbierto, setMarcadorAbierto] = useState<boolean>();
+  const abierto = marcadorAbierto ?? on("marcador");
 
   // Petals fall when an app's live release changes while the page is open.
   const [lluvia, setLluvia] = useState(0);
@@ -80,49 +104,20 @@ export function Dashboard() {
   const shown = (apps ?? []).map((a, i) => ({ a, i }))
     .filter(({ a }) => coincide(a, q) && filtro.test(a))
     .sort((x, y) => Number(marchita(y.a)) - Number(marchita(x.a)) || x.a.name.localeCompare(y.a.name));
+  const hay = !!apps && apps.length > 0;
 
-  return (
+  const abrirAjustes = () => {
+    if (borrador) return setBorrador(undefined);
+    anotar("customize_home");
+    setBorrador(completar(inicio.secciones));
+  };
+  const marcador = (plegable: boolean) => (
+    <ResumenDelDia resumen={resumen} plegar={plegable ? () => setMarcadorAbierto(false) : undefined} />
+  );
+
+  const mosaico = (
     <>
-      <LluviaDePetalos cuando={lluvia} />
-      {session.role !== "guest" && <AprobacionesAviso />}
-      {session.operator && <SenalesAviso />}
-      <div className="hero-vida">
-        <div>
-          <h1>{t("Your apps,")} <em>{t("alive")}</em>.</h1>
-          <p className="sub" style={{ marginBottom: 0 }} data-listo={apps ? "" : undefined}>
-            {apps && (caidas > 0
-              ? `${tn(vivas, "{n} blooming", "{n} blooming")} · ${tn(caidas, "{n} withered", "{n} withered")}`
-              : tn(vivas, "{n} app blooming on the internet", "{n} apps blooming on the internet"))}
-          </p>
-        </div>
-        {/* The hills of Cotija: the ridge, the ground below it and the sun, drawn in one after another. */}
-        <svg className="cerros" width="300" height="45" viewBox="0 0 600 90" aria-hidden="true" fill="none" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
-          <path pathLength={1} style={{ "--i": 0 } as CSSProperties} d="M0 72L70 46l50 16 70-40 70 38 60-26 80 30 70-36 60 24 70-10" />
-          <path pathLength={1} style={{ "--i": 1 } as CSSProperties} className="cerros-suelo" d="M0 84q150-14 300 0t300 0" />
-          <circle pathLength={1} style={{ "--i": 2 } as CSSProperties} cx="330" cy="22" r="10" />
-          <path pathLength={1} style={{ "--i": 3 } as CSSProperties} d="M330 4v5M312 22h-5M353 22h-5M317 9l3.5 3.5M343 9l-3.5 3.5" />
-        </svg>      </div>
-      {apps && apps.length > 0 && <Corriendo />}
-      <ErrorBox error={error} />
-      <Publicada onlyNewer />
-      {apps && apps.length > 0 && <MesaAviso />}
-      {apps && apps.length > 0 && <ResumenDelDia />}
-      {env && env.overall !== "ok" && (
-        <Link to="/environment" className={`card env-hero ${env.overall === "warning" ? "warn" : "bad"}`} style={{ marginBottom: 16, color: "var(--text)" }}>
-          <span className={`badge ${env.overall === "warning" ? "warn" : "bad"}`}>{t("Environment")}</span>
-          <span>{env.summary}</span>
-          <span className="small" style={{ color: "var(--link)" }}>{t("View details →")}</span>
-        </Link>
-      )}
-      {apps && apps.length === 0 && (
-        <div className="card empty">
-          <p>{t("No apps yet.")}</p>
-          <Link to="/new" className="btn primary big"><Semilla />{t("Deploy your first app")}</Link>
-          <p className="small muted" style={{ margin: "12px 0 0" }}>{t("Nothing of your own to deploy yet?")} <a href={EXAMPLE_URL} target="_blank" rel="noreferrer">{t("Copy the example to your GitHub account")}</a>{t(", then choose your copy in New app.")}</p>
-        </div>
-      )}
-      {!apps && !error && <EsqMosaico cabeza={false} />}
-      {apps && apps.length > 0 && (
+      {hay && (
         <>
           <div className="mosaico-cuentas" role="group" aria-label={t("Show")}>
             {filtros.map((f) => (
@@ -180,12 +175,91 @@ export function Dashboard() {
           );
         })}
       </div>
-      {apps && apps.length > 0 && <div style={{ marginTop: 28 }}><VisitsPanel />{session.operator && <DeliveryPanel />}</div>}
-      {session.operator && session.mercado && (
-        <p className="small muted" style={{ marginTop: 28 }}>
-          {t("Pages without code for people who don't program live in the")} <Link to="/mercado">{t("Mercado")}</Link>.
-        </p>
+    </>
+  );
+
+  // Each section chosen, in its order; the band's cards side by side while they come one after another.
+  const ayuda = apps ? necesitanAyuda(apps, ultimo?.board, marchita) : undefined;
+  const tarjeta: Record<string, () => ReactNode> = {
+    corriendo: () => <HoyCorriendo />,
+    esperan: () => <HoyEsperan />,
+    ayuda: () => <HoyAyuda ayuda={ayuda} />,
+  };
+  const bloques: ReactNode[] = [];
+  let franja: ReactNode[] = [];
+  const cerrarFranja = () => {
+    if (franja.length) bloques.push(<div key={`hoy-${bloques.length}`} className="hoy" style={{ ["--n" as string]: franja.length }}>{franja}</div>);
+    franja = [];
+  };
+  for (const s of secciones) {
+    if (!s.on) continue;
+    if (TARJETAS.has(s.id)) {
+      if (hay) franja.push(<Fragment key={s.id}>{tarjeta[s.id]()}</Fragment>);
+      continue;
+    }
+    cerrarFranja();
+    if (s.id === "apps") bloques.push(<Fragment key="apps">{mosaico}</Fragment>);
+    else if (s.id === "marcador" && hay && abierto) bloques.push(<Fragment key="marcador">{marcador(false)}</Fragment>);
+    else if (s.id === "visitas" && hay) bloques.push(<VisitsPanel key="visitas" />);
+    else if (s.id === "entregas" && hay) bloques.push(<DeliveryPanel key="entregas" />);
+  }
+  cerrarFranja();
+
+  return (
+    <>
+      {on("lluvia") && <LluviaDePetalos cuando={lluvia} />}
+      <div className="hero-vida">
+        <div>
+          <h1>{t("Your apps,")} <em>{t("alive")}</em>.</h1>
+          <p className="sub inicio-sub" style={{ marginBottom: 0 }} data-listo={apps ? "" : undefined}>
+            {apps && (caidas > 0
+              ? `${tn(vivas, "{n} blooming", "{n} blooming")} · ${tn(caidas, "{n} withered", "{n} withered")}`
+              : tn(vivas, "{n} app blooming on the internet", "{n} apps blooming on the internet"))}
+            {hay && ultimo && (ultimo.board.runs > 0 || ultimo.board.releases > 0) && (
+              <>
+                {" · "}
+                <button type="button" className="link inicio-ayer" aria-expanded={abierto} aria-controls="marcador-del-dia" onClick={() => setMarcadorAbierto(!abierto)}>
+                  {diaCorto(ultimo.day)}: {tn(ultimo.board.runs, "{n} run", "{n} runs")}, {tn(ultimo.board.failed, "{n} failed", "{n} of them failed")} <span aria-hidden="true">{abierto ? "▾" : "▸"}</span>
+                </button>
+              </>
+            )}
+          </p>
+          {!session.demo && (
+            <button type="button" className="link inicio-personalizar" aria-expanded={!!borrador} aria-controls="inicio-ajustes" onClick={abrirAjustes}>
+              <Engrane />{t("Customize home")}
+            </button>
+          )}
+        </div>
+        {/* The hills of Cotija: the ridge, the ground below it and the sun, drawn in one after another. */}
+        <svg className="cerros" width="300" height="45" viewBox="0 0 600 90" aria-hidden="true" fill="none" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
+          <path pathLength={1} style={{ "--i": 0 } as CSSProperties} d="M0 72L70 46l50 16 70-40 70 38 60-26 80 30 70-36 60 24 70-10" />
+          <path pathLength={1} style={{ "--i": 1 } as CSSProperties} className="cerros-suelo" d="M0 84q150-14 300 0t300 0" />
+          <circle pathLength={1} style={{ "--i": 2 } as CSSProperties} cx="330" cy="22" r="10" />
+          <path pathLength={1} style={{ "--i": 3 } as CSSProperties} d="M330 4v5M312 22h-5M353 22h-5M317 9l3.5 3.5M343 9l-3.5 3.5" />
+        </svg>
+      </div>
+      {borrador && (
+        <Personalizar lista={borrador} poner={setBorrador} vista={inicio.vista} guardado={inicio.aplicar} cerrar={() => setBorrador(undefined)} />
       )}
+      <ErrorBox error={error} />
+      {env && env.overall !== "ok" && (
+        <Link to="/environment" className={`card env-hero ${env.overall === "warning" ? "warn" : "bad"}`} style={{ marginBottom: 16, color: "var(--text)" }}>
+          <span className={`badge ${env.overall === "warning" ? "warn" : "bad"}`}>{t("Environment")}</span>
+          <span>{env.summary}</span>
+          <span className="small" style={{ color: "var(--link)" }}>{t("View details →")}</span>
+        </Link>
+      )}
+      {/* Opened from the greeting's line while it is not one of the chosen sections: right under it. */}
+      {hay && abierto && !on("marcador") && marcador(true)}
+      {apps && apps.length === 0 && (
+        <div className="card empty">
+          <p>{t("No apps yet.")}</p>
+          <Link to="/new" className="btn primary big"><Semilla />{t("Deploy your first app")}</Link>
+          <p className="small muted" style={{ margin: "12px 0 0" }}>{t("Nothing of your own to deploy yet?")} <a href={EXAMPLE_URL} target="_blank" rel="noreferrer">{t("Copy the example to your GitHub account")}</a>{t(", then choose your copy in New app.")}</p>
+        </div>
+      )}
+      {!apps && !error ? <EsqMosaico cabeza={false} franja /> : bloques}
+      {hay && <PieDelInicio board={ultimo?.board} abrirMarcador={() => { setMarcadorAbierto(true); requestAnimationFrame(() => document.getElementById("marcador-del-dia")?.scrollIntoView({ block: "nearest" })); }} />}
     </>
   );
 }

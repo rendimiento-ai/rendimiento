@@ -29,6 +29,7 @@ registrarTrabajador(); // the page opens without a connection, from what this br
 // The first screen (setup, welcome, Apps, the public form) comes with the
 // shell; every other page loads when it is opened.
 const UsoPage = perezosa(() => import("./pages/Uso").then((m) => m.UsoPage));
+const Numeros = perezosa(() => import("./pages/Numeros").then((m) => m.Numeros));
 const Registro = perezosa(() => import("./pages/Registro").then((m) => m.Registro));
 const NewApp = perezosa(() => import("./pages/NewApp").then((m) => m.NewApp));
 const AppPage = perezosa(() => import("./pages/AppPage").then((m) => m.AppPage));
@@ -72,6 +73,7 @@ function Shell() {
         session.cluster = !!me.cluster;
         session.mercado = !!me.mercado;
         session.appPrefix = me.appPrefix ?? "";
+        session.demo = !!me.demo;
         setState({ login: me.login, role: me.role, org: me.org, operator: me.operator, demo: me.demo, cluster: me.cluster, buzon: me.buzon,
           sistema: { version: me.version, modo: me.modo, os: me.os, arch: me.arch }, configured: true, loading: false });
       } catch (e) {
@@ -108,6 +110,7 @@ function Shell() {
     <>
       <NavLink to="/" end className="nav-link"><Dibujo de="apps" />{t("Apps")}</NavLink>
       <NavLink to="/universe" className="nav-link"><Dibujo de="universo" />{t("Universe")}</NavLink>
+      <NavLink to="/numeros" className="nav-link"><Dibujo de="numeros" />{t("Numbers")}</NavLink>
       {state.operator && state.cluster && <NavLink to="/services" className="nav-link"><Dibujo de="servicios" />{t("Services")}</NavLink>}
       {state.operator && state.cluster && <NavLink to="/addons" className="nav-link"><Dibujo de="complementos" />{t("Add-ons")}</NavLink>}
       {state.operator && (state.cluster || state.sistema?.modo === "local") && <EnvironmentNavLink dibujo={<Dibujo de="entorno" />} />}
@@ -141,6 +144,7 @@ function Shell() {
   const buscables: PaginaBuscable[] = [
     { to: "/", nombre: t("Apps") },
     { to: "/universe", nombre: t("Universe") },
+    { to: "/numeros", nombre: t("Numbers") },
     ...(muestra.servicios ? [{ to: "/services", nombre: t("Services") }, { to: "/addons", nombre: t("Add-ons") }] : []),
     ...(muestra.entorno ? [{ to: "/environment", nombre: t("Environment") }] : []),
     { to: "/ruta", nombre: t("Ruta") },
@@ -197,6 +201,7 @@ function Shell() {
           <Route path="/bitacora" element={<Bitacora />} />
           <Route path="/senales" element={<SenalesPage />} />
           <Route path="/uso" element={<UsoPage />} />
+          <Route path="/numeros" element={<Numeros />} />
           <Route path="/ia" element={<IA />} />
           <Route path="/buzon" element={<Buzon />} />
           <Route path="/escribir" element={<AlEquipo />} />

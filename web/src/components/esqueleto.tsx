@@ -70,8 +70,8 @@ function Cabeza({ acciones, renglones = 1, ancho = "34%" }: { acciones?: boolean
   );
 }
 
-/** (a) A mosaic of cards with its counters row and search above (Apps). Without its head, under the page's real one. */
-export function EsqMosaico({ cabeza = true, tejas = 6, codigo }: { cabeza?: boolean; tejas?: number; codigo?: boolean }) {
+/** (a) A mosaic of cards with its counters row and search above (Apps, with the Today band above them). Without its head, under the page's real one. */
+export function EsqMosaico({ cabeza = true, tejas = 6, codigo, franja }: { cabeza?: boolean; tejas?: number; codigo?: boolean; franja?: boolean }) {
   return (
     <Esqueleto codigo={codigo}>
       {cabeza && (
@@ -79,6 +79,8 @@ export function EsqMosaico({ cabeza = true, tejas = 6, codigo }: { cabeza?: bool
           <div className="esq-cabeza-texto"><Hueso className="esq-titulo esq-titulo-grande" w={340} /><Hueso className="esq-renglon" w={220} /></div>
         </div>
       )}
+      {/* The home's Today band: three cards of the same size. */}
+      {franja && <div className="esq-franja">{[0, 1, 2].map((i) => <Hueso key={i} className="esq-tarjeta" />)}</div>}
       <div className="mosaico-cuentas">{[120, 104, 112, 150].map((w, i) => <Hueso key={i} w={w} h={44} r={14} />)}</div>
       <Hueso className="esq-buscar" />
       <div className="mosaico">{Array.from({ length: tejas }, (_, i) => <Hueso key={i} className="esq-teja" />)}</div>

@@ -23,12 +23,23 @@ export function Senales() {
     setErr(undefined);
     try { setData(await api.putSenales({ encendidas, avisoVisto: true })); } catch (e) { setErr(e); } finally { setBusy(false); }
   };
+  const visto = async () => {
+    setBusy(true);
+    setErr(undefined);
+    try { setData(await api.putSenales({ avisoVisto: true })); } catch (e) { setErr(e); } finally { setBusy(false); }
+  };
   return (
     <section id="senales" style={{ marginTop: 28 }}>
       <h2>{t("What rendimiento sends")}</h2>
       <p className="sub">{t("Once a week, this installation tells rendimiento.ai it is alive, with a few anonymous counts, so the project knows how many installations there are. Never a name, a repository, a person or a secret, and rendimiento.ai keeps no address.")}{" "}
         <a href={LIBRO} target="_blank" rel="noreferrer">{t("More in the book")}</a>{" · "}<Link to="/senales">{t("Every señal sent and received")}</Link></p>
       <ErrorBox error={err} />
+      {data.encendidas && !data.avisoVisto && (
+        <div className="alert info row" role="status" style={{ flexWrap: "wrap", gap: 8 }}>
+          <span>{t("rendimiento sends a señal de vida once a week. The bell reminds the operators of it until one of them says fine.")}</span>
+          <button disabled={busy} onClick={visto}>{t("Fine")}</button>
+        </div>
+      )}
       <div className="card stack">
         <div className="row between" style={{ flexWrap: "wrap", gap: 8 }}>
           <span>
@@ -57,30 +68,5 @@ export function Senales() {
         </div>
       )}
     </section>
-  );
-}
-
-/**
- * The notice on the Apps page, for the operators, until one of them has
- * seen it: that the señales go, what they are, and how to turn them off.
- */
-export function SenalesAviso() {
-  const { data, setData } = usePoll(api.senales, [], 0);
-  const [busy, setBusy] = useState(false);
-  if (!data || data.avisoVisto || !data.encendidas) return null;
-  const marcar = async (cambio: { encendidas?: boolean; avisoVisto?: boolean }) => {
-    setBusy(true);
-    try { setData(await api.putSenales(cambio)); } finally { setBusy(false); }
-  };
-  return (
-    <div className="alert info" role="status">
-      <strong>{t("rendimiento sends a señal de vida once a week.")}</strong>{" "}
-      {t("A few anonymous counts (how many apps, runs and agents), so the project knows how many installations are alive. Never a name, a repository or a secret.")}{" "}
-      <Link to="/senales">{t("See exactly what")}</Link>
-      <div className="row" style={{ gap: 8, marginTop: 8 }}>
-        <button className="primary" disabled={busy} onClick={() => marcar({ avisoVisto: true })}>{t("Fine")}</button>
-        <button disabled={busy} onClick={() => marcar({ encendidas: false, avisoVisto: true })}>{t("Turn it off")}</button>
-      </div>
-    </div>
   );
 }

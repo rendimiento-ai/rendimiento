@@ -16,7 +16,7 @@ function nombre(ruta: string): string {
     "/addons": t("Add-ons"), "/addons/:name": t("An add-on"), "/problems": t("Problems"), "/ruta": t("Ruta"), "/bitacora": t("Bitácora"),
     "/senales": t("Señales de vida"), "/ia": t("AI"), "/buzon": t("Comments"), "/escribir": t("Write to the team"), "/members": t("Members"),
     "/services/:ns/:name": t("A service"), "/apps/:name": t("An app"), "/apps/:name/:tab": t("A tab of an app"),
-    "/apps/:name/runs/:id": t("A run"), "/uso": t("Use of the interface"), [DESCONOCIDA]: t("A page that does not exist"),
+    "/apps/:name/runs/:id": t("A run"), "/uso": t("Use of the interface"), "/numeros": t("Numbers"), [DESCONOCIDA]: t("A page that does not exist"),
   };
   return n[ruta] ?? ruta;
 }
@@ -27,6 +27,7 @@ function accion(a: string): string {
     build_now: t("Build now"), retry: t("Retry a run"), cancel_run: t("Cancel a run"), merge: t("Merge this branch"),
     dismiss_problem: t("Dismiss a problem"), ask_agent: t("Ask the agent why it failed"), select_step: t("Open a step"),
     switch_theme: t("Switch day and night"), switch_language: t("Switch the language"), rollback: t("Roll back"),
+    customize_home: t("Open Customize home"), save_home: t("Save the home page"),
   };
   return n[a as Accion] ?? a;
 }

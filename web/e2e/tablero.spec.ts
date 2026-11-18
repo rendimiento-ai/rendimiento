@@ -128,39 +128,3 @@ test("on a phone the search opens over the top bar", async ({ page, problemas })
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   expect(problemas).toEqual([]);
 });
-
-// Running now: the test server runs nothing, so what runs is the page's own.
-test("running now: a card for each run, or all quiet", async ({ page, problemas }, info) => {
-  const es = info.project.name === "es";
-  const hace = (s: number) => new Date(Date.now() - s * 1000).toISOString();
-  const paso = (id: string, dependsOn: string[], status: string, desde?: number) => ({ id, service: id.split(":")[0], kind: "task", dependsOn, status, ...(desde ? { startedAt: hace(desde) } : {}) });
-  const corre = {
-    id: 880101, appId: 1, app: "una-que-corre", sha: "0123456789abcdef", branch: "vite-8", event: "push", deploy: false, status: "running", message: "",
-    createdAt: hace(300), startedAt: hace(300),
-    steps: [paso("web:build", [], "succeeded", 300), paso("web:test", ["web:build"], "running", 180), paso("deploy", ["web:test"], "pending")],
-  };
-  const espera = { ...corre, id: 880102, app: "otra-en-cola", branch: "main", status: "queued", startedAt: undefined, steps: [] };
-  let respuesta: object = { ahora: [corre, espera], recientes: [] };
-  await page.route("**/api/corriendo", (r) => r.fulfill({ json: respuesta }));
-  await page.goto("/");
-  const franja = page.locator("main section.ahora");
-  await expect(franja.locator(".ahora-carril")).toHaveCount(2);
-  const tarjeta = franja.locator(".ahora-carril").first();
-  await expect(tarjeta.locator('a[href="/apps/una-que-corre"]')).toBeVisible();
-  await expect(tarjeta.locator('a[href="/apps/una-que-corre/runs/880101"]')).toContainText("880101");
-  await expect(tarjeta).toContainText("vite-8");
-  await expect(tarjeta).toContainText("web:test");
-  await expect(tarjeta.locator(".ahora-pasos i")).toHaveCount(3);
-  await expect(tarjeta.locator(".ahora-pasos i.ok")).toHaveCount(1);
-  await expect(tarjeta.locator(".ahora-pasos i.va")).toHaveCount(1);
-  await expect(franja.locator(".ahora-carril.cola")).toContainText(es ? "Esperando su turno" : "Waiting for its turn");
-
-  // Nothing runs: one quiet line, with the last thing that happened.
-  respuesta = { ahora: [], recientes: [{ ...corre, status: "succeeded", steps: undefined, finishedAt: hace(60) }] };
-  await page.reload();
-  const calma = page.locator("main .ahora-calma");
-  await expect(calma).toContainText(es ? "Todo en calma." : "All quiet.");
-  await expect(calma.locator('a[href="/apps/una-que-corre/runs/880101"]')).toBeVisible();
-  await expect(page.locator("main section.ahora")).toHaveCount(0);
-  expect(problemas).toEqual([]);
-});

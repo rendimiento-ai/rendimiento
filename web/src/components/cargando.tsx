@@ -8,7 +8,8 @@ import { EsqCosa, EsqListaDetalle, EsqMosaico, EsqPueblo } from "./esqueleto";
 
 /** Which skeleton each page has; the first pattern that matches wins. Any other page: a page of one thing. */
 const porRuta: [string[], () => ReactNode][] = [
-  [["/"], () => <EsqMosaico codigo />],
+  [["/"], () => <EsqMosaico codigo franja />],
+  [["/numeros"], () => <EsqCosa codigo cuerpo="bloques" />],
   [["/apps/:name/runs/:id"], () => <EsqCosa codigo volver acciones cuerpo="pasos" />],
   [["/apps/:name", "/apps/:name/:tab"], () => <EsqCosa codigo flor datos={4} pestanas />],
   [["/universe"], () => <EsqPueblo codigo />],

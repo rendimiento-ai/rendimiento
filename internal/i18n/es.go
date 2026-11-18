@@ -684,4 +684,7 @@ var catalog = map[string]string{
 	"this finding suggests no work: note it in the Ruta or set it aside": "este hallazgo no sugiere trabajo: anótelo en la Ruta o déjelo para después",
 	"someone decided this finding already": "alguien ya decidió sobre este hallazgo",
 	"the review stopped before it finished; ask for another": "la revisión se detuvo antes de terminar; pida otra",
+	"say which sections the home page shows: {\"secciones\": [{\"id\": \"apps\", \"on\": true}]}": "diga qué secciones muestra la página de inicio: {\"secciones\": [{\"id\": \"apps\", \"on\": true}]}",
+	"a demo shows the usual home page; it cannot be changed": "una demostración muestra la página de inicio de siempre; no se puede cambiar",
+	"not a section of the home page, or twice: %s": "no es una sección de la página de inicio, o viene dos veces: %s",
 }

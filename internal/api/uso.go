@@ -24,7 +24,7 @@ var rutasUso = map[string]bool{
 	"/addons": true, "/problems": true, "/ruta": true, "/bitacora": true, "/senales": true, "/registro": true,
 	"/ia": true, "/buzon": true, "/escribir": true, "/members": true, "/addons/:name": true,
 	"/services/:ns/:name": true, "/apps/:name": true, "/apps/:name/:tab": true,
-	"/apps/:name/runs/:id": true, "/uso": true,
+	"/apps/:name/runs/:id": true, "/uso": true, "/numeros": true,
 	rutaDesconocida: true,
 }
 
@@ -36,6 +36,7 @@ const rutaDesconocida = "(unknown)"
 var accionesUso = map[string]bool{
 	"build_now": true, "retry": true, "cancel_run": true, "merge": true, "dismiss_problem": true,
 	"ask_agent": true, "select_step": true, "switch_theme": true, "switch_language": true, "rollback": true,
+	"customize_home": true, "save_home": true,
 }
 
 // Limits of one request: at most this many events, of this many bytes.

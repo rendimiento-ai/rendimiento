@@ -31,6 +31,8 @@ const trazos = {
   apps: olan(9, 9, 3.3) + olan(6, 5, 2.7, 0.5) + circulo(1.3),
   // The lotería's sun.
   universo: circulo(4.2) + picos(8, 6.2, 10.3, 0.24),
+  // Corn stalks of every height on the milpa's furrow: the numbers.
+  numeros: "M3 20.5h18M6 20.5V13M6 15.5l-2-1.5M10 20.5V8M10 11l2.2-1.6M14 20.5v-5.5M14 17l-2-1.4M18 20.5V5M18 8.5l2.2-1.6M18 5l-1-1.6M10 8l-1-1.6",
   // A clay pot: what serves the apps.
   servicios: "M8 5h8M9 5c0 2-4 4-4 8a7 7 0 0 0 14 0c0-4-4-6-4-8M5.3 10.6c-2.3-.4-2.3 3.2 0 3.2M18.7 10.6c2.3-.4 2.3 3.2 0 3.2M7 14.5l2-1.6 2 1.6 2-1.6 2 1.6 2-1.6",
   // A piñata with its points: what is added.

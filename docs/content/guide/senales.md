@@ -33,7 +33,7 @@ App, repository, branch or domain names; GitHub logins, emails or names; secrets
 
 ## Turning them off {#turning-them-off}
 
-- **Members → What rendimiento sends → Turn off** (the platform's operators), or **Turn it off** on the notice the Apps page shows once, the first time.
+- **Members → What rendimiento sends → Turn off** (the platform's operators), or from the bell, which reminds the operators until one of them says **Fine** (its line opens the Señales page, with the switch).
 - `SENALES=off` in the environment turns them off for good, whatever the page says.
 
 ## What rendimiento.ai does with them {#what-rendimiento-ai-does-with-them}
