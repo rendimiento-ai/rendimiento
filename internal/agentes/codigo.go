@@ -14,9 +14,11 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/rendimiento-ai/rendimiento/internal/arreglos"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
 	"github.com/rendimiento-ai/rendimiento/internal/mezcla"
+	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -45,6 +47,13 @@ type CoderStore interface {
 	ListRuns(ctx context.Context, appID int64, limit int) ([]*store.Run, error)
 	GetRun(ctx context.Context, id int64) (*store.Run, error)
 	GetDiagnosis(ctx context.Context, runID int64) (store.Diagnosis, error)
+	NoteEncargoFix(ctx context.Context, id int64, who, note string) error
+}
+
+// Fixes runs the app's declared fixes (arreglos.Service).
+type Fixes interface {
+	Declared(ctx context.Context, app *store.App) ([]spec.Fix, error)
+	Run(ctx context.Context, req arreglos.Request) (arreglos.Result, error)
 }
 
 // Repos is the apps' repositories on GitHub, as the platform's GitHub App.
@@ -85,6 +94,9 @@ type Coder struct {
 	// AlEntregar opens the pull request of the branch it delivers (nil: the
 	// link to open one stays).
 	AlEntregar func(ctx context.Context, orgID, encargo int64, title, result string, links []string) []string
+	// Fixes runs the app's declared fixes for run_fix (nil: the tool is
+	// not offered).
+	Fixes Fixes
 }
 
 // Limits on the work: the turns, the most a run is waited for, and what a
@@ -180,6 +192,8 @@ type job struct {
 	lastRun            *store.Run
 	finished           bool
 	outcome            string // delivered, gave back
+	// fixes are the app's declared fixes, from the default branch.
+	fixes []spec.Fix
 }
 
 // Do does one encargo: takes it in a cargo, works on its branch, and
@@ -265,6 +279,11 @@ func (j *job) work(ctx context.Context) error {
 	if j.files, err = c.Repos.Files(ctx, app.InstallationID, app.Repo, j.branch, maxFileSize); err != nil {
 		return err
 	}
+	if c.Fixes != nil {
+		if fixes, err := c.Fixes.Declared(ctx, app); err == nil {
+			j.fixes = fixes
+		}
+	}
 	turns := []ia.Turn{ia.UserText(j.brief())}
 	nudged := 0
 	for turn := 0; turn < maxTurns; turn++ {
@@ -273,7 +292,7 @@ func (j *job) work(ctx context.Context) error {
 			j.giveBack(context.WithoutCancel(ctx), c.say("Llegué al doble de lo estimado", "Reached twice the estimate"))
 			return nil
 		}
-		res, err := c.Model.CompleteTools(ctx, j.e.OrgID, CoderSource, ia.ToolRequest{System: j.system(), Tools: coderTools, Turns: turns,
+		res, err := c.Model.CompleteTools(ctx, j.e.OrgID, CoderSource, ia.ToolRequest{System: j.system(), Tools: j.tools(), Turns: turns,
 			Model: WorkModel, MaxTokens: 16000})
 		j.spent += res.CostMicros
 		_ = c.Store.AddEncargoSpent(context.WithoutCancel(ctx), j.e.ID, res.CostMicros)
@@ -343,7 +362,47 @@ func (j *job) brief() string {
 		}
 	}
 	fmt.Fprintf(&b, "\nThe repository has %d text files. Top level: %s\n", len(j.files), strings.Join(j.top(), ", "))
+	if len(j.fixes) > 0 {
+		fmt.Fprintf(&b, "\nThe app declares fixes you can run with run_fix (they regenerate files you cannot write by hand, such as a lockfile):\n%s", j.fixList())
+	}
 	return b.String()
+}
+
+// fixList is the app's declared fixes, one a line: name, folder, what it
+// runs and what it may write.
+func (j *job) fixList() string {
+	var b strings.Builder
+	for _, f := range j.fixes {
+		writes, what := f.Writes, f.Command
+		if f.Recipe != "" {
+			writes, what = arreglos.RecipeWrites(f.Recipe), f.Recipe+" recipe"
+		}
+		fmt.Fprintf(&b, "- %s: in %s, %s; writes %s\n", f.Name, f.Path, what, strings.Join(writes, ", "))
+	}
+	return b.String()
+}
+
+// tools are the agent's tools: run_fix only when the app declares fixes,
+// with them in its description.
+func (j *job) tools() []ia.Tool {
+	if len(j.fixes) == 0 {
+		return coderTools
+	}
+	names := make([]string, 0, len(j.fixes))
+	for _, f := range j.fixes {
+		names = append(names, f.Name)
+	}
+	fix := ia.Tool{Name: "run_fix", Description: "Run one of the app's declared fixes on your branch, with your uncommitted changes: a command (such as npm install --package-lock-only or go mod tidy) that regenerates files in a pod of the platform's CI. The files it writes join your changes; commit_and_test commits them. Use it when a lockfile or go.sum no longer matches. The app's fixes:\n" + j.fixList(),
+		InputSchema: map[string]any{"type": "object", "required": []string{"name"}, "properties": map[string]any{
+			"name": map[string]any{"type": "string", "enum": names, "description": "the fix's name"}}}}
+	out := make([]ia.Tool, 0, len(coderTools)+1)
+	for _, t := range coderTools {
+		if t.Name == "commit_and_test" {
+			out = append(out, fix)
+		}
+		out = append(out, t)
+	}
+	return out
 }
 
 // top lists the repository's top-level files and folders.
@@ -378,7 +437,15 @@ How to work:
 - Never write secrets (passwords, tokens, keys) into files. Never touch any branch but yours.
 - When the run passed, call deliver with a short summary for the person, in %s: what you changed and why, how it was tested, and what they should look at. If you cannot finish (the encargo is unclear, needs a decision, or keeps failing), call give_up with the reason and what is left, in %s.
 - Work efficiently: this encargo was estimated at about %s, and you stop at %s. Prefer search and reading parts of files over reading everything.`,
-		lang, lang, ia.Dollars(j.budget/2), ia.Dollars(j.budget))
+		lang, lang, ia.Dollars(j.budget/2), ia.Dollars(j.budget)) + j.fixRule()
+}
+
+// fixRule tells the model of run_fix, when the app declares fixes.
+func (j *job) fixRule() string {
+	if len(j.fixes) == 0 {
+		return ""
+	}
+	return "\n- The one thing you can run: the app's declared fixes, with run_fix, when a lockfile or go.sum no longer matches its manifest (npm's \"package.json and package-lock.json are not in sync\", \"missing go.sum entry\"). Never edit a lockfile by hand when a fix can regenerate it."
 }
 
 var coderTools = []ia.Tool{
@@ -418,11 +485,11 @@ func num(d string) map[string]any { return map[string]any{"type": "integer", "de
 // tool runs one tool call: its answer, and whether it is an error.
 func (j *job) tool(ctx context.Context, call ia.ToolCall) (string, bool) {
 	var in struct {
-		Folder, Glob, Path, Pattern, Content, Message, Summary, Reason, Ref string
-		OldText                                                             string `json:"old_text"`
-		NewText                                                             string `json:"new_text"`
-		FromLine                                                            int    `json:"from_line"`
-		ToLine                                                              int    `json:"to_line"`
+		Folder, Glob, Path, Pattern, Content, Message, Summary, Reason, Ref, Name string
+		OldText                                                                   string `json:"old_text"`
+		NewText                                                                   string `json:"new_text"`
+		FromLine                                                                  int    `json:"from_line"`
+		ToLine                                                                    int    `json:"to_line"`
 	}
 	if err := json.Unmarshal(call.Input, &in); err != nil {
 		return "the input is not valid JSON: " + err.Error(), true
@@ -471,6 +538,8 @@ func (j *job) tool(ctx context.Context, call ia.ToolCall) (string, bool) {
 		delete(j.changed, in.Path)
 		j.removed[in.Path] = true
 		return "deleted " + in.Path, false
+	case "run_fix":
+		return j.runFix(ctx, in.Name)
 	case "commit_and_test":
 		return j.commitAndTest(ctx, in.Message)
 	case "deliver":
@@ -758,6 +827,68 @@ func (j *job) mergeDefault(ctx context.Context) (string, bool) {
 		out.WriteString(n + "\n")
 	}
 	return out.String(), false
+}
+
+// runFix runs a declared fix on the branch with the uncommitted changes:
+// what it writes joins them, for the next commit_and_test.
+func (j *job) runFix(ctx context.Context, name string) (string, bool) {
+	c := j.c
+	if c.Fixes == nil || len(j.fixes) == 0 {
+		return "this app declares no fixes", true
+	}
+	if _, ok := (&spec.Spec{Fixes: j.fixes}).FixNamed(name); !ok {
+		return "no such fix: " + name + "; the app's are:\n" + j.fixList(), true
+	}
+	if left := j.marked(); len(left) > 0 {
+		return "these files still have conflict marks; resolve them first: " + strings.Join(left, ", "), true
+	}
+	var removed []string
+	for p, gone := range j.removed {
+		if gone {
+			removed = append(removed, p)
+		}
+	}
+	sort.Strings(removed)
+	res, err := c.Fixes.Run(ctx, arreglos.Request{App: j.app, Branch: j.branch, SHA: j.lastSHA, Fix: name,
+		Pending: j.changed, Removed: removed, AskedKind: store.FixByAgent, AskedBy: CoderName, Encargo: j.e.ID})
+	if err != nil {
+		return "the fix could not run: " + err.Error(), true
+	}
+	took := res.Took.Round(time.Second)
+	note := ""
+	switch res.Status {
+	case store.FixSucceeded:
+		for p, f := range res.Files {
+			j.changed[p], j.removed[p] = f, false
+		}
+		for _, p := range res.Removed {
+			delete(j.changed, p)
+			j.removed[p] = true
+		}
+		all := append(append([]string{}, res.Written...), res.Removed...)
+		note = c.say("run_fix %s: %d archivo(s), %s · %s", "run_fix %s: %d file(s), %s · %s", name, len(all), strings.Join(all, ", "), took)
+	case store.FixUnchanged:
+		note = c.say("run_fix %s: sin cambios · %s", "run_fix %s: nothing changed · %s", name, took)
+	default:
+		note = c.say("run_fix %s: falló · %s", "run_fix %s: failed · %s", name, took)
+	}
+	_ = c.Store.NoteEncargoFix(context.WithoutCancel(ctx), j.e.ID, CoderName, note)
+	var b strings.Builder
+	fmt.Fprintf(&b, "fix %s ran in %s (image %s, %s), %s.\n", name, res.Plan.Path, res.Plan.Image, res.Plan.ImageFrom, took)
+	switch res.Status {
+	case store.FixSucceeded:
+		fmt.Fprintf(&b, "It wrote %s; they are now among your changes: commit_and_test commits them.\n", strings.Join(append(append([]string{}, res.Written...), res.Removed...), ", "))
+	case store.FixUnchanged:
+		b.WriteString("Nothing it may write changed.\n")
+	default:
+		fmt.Fprintf(&b, "It failed: %s\nThe end of its log:\n", res.Message)
+		lines := strings.Split(strings.TrimRight(ansi.ReplaceAllString(res.Log, ""), "\n"), "\n")
+		b.WriteString(strings.Join(lines[max(0, len(lines)-60):], "\n") + "\n")
+	}
+	if len(res.Ignored) > 0 {
+		fmt.Fprintf(&b, "It also changed files it may not write; they were left out: %s\n", strings.Join(res.Ignored, ", "))
+	}
+	return truncate(b.String(), 12000), res.Status == store.FixFailed
 }
 
 // commit commits what changed to the branch.
