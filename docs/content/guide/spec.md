@@ -55,6 +55,11 @@ tasks:
     path: mobile                              # runs only when mobile/ changes
     command: npx --yes eas-cli build --platform all --non-interactive --no-wait
     secretEnv: { EXPO_TOKEN: expo/token }
+
+fixes:
+  - name: web-lockfile                        # regenerates web/package-lock.json
+    recipe: npm                               # when it no longer matches package.json
+    path: web
 ```
 
 ## Top level
@@ -65,6 +70,7 @@ tasks:
 | `jobs` | list | none | Scheduled jobs (CronJobs). |
 | `builds` | list | none | Images built and tested but not deployed ([Builds](#builds)). |
 | `tasks` | list | none | Commands run as CI steps ([Tasks](tasks.md)). |
+| `fixes` | list | none | Commands that regenerate files, such as a lockfile, when they no longer match: a recipe or a command of the app's own ([Fixes](#fixes), [Declared fixes](fixes.md)). |
 | `verify` | object | on, 5 min, rollback | How each release is verified after it goes live: `window` (seconds, 60–3600), `rollback` (`false` only reports), `disabled` ([Reliability](reliability.md#verifying-each-release)). |
 | `sharedNamespace` | bool | `false` | The app's namespace is owned by something else (e.g. ArgoCD): it must exist, and rendimiento never creates, labels, owns or deletes it. |
 | `postgres` | object | see [needs](#postgres-and-redis) | Settings for `needs: [postgres]`. |
@@ -243,3 +249,19 @@ Commands run as CI steps; see [Tasks](tasks.md) for when they run and how secret
 | `timeout` | seconds | `STEP_TIMEOUT` | Only shorter than the platform's limit. |
 | `env`, `secrets`, `secretEnv` | as for services | | Secrets are read from the app's namespace when the step starts. |
 | `postgres`, `cache` | bool | `false` | Build tasks only, as for tests: a throwaway Postgres beside the task (`DATABASE_URL`) and a `/cache` kept between runs. For a task that drives the app with its database, such as a browser test. |
+
+## Fixes
+
+Commands that regenerate files of the repository when they no longer match (a lockfile, `go.sum`): the coding agent runs them with `run_fix`, a person from a failed run's page, and Renovate's branches get them by themselves. See [Declared fixes](fixes.md) for how they run and what they may touch. They are **always read from the default branch**: a branch cannot add a command and have it run.
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `name` | string ≤ 40 | **required** | Unique among services, jobs, builds, tasks and fixes. |
+| `path` | string | `.` | The folder it runs in, relative to the repo root. A failed step's fix is the one whose folder holds the step's (the nearest). |
+| `recipe` | `npm` \| `pnpm` \| `yarn` \| `go` \| `uv` \| `poetry` \| `pip-tools` | — | A known fix: it brings its command, image and the files it may write ([recipes](fixes.md#recipes)). |
+| `image` | image | — | Instead of a recipe: what the command runs in. |
+| `command` | string | — | Instead of a recipe: run with `sh -c` in `path`. |
+| `writes` | list of patterns | — | Instead of a recipe, **required** with a command: the files it may write, relative to `path` (`*` stays in a folder, `**` spans folders). Anything else it changes is left out. |
+| `timeout` | seconds | `300` | Up to 3600, and never longer than the platform's step timeout. |
+
+Give either `recipe`, or `image`, `command` and `writes`.

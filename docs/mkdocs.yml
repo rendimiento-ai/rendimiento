@@ -87,6 +87,7 @@ plugins:
             Apps day to day: Las aplicaciones en el día a día
             Builds and tests: Construcciones y pruebas
             Tasks (commands in CI): Tareas (comandos en la integración continua)
+            Declared fixes (lockfiles and go.sum): Arreglos declarados (archivos de bloqueo y go.sum)
             Reliability (uptime and charts): Confiabilidad (disponibilidad y gráficas)
             Roads (branches as caminos): Caminos (las ramas como veredas)
             Notifications (email): Notificaciones (correo)
@@ -189,6 +190,7 @@ nav:
       - Apps day to day: guide/apps.md
       - Builds and tests: guide/builds.md
       - Tasks (commands in CI): guide/tasks.md
+      - Declared fixes (lockfiles and go.sum): guide/fixes.md
       - Reliability (uptime and charts): guide/reliability.md
       - Roads (branches as caminos): guide/caminos.md
       - Visits (Umami): guide/visits.md
