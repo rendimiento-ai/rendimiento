@@ -248,7 +248,7 @@ export class Maqueta3D implements Engine {
     this.controls.enableDamping = !still();
     const P = this.P;
     this.hemi.color.set(this.night ? "#6E6CB8" : "#FFF4E2");
-    this.hemi.groundColor.set(this.night ? "#1D1840" : "#B99A74");
+    this.hemi.groundColor.set(document.documentElement.dataset.tema ? (this.night ? P.ground : mix(P.ground, "#000000", 0.25)) : this.night ? "#1D1840" : "#B99A74");
     this.hemi.intensity = this.night ? 2.4 : 2.1;
     this.sun.color.set(this.night ? "#B9C4FF" : "#FFE2B0");
     this.sun.intensity = this.night ? 1.3 : 2.2;

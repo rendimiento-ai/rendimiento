@@ -151,7 +151,7 @@ test("Customize home: a section off stays off, the order changes, and back to th
   expect(await orden(page)).toEqual(["corriendo", "esperan", "ayuda", "apps", "marcador", "visitas", "entregas", "lluvia"]);
 
   // Off: it goes at once, and stays gone once saved, on any device.
-  await panel.getByRole("switch", { name: es ? "En ejecución" : "Running" }).click();
+  await panel.getByRole("switch", { name: es ? "Corriendo" : "Running" }).click();
   await expect(page.locator("main section.hoy-corriendo")).toHaveCount(0);
   await panel.getByRole("button", { name: es ? "Guardar" : "Save" }).click();
   await expect(panel).toHaveCount(0);
