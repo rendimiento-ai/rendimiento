@@ -151,6 +151,9 @@ func TestEncargosForTheCoder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Its easy encargo stays pending: off at the end, so no other test's
+	// coding agent finds it first.
+	t.Cleanup(func() { _ = s.SetCodeAgent(context.Background(), org.ID, CodeAgentOff, "p0dxD") })
 	easy, _ := s.CreateEncargo(ctx, Encargo{Title: "codigo-facil", App: "tienda", CreatedBy: "p0dxD", OrgID: org.ID})
 	hard, _ := s.CreateEncargo(ctx, Encargo{Title: "codigo-dificil", App: "tienda", CreatedBy: "p0dxD", OrgID: org.ID})
 	noApp, _ := s.CreateEncargo(ctx, Encargo{Title: "codigo-sin-app", CreatedBy: "p0dxD", OrgID: org.ID})
@@ -209,5 +212,54 @@ func TestEncargosForTheCoder(t *testing.T) {
 	h, err := s.GiveBackEncargo(ctx, hard.ID, key.ID, "agente de código", "no pude")
 	if err != nil || h.Status != EncargoPending || h.DoNow || h.Route != RouteLocal || h.SpentMicros != 1_000 {
 		t.Fatalf("given back %+v (%v)", h, err)
+	}
+}
+
+// In system mode the coding agent takes by itself the cheap encargos about a
+// run (rendimiento opens them), not the ones a person wrote; and its record
+// counts what it took, delivered at the first try and gave back.
+func TestEncargosOfTheSystem(t *testing.T) {
+	s := open(t)
+	ctx := context.Background()
+	org, err := s.CreateOrg(ctx, "sistema-org", "Sistema", "p0dxD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.SetCodeAgent(context.Background(), org.ID, CodeAgentOff, "p0dxD") })
+	run := int64(987654)
+	written, _ := s.CreateEncargo(ctx, Encargo{Title: "sistema-escrito", App: "tienda", CreatedBy: "p0dxD", OrgID: org.ID})
+	fix, _ := s.CreateEncargo(ctx, Encargo{Title: "Fix run #987654 of tienda", App: "tienda", RunID: &run, CreatedBy: "agente diagnosticador", ByAgent: true, OrgID: org.ID})
+	dear, _ := s.CreateEncargo(ctx, Encargo{Title: "sistema-caro", App: "tienda", RunID: &run, CreatedBy: "agente diagnosticador", ByAgent: true, OrgID: org.ID})
+	_ = s.SaveEstimate(ctx, written.ID, 2, 12_000, "", RoutePlatform)
+	_ = s.SaveEstimate(ctx, fix.ID, 4, 50_000, "", RoutePlatform)
+	_ = s.SaveEstimate(ctx, dear.ID, 9, 900_000, "", RouteLocal)
+	if err := s.SetCodeAgent(ctx, org.ID, CodeAgentSystem, "p0dxD"); err != nil {
+		t.Fatal(err)
+	}
+	e, err := s.EncargoForCoder(ctx)
+	if err != nil || e.ID != fix.ID {
+		t.Fatalf("system: got %d (%v), want the cheap one about a run %d", e.ID, err, fix.ID)
+	}
+	key, _ := s.SystemKey(ctx, org.ID, "agente de código")
+	cg, _ := s.TakeCargo(ctx, key.ID, "sistema")
+	if _, err := s.TakeEncargo(ctx, fix.ID, key.ID, cg.ID, "agente de código"); err != nil {
+		t.Fatal(err)
+	}
+	if e, err := s.EncargoForCoder(ctx); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("system took %d (%s), but only a person's and a dear one are left", e.ID, e.Title)
+	}
+	_ = s.AddEncargoSpent(ctx, fix.ID, 90_000)
+	if _, err := s.DeliverEncargo(ctx, fix.ID, key.ID, "agente de código", "listo", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ReviewEncargo(ctx, fix.ID, "p0dxD", true, ""); err != nil {
+		t.Fatal(err)
+	}
+	rec, err := s.CoderRecord(ctx, org.ID, "agente de código", 0)
+	if err != nil || len(rec) != 1 {
+		t.Fatalf("record %+v (%v), want the one it took", rec, err)
+	}
+	if r := rec[0]; r.ID != fix.ID || r.Taken != 1 || r.Delivered != 1 || r.Returned != 0 || r.SpentMicros != 90_000 || r.Difficulty == nil || *r.Difficulty != 4 {
+		t.Fatalf("record %+v", r)
 	}
 }

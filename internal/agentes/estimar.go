@@ -36,6 +36,7 @@ type EstimatorStore interface {
 	AISettingsOf(ctx context.Context, orgID int64) (store.AISettings, error)
 	RunBranch(ctx context.Context, runID int64) (branch, defaultBranch string, err error)
 	Encargo(ctx context.Context, id int64) (store.Encargo, error)
+	CoderRecord(ctx context.Context, orgID int64, name string, limit int) ([]store.CoderEncargo, error)
 }
 
 // Estimator rates each new encargo: how hard it is (1 to 10), what the
@@ -115,11 +116,37 @@ func (e *Estimator) Estimate(ctx context.Context, enc store.Encargo) error {
 		return e.Store.SaveEstimate(ctx, enc.ID, 0, 0, "the model gave no difficulty: "+truncate(strings.TrimSpace(res.Text), 200), "")
 	}
 	reason, _ := strconv.Unquote(`"` + m[2] + `"`)
+	reason = truncate(strings.TrimSpace(reason), 300)
 	cost, route := e.Cost(d), store.RouteLocal
+	// What the coding agent really spends corrects the table (Ruta 77), so
+	// the route and its brake start from an honest number.
+	if set.EstimateLearn {
+		if f, ok := e.Learned(ctx, enc.OrgID).For(d); ok && f.X != 1 {
+			cost = f.Scale(cost)
+			reason += " " + e.say("(×%.1f: lo que gastó el agente de código en %d encargos)", "(×%.1f: what the coding agent spent on %d encargos)", f.X, f.N)
+		}
+	}
 	if cost <= set.EncargoAutoMicros && e.platformMay(ctx, enc) {
 		route = store.RoutePlatform
 	}
-	return e.Store.SaveEstimate(ctx, enc.ID, d, cost, truncate(strings.TrimSpace(reason), 300), route)
+	return e.Store.SaveEstimate(ctx, enc.ID, d, cost, reason, route)
+}
+
+// Learned is the factors learned from the organization's coding agent
+// (none when its record cannot be read).
+func (e *Estimator) Learned(ctx context.Context, orgID int64) Learned {
+	record, err := e.Store.CoderRecord(ctx, orgID, CoderName, 200)
+	if err != nil {
+		return Learned{}
+	}
+	return Learn(record, e.Cost)
+}
+
+func (e *Estimator) say(es, en string, args ...any) string {
+	if e.Lang == "es" {
+		return fmt.Sprintf(es, args...)
+	}
+	return fmt.Sprintf(en, args...)
 }
 
 // platformMay says whether the platform's coding agent may take an encargo

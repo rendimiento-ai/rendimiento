@@ -564,6 +564,8 @@ export interface AISettings {
   escalateLimit: number;
   encargoAutoMicros: number;
   codeAgent: CodeAgent;
+  /** The estimator corrects its table by what the coding agent spent (false: the fixed table). */
+  estimateLearn: boolean;
   autoEncargo: AutoEncargo;
   updatedBy?: string;
   updatedAt: string;
@@ -612,6 +614,27 @@ export interface IAView {
   platformModel?: string;
   escalations: number;
   usage: AIUsage[];
+  /** The coding agent's record; absent until it took an encargo. */
+  coder?: CoderBoleta;
+}
+
+// What the estimator learned from the coding agent (internal/agentes.Learned).
+export interface Factor { x: number; n: number }
+
+// The coding agent's record (api.CoderBoleta): what it took and what became of it.
+export interface CoderBoleta {
+  taken: number;
+  firstTry: number;
+  returned: number;
+  gaveBack: number;
+  spentMicros: number;
+  estimateMicros: number;
+  learned: { byDifficulty: Record<string, Factor>; all: Factor };
+  learnFrom: number;
+  recent: {
+    id: number; title: string; status: EncargoStatus; difficulty?: number; estimateMicros?: number; spentMicros: number;
+    taken: number; delivered: number; returned: number; released: number; at: string;
+  }[];
 }
 
 export interface IAAnswer {
@@ -655,8 +678,9 @@ export type EncargoStatus = "pending" | "taken" | "waiting" | "delivered" | "rev
 export type AutoEncargo = "off" | "branches" | "all";
 
 // What the platform's coding agent does: nothing, only the encargos a
-// person sends it, or also the easy ones on its own.
-export type CodeAgent = "off" | "asked" | "auto";
+// person sends it, also the cheap ones about a run (which rendimiento
+// opens), or every cheap one on its own.
+export type CodeAgent = "off" | "asked" | "system" | "auto";
 
 // Work asked of agents (internal/store.Encargo).
 /**
@@ -1242,7 +1266,7 @@ export const api = {
   fixLog: (run: number, fix: number) => request<string>("GET", `/api/runs/${run}/fixes/${fix}/log`),
   judgeDiagnosis: (run: number, useful: boolean, cause = "") =>
     request<{ feedback: string; rutaEntry: number }>("POST", `/api/runs/${run}/diagnosis/feedback`, { useful, cause }),
-  saveIA: (v: { provider: AIProvider; kind?: string; baseUrl?: string; model?: string; capDollars: number; key?: string; removeKey?: boolean; autoDiagnose?: boolean; escalateTo?: string; escalateLimit?: number; encargoAutoDollars?: number; codeAgent?: CodeAgent; autoEncargo?: AutoEncargo }) =>
+  saveIA: (v: { provider: AIProvider; kind?: string; baseUrl?: string; model?: string; capDollars: number; key?: string; removeKey?: boolean; autoDiagnose?: boolean; escalateTo?: string; escalateLimit?: number; encargoAutoDollars?: number; codeAgent?: CodeAgent; estimateLearn?: boolean; autoEncargo?: AutoEncargo }) =>
     request<IAView>("PUT", "/api/ia", v),
   testIA: (prompt: string) => request<IAAnswer>("POST", "/api/ia/test", { prompt }),
   iaOrgs: () => request<IAOrgs>("GET", "/api/ia/orgs"),

@@ -346,12 +346,12 @@ function Conflict({ run, app }: { run: Run; app: string }) {
         <div className="row">
           <button disabled={busy} title={t("Creates an encargo for an agent to take")} onClick={() => {
             setBusy(true);
-            // A conflict of code needs git: it goes to the person's own agent, not the platform's.
+            // Estimated like any other: a simple conflict is cheap, and the platform's coding agent
+            // resolves it with merge_default_branch (by itself when the AI page says what rendimiento opens).
             api.createEncargo({ title: t("Resolve the conflict of {branch} in {app}", { branch: run.branch, app }), body, app, runId: run.id })
-              .then((e) => api.routeEncargo(e.id, "local").catch(() => e))
               .then((e) => navigate(`/ruta?tab=encargos#encargo-${e.id}`), (e) => { setBusy(false); alert(e.message); });
           }}>{t("Ask an agent to resolve it")}</button>
-          <span className="small muted">{t("It goes to your own agent, which has git: the platform's agent cannot merge branches.")}</span>
+          <span className="small muted">{t("It is estimated like any encargo: a simple one goes to the platform's coding agent, which merges with merge_default_branch; a hard one to your own agent.")}</span>
         </div>
       )}
     </div>

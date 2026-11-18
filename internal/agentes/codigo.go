@@ -188,6 +188,7 @@ type job struct {
 	removed            map[string]bool
 	spent              int64
 	budget             int64
+	costs              []int64 // what each call to the model cost
 	lastSHA            string
 	lastRun            *store.Run
 	finished           bool
@@ -287,14 +288,24 @@ func (j *job) work(ctx context.Context) error {
 	turns := []ia.Turn{ia.UserText(j.brief())}
 	nudged := 0
 	for turn := 0; turn < maxTurns; turn++ {
-		if j.spent >= j.budget {
-			j.commitLeft(ctx)
-			j.giveBack(context.WithoutCancel(ctx), c.say("Llegué al doble de lo estimado", "Reached twice the estimate"))
+		// The brake looks ahead (Ruta 77): it stops before a call that would
+		// take it past twice the estimate, not after, even in the middle of
+		// an edit; what it has is kept as an untested commit.
+		if next := j.nextCost(); j.spent+next > j.budget {
+			sha := j.commitLeft(ctx)
+			why := c.say("Me detuve antes de pasar del doble de lo estimado: la siguiente vuelta costaría unos %s y llevo %s de %s",
+				"Stopped before going past twice the estimate: the next turn would cost about %s, and I have spent %s of %s",
+				ia.Dollars(next), ia.Dollars(j.spent), ia.Dollars(j.budget))
+			if sha != "" {
+				why += c.say(". Lo que llevaba quedó SIN PROBAR en el commit %s", ". What I had is in commit %s, UNTESTED", sha[:min(7, len(sha))])
+			}
+			j.giveBack(context.WithoutCancel(ctx), why)
 			return nil
 		}
 		res, err := c.Model.CompleteTools(ctx, j.e.OrgID, CoderSource, ia.ToolRequest{System: j.system(), Tools: j.tools(), Turns: turns,
 			Model: WorkModel, MaxTokens: 16000})
 		j.spent += res.CostMicros
+		j.costs = append(j.costs, res.CostMicros)
 		_ = c.Store.AddEncargoSpent(context.WithoutCancel(ctx), j.e.ID, res.CostMicros)
 		if err != nil {
 			return err
@@ -324,20 +335,38 @@ func (j *job) work(ctx context.Context) error {
 	return errors.New(c.say("se acabaron los turnos", "ran out of turns"))
 }
 
+// nextCost is what the next call to the model would cost, by the ones
+// before: each reads all the conversation so far, so it costs about the
+// last one plus what the last one grew. 0 before the first.
+func (j *job) nextCost() int64 {
+	n := len(j.costs)
+	if n == 0 {
+		return 0
+	}
+	last := j.costs[n-1]
+	if n == 1 {
+		return last
+	}
+	return last + max(0, last-j.costs[n-2])
+}
+
 // commitLeft keeps what changed since the last commit on the branch, for
-// the person's agent to go on from.
-func (j *job) commitLeft(ctx context.Context) {
+// the person's agent to go on from, marked as untested; it answers the
+// commit ("" when there was nothing to keep, or it may not).
+func (j *job) commitLeft(ctx context.Context) string {
 	if len(j.changed) == 0 && len(j.removed) == 0 && j.merging == "" {
-		return
+		return ""
 	}
 	// Never half a merge, and never unfinished work on a person's own
 	// branch: its pull request is theirs. It stays on an encargo's branch.
 	if len(j.marked()) > 0 || (j.same && store.EncargoOfBranch(j.branch) == 0) {
-		return
+		return ""
 	}
 	// [skip ci]: unfinished work is not worth a run; whoever goes on from it
 	// pushes a commit of their own, and that one runs.
-	_, _ = j.commit(context.WithoutCancel(ctx), j.c.say("Encargo %d: trabajo sin terminar [skip ci]", "Encargo %d: unfinished work [skip ci]", j.e.ID))
+	sha, _ := j.commit(context.WithoutCancel(ctx), j.c.say("Encargo %d: SIN PROBAR, trabajo sin terminar [skip ci]\n\nEl agente de código se detuvo a la mitad; nada de esto se ha probado.",
+		"Encargo %d: UNTESTED, unfinished work [skip ci]\n\nThe coding agent stopped halfway; none of this has been tested.", j.e.ID))
+	return sha
 }
 
 // brief is the first message: the encargo, the app, and the repository's
@@ -436,7 +465,7 @@ How to work:
 - You cannot run code. commit_and_test commits your changes to your branch and waits for the platform's CI run on it, then tells you how it ended and, if it failed, the end of the failed steps' logs. Fix and test again until it passes.
 - Never write secrets (passwords, tokens, keys) into files. Never touch any branch but yours.
 - When the run passed, call deliver with a short summary for the person, in %s: what you changed and why, how it was tested, and what they should look at. If you cannot finish (the encargo is unclear, needs a decision, or keeps failing), call give_up with the reason and what is left, in %s.
-- Work efficiently: this encargo was estimated at about %s, and you stop at %s. Prefer search and reading parts of files over reading everything.`,
+- Work efficiently: this encargo was estimated at about %s, and you stop at %s, before a turn that would pass it, even in the middle of a change (what you have is then committed untested). Commit and test as soon as a change is whole; prefer search and reading parts of files over reading everything.`,
 		lang, lang, ia.Dollars(j.budget/2), ia.Dollars(j.budget)) + j.fixRule()
 }
 

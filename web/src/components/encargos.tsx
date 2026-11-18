@@ -5,6 +5,7 @@ import { ErrorBox, usePoll } from "./ui";
 import { t, tn } from "../i18n";
 import { TextoConFormato } from "./texto";
 import { Comentarios, porTrabajo } from "./comentarios";
+import { EstimateBar } from "./boleta";
 
 export const statusLabel: Record<EncargoStatus, string> = {
   pending: "Pending", taken: "Taken", waiting: "Waiting", delivered: "Delivered", reviewed: "Reviewed", cancelled: "Dropped",
@@ -177,7 +178,7 @@ function EncargoCard({ e, onChange, choosable, chosen, onChoose, comentarios }: 
         {e.runId && <> · {t("about")} <Link to={`/apps/${e.app}/runs/${e.runId}`}>{t("run #{n}", { n: e.runId })}</Link></>}
       </p>
       <Estimate e={e} act={act} />
-      {!!e.spentMicros && <p className="small muted encargo-estimate">{t("The coding agent spent {cost} on it.", { cost: dollars(e.spentMicros) })}</p>}
+      {!!e.spentMicros && <EstimateBar estimate={e.estimateMicros ?? 0} spent={e.spentMicros} />}
       {e.result && <div className="encargo-result"><TextoConFormato text={e.result} />
         {e.links.map((l) => <div key={l}><a className="small" href={l} target="_blank" rel="noreferrer">{l}</a></div>)}</div>}
       {e.comment && e.status === "pending" && <p className="small"><strong>{t("Sent back:")}</strong> {e.comment}</p>}

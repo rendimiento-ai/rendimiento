@@ -95,6 +95,7 @@ type repos struct {
 	files   map[string][]byte
 	commits []map[string][]byte
 	removed [][]string
+	msgs    []string
 	results []string
 	st      *coderStore
 	from    string // the sha the agent's branch was made from
@@ -136,7 +137,8 @@ func (r *repos) CommitMerge(ctx context.Context, inst int64, repo, branch, head,
 	r.merges = append(r.merges, head+"+"+other)
 	return r.CommitFiles(ctx, inst, repo, branch, msg, files, remove)
 }
-func (r *repos) CommitFiles(_ context.Context, _ int64, _, branch, _ string, files map[string][]byte, remove []string) (string, error) {
+func (r *repos) CommitFiles(_ context.Context, _ int64, _, branch, message string, files map[string][]byte, remove []string) (string, error) {
+	r.msgs = append(r.msgs, message)
 	if r.branch != "" && branch != r.branch || r.branch == "" && !strings.HasSuffix(branch, "encargo-12-saludar-en-espanol") {
 		return "", fmt.Errorf("committed to %s", branch)
 	}
@@ -234,8 +236,10 @@ func TestCoderDelivers(t *testing.T) {
 	}
 }
 
-// At twice the estimate it stops: what it changed is committed on its
-// branch, and the encargo goes to the person's own agent with a note.
+// Before a turn that would pass twice the estimate it stops (Ruta 77), in
+// the middle of an edit: what it changed is committed on its branch marked
+// untested, and the encargo goes to the person's own agent with a note. A
+// model whose next turn would overspend is never called.
 func TestCoderStopsAtTwiceTheEstimate(t *testing.T) {
 	st := &coderStore{}
 	r := &repos{st: st, files: map[string][]byte{"saludo.go": []byte("const Saludo = \"Hi\"\n")}}
@@ -248,11 +252,29 @@ func TestCoderStopsAtTwiceTheEstimate(t *testing.T) {
 	if err := newCoder(st, r, m).Do(context.Background(), store.Encargo{ID: 12, OrgID: 1, App: "tienda", EstimateMicros: &est}); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(st.gaveBack, "doble de lo estimado") || !strings.Contains(st.gaveBack, "encargo-12") || st.delivered != "" {
+	if !strings.Contains(st.gaveBack, "antes de pasar del doble") || !strings.Contains(st.gaveBack, "SIN PROBAR en el commit sha0001") ||
+		!strings.Contains(st.gaveBack, "encargo-12") || st.delivered != "" {
 		t.Fatalf("gave back %q, delivered %q", st.gaveBack, st.delivered)
 	}
-	if len(r.commits) != 1 || string(r.commits[0]["saludo.go"]) != "const Saludo = \"Hola\"\n" || m.n != 3 {
-		t.Fatalf("commits %q after %d turns", r.commits, m.n)
+	if len(r.commits) != 1 || string(r.commits[0]["saludo.go"]) != "const Saludo = \"Hola\"\n" || !strings.Contains(r.msgs[0], "SIN PROBAR") || !strings.Contains(r.msgs[0], "[skip ci]") {
+		t.Fatalf("commits %q (%q)", r.commits, r.msgs)
+	}
+	// Two turns spent $0.50 of $0.60; a third would have reached $0.75.
+	if m.n != 2 || st.spent != 500_000 {
+		t.Fatalf("%d turns, spent %d: the brake let it pass twice the estimate", m.n, st.spent)
+	}
+}
+
+// The next turn is guessed from the ones before: the last one, plus what
+// it grew.
+func TestNextCost(t *testing.T) {
+	for _, c := range []struct {
+		costs []int64
+		want  int64
+	}{{nil, 0}, {[]int64{100}, 100}, {[]int64{100, 150}, 200}, {[]int64{150, 100}, 100}} {
+		if got := (&job{costs: c.costs}).nextCost(); got != c.want {
+			t.Errorf("after %v: %d, want %d", c.costs, got, c.want)
+		}
 	}
 }
 
