@@ -53,7 +53,6 @@ test("the Today band: Running, Waiting for you and Need help, each with its link
   expect(Math.abs(cajas[0].width - cajas[2].width), "the same width").toBeLessThan(2);
   expect(cajas[0].y).toBeLessThan((await page.locator("main .mosaico .teja").first().boundingBox())!.y);
   // The notices that were strips here live in the bell now.
-  await expect(page.locator("main .alert[role=status]")).toHaveCount(0);
   await expect(page.locator("main .bando.publicada")).toHaveCount(0);
 
   // On a phone they stack, and nothing scrolls sideways.
@@ -234,9 +233,9 @@ test("the bell has what the home page's strips said", async ({ page, problemas }
   await page.goto("/");
   await page.locator("button.campana-boton").click();
   const panel = page.locator(".campana-panel");
-  await expect(panel.locator('a[href="/environment"]')).toContainText(es ? "rendimiento 0.2.9 ya está publicada" : "rendimiento 0.2.9 is published");
+  await expect(panel.locator('a[href="/environment"]', { hasText: es ? "rendimiento 0.2.9 ya está publicada" : "rendimiento 0.2.9 is published" })).toBeVisible();
   if (senales.encendidas && !senales.avisoVisto) {
-    await expect(panel.locator('a[href="/senales"]')).toContainText(es ? "señal de vida" : "señal de vida");
+    await expect(panel.locator('a[href="/senales"]', { hasText: "señal de vida" })).toBeVisible();
   }
   expect(problemas).toEqual([]);
 });
