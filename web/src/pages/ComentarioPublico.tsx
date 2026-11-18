@@ -48,9 +48,11 @@ export function ComentarioPublico() {
       <header className="bienv-barra">
         <a className="brand" href="/"><Logo /> <span className="brand-name">rendimiento</span></a>
         <span className="spacer" />
-        <TemaSwitch />
-        <MovimientoSwitch />
-        <LangSwitch />
+        <span className="bienv-ajustes">
+          <TemaSwitch />
+          <MovimientoSwitch />
+          <LangSwitch />
+        </span>
       </header>
       <main className="bienv-main">
         <section className="bienv-seccion buzon" aria-labelledby="escribanos">

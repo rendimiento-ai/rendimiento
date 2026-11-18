@@ -1,0 +1,1 @@
+- **Welcome page:** On a phone the top bar takes two rows: the brand and Sign in (on one line, in Spanish too), and under them day / night, the colors, movement and the language, together and the same height. Nothing pushes the page wider than the screen, so the roof reaches the right edge; the colors list opens under the bar.
