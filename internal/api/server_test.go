@@ -1404,6 +1404,28 @@ func TestEveryRouteStaysInItsOrg(t *testing.T) {
 	}
 }
 
+// The routes kept out of the bitácora, all registered with anonima and
+// each with its reason. Adding one is a decision: it shows here.
+func TestRoutesOutOfTheBitacora(t *testing.T) {
+	s := &Server{}
+	s.Handler()
+	want := []string{"POST /api/fallas", "POST /api/uso"}
+	var got []string
+	for _, rt := range s.routes {
+		if rt.sinBitacora == "" {
+			continue
+		}
+		if strings.HasPrefix(rt.pattern, "GET ") {
+			t.Errorf("%s: a read is never in the bitácora, it needs no reason", rt.pattern)
+		}
+		got = append(got, rt.pattern)
+	}
+	slices.Sort(got)
+	if strings.Join(got, ", ") != strings.Join(want, ", ") {
+		t.Fatalf("out of the bitácora:\n got  %s\n want %s", strings.Join(got, ", "), strings.Join(want, ", "))
+	}
+}
+
 // Every route that changes something writes the bitácora: who, the route,
 // what it was on and how it ended, whatever the answer. The routes are
 // walked as registered, so a new one cannot escape it. Reading it takes a
@@ -1414,13 +1436,17 @@ func TestEveryChangeIsInTheBitacora(t *testing.T) {
 	me := e.session(t, "p0dxD")
 	fill := strings.NewReplacer("{app}", "nada", "{id}", "1", "{name}", "nada", "{addon}", "nada", "{number}", "1",
 		"{task}", "nada", "{secret}", "nada", "{step}", "nada", "{login}", "nadie", "{site}", "1", "{session}", "1")
-	want := map[string]bool{}
+	want, kept := map[string]bool{}, map[string]bool{}
 	for _, rt := range e.s.routes {
 		method, path, _ := strings.Cut(rt.pattern, " ")
-		if method == "GET" || rt.sinBitacora {
+		if method == "GET" {
 			continue
 		}
-		want[rt.pattern] = true
+		if rt.sinBitacora != "" {
+			kept[rt.pattern] = true // called too: it must leave no row
+		} else {
+			want[rt.pattern] = true
+		}
 		cctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		req, _ := http.NewRequestWithContext(cctx, method, e.srv.URL+fill.Replace(path), strings.NewReader("{}"))
 		req.AddCookie(me)
@@ -1449,6 +1475,11 @@ func TestEveryChangeIsInTheBitacora(t *testing.T) {
 	for p := range want {
 		if !got[p] {
 			t.Errorf("%s changed something without a row in the bitácora", p)
+		}
+	}
+	for p := range kept {
+		if got[p] {
+			t.Errorf("%s is kept out of the bitácora, but left a row", p)
 		}
 	}
 	rows, _ := e.store.ListarBitacora(ctx, store.DefaultOrg, store.FiltroBitacora{Accion: "rollback"})

@@ -1,0 +1,2 @@
+- **Bitácora:** the two changes kept out of the bitácora (the interface's use, `POST /api/uso`, and its error pages, `POST /api/fallas`) are now registered the same way, each with its reason, and a test lists them; nothing else changes in what is recorded.
+- **Tests:** `TestPermisosPorApp` no longer fails on a busy worker: it waits for the activity streams to connect before making the encargo, instead of a fixed 400 ms.

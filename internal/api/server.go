@@ -232,6 +232,13 @@ func (s *Server) Handler() http.Handler {
 		}
 		mux.Handle(pattern, s.requireRole(true, role, s.anotando(pattern, true, h)))
 	}
+	// anonima is the one way to keep a change out of the bitácora: a route
+	// whose row would say who did something that is kept without a name.
+	// porque says why; TestRoutesOutOfTheBitacora lists every such route.
+	anonima := func(role, pattern, porque string, h func(http.ResponseWriter, *http.Request, string)) {
+		s.routes = append(s.routes, route{pattern: pattern, role: role, sinBitacora: porque})
+		mux.Handle(pattern, s.requireRole(false, role, h))
+	}
 	auth(store.MemberGuest, "GET /api/me", s.me)
 	// The home page as each person lays it out, and the default (internal/api/inicio.go).
 	auth(store.MemberGuest, "GET /api/inicio", s.verInicio)
@@ -239,15 +246,12 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "DELETE /api/inicio", s.borrarInicio)
 	plat(store.MemberAdmin, "PUT /api/inicio/predeterminado", s.putInicioPredeterminado)
 	plat(store.MemberAdmin, "DELETE /api/inicio/predeterminado", s.borrarInicioPredeterminado)
-	// How the interface is used, as totals (internal/api/uso.go). Not in the
-	// bitácora: that would tie each batch to who sent it.
-	s.routes = append(s.routes, route{pattern: "POST /api/uso", role: store.MemberGuest, sinBitacora: true})
-	mux.Handle("POST /api/uso", s.requireRole(false, store.MemberGuest, s.anotarUso))
+	// How the interface is used, as totals (internal/api/uso.go).
+	anonima(store.MemberGuest, "POST /api/uso", "the interface's use is kept as totals: a row would tie each batch to who sent it", s.anotarUso)
 	plat(store.MemberAdmin, "GET /api/uso", s.verUso)
 	plat(store.MemberAdmin, "PUT /api/uso", s.putUso)
-	// The UI's error pages, reported to the Problems page. Not in routes, so
-	// not in the bitácora either: who saw a broken page is not kept.
-	mux.Handle("POST /api/fallas", s.requireRole(false, store.MemberGuest, s.recibirFalla))
+	// The UI's error pages, reported to the Problems page.
+	anonima(store.MemberGuest, "POST /api/fallas", "who saw a broken page is not kept", s.recibirFalla)
 	// Writing to the team from this installation, and its answers (decision 145).
 	auth(store.MemberGuest, "GET /api/al-equipo", s.abrirMisComentarios)
 	auth(store.MemberGuest, "POST /api/al-equipo", s.enviarMiComentario)
@@ -531,9 +535,9 @@ func randomToken() string {
 type route struct {
 	pattern, role string
 	platform      bool
-	// sinBitacora: a change kept out of the bitácora on purpose, because
-	// a row would say who did it (the interface's use, which is anonymous).
-	sinBitacora bool
+	// sinBitacora, when set, is why a change is kept out of the bitácora
+	// on purpose (registered with anonima): a row would say who did it.
+	sinBitacora string
 }
 
 type roleKey struct{}
