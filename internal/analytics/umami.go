@@ -19,11 +19,20 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+
+	"github.com/rendimiento-ai/rendimiento/internal/fresco"
 )
 
-// cacheFor keeps Umami's answers this long: the numbers move slowly and
-// every report is several database queries on the Umami side.
-const cacheFor = 2 * time.Minute
+// cacheFor keeps Umami's answers this long as they are: the numbers move
+// slowly and every report is several database queries on the Umami side.
+// An older answer is still shown (up to staleFor) while a new one is read
+// behind it, so a page waits for Umami only the first time, and only up to
+// firstWait.
+const (
+	cacheFor  = 2 * time.Minute
+	staleFor  = time.Hour
+	firstWait = 10 * time.Second
+)
 
 // Umami is a client for the Umami API (v2 and v3), signed in as one user.
 type Umami struct {
@@ -34,12 +43,8 @@ type Umami struct {
 
 	mu    sync.Mutex
 	token string
-	cache map[string]cached
-}
-
-type cached struct {
-	at  time.Time
-	val any
+	cache fresco.Cache[string, any]
+	once  sync.Once
 }
 
 // Website is a site Umami counts visits for.
@@ -199,30 +204,18 @@ func (u *Umami) get(ctx context.Context, path string, q url.Values, out any) err
 	}
 }
 
-// remember returns a cached answer for key, or computes and keeps it.
-func remember[T any](u *Umami, key string, f func() (T, error)) (T, error) {
-	u.mu.Lock()
-	if c, ok := u.cache[key]; ok && time.Since(c.at) < cacheFor {
-		u.mu.Unlock()
-		return c.val.(T), nil
-	}
-	u.mu.Unlock()
-	v, err := f()
+// remember returns key's kept answer, or reads it with f (see cacheFor).
+func remember[T any](ctx context.Context, u *Umami, key string, f func(context.Context) (T, error)) (T, error) {
+	u.once.Do(func() {
+		u.cache.TTL, u.cache.Stale, u.cache.Wait = cacheFor, staleFor, firstWait
+		u.cache.Build, u.cache.Parallel = time.Minute, 4
+	})
+	v, err := u.cache.Get(ctx, key, func(ctx context.Context) (any, error) { return f(ctx) })
 	if err != nil {
-		return v, err
+		var zero T
+		return zero, err
 	}
-	u.mu.Lock()
-	if u.cache == nil {
-		u.cache = map[string]cached{}
-	}
-	for k, c := range u.cache { // keep it small
-		if time.Since(c.at) >= cacheFor {
-			delete(u.cache, k)
-		}
-	}
-	u.cache[key] = cached{at: time.Now(), val: v}
-	u.mu.Unlock()
-	return v, nil
+	return v.(T), nil
 }
 
 type page[T any] struct {
@@ -231,7 +224,7 @@ type page[T any] struct {
 
 // Websites lists the sites the user can see: its own and its teams'.
 func (u *Umami) Websites(ctx context.Context) ([]Website, error) {
-	return remember(u, "websites", func() ([]Website, error) {
+	return remember(ctx, u, "websites", func(ctx context.Context) ([]Website, error) {
 		q := url.Values{"pageSize": {"200"}}
 		var own page[Website]
 		if err := u.get(ctx, "/api/me/websites", q, &own); err != nil {
@@ -313,9 +306,7 @@ type Period struct {
 
 // Report gathers a website's numbers for the period, in parallel.
 func (u *Umami) Report(ctx context.Context, w Website, p Period) (*Report, error) {
-	// A rolling window ("the last 7 days") keeps its key as it moves; a calendar day is keyed by its start.
-	key := fmt.Sprintf("report/%s/%d/%d/%s", w.ID, p.From.Unix()/86400, p.To.Sub(p.From)/time.Minute, p.Unit)
-	return remember(u, key, func() (*Report, error) {
+	return remember(ctx, u, reportKey(w, p, time.Now()), func(ctx context.Context) (*Report, error) {
 		base := url.Values{
 			"startAt":  {strconv.FormatInt(p.From.UnixMilli(), 10)},
 			"endAt":    {strconv.FormatInt(p.To.UnixMilli(), 10)},
@@ -407,6 +398,17 @@ func (u *Umami) Report(ctx context.Context, w Website, p Period) (*Report, error
 	})
 }
 
+// reportKey names a report in the cache. A period that ends now moves
+// with the clock: "the last 7 days" keeps its length and "today" its start,
+// so it is keyed by its first day and its length in whole days (today is 0,
+// the last 24 hours 1). A period in the past is keyed by its two ends.
+func reportKey(w Website, p Period, now time.Time) string {
+	if now.Sub(p.To) < time.Minute {
+		return fmt.Sprintf("report/%s/%s/live/%d/%d", w.ID, p.Unit, p.From.Unix()/86400, p.To.Sub(p.From)/(24*time.Hour))
+	}
+	return fmt.Sprintf("report/%s/%s/%d/%d", w.ID, p.Unit, p.From.Unix()/60, p.To.Unix()/60)
+}
+
 type rawSession struct {
 	ID      string `json:"id"`
 	Country string `json:"country"`
@@ -442,7 +444,7 @@ func parseTime(s string) time.Time {
 // pages they saw and the events they caused (at most Umami's 500).
 func (u *Umami) Activity(ctx context.Context, w Website, sessionID string, from, to time.Time) ([]Step, error) {
 	key := fmt.Sprintf("activity/%s/%s/%d/%d", w.ID, sessionID, from.Unix()/60, to.Unix()/60)
-	return remember(u, key, func() ([]Step, error) {
+	return remember(ctx, u, key, func(ctx context.Context) ([]Step, error) {
 		q := url.Values{"startAt": {strconv.FormatInt(from.UnixMilli(), 10)}, "endAt": {strconv.FormatInt(to.UnixMilli(), 10)}}
 		var rows []struct {
 			CreatedAt      string `json:"createdAt"`
@@ -472,7 +474,7 @@ func (u *Umami) Activity(ctx context.Context, w Website, sessionID string, from,
 // the dashboard's summary, one call per site.
 func (u *Umami) Totals(ctx context.Context, w Website, from, to time.Time) (cur, prev Stats, err error) {
 	key := fmt.Sprintf("totals/%s/%d", w.ID, to.Sub(from)/time.Minute)
-	pair, err := remember(u, key, func() ([2]Stats, error) {
+	pair, err := remember(ctx, u, key, func(ctx context.Context) ([2]Stats, error) {
 		var s struct {
 			rawStats
 			Comparison *rawStats `json:"comparison"`

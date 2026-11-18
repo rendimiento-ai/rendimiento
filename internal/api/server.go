@@ -162,6 +162,9 @@ type Server struct {
 	// BookURL and BookURLEs link the welcome page to the book, in English
 	// and in Spanish (either may be empty).
 	BookURL, BookURLEs string
+
+	// deliveries keeps the dashboard's delivery report a minute.
+	deliveries deliveryCache
 }
 
 // Analytics is where visitor numbers come from (Umami).

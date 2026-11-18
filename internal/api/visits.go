@@ -10,7 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/rendimiento-ai/rendimiento/internal/analytics"
+	"github.com/rendimiento-ai/rendimiento/internal/fresco"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -102,11 +105,19 @@ func (s *Server) visitTZ() *time.Location {
 	return time.UTC
 }
 
+// umamiParallel is how many of Umami's websites one page reads at once.
+const umamiParallel = 6
+
 // umamiError answers a failed Umami call: a refused login is a setup
-// problem, anything else that Umami is unreachable.
+// problem, a slow first read is still going on, anything else that Umami
+// is unreachable.
 func umamiError(w http.ResponseWriter, err error) {
 	if errors.Is(err, analytics.ErrAuth) {
 		httpError(w, http.StatusBadGateway, "Umami refused rendimiento's user name or password (UMAMI_USERNAME, UMAMI_PASSWORD)")
+		return
+	}
+	if errors.Is(err, fresco.ErrSlow) {
+		httpError(w, http.StatusServiceUnavailable, "Umami is slow to answer; rendimiento keeps reading its numbers, try again in a moment")
 		return
 	}
 	httpError(w, http.StatusBadGateway, "could not read Umami: "+err.Error())
@@ -137,14 +148,21 @@ func (s *Server) visits(w http.ResponseWriter, r *http.Request, _ string) {
 		umamiError(w, err)
 		return
 	}
-	for _, site := range analytics.Match(sites, view.Hosts) {
-		rep, err := s.Analytics.Report(r.Context(), site, period)
-		if err != nil {
-			umamiError(w, err)
-			return
-		}
-		view.Reports = append(view.Reports, rep)
+	matched := analytics.Match(sites, view.Hosts)
+	reports := make([]*analytics.Report, len(matched))
+	g, ctx := errgroup.WithContext(r.Context())
+	g.SetLimit(umamiParallel)
+	for i, site := range matched {
+		g.Go(func() (err error) {
+			reports[i], err = s.Analytics.Report(ctx, site, period)
+			return err
+		})
 	}
+	if err := g.Wait(); err != nil {
+		umamiError(w, err)
+		return
+	}
+	view.Reports = append(view.Reports, reports...)
 	writeJSON(w, view)
 }
 
@@ -248,6 +266,12 @@ func (s *Server) visitsSummary(w http.ResponseWriter, r *http.Request, _ string)
 	}
 	to := time.Now()
 	from := to.AddDate(0, 0, -visitDays)
+	// Each website's totals are read once, at most umamiParallel at once,
+	// however many apps share it.
+	type pair struct{ cur, prev analytics.Stats }
+	totals := map[string]*pair{}
+	var lines [][]analytics.Website
+	var names []string
 	for _, a := range apps {
 		if accessOf(r).Role(a) == "" {
 			continue // its list leaves the person out
@@ -256,15 +280,32 @@ func (s *Server) visitsSummary(w http.ResponseWriter, r *http.Request, _ string)
 		if len(matched) == 0 {
 			continue
 		}
-		line := AppVisits{App: a.Name}
+		lines, names = append(lines, matched), append(names, a.Name)
 		for _, site := range matched {
-			cur, prev, err := s.Analytics.Totals(ctx, site, from, to)
-			if err != nil {
-				umamiError(w, err)
-				return
-			}
-			addStats(&line.Current, cur)
-			addStats(&line.Previous, prev)
+			totals[site.ID] = &pair{}
+		}
+	}
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(umamiParallel)
+	for _, site := range sites {
+		t, ok := totals[site.ID]
+		if !ok {
+			continue
+		}
+		g.Go(func() (err error) {
+			t.cur, t.prev, err = s.Analytics.Totals(gctx, site, from, to)
+			return err
+		})
+	}
+	if err := g.Wait(); err != nil {
+		umamiError(w, err)
+		return
+	}
+	for i, matched := range lines {
+		line := AppVisits{App: names[i]}
+		for _, site := range matched {
+			addStats(&line.Current, totals[site.ID].cur)
+			addStats(&line.Previous, totals[site.ID].prev)
 		}
 		addStats(&out.Current, line.Current)
 		addStats(&out.Previous, line.Previous)

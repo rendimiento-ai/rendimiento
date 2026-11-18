@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
+	"github.com/rendimiento-ai/rendimiento/internal/fresco"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 
 	. "github.com/rendimiento-ai/rendimiento/internal/i18n" //nolint:revive // M marks messages for people
@@ -154,12 +155,9 @@ type Report struct {
 // ddnsReporter is implemented by DNS providers that support dynamic DNS.
 type ddnsReporter interface{ DDNSStatus() dns.DDNSStatus }
 
-// Invalidate drops the cached report, e.g. after a DNS sync.
-func (c *Checker) Invalidate() {
-	c.mu.Lock()
-	c.cached = nil
-	c.mu.Unlock()
-}
+// Invalidate drops the cached report, e.g. after a DNS sync: the next
+// look waits for a new one.
+func (c *Checker) Invalidate() { c.reports.Forget() }
 
 // Config is what the platform expects from the environment.
 type Config struct {
@@ -201,29 +199,46 @@ type Checker struct {
 	GitHub    *gh.Holder
 	DB        Pinger
 	Config    Config
-	// TTL caches reports; checks hit several APIs and the network.
+	// TTL is how long a report is new (15 seconds when 0); checks hit
+	// several APIs and the network. An older report, up to reportStale, is
+	// still the answer while a new one is made behind it.
 	TTL time.Duration
 	// DDNS, when set, reads the dynamic DNS status from where it runs (the
 	// control service) instead of from DNS.
 	DDNS func(ctx context.Context) dns.DDNSStatus
 
-	mu     sync.Mutex
-	cached *Report
+	once    sync.Once
+	reports fresco.Cache[struct{}, *Report]
 }
 
-// Report returns a fresh or cached environment report.
+// reportStale is how old a report may be and still be shown while a new
+// one is made; reportBuild bounds the making of one (each check has 5
+// seconds, the cluster's lists the rest).
+const (
+	reportStale = 10 * time.Minute
+	reportBuild = 30 * time.Second
+)
+
+// Report returns the environment report: a new one, or an older one at
+// once while a new one is made behind it (refresh waits for a new one).
+// The first look waits for it.
 func (c *Checker) Report(ctx context.Context, refresh bool) *Report {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	ttl := c.TTL
-	if ttl == 0 {
-		ttl = 15 * time.Second
+	c.once.Do(func() {
+		ttl := c.TTL
+		if ttl == 0 {
+			ttl = 15 * time.Second
+		}
+		c.reports.TTL, c.reports.Stale, c.reports.Build, c.reports.Parallel = ttl, reportStale, reportBuild, 1
+	})
+	get := c.reports.Get
+	if refresh {
+		get = c.reports.Refresh
 	}
-	if !refresh && c.cached != nil && time.Since(c.cached.GeneratedAt) < ttl {
-		return c.cached
+	r, err := get(context.WithoutCancel(ctx), struct{}{}, func(ctx context.Context) (*Report, error) { return c.build(ctx), nil })
+	if err != nil || r == nil { // only if the making was cut short: build itself never fails
+		return &Report{GeneratedAt: time.Now(), Overall: Warning, Summary: M("The environment check did not finish; try again in a moment"),
+			Providers: []Provider{}, Checks: []Check{}, Nodes: []Node{}, Problems: []Problem{}}
 	}
-	r := c.build(ctx)
-	c.cached = r
 	return r
 }
 

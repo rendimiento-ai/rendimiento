@@ -176,3 +176,37 @@ func TestHost(t *testing.T) {
 		}
 	}
 }
+
+// A period that ends now keeps its cache key as the clock moves ("today"
+// grows, "the last 7 days" slides), and periods of other lengths differ.
+func TestReportKey(t *testing.T) {
+	tz := time.FixedZone("CST", -6*3600)
+	w := Website{ID: "w1"}
+	now := time.Date(2026, 11, 17, 10, 30, 0, 0, tz)
+	midnight := time.Date(2026, 11, 17, 0, 0, 0, 0, tz)
+	today := func(now time.Time) Period { return Period{From: midnight, To: now, Unit: "hour", TZ: tz} }
+	rolling := func(now time.Time, d time.Duration, unit string) Period {
+		return Period{From: now.Add(-d), To: now, Unit: unit, TZ: tz}
+	}
+	later := now.Add(7 * time.Minute)
+	if a, b := reportKey(w, today(now), now), reportKey(w, today(later), later); a != b {
+		t.Errorf("today moved: %s, %s", a, b)
+	}
+	if a, b := reportKey(w, rolling(now, 7*24*time.Hour, "day"), now), reportKey(w, rolling(later, 7*24*time.Hour, "day"), later); a != b {
+		t.Errorf("7d moved: %s, %s", a, b)
+	}
+	keys := map[string]string{}
+	for name, p := range map[string]Period{
+		"today":     today(now),
+		"24h":       rolling(now, 24*time.Hour, "hour"),
+		"7d":        rolling(now, 7*24*time.Hour, "day"),
+		"30d":       rolling(now, 30*24*time.Hour, "day"),
+		"yesterday": {From: midnight.AddDate(0, 0, -1), To: midnight.Add(-time.Second), Unit: "hour", TZ: tz},
+	} {
+		k := reportKey(w, p, now)
+		if other, ok := keys[k]; ok {
+			t.Errorf("%s and %s share the key %s", name, other, k)
+		}
+		keys[k] = name
+	}
+}
