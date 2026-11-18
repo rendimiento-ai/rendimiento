@@ -5,6 +5,7 @@ import { t } from "../i18n";
 import { useConexion } from "../conexion";
 import { apagado } from "../components/conexion-aviso";
 import { VigiaIA } from "../components/vigia";
+import { Boleta } from "../components/boleta";
 
 const providerLabel: Record<AIProvider, string> = { local: "local model", own: "own key", platform: "the platform's" };
 const providerName: Record<AIProvider, string> = { local: "The local model", own: "Your own key", platform: "The platform's" };
@@ -14,7 +15,7 @@ const autoEncargoCost: Record<AutoEncargo, string> = {
   branches: "when a branch fails; the default branch is left to you",
   all: "the default branch too",
 };
-const codeAgentName: Record<CodeAgent, string> = { off: "Off", asked: "Only when I send it", auto: "Also the easy ones on its own" };
+const codeAgentName: Record<CodeAgent, string> = { off: "Off", asked: "Only when I send it", system: "What rendimiento opens, if cheap", auto: "Every cheap one" };
 const escalateName: Record<"" | AIProvider, string> = { "": "Do not escalate", local: "Do not escalate", own: "Your own key", platform: "The platform's" };
 
 /**
@@ -157,6 +158,7 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
   const [escalateLimit, setEscalateLimit] = useState(s.escalateLimit);
   const [encargoAuto, setEncargoAuto] = useState(s.encargoAutoMicros / 1e6);
   const [codeAgent, setCodeAgent] = useState<CodeAgent>(s.codeAgent);
+  const [learn, setLearn] = useState(s.estimateLearn);
   const [autoEncargo, setAutoEncargo] = useState<AutoEncargo>(s.autoEncargo);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -164,7 +166,7 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
   const reset = () => {
     setProvider(s.provider); setKind(s.kind ?? "anthropic"); setBaseUrl(s.baseUrl ?? "");
     setModel(s.model ?? ""); setCap(s.capMicros / 1e6); setAuto(s.autoDiagnose);
-    setEscalateTo(s.escalateTo); setEscalateLimit(s.escalateLimit); setEncargoAuto(s.encargoAutoMicros / 1e6); setCodeAgent(s.codeAgent); setAutoEncargo(s.autoEncargo); setKey("");
+    setEscalateTo(s.escalateTo); setEscalateLimit(s.escalateLimit); setEncargoAuto(s.encargoAutoMicros / 1e6); setCodeAgent(s.codeAgent); setLearn(s.estimateLearn); setAutoEncargo(s.autoEncargo); setKey("");
   };
   // Polling brings a new object every time: reset only when the saved settings change.
   useEffect(reset, [JSON.stringify(s)]);
@@ -188,11 +190,12 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
   if (Math.round(encargoAuto * 1e6) !== s.encargoAutoMicros) changes.push([t("Encargos for the platform's AI"), dollars(s.encargoAutoMicros), dollars(Math.round(encargoAuto * 1e6))]);
   if (auto && autoEncargo !== s.autoEncargo) changes.push([t("Encargos for failures"), t(autoEncargoName[s.autoEncargo]), t(autoEncargoName[autoEncargo])]);
   if (codeAgent !== s.codeAgent) changes.push([t("The coding agent"), t(codeAgentName[s.codeAgent]), t(codeAgentName[codeAgent])]);
+  if (learn !== s.estimateLearn) changes.push([t("Estimates"), t(s.estimateLearn ? "corrects the estimates" : "the fixed table"), t(learn ? "corrects the estimates" : "the fixed table")]);
   if (Math.round(cap * 1e6) !== s.capMicros) changes.push([t("Monthly cap"), dollars(s.capMicros), dollars(Math.round(cap * 1e6))]);
 
   const save = (extra: { removeKey?: boolean } = {}) => {
     setBusy(true); setErr(undefined);
-    api.saveIA({ provider, kind, baseUrl, model, capDollars: cap, key: key || undefined, autoDiagnose: auto, escalateTo, escalateLimit, encargoAutoDollars: encargoAuto, codeAgent, autoEncargo, ...extra })
+    api.saveIA({ provider, kind, baseUrl, model, capDollars: cap, key: key || undefined, autoDiagnose: auto, escalateTo, escalateLimit, encargoAutoDollars: encargoAuto, codeAgent, estimateLearn: learn, autoEncargo, ...extra })
       .then(() => { setBusy(false); setKey(""); setSaved(true); onSaved(); }, (e) => { setBusy(false); setErr(e); });
   };
   const allowance = Math.min(s.allowanceMicros, s.capMicros);
@@ -298,15 +301,18 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
 
       <section className="stack">
         <h2>{t("5. The coding agent")}</h2>
-        <p className="small muted">{t("The platform's AI does encargos itself: on a branch of the app's repository, testing it with rendimiento's CI until it passes, and hands it over with the link for you to merge. It never touches the default branch, and stops at twice the estimate, leaving what it did for your own agent. It needs an Anthropic model.")}</p>
+        <p className="small muted">{t("The platform's AI does encargos itself: on a branch of the app's repository, testing it with rendimiento's CI until it passes, and hands it over with the link for you to merge. It never touches the default branch, and stops before it would pass twice the estimate, leaving what it did (committed, marked untested) for your own agent. It needs an Anthropic model.")}</p>
         <div className="ia-tiles">
           <Tile name="code-agent" title={t(codeAgentName.off)} checked={codeAgent === "off"} disabled={!admin} onPick={() => setCodeAgent("off")}
             cost={t("encargos are for your own agent")} status={<span className="badge ok">{t("$0 more")}</span>} />
           <Tile name="code-agent" title={t(codeAgentName.asked)} checked={codeAgent === "asked"} disabled={!admin || !anthropic} onPick={() => setCodeAgent("asked")}
             cost={t("only the encargos you send it, with Do on the Encargos tab")} status={anthropicStatus} />
+          <Tile name="code-agent" title={t(codeAgentName.system)} checked={codeAgent === "system"} disabled={!admin || !anthropic} onPick={() => setCodeAgent("system")}
+            cost={t("also, on its own, fixing a failed run and resolving a conflict, up to {amount}; the ones you write wait for you to send them", { amount: dollars(Math.round(encargoAuto * 1e6)) })} status={anthropicStatus} />
           <Tile name="code-agent" title={t(codeAgentName.auto)} checked={codeAgent === "auto"} disabled={!admin || !anthropic} onPick={() => setCodeAgent("auto")}
-            cost={t("also every easy one (under the amount above) on its own")} status={anthropicStatus} />
+            cost={t("also every cheap one (under the amount above) on its own")} status={anthropicStatus} />
         </div>
+        {v.coder && <Boleta b={v.coder} learn={learn} onLearn={setLearn} admin={admin} />}
       </section>
 
       <ErrorBox error={err} />

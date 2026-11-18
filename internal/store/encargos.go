@@ -282,13 +282,61 @@ func (s *Store) ReestimateEncargo(ctx context.Context, id int64, who string) (En
 
 // EncargoForCoder is the oldest pending encargo of an app the platform's
 // coding agent should do: one a person sent it, or, where the organization
-// lets it, an easy one (route platform). ErrNotFound when there is none.
+// lets it, a cheap one (route platform): in system mode only those about a
+// run (fixing a failed run, resolving a conflict: rendimiento opens them,
+// by itself or with a run page's button), in auto mode every one.
+// ErrNotFound when there is none.
 func (s *Store) EncargoForCoder(ctx context.Context) (Encargo, error) {
 	return scanEncargo(s.pool.QueryRow(ctx, `SELECT `+encargoCols+encargoFrom+`
 		JOIN ai_settings a ON a.org_id = e.org_id
 		WHERE e.status = 'pending' AND e.app <> '' AND a.code_agent <> 'off'
-			AND (e.do_now OR (a.code_agent = 'auto' AND e.route = 'platform'))
+			AND (e.do_now OR (e.route = 'platform' AND (a.code_agent = 'auto' OR (a.code_agent = 'system' AND e.run_id IS NOT NULL))))
 		ORDER BY e.do_now DESC, e.id LIMIT 1`))
+}
+
+// CoderEncargo is an encargo a platform agent took, with what became of it:
+// how many times it took, delivered and gave it back, and how many times a
+// person sent it back.
+type CoderEncargo struct {
+	ID             int64     `json:"id"`
+	Title          string    `json:"title"`
+	Status         string    `json:"status"`
+	Difficulty     *int      `json:"difficulty,omitempty"`
+	EstimateMicros *int64    `json:"estimateMicros,omitempty"`
+	SpentMicros    int64     `json:"spentMicros"`
+	Taken          int       `json:"taken"`
+	Delivered      int       `json:"delivered"`
+	Returned       int       `json:"returned"`
+	Released       int       `json:"released"`
+	At             time.Time `json:"at"` // when it last took it
+}
+
+// CoderRecord is the encargos an organization's platform agent (by its
+// name) took, the most recent first: what it learns its estimates from,
+// and its record on the AI page.
+func (s *Store) CoderRecord(ctx context.Context, orgID int64, name string, limit int) ([]CoderEncargo, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 200
+	}
+	rows, err := s.pool.Query(ctx, `SELECT e.id, e.title, e.status, e.difficulty, e.estimate_micros, e.spent_micros,
+			count(*) FILTER (WHERE l.what = 'taken' AND l.who = $2),
+			count(*) FILTER (WHERE l.what = 'delivered' AND l.who = $2),
+			count(*) FILTER (WHERE l.what = 'returned'),
+			count(*) FILTER (WHERE l.what = 'released' AND l.who = $2),
+			max(l.at) FILTER (WHERE l.what = 'taken' AND l.who = $2)
+		FROM encargos e JOIN encargo_log l ON l.encargo_id = e.id
+		WHERE e.org_id = $1
+		GROUP BY e.id
+		HAVING count(*) FILTER (WHERE l.what = 'taken' AND l.who = $2) > 0
+		ORDER BY max(l.at) FILTER (WHERE l.what = 'taken' AND l.who = $2) DESC, e.id DESC LIMIT $3`, orgOr(orgID), name, limit)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (CoderEncargo, error) {
+		var c CoderEncargo
+		err := r.Scan(&c.ID, &c.Title, &c.Status, &c.Difficulty, &c.EstimateMicros, &c.SpentMicros, &c.Taken, &c.Delivered, &c.Returned, &c.Released, &c.At)
+		return c, err
+	})
 }
 
 // DoEncargos sends an organization's pending encargos to the platform's

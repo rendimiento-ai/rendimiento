@@ -170,7 +170,7 @@ var catalog = map[string]string{
 	"that website is not one of this app's": "ese sitio no es de esta aplicación",
 	"route must be platform or local": "la ruta debe ser platform o local",
 	"the amount for encargos must be between $0 and $100": "el monto para encargos debe estar entre $0 y $100",
-	"the coding agent is off, asked or auto": "el agente de código está off, asked o auto",
+	"the coding agent is off, asked, system or auto": "el agente de código está off, asked, system o auto",
 	"the coding agent needs an Anthropic model: your own Anthropic key or the platform's": "el agente de código necesita un modelo de Anthropic: su propia llave de Anthropic o la de la plataforma",
 	"send 1 to 100 encargos": "mande de 1 a 100 encargos",
 	"the coding agent is off; an administrator turns it on on the AI page": "el agente de código está apagado; un administrador lo enciende en la página IA",

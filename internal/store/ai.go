@@ -41,8 +41,12 @@ type AISettings struct {
 	// own agent.
 	EncargoAutoMicros int64 `json:"encargoAutoMicros"`
 	// CodeAgent is what the platform's coding agent does: off, asked (only
-	// the encargos a person sends it) or auto (also the easy ones).
+	// the encargos a person sends it), system (also the cheap ones about a
+	// run, which rendimiento opens) or auto (every cheap one).
 	CodeAgent string `json:"codeAgent"`
+	// EstimateLearn: the estimator corrects its price table by what the
+	// coding agent really spent (agentes.Learned); false keeps the table.
+	EstimateLearn bool `json:"estimateLearn"`
 	// AutoEncargo opens an encargo for each failed run once it is
 	// explained: off, branches (not the default branch) or all.
 	AutoEncargo string    `json:"autoEncargo"`
@@ -69,11 +73,11 @@ type AIUsage struct {
 // none yet: the local model, a $1 cap, no allowance).
 func (s *Store) AISettingsOf(ctx context.Context, orgID int64) (AISettings, error) {
 	a := AISettings{OrgID: orgID}
-	err := s.pool.QueryRow(ctx, `SELECT provider, kind, base_url, model, cap_micros, allowance_micros, auto_diagnose, escalate_to, escalate_limit, encargo_auto_micros, code_agent, auto_encargo, updated_by, updated_at
+	err := s.pool.QueryRow(ctx, `SELECT provider, kind, base_url, model, cap_micros, allowance_micros, auto_diagnose, escalate_to, escalate_limit, encargo_auto_micros, code_agent, auto_encargo, estimate_learn, updated_by, updated_at
 		FROM ai_settings WHERE org_id = $1`, orgID).Scan(&a.Provider, &a.Kind, &a.BaseURL, &a.Model, &a.CapMicros, &a.AllowanceMicros, &a.AutoDiagnose,
-		&a.EscalateTo, &a.EscalateLimit, &a.EncargoAutoMicros, &a.CodeAgent, &a.AutoEncargo, &a.UpdatedBy, &a.UpdatedAt)
+		&a.EscalateTo, &a.EscalateLimit, &a.EncargoAutoMicros, &a.CodeAgent, &a.AutoEncargo, &a.EstimateLearn, &a.UpdatedBy, &a.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return AISettings{OrgID: orgID, Provider: AILocal, CapMicros: 1_000_000, AutoDiagnose: true, EscalateLimit: 10, EncargoAutoMicros: DefaultEncargoAuto, CodeAgent: CodeAgentOff, AutoEncargo: AutoEncargoOff}, nil
+		return AISettings{OrgID: orgID, Provider: AILocal, CapMicros: 1_000_000, AutoDiagnose: true, EscalateLimit: 10, EncargoAutoMicros: DefaultEncargoAuto, CodeAgent: CodeAgentOff, AutoEncargo: AutoEncargoOff, EstimateLearn: true}, nil
 	}
 	return a, err
 }
@@ -170,15 +174,33 @@ func (s *Store) SetEncargoAuto(ctx context.Context, orgID, micros int64, by stri
 
 // What the platform's coding agent does.
 const (
-	CodeAgentOff   = "off"
-	CodeAgentAsked = "asked"
-	CodeAgentAuto  = "auto"
+	CodeAgentOff    = "off"
+	CodeAgentAsked  = "asked"
+	CodeAgentSystem = "system" // also the cheap encargos about a run
+	CodeAgentAuto   = "auto"
 )
+
+// CodeAgentMode says whether mode is one of the coding agent's.
+func CodeAgentMode(mode string) bool {
+	switch mode {
+	case CodeAgentOff, CodeAgentAsked, CodeAgentSystem, CodeAgentAuto:
+		return true
+	}
+	return false
+}
 
 // SetCodeAgent is what the platform's coding agent does for an organization.
 func (s *Store) SetCodeAgent(ctx context.Context, orgID int64, mode, by string) error {
 	_, err := s.pool.Exec(ctx, `INSERT INTO ai_settings (org_id, code_agent, updated_by, updated_at) VALUES ($1, $2, $3, now())
 		ON CONFLICT (org_id) DO UPDATE SET code_agent = $2, updated_by = $3, updated_at = now()`, orgID, mode, by)
+	return err
+}
+
+// SetEstimateLearn turns the estimator's learning on (it corrects its
+// table by what the coding agent spent) or off (the fixed table).
+func (s *Store) SetEstimateLearn(ctx context.Context, orgID int64, on bool, by string) error {
+	_, err := s.pool.Exec(ctx, `INSERT INTO ai_settings (org_id, estimate_learn, updated_by, updated_at) VALUES ($1, $2, $3, now())
+		ON CONFLICT (org_id) DO UPDATE SET estimate_learn = $2, updated_by = $3, updated_at = now()`, orgID, on, by)
 	return err
 }
 

@@ -37,6 +37,51 @@ type IAView struct {
 	// month (against Settings.EscalateLimit).
 	Escalations int             `json:"escalations"`
 	Usage       []store.AIUsage `json:"usage"`
+	// Coder is the coding agent's record (nil when it never took one).
+	Coder *CoderBoleta `json:"coder,omitempty"`
+}
+
+// CoderBoleta is the coding agent's record: the encargos it took, how many
+// it delivered at the first try, a person sent back, and it gave back; what
+// it spent against what was estimated; and what the estimator learned.
+type CoderBoleta struct {
+	Taken          int                  `json:"taken"`
+	FirstTry       int                  `json:"firstTry"`
+	Returned       int                  `json:"returned"`
+	GaveBack       int                  `json:"gaveBack"`
+	SpentMicros    int64                `json:"spentMicros"`
+	EstimateMicros int64                `json:"estimateMicros"`
+	Learned        agentes.Learned      `json:"learned"`
+	LearnFrom      int                  `json:"learnFrom"`
+	Recent         []store.CoderEncargo `json:"recent"`
+}
+
+// coderBoleta reads the coding agent's record, and what it teaches the
+// estimator, priced as the estimator prices it.
+func (s *Server) coderBoleta(ctx context.Context, org int64) (*CoderBoleta, error) {
+	record, err := s.Store.CoderRecord(ctx, org, agentes.CoderName, 200)
+	if err != nil || len(record) == 0 {
+		return nil, err
+	}
+	b := &CoderBoleta{Taken: len(record), LearnFrom: agentes.LearnFrom,
+		Learned: agentes.Learn(record, (&agentes.Estimator{Model: s.IA}).Cost)}
+	for _, r := range record {
+		switch {
+		case r.Returned > 0:
+			b.Returned++
+		case r.Delivered > 0 && (r.Status == store.EncargoDelivered || r.Status == store.EncargoReviewed):
+			b.FirstTry++
+		}
+		if r.Released > 0 {
+			b.GaveBack++
+		}
+		b.SpentMicros += r.SpentMicros
+		if r.EstimateMicros != nil {
+			b.EstimateMicros += *r.EstimateMicros
+		}
+	}
+	b.Recent = record[:min(len(record), 12)]
+	return b, nil
 }
 
 // iaView is the organization's AI settings, spending and latest calls.
@@ -76,6 +121,10 @@ func (s *Server) iaView(w http.ResponseWriter, r *http.Request, _ string) {
 	if v.Usage == nil {
 		v.Usage = []store.AIUsage{}
 	}
+	if v.Coder, err = s.coderBoleta(ctx, org); err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	writeJSON(w, v)
 }
 
@@ -100,9 +149,12 @@ type IAInput struct {
 	// EncargoAutoDollars is the most an encargo may be estimated to cost
 	// for the platform's AI to take it (nil: unchanged).
 	EncargoAutoDollars *float64 `json:"encargoAutoDollars"`
-	// CodeAgent is what the platform's coding agent does: off, asked or
-	// auto (nil: unchanged). It needs an Anthropic model.
+	// CodeAgent is what the platform's coding agent does: off, asked,
+	// system or auto (nil: unchanged). It needs an Anthropic model.
 	CodeAgent *string `json:"codeAgent"`
+	// EstimateLearn: the estimator corrects its table by what the coding
+	// agent spent, or keeps the fixed table (nil: unchanged).
+	EstimateLearn *bool `json:"estimateLearn"`
 	// AutoEncargo opens an encargo for each explained failure: off,
 	// branches or all (nil: unchanged).
 	AutoEncargo *string `json:"autoEncargo"`
@@ -195,8 +247,8 @@ func (s *Server) putIA(w http.ResponseWriter, r *http.Request, login string) {
 	}
 	if in.CodeAgent != nil {
 		mode := *in.CodeAgent
-		if mode != store.CodeAgentOff && mode != store.CodeAgentAsked && mode != store.CodeAgentAuto {
-			httpError(w, http.StatusBadRequest, "the coding agent is off, asked or auto")
+		if !store.CodeAgentMode(mode) {
+			httpError(w, http.StatusBadRequest, "the coding agent is off, asked, system or auto")
 			return
 		}
 		if mode != store.CodeAgentOff && !(in.Provider == store.AIPlatform || (in.Provider == store.AIOwn && in.Kind == "anthropic")) {
@@ -214,6 +266,12 @@ func (s *Server) putIA(w http.ResponseWriter, r *http.Request, login string) {
 			return
 		}
 		if err := s.Store.SetAutoEncargo(ctx, org, *in.AutoEncargo, login); err != nil {
+			httpError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	if in.EstimateLearn != nil {
+		if err := s.Store.SetEstimateLearn(ctx, org, *in.EstimateLearn, login); err != nil {
 			httpError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
