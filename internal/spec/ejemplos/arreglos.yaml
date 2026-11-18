@@ -1,0 +1,17 @@
+# Declared fixes: a recipe for the web's lockfile, and a command of the
+# app's own for the mobile one (run_fix, the run page's button, Renovate).
+services:
+  - name: web
+    path: web
+fixes:
+  - name: candado-web
+    recipe: npm
+    path: web
+  - name: modulos
+    recipe: go
+  - name: candado-movil
+    path: mobile
+    image: node:22-bookworm
+    command: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+    writes: [package-lock.json]
+    timeout: 600

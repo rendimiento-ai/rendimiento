@@ -1,0 +1,6 @@
+# error: fixes[0] needs a recipe
+services:
+  - name: web
+fixes:
+  - name: candado
+    command: npm install

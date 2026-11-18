@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, dollars, duration, session, subscribe, timeAgo, type App, type Diagnosis, type Run, type Step } from "../api";
+import { api, dollars, duration, session, subscribe, timeAgo, type App, type Diagnosis, type FixOffer, type FixRun, type Run, type Step } from "../api";
 import { RunBadge } from "../components/ui";
 import { Falla, NoExiste } from "../components/falla";
 import { lang, t, tn } from "../i18n";
@@ -130,6 +130,7 @@ export function RunPage() {
       </p>
 
       {run.status === "failed" && <WhyFailed run={run} d={diagnosis} setD={setDiagnosis} />}
+      {run.status === "failed" && !run.deploy && app && run.branch !== app.defaultBranch && <StaleLockfile run={run} app={name} />}
       {run.merge === "conflict" && <Conflict run={run} app={name} />}
       <Untested run={run} app={app} />
       {app && <Approve run={run} app={app} onApproved={setRun} />}
@@ -354,6 +355,103 @@ function Conflict({ run, app }: { run: Run; app: string }) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * A failed step whose log says a lockfile no longer matches its manifest
+ * (npm's "not in sync", pnpm's outdated lockfile, a missing go.sum entry):
+ * the app's declared fix regenerates it on this branch, in a pod, and a
+ * commit with the person as co-author starts a new run; no AI is involved.
+ * Or it is handed to the coding agent. Without a declared fix, a branch
+ * that declares the recipe is offered, for the person to merge.
+ */
+function StaleLockfile({ run, app }: { run: Run; app: string }) {
+  const navigate = useNavigate();
+  const [o, setO] = useState<FixOffer | null>();
+  const [busy, setBusy] = useState(false);
+  const [added, setAdded] = useState<{ branch: string; link: string }>();
+  const [error, setError] = useState("");
+  const load = useCallback(() => api.runFix(run.id).then(setO, () => setO(null)), [run.id]);
+  useEffect(() => { load(); }, [load]);
+  const going = o?.runs.some((f) => f.status === "running") || busy;
+  useEffect(() => {
+    if (!going) return;
+    const every = setInterval(load, 4000);
+    return () => clearInterval(every);
+  }, [going, load]);
+  if (!o || (!o.stale && !o.runs.length)) return null;
+  const canAct = session.role !== "guest" && o.available;
+  const file = o.stale?.file ?? "";
+  const folder = o.folder && o.folder !== "." ? `${o.folder}/` : t("the repository's root");
+  const act = (p: Promise<unknown>) => {
+    setBusy(true); setError("");
+    p.then(() => load(), (e: Error) => setError(e.message)).finally(() => setBusy(false));
+  };
+  const askAgent = () => {
+    if (!o.declared || !o.stale) return;
+    setBusy(true);
+    const body = [
+      t("Run #{n} of {app} failed on {branch} ({sha}).", { n: run.id, app, branch: run.branch, sha: run.sha.slice(0, 7) }),
+      `- ${o.step}: ${o.stale.line}`,
+      t("{file} no longer matches its manifest. The app declares the fix {fix}: run it with run_fix on the branch, then commit_and_test.", { file, fix: o.declared.name }),
+    ].join("\n");
+    api.createEncargo({ title: t("Regenerate {file} on {branch}", { file, branch: run.branch }), body, app, runId: run.id })
+      .then((e) => navigate(`/ruta?tab=encargos#encargo-${e.id}`), (e: Error) => { setBusy(false); setError(e.message); });
+  };
+  return (
+    <section className="card candado" aria-label={t("Stale lockfile")}>
+      {o.stale && <>
+        <h2 style={{ margin: 0 }}>{t("It looks like a stale lockfile")}</h2>
+        <p className="small" style={{ margin: 0 }}>{t("{step} failed:", { step: o.step ?? "" })}</p>
+        <pre className="mono small candado-linea">{o.stale.line}</pre>
+        {o.declared ? (
+          <p className="small">{t("This app declares {fix} ({how}, in {folder}).", {
+            fix: o.declared.name, how: o.declared.recipe ?? t("its own command"), folder })}</p>
+        ) : (
+          <p className="small">{t("This app declares no fix for {file} in {folder}. With one in rendimiento.yaml, rendimiento regenerates it from this page, and the coding agent with run_fix.", { file, folder })}</p>
+        )}
+        {canAct && (
+          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+            {o.declared && <>
+              <button className="primary" disabled={going} onClick={() => act(api.startFix(run.id))}>{t("Regenerate {file}", { file })}</button>
+              <button disabled={busy} onClick={askAgent}>{t("Ask the agent")}</button>
+            </>}
+            {!o.declared && o.add && !added && (
+              <button disabled={busy} onClick={() => { setBusy(true); setError(""); api.addFix(run.id).then(setAdded, (e: Error) => setError(e.message)).finally(() => setBusy(false)); }}>
+                {t("Add {recipe} fix to rendimiento.yaml", { recipe: o.add.recipe ?? "" })}
+              </button>
+            )}
+          </div>
+        )}
+        {added && <p className="small">{t("Branch {branch} declares it. Open its pull request and merge it; then this button regenerates the file.", { branch: added.branch })}{" "}
+          <a href={added.link} target="_blank" rel="noreferrer">{t("Open the pull request")}</a></p>}
+        {!o.available && <p className="small muted">{t("Fixes cannot run on this platform (they need its build namespace).")}</p>}
+        {error && <p className="small bad" role="alert">{error}</p>}
+      </>}
+      {o.runs.length > 0 && <ul className="candado-arreglos small">{o.runs.map((f) => <FixRunLine key={f.id} run={run} f={f} />)}</ul>}
+    </section>
+  );
+}
+
+/** One fix run for a run: who asked, how it went, and its whole log on demand. */
+function FixRunLine({ run, f }: { run: Run; f: FixRun }) {
+  const [log, setLog] = useState<string>();
+  const who = f.askedKind === "renovate" ? t("by itself, for Renovate") : f.askedKind === "agent" ? t("by the coding agent") : t("by {who}", { who: f.askedBy });
+  const files = f.files.join(", ");
+  const how = f.status === "running" ? t("Fix #{n} ({fix}) is running…", { n: f.id, fix: f.fix })
+    : f.status === "succeeded" ? (f.commitSha
+      ? t("Fix #{n} ({fix}) wrote {files} and committed {sha} to {branch}: a new run tests it.", { n: f.id, fix: f.fix, files, sha: f.commitSha.slice(0, 7), branch: f.branch })
+      : t("Fix #{n} ({fix}) wrote {files}.", { n: f.id, fix: f.fix, files }))
+    : f.status === "unchanged" ? t("Fix #{n} ({fix}) ran, and nothing it may write changed.", { n: f.id, fix: f.fix })
+    : t("Fix #{n} ({fix}) failed: {why}", { n: f.id, fix: f.fix, why: f.message ?? "" });
+  return (
+    <li className={f.status === "failed" ? "bad" : undefined}>
+      {how} <span className="muted">{who} · {timeAgo(f.startedAt)}{f.finishedAt && ` · ${duration(f.startedAt, f.finishedAt)}`}{f.image && ` · ${f.image}`}</span>
+      {f.ignored.length > 0 && <span className="muted"> · {t("left out: {files}", { files: f.ignored.join(", ") })}</span>}{" "}
+      {f.status !== "running" && <button className="link small" onClick={() => log === undefined ? api.fixLog(run.id, f.id).then(setLog, () => setLog("")) : setLog(undefined)}>{log === undefined ? t("Log") : t("Hide the log")}</button>}
+      {log !== undefined && <pre className="reg small candado-registro">{log}</pre>}
+    </li>
   );
 }
 

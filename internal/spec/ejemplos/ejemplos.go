@@ -47,3 +47,34 @@ func Todos() ([]Ejemplo, error) {
 	}
 	return out, nil
 }
+
+//go:embed malos/*.yaml
+var malos embed.FS
+
+// Malo is an example every layer must refuse: its first line says the
+// error, as "# error: <part of the message>".
+type Malo struct {
+	Nombre string
+	Crudo  []byte
+	Error  string
+}
+
+// Malos are the examples that must be refused, in name order.
+func Malos() ([]Malo, error) {
+	names, err := fs.Glob(malos, "malos/*.yaml")
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(names)
+	var out []Malo
+	for _, n := range names {
+		raw, err := malos.ReadFile(n)
+		if err != nil {
+			return nil, err
+		}
+		first, _, _ := strings.Cut(string(raw), "\n")
+		out = append(out, Malo{Nombre: strings.TrimSuffix(strings.TrimPrefix(n, "malos/"), ".yaml"), Crudo: raw,
+			Error: strings.TrimSpace(strings.TrimPrefix(first, "# error:"))})
+	}
+	return out, nil
+}

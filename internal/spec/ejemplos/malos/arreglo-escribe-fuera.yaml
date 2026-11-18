@@ -1,0 +1,8 @@
+# error: fixes[0].writes "../go.sum" must be a pattern relative to the fix's path
+services:
+  - name: api
+fixes:
+  - name: modulos
+    image: golang:1.24
+    command: go mod tidy
+    writes: [go.mod, ../go.sum]

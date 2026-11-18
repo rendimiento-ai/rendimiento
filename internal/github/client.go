@@ -468,6 +468,11 @@ type PullInfo struct {
 	} `json:"base"`
 	MergedAt       *time.Time `json:"merged_at"`
 	MergeCommitSHA string     `json:"merge_commit_sha"`
+	// User is who opened it: a bot (Type "Bot") for Renovate's.
+	User struct {
+		Login string `json:"login"`
+		Type  string `json:"type"`
+	} `json:"user"`
 	// Mergeable is nil while GitHub still works it out; only Pull has it,
 	// with MergeableState ("clean", "dirty" for a conflict, "blocked"...).
 	Mergeable      *bool  `json:"mergeable"`

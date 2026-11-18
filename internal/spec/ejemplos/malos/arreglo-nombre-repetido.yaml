@@ -1,0 +1,6 @@
+# error: fixes[0].name "web" is already used by a service
+services:
+  - name: web
+fixes:
+  - name: web
+    recipe: npm

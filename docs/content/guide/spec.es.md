@@ -55,6 +55,11 @@ tasks:
     path: mobile                              # solo se ejecuta cuando cambia mobile/
     command: npx --yes eas-cli build --platform all --non-interactive --no-wait
     secretEnv: { EXPO_TOKEN: expo/token }
+
+fixes:
+  - name: candado-web                         # regenera web/package-lock.json
+    recipe: npm                               # cuando ya no coincide con package.json
+    path: web
 ```
 
 ## Nivel superior {#top-level}
@@ -65,6 +70,7 @@ tasks:
 | `jobs` | lista | ninguno | Tareas programadas (CronJobs). |
 | `builds` | lista | ninguna | Imágenes que se construyen y prueban pero no se despliegan ([Imágenes](#builds)). |
 | `tasks` | lista | ninguno | Comandos que se ejecutan como pasos de integración continua ([Tareas](tasks.md)). |
+| `fixes` | lista | ninguno | Comandos que regeneran archivos, como un archivo de bloqueo, cuando ya no coinciden: una receta o un comando propio de la aplicación ([Arreglos](#fixes), [Arreglos declarados](fixes.md)). |
 | `verify` | objeto | activa, 5 min, con reversión | Cómo se verifica cada versión después de publicarse: `window` (segundos, 60–3600), `rollback` (`false` solo reporta), `disabled` ([Confiabilidad](reliability.md#verifying-each-release)). |
 | `sharedNamespace` | booleano | `false` | El espacio de nombres de la aplicación pertenece a otra cosa (por ejemplo, ArgoCD): debe existir, y rendimiento nunca lo crea, lo etiqueta, se adueña de él ni lo elimina. |
 | `postgres` | objeto | vea [necesidades](#postgres-and-redis) | Ajustes para `needs: [postgres]`. |
@@ -243,3 +249,19 @@ Comandos que se ejecutan como pasos de integración continua; vea [Tareas](tasks
 | `timeout` | segundos | `STEP_TIMEOUT` | Solo puede ser menor que el límite de la plataforma. |
 | `env`, `secrets`, `secretEnv` | como en los servicios | | Los secretos se leen del espacio de nombres de la aplicación cuando empieza el paso. |
 | `postgres`, `cache` | booleano | `false` | Solo en tareas de compilación, como en las pruebas: un Postgres desechable junto a la tarea (`DATABASE_URL`) y un `/cache` que se conserva entre ejecuciones. Para una tarea que maneja la aplicación con su base de datos, como una prueba en el navegador. |
+
+## Arreglos {#fixes}
+
+Comandos que regeneran archivos del repositorio cuando ya no coinciden (un archivo de bloqueo, `go.sum`): el agente de código los corre con `run_fix`, una persona desde la página de una ejecución que falló, y las ramas de Renovate los reciben por sí solas. Vea [Arreglos declarados](fixes.md) para saber cómo corren y qué pueden tocar. **Siempre se leen de la rama principal**: una rama no puede agregarse un comando y hacer que corra.
+
+| Campo | Tipo | Predeterminado | Qué significa |
+|---|---|---|---|
+| `name` | texto ≤ 40 | **obligatorio** | Único entre servicios, tareas programadas, imágenes, tareas y arreglos. |
+| `path` | texto | `.` | La carpeta donde corre, relativa a la raíz del repositorio. El arreglo de un paso que falló es aquel cuya carpeta contiene la del paso (la más cercana). |
+| `recipe` | `npm` \| `pnpm` \| `yarn` \| `go` \| `uv` \| `poetry` \| `pip-tools` | — | Un arreglo conocido: trae su comando, su imagen y los archivos que puede escribir ([recetas](fixes.md#recipes)). |
+| `image` | imagen | — | En lugar de una receta: dónde corre el comando. |
+| `command` | texto | — | En lugar de una receta: se ejecuta con `sh -c` en `path`. |
+| `writes` | lista de patrones | — | En lugar de una receta, **obligatorio** con un comando: los archivos que puede escribir, relativos a `path` (`*` se queda en una carpeta, `**` cruza carpetas). Lo demás que cambie se deja fuera. |
+| `timeout` | segundos | `300` | Hasta 3600, y nunca más que el límite de los pasos de la plataforma. |
+
+Dé `recipe`, o bien `image`, `command` y `writes`.

@@ -1491,6 +1491,10 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 
 /* «Why did it fail?» on a run (pages/RunPage.tsx). */
 .why-failed { border-left: 4px solid var(--bad); margin-bottom: 16px; }
+/* A stale lockfile, and the declared fix that regenerates it (RunPage's StaleLockfile). */
+.candado { border-left: 4px solid var(--warn); margin-bottom: 16px; display: grid; gap: 8px; }
+.candado-linea, .candado-registro { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; max-height: 24em; overflow: auto; }
+.candado-arreglos { margin: 0; padding-left: 1.2em; display: grid; gap: 4px; }
 /* Text with a little Markdown (components/texto.tsx): diagnoses, Ruta entries, handovers, encargos. */
 .texto { display: flex; flex-direction: column; gap: 10px; min-width: 0; overflow-wrap: anywhere; }
 .texto p, .texto ul, .texto ol { margin: 0; }

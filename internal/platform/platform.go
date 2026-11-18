@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/rendimiento-ai/rendimiento/internal/arreglos"
 	"github.com/rendimiento-ai/rendimiento/internal/destino"
 	"github.com/rendimiento-ai/rendimiento/internal/detect"
 	"github.com/rendimiento-ai/rendimiento/internal/events"
@@ -133,6 +134,9 @@ type Platform struct {
 	// LiveQuota is the organizations' quota now, as the Environment page
 	// may set it (nil: Config.OrgQuota).
 	LiveQuota func() OrgQuota
+	// Fixes runs the apps' declared fixes: a Renovate branch whose run
+	// failed on a stale lockfile gets its recipe by itself (nil: never).
+	Fixes *arreglos.Service
 
 	claimMu sync.Mutex
 	going   map[int64]*appGoing // apps with runs going
@@ -1019,6 +1023,10 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 	p.publishRun(app, run.ID)
 	if status == store.RunSucceeded && !run.Deploy && app.AutoMerge {
 		p.MergeReady(ctx, app) // after the check: GitHub may ask for it before merging
+	}
+	if status == store.RunFailed && !run.Deploy && p.Fixes != nil {
+		// Minutes in a pod of its own: the worker goes on to the next run.
+		go p.fixRenovate(context.WithoutCancel(ctx), app, run, toRun, results)
 	}
 	log.Info("run finished", "app", app.Name, "status", status, "message", msg)
 }

@@ -44,6 +44,8 @@ If the tool fails (a peer-dependency conflict, a version that does not exist, a 
 
 Fix the cause in the app's repository, then tick the rebase/retry box in the pull request (or in the Dependency Dashboard): Renovate does not retry a branch's lockfile by itself until the manifest needs another change.
 
+**With a declared fix, rendimiento regenerates it itself.** When a Renovate branch's run fails on a stale lockfile and the app declares a [recipe](fixes.md#recipes) whose folder holds the failed step's (`fixes:` in the default branch's `rendimiento.yaml`), rendimiento runs the recipe on the branch and commits the lockfile there; the new run decides. It tries once a commit, never on a commit a fix made (so it cannot loop), and only with recipes, never with a command of the app's own. A branch counts as Renovate's when it is named `renovate/…` and its pull request, if it has one, was opened by a bot from the repository itself. Renovate may then see someone else's commit on its branch and stop rebasing it, as it does for any edited branch; tick the rebase box when you want Renovate's own version back.
+
 ## Branches left by an earlier Renovate
 
 Renovate only touches branches its own identity created. Branches from an earlier setup (a personal token) look *edited by someone else*: they are skipped **and** still count toward the limit on open branches, which can stop all new PRs. Delete them (their commits can be restored from their SHAs), or add `ignorePrAuthor: true` and `gitIgnoredAuthors: [<old author email>]` to the config to adopt them.

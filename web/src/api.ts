@@ -59,6 +59,67 @@ export interface Spec {
   builds?: unknown[];
   previews?: Previews;
   tests?: AppTests;
+  fixes?: Fix[];
+}
+
+/** One run of a declared fix (store.FixRun): who asked, how it ended, what it wrote. */
+export interface FixRun {
+  id: number;
+  branch: string;
+  sha: string;
+  fix: string;
+  askedKind: "person" | "agent" | "renovate";
+  askedBy: string;
+  status: "running" | "succeeded" | "unchanged" | "failed";
+  message?: string;
+  image?: string;
+  imageFrom?: string;
+  files: string[];
+  ignored: string[];
+  commitSha?: string;
+  startedAt: string;
+  finishedAt?: string;
+}
+
+/** A stale lockfile a failed step's log names (arreglos.Stale). */
+export interface StaleLock {
+  recipe: FixRecipe;
+  file: string;
+  line: string;
+}
+
+/**
+ * What a failed run's page offers for a stale lockfile: the declared fix
+ * that regenerates it, or the recipe to declare; and the fixes run for it.
+ */
+export interface FixOffer {
+  step?: string;
+  folder?: string;
+  stale?: StaleLock;
+  declared?: Fix;
+  writes?: string[];
+  add?: Fix;
+  runs: FixRun[];
+  available: boolean;
+}
+
+/** The recipes a declared fix can name (spec.FixRecipes). */
+export const fixRecipes = ["npm", "pnpm", "yarn", "go", "uv", "poetry", "pip-tools"] as const;
+export type FixRecipe = (typeof fixRecipes)[number];
+
+/**
+ * A declared fix (spec.Fix): a command that regenerates files, such as a
+ * lockfile, read from the default branch. Either a recipe, or an image, a
+ * command and the files it may write (globs relative to path).
+ */
+export interface Fix {
+  name: string;
+  path?: string; // "." by default
+  recipe?: FixRecipe;
+  image?: string;
+  command?: string;
+  writes?: string[];
+  timeout?: number; // seconds (300)
 }
 
 /** A live copy for each pull request, at pr-<number>.<domain> (spec.Previews); never a copy of production's data. */
@@ -1175,6 +1236,10 @@ export const api = {
   ia: () => request<IAView>("GET", "/api/ia"),
   diagnosis: (run: number, lang?: string) => request<Diagnosis>("GET", `/api/runs/${run}/diagnosis${lang ? `?lang=${lang}` : ""}`),
   askDiagnosis: (run: number) => request<void>("POST", `/api/runs/${run}/diagnosis`),
+  runFix: (run: number) => request<FixOffer>("GET", `/api/runs/${run}/fix`),
+  startFix: (run: number) => request<{ fix: string }>("POST", `/api/runs/${run}/fix`),
+  addFix: (run: number) => request<{ branch: string; link: string }>("POST", `/api/runs/${run}/fix/add`),
+  fixLog: (run: number, fix: number) => request<string>("GET", `/api/runs/${run}/fixes/${fix}/log`),
   judgeDiagnosis: (run: number, useful: boolean, cause = "") =>
     request<{ feedback: string; rutaEntry: number }>("POST", `/api/runs/${run}/diagnosis/feedback`, { useful, cause }),
   saveIA: (v: { provider: AIProvider; kind?: string; baseUrl?: string; model?: string; capDollars: number; key?: string; removeKey?: boolean; autoDiagnose?: boolean; escalateTo?: string; escalateLimit?: number; encargoAutoDollars?: number; codeAgent?: CodeAgent; autoEncargo?: AutoEncargo }) =>

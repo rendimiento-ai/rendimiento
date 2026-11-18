@@ -39,6 +39,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
 	"github.com/rendimiento-ai/rendimiento/internal/analytics"
 	"github.com/rendimiento-ai/rendimiento/internal/api"
+	"github.com/rendimiento-ai/rendimiento/internal/arreglos"
 	"github.com/rendimiento-ai/rendimiento/internal/catalog"
 	"github.com/rendimiento-ai/rendimiento/internal/controller"
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
@@ -439,6 +440,11 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	executor.Limits, executor.Busy, p.Capacity = capacity.Limits, capacity.Busy, capacity.Runs
 	executor.Caches = capacity.Caches
 	p.Runner = pipeline.NewRunner(executor, p, parallel)
+	// The apps' declared fixes run in the build namespace too, each in a pod
+	// of its own (the coding agent's run_fix, the run page's button, and
+	// Renovate's branches by themselves).
+	fixes := &arreglos.Service{Exec: executor, Repos: holder, Store: st, MaxTimeout: stepTimeout}
+	p.Fixes = fixes
 	// Runs of different apps go side by side (one per app, so an app's
 	// releases keep their order); MAX_PARALLEL_STEPS still bounds the load.
 	p.Workers, _ = strconv.Atoi(env("PARALLEL_RUNS", "3"))
@@ -707,6 +713,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 		coder := &agentes.Coder{Store: st, Repos: holder, Model: srv.IA, Logs: srv.StepLogText, BaseURL: env("BASE_URL", "http://localhost:8080"),
 			Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "agents")}
 		coder.AlEntregar = p.PullsForDelivery
+		coder.Fixes = fixes
 		est := &agentes.Estimator{Store: st, Model: srv.IA, Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "agents")}
 		// Where comments are received (rendimiento.ai), the platform's AI
 		// sorts each one and drafts its answer, for a person to send.

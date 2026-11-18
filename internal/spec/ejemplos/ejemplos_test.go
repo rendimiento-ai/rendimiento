@@ -38,3 +38,25 @@ func TestValidos(t *testing.T) {
 		t.Fatalf("the book's complete example: %v", err)
 	}
 }
+
+// Every bad example is refused, with the error its first line says.
+func TestMalos(t *testing.T) {
+	malos, err := Malos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(malos) == 0 {
+		t.Fatal("no bad examples")
+	}
+	for _, m := range malos {
+		_, err := spec.Parse(m.Crudo)
+		switch {
+		case m.Error == "":
+			t.Errorf("%s: its first line must be # error: <the message>", m.Nombre)
+		case err == nil:
+			t.Errorf("%s: accepted, want %q", m.Nombre, m.Error)
+		case !strings.Contains(err.Error(), m.Error):
+			t.Errorf("%s: %v, want %q", m.Nombre, err, m.Error)
+		}
+	}
+}

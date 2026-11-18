@@ -9,8 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rendimiento-ai/rendimiento/internal/arreglos"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
+	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -23,6 +25,7 @@ type coderStore struct {
 	spent     int64
 	handover  string
 	waited    []int64
+	notes     []string
 }
 
 func (s *coderStore) EncargoForCoder(context.Context) (store.Encargo, error) {
@@ -77,6 +80,10 @@ func (s *coderStore) GetRun(_ context.Context, id int64) (*store.Run, error) {
 		}
 	}
 	return nil, store.ErrNotFound
+}
+func (s *coderStore) NoteEncargoFix(_ context.Context, _ int64, _, note string) error {
+	s.notes = append(s.notes, note)
+	return nil
 }
 func (s *coderStore) GetDiagnosis(context.Context, int64) (store.Diagnosis, error) {
 	return store.Diagnosis{Text: "La prueba espera «Hola»."}, nil
@@ -367,4 +374,80 @@ func TestCoderReadsAndEditsABigFile(t *testing.T) {
 	if len(r.commits) != 1 || !strings.Contains(string(r.commits[0]["package-lock.json"]), `"version":"19.3.1"`) {
 		t.Fatalf("commits %d", len(r.commits))
 	}
+}
+
+// fakeFixes is the app's declared fixes, run without a pod: candado writes
+// package-lock.json from the pending package.json.
+type fakeFixes struct {
+	reqs []arreglos.Request
+}
+
+func (f *fakeFixes) Declared(context.Context, *store.App) ([]spec.Fix, error) {
+	return []spec.Fix{{Name: "candado", Recipe: "npm", Path: "web"}}, nil
+}
+
+func (f *fakeFixes) Run(_ context.Context, req arreglos.Request) (arreglos.Result, error) {
+	f.reqs = append(f.reqs, req)
+	lock := []byte(`{"lockfileVersion":3,"from":` + fmt.Sprintf("%q", req.Pending["web/package.json"]) + `}`)
+	return arreglos.Result{ID: 1, Status: store.FixSucceeded, Plan: arreglos.Plan{Name: "candado", Path: "web", Image: "node:20-bookworm-slim", ImageFrom: ".nvmrc"},
+		Files: map[string][]byte{"web/package-lock.json": lock}, Written: []string{"web/package-lock.json"}, Took: 38 * time.Second}, nil
+}
+
+// The coding agent sees the app's declared fixes, runs one on its branch
+// with what it changed, and the file it wrote goes in its next commit; the
+// encargo's history says so.
+func TestCoderRunsAFix(t *testing.T) {
+	run := int64(812)
+	st := &coderStore{runID: &run, runs: []*store.Run{{ID: 812, AppID: 4, Branch: "renovate/react", SHA: "abc", Status: store.RunFailed}}}
+	r := &repos{st: st, branch: "renovate/react", files: map[string][]byte{"web/package.json": []byte(`{"dependencies":{"react":"19.2.0"}}`)},
+		results: []string{store.RunSucceeded}}
+	fixes := &fakeFixes{}
+	m := &script{t: t, cost: 10_000, turns: [][]ia.ToolCall{
+		{call("edit_file", map[string]string{"path": "web/package.json", "old_text": "19.2.0", "new_text": "19.3.1"})},
+		{call("run_fix", map[string]string{"name": "otro"})},
+		{call("run_fix", map[string]string{"name": "candado"})},
+		{call("commit_and_test", map[string]string{"message": "React 19.3.1, with its lockfile"})},
+		{call("deliver", map[string]string{"summary": "Listo."})},
+	}}
+	c := newCoder(st, r, m)
+	c.Fixes = fixes
+	var tools []string
+	c.Model = toolsSeen{m, &tools}
+	if err := c.Do(context.Background(), store.Encargo{ID: 12, OrgID: 1, App: "tienda", RunID: &run}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(tools, " "), "run_fix") {
+		t.Fatalf("tools %v", tools)
+	}
+	if len(m.seen) < 3 || !strings.Contains(m.seen[1], "no such fix") || !strings.Contains(m.seen[2], "It wrote web/package-lock.json") {
+		t.Fatalf("results %q", m.seen)
+	}
+	if len(fixes.reqs) != 1 || fixes.reqs[0].Branch != "renovate/react" || fixes.reqs[0].AskedKind != store.FixByAgent || fixes.reqs[0].Encargo != 12 ||
+		!strings.Contains(string(fixes.reqs[0].Pending["web/package.json"]), "19.3.1") {
+		t.Fatalf("asked %+v", fixes.reqs)
+	}
+	if len(r.commits) != 1 || !strings.Contains(string(r.commits[0]["web/package-lock.json"]), "19.3.1") || r.commits[0]["web/package.json"] == nil {
+		t.Fatalf("commits %q", r.commits)
+	}
+	if len(st.notes) != 1 || !strings.Contains(st.notes[0], "run_fix candado") || !strings.Contains(st.notes[0], "38s") {
+		t.Fatalf("history %q", st.notes)
+	}
+	if st.delivered == "" {
+		t.Fatalf("not delivered: %q", st.gaveBack)
+	}
+}
+
+// toolsSeen keeps the names of the tools the model was offered.
+type toolsSeen struct {
+	m     *script
+	names *[]string
+}
+
+func (s toolsSeen) CompleteTools(ctx context.Context, org int64, source string, req ia.ToolRequest) (ia.ToolResponse, error) {
+	if len(*s.names) == 0 {
+		for _, t := range req.Tools {
+			*s.names = append(*s.names, t.Name)
+		}
+	}
+	return s.m.CompleteTools(ctx, org, source, req)
 }
