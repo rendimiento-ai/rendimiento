@@ -973,10 +973,57 @@ export class Maqueta implements Engine {
   }
 }
 
-/** The village's colors for day or night, with the page's own tokens. */
+/** A CSS color as #rrggbb (#rgb, #rrggbb, #rrggbbaa or rgb()); undefined when it is not one of those. */
+export function hexOf(css: string): string | undefined {
+  const c = css.trim();
+  let m = /^#([0-9a-f]{3})$/i.exec(c);
+  if (m) return "#" + [...m[1]].map((x) => x + x).join("").toLowerCase();
+  m = /^#([0-9a-f]{6})(?:[0-9a-f]{2})?$/i.exec(c);
+  if (m) return "#" + m[1].toLowerCase();
+  m = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i.exec(c);
+  if (m) return "#" + m.slice(1, 4).map((x) => Math.min(255, +x).toString(16).padStart(2, "0")).join("");
+  return undefined;
+}
+
+/** a, moved k of the way to b (two #rrggbb colors). */
+export function mixHex(a: string, b: string, k: number) {
+  const n = (h: string) => { const v = parseInt(h.slice(1, 7), 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; };
+  const x = n(a), y = n(b);
+  return "#" + x.map((c, i) => Math.round(c + (y[i] - c) * k).toString(16).padStart(2, "0")).join("");
+}
+
+type Town = Record<"sky1" | "sky2" | "ground" | "plaza" | "wallL" | "wallR" | "roof" | "roofD" | "road" | "roadEdge" | "flow" | "cantera" | "outskirts", string>;
+/**
+ * The town's ground, sky, walls, roofs and roads for a family of colors
+ * (data-tema), made from its tokens: `v` reads one (bg, surface, surface-2,
+ * border, muted, accent, wall-band, cempasuchil). The classic papel picado
+ * keeps the village's own colors; a token missing or not a color keeps them too.
+ */
+export function townOf(v: (k: string) => string, night: boolean): Town | undefined {
+  const k = ["bg", "surface", "surface-2", "border", "muted", "accent", "wall-band", "cempasuchil"].map((x) => hexOf(v(x)));
+  if (k.some((x) => !x)) return undefined;
+  const [bg, surface, s2, border, muted, accent, band, flor] = k as string[];
+  if (!night) {
+    const roof = band;
+    return {
+      sky1: mixHex(surface, bg, 0.5), sky2: shade(s2, -0.05), ground: s2, plaza: shade(border, -0.06),
+      wallL: mixHex(surface, s2, 0.6), wallR: shade(s2, -0.1), roof, roofD: shade(roof, -0.25),
+      road: mixHex(border, muted, 0.35), roadEdge: surface, flow: flor, cantera: mixHex(border, accent, 0.25), outskirts: muted,
+    };
+  }
+  const roof = mixHex(band, accent, 0.3);
+  return {
+    sky1: shade(bg, -0.4), sky2: shade(s2, 0.04), ground: mixHex(bg, s2, 0.6), plaza: mixHex(s2, border, 0.7),
+    wallL: mixHex(border, muted, 0.3), wallR: mixHex(border, muted, 0.15), roof, roofD: shade(roof, -0.3),
+    road: mixHex(border, muted, 0.35), roadEdge: s2, flow: flor, cantera: mixHex(border, accent, 0.3), outskirts: muted,
+  };
+}
+
+/** The village's colors for day or night, with the page's own tokens; with a family of colors chosen, its town too. */
 export function palette(night: boolean): Palette {
   const cs = getComputedStyle(document.documentElement), v = (k: string) => cs.getPropertyValue("--" + k).trim();
-  return { ...(night ? NIGHT : DAY), ok: v("ok"), slow: v("warn"), bad: v("bad"), text: v("text"), muted: v("muted"), surface: v("surface"), border: v("border"), accent: v("accent"),
+  const town = document.documentElement.dataset.tema ? townOf(v, night) : undefined;
+  return { ...(night ? NIGHT : DAY), ...town, ok: v("ok"), slow: v("warn"), bad: v("bad"), text: v("text"), muted: v("muted"), surface: v("surface"), border: v("border"), accent: v("accent"),
     rosa: v("rosa"), maiz: v("maiz"), nopal: v("nopal"), anil: v("anil"), teja: v("teja"), grana: v("grana"), cempasuchil: v("cempasuchil") };
 }
 

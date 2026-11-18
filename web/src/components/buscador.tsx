@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api, type App, type RunNow } from "../api";
 import { t } from "../i18n";
+import { statusText } from "./ui";
 
 /** A page the search can open: its address and its name, in the reader's language. */
 export interface PaginaBuscable { to: string; nombre: string }
@@ -15,8 +16,6 @@ interface Resultado { id: string; grupo: "apps" | "runs" | "paginas"; a: string;
 
 /** Lowercase and without accents: "bitacora" finds Bitácora. */
 const llano = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-
-const estadoDe: Record<string, string> = { queued: "queued", running: "running", succeeded: "passed", failed: "failed", cancelled: "cancelled" };
 
 /** Whether a key press is someone writing (in a box, a list or an editable text). */
 export function escribiendo(e: KeyboardEvent): boolean {
@@ -99,7 +98,7 @@ export function Buscador({ paginas, telefono }: { paginas: PaginaBuscable[]; tel
     const deRuns = todas.filter((r) => (n ? String(r.id).startsWith(n) : llano(r.branch).includes(s)))
       .sort((x, y) => (n ? Number(String(y.id) === n) - Number(String(x.id) === n) : 0) || y.id - x.id).slice(0, 5)
       .map((r): Resultado => ({ id: `run-${r.id}`, grupo: "runs", a: `/apps/${r.app}/runs/${r.id}`,
-        titulo: t("Run {n} · {app}", { n: r.id, app: r.app }), detalle: `${r.branch} · ${t(estadoDe[r.status] ?? r.status)}` }));
+        titulo: t("Run {n} · {app}", { n: r.id, app: r.app }), detalle: `${r.branch} · ${statusText(r.status)}` }));
     const dePaginas = paginas.filter((p) => llano(p.nombre).includes(s))
       .sort((x, y) => primero(x.nombre) - primero(y.nombre)).slice(0, 5)
       .map((p): Resultado => ({ id: `pagina-${p.to}`, grupo: "paginas", a: p.to, titulo: p.nombre }));

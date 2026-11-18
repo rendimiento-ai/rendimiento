@@ -186,7 +186,7 @@ const banderas = ["var(--grana)", "var(--cempasuchil)", "var(--anil)", "var(--ro
 export function Techo() {
   return (
     <div className="techo" aria-hidden="true">
-      <div className="tema-franja" />
+      <div className="tema-franja"><span className="tema-sol" /></div>
       <div className="techo-viga" />
       <div className="techo-tejas" />
       <div className="papel-picado">

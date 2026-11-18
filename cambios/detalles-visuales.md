@@ -1,0 +1,4 @@
+- **UI:** A run's and a step's status reads the same everywhere (badges, the search, the glance, the threads): passed, failed, running, queued, cancelled, skipped, reused, pending; in Spanish pasó, falló, corriendo, en cola, se canceló, se omitió, se reutilizó, pendiente.
+- **UI:** The band of the Sierra, Atardecer and Milpa colors shows its sun once, however wide the screen; only the pattern repeats.
+- **UI:** The Universe's town (2.5D and 3D) takes its sky, ground, walls, roofs and roads from the family of colors chosen, by day and by night, and changes with it.
+- **Desktop:** rendimiento for Windows' icon next to the clock is the sun over the furrows, from 16 to 256 pixels.

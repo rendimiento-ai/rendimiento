@@ -13,7 +13,12 @@ const phaseTone: Record<string, Tone> = {
   Error: "bad",
   Suspended: "idle",
 };
-const phaseLabel: Record<string, string> = { WaitingForBuild: "Waiting for first build" };
+// The words the API's statuses are shown with. A run's and a step's are the
+// same everywhere (badge, search, glance, threads): passed, failed, running,
+// queued, cancelled, skipped, reused, pending; in Spanish verbs and
+// gender-free words (pasó, falló, corriendo, en cola, se canceló, se omitió),
+// as a run (una ejecución) and a step (un paso) say them alike.
+const phaseLabel: Record<string, string> = { WaitingForBuild: "Waiting for first build", succeeded: "passed" };
 
 /** A status word from the API (a phase, a run or step status, a health), in the UI's language. */
 export function statusText(s: string): string {

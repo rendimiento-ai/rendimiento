@@ -182,6 +182,59 @@ test("the colors and the day/night mode are kept", async ({ page, problemas }, i
   expect(problemas).toEqual([]);
 });
 
+// The band of a family with a sun (Sierra, Atardecer, Milpa) has one sun, by
+// day and by night, however wide the screen: the pattern repeats, the sun not.
+test("the band's sun is one, on a wide screen too", async ({ page, problemas }) => {
+  await page.setViewportSize({ width: 1920, height: 900 });
+  await page.goto("/");
+  await expect(page.locator("header.topbar")).toBeVisible();
+  const sol = page.locator(".tema-franja .tema-sol");
+  for (const tema of ["sierra", "atardecer", "milpa", "bugambilia", "talavera", "adobe"]) {
+    for (const modo of ["day", "night"]) {
+      await page.evaluate(([f, m]) => { document.documentElement.dataset.tema = f; document.documentElement.dataset.theme = m; }, [tema, modo]);
+      await expect(page.locator(".tema-franja")).toBeVisible();
+      if (["sierra", "atardecer", "milpa"].includes(tema)) {
+        await expect(sol).toHaveCount(1);
+        await expect(sol).toBeVisible();
+        const caja = (await sol.boundingBox())!;
+        expect(caja.width, tema).toBeGreaterThan(10);
+        expect(caja.width, tema).toBeLessThan(60);
+        // No sun left in the pattern that repeats.
+        const patron = await page.locator(".tema-franja").evaluate((el) => getComputedStyle(el, "::after").backgroundImage);
+        expect(patron, tema).not.toContain("circle");
+      } else {
+        await expect(sol).toBeHidden();
+      }
+    }
+  }
+  expect(problemas).toEqual([]);
+});
+
+// The Universe's town takes the colors of the family chosen: its sky (the
+// canvas's corner) changes with the family, and is the village's own without one.
+test("the Universe's town follows the family of colors", async ({ page, problemas }) => {
+  await page.goto("/universe");
+  const lienzo = page.locator("canvas.u-canvas");
+  await expect(lienzo).toBeVisible();
+  const cielo = async (tema: string) => {
+    await page.evaluate((f) => {
+      document.documentElement.dataset.theme = "day";
+      if (f) document.documentElement.dataset.tema = f;
+      else delete document.documentElement.dataset.tema;
+    }, tema);
+    // A few frames: the theme is read again and the town drawn with it.
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r)))));
+    return lienzo.evaluate((c: HTMLCanvasElement) => [...c.getContext("2d")!.getImageData(2, 2, 1, 1).data.slice(0, 3)].join(","));
+  };
+  const clasico = await cielo("");
+  const sierra = await cielo("sierra");
+  const talavera = await cielo("talavera");
+  const atardecer = await cielo("atardecer");
+  expect(new Set([clasico, sierra, talavera, atardecer]).size).toBe(4);
+  expect(await cielo("")).toBe(clasico);
+  expect(problemas).toEqual([]);
+});
+
 // While a page's data is on its way, its skeleton stands where the page will
 // be (busy, with no title of its own); when the answer comes, the page
 // replaces it and no skeleton is left. The answer is held until the skeleton
