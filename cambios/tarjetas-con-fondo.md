@@ -1,1 +1,0 @@
-- **Look:** the figures on an app's page, the list-and-detail panels, the chosen item of a list and the Ruta's notebook have their background again: their color had a name that was never defined, so they were transparent.

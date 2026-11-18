@@ -1,1 +1,0 @@
-- **Loading:** while a page's code or data is on its way, it shows its skeleton (grey shapes with a slow sheen where its title, figures, cards, list or the Universe's town will be, the same size as the page) instead of "Loading…", so nothing jumps when it arrives; a quick page never shows it, and the sheen stops with movement off.

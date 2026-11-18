@@ -1,2 +1,0 @@
-- **Use:** rendimiento notes how its own interface is used, as totals per day and never who: the page opened by its route pattern (never its address), the page it came from, how long measured pages took to show their data, and the main buttons by a fixed name. Administrators of the platform see it on the new Use page (`/uso`, linked from Members), with a switch to turn it off (on by default). Days older than 90 are deleted.
-- **Use:** a migration (0049) adds the tables `uso_paginas`, `uso_pasos` and `uso_acciones`; it only adds.
