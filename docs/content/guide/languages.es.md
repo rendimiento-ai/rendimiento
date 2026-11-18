@@ -4,7 +4,7 @@ rendimiento habla **inglés** y **español de México** (es-MX).
 
 ## En el navegador {#in-the-browser}
 
-La barra superior tiene un selector de idioma (**ES** / **EN**). La primera vez, el idioma sigue al del navegador; después, la elección se recuerda en ese navegador. Las fechas y los números también siguen al idioma.
+El menú de su cuenta (su nombre, a la derecha de la barra superior; en un teléfono, la hoja de abajo) tiene un selector de idioma (**ES** / **EN**). La primera vez, el idioma sigue al del navegador; después, la elección se recuerda en ese navegador. Las fechas y los números también siguen al idioma.
 
 El español es formal (*usted*) y traduce los términos técnicos: *despliegue*, *construcción* (build), *versión*, *reversión*, *complemento*, *confirmación* (commit), *envío* (push), *solicitud de incorporación* (pull request), *cubeta* (bucket), *balanceador de carga*, *entrada* (ingress), *demonio* (daemon).
 

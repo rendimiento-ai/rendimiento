@@ -137,6 +137,7 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | Method | Path | Does |
 |---|---|---|
 | GET | `/api/runs/{id}` | a run with its steps (the graph) |
+| GET | `/api/corriendo` | what goes on in the organization's apps the person can enter: the runs queued or running with their steps (`ahora`, the Apps page's *Running now*), and the last 30 that ended (`recientes`, also for the top bar's search) |
 | POST | `/api/runs/{id}/cancel` | cancel it; its build pods are deleted |
 | GET | `/api/runs/{id}/steps/{step}/log` | a step's log (stored, or live while running) |
 | GET | `/api/runs/{id}/events` | SSE: step state and log lines |

@@ -270,6 +270,75 @@ func (s *Store) ActiveRuns(ctx context.Context, n int) ([]ActiveRun, error) {
 	return out, rows.Err()
 }
 
+// RunsGoingOn are the runs queued or running of the given apps, oldest
+// first, each with its steps (without their messages): what the Apps page's
+// "Running now" shows.
+func (s *Store) RunsGoingOn(ctx context.Context, appIDs []int64, n int) ([]*Run, error) {
+	out := []*Run{}
+	if len(appIDs) == 0 {
+		return out, nil
+	}
+	rows, err := s.pool.Query(ctx, `SELECT `+runCols+` FROM runs
+		WHERE app_id = ANY($1) AND status IN ('queued', 'running') ORDER BY id LIMIT $2`, appIDs, n)
+	if err != nil {
+		return nil, err
+	}
+	byID := map[int64]*Run{}
+	ids := []int64{}
+	for rows.Next() {
+		r, err := scanRun(rows)
+		if err != nil {
+			rows.Close()
+			return nil, err
+		}
+		out = append(out, r)
+		byID[r.ID] = r
+		ids = append(ids, r.ID)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil || len(ids) == 0 {
+		return out, err
+	}
+	steps, err := s.pool.Query(ctx, `SELECT run_id, step_id, service, kind, depends_on, status, started_at, finished_at, tries
+		FROM steps WHERE run_id = ANY($1) ORDER BY run_id, step_id`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer steps.Close()
+	for steps.Next() {
+		var id int64
+		var st Step
+		if err := steps.Scan(&id, &st.ID, &st.Service, &st.Kind, &st.DependsOn, &st.Status, &st.StartedAt, &st.FinishedAt, &st.Tries); err != nil {
+			return nil, err
+		}
+		byID[id].Steps = append(byID[id].Steps, st)
+	}
+	return out, steps.Err()
+}
+
+// RunsDone are the last n runs of the given apps that ended, newest first,
+// without their steps.
+func (s *Store) RunsDone(ctx context.Context, appIDs []int64, n int) ([]*Run, error) {
+	out := []*Run{}
+	if len(appIDs) == 0 {
+		return out, nil
+	}
+	rows, err := s.pool.Query(ctx, `SELECT `+runCols+` FROM runs
+		WHERE app_id = ANY($1) AND status NOT IN ('queued', 'running') ORDER BY id DESC LIMIT $2`, appIDs, n)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		r, err := scanRun(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // RecentReleaseImages are the images of each app's last perApp releases:
 // what a rollback could need, so the registry must keep them.
 func (s *Store) RecentReleaseImages(ctx context.Context, perApp int) ([]string, error) {

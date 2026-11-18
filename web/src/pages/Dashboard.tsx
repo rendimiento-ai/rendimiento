@@ -14,6 +14,7 @@ import { ResumenDelDia } from "../components/resumen";
 import { MesaAviso } from "../components/mesa";
 import { Publicada } from "./Version";
 import { EsqMosaico } from "../components/esqueleto";
+import { Corriendo } from "../components/corriendo";
 
 // Each app under an arch gets one of the papel picado colors for its band.
 const bandas = ["var(--grana)", "var(--cempasuchil)", "var(--anil)", "var(--rosa)", "var(--nopal)", "var(--maiz)"];
@@ -69,7 +70,7 @@ export function Dashboard() {
   const caidas = apps?.filter(marchita).length ?? 0;
   const vivas = (apps?.length ?? 0) - caidas;
 
-  // The search and the filter live in the address (?q=…&ver=…), so a view can be shared and survives a reload.
+  // The search (the mosaic's; the top bar's goes anywhere) and the filter live in the address (?q=…&ver=…), so a view can be shared and survives a reload.
   const [params, setParams] = useSearchParams();
   const q = params.get("q") ?? "";
   const ver = (filtros.find((f) => f.id === params.get("ver"))?.id ?? "todas") as Filtro;
@@ -79,17 +80,6 @@ export function Dashboard() {
   const shown = (apps ?? []).map((a, i) => ({ a, i }))
     .filter(({ a }) => coincide(a, q) && filtro.test(a))
     .sort((x, y) => Number(marchita(y.a)) - Number(marchita(x.a)) || x.a.name.localeCompare(y.a.name));
-
-  // "/" jumps to the search box; Escape clears it.
-  const box = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => {
-      const typing = e.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
-      if (e.key === "/" && !typing) { e.preventDefault(); box.current?.focus(); }
-    };
-    window.addEventListener("keydown", key);
-    return () => window.removeEventListener("keydown", key);
-  }, []);
 
   return (
     <>
@@ -112,6 +102,7 @@ export function Dashboard() {
           <circle pathLength={1} style={{ "--i": 2 } as CSSProperties} cx="330" cy="22" r="10" />
           <path pathLength={1} style={{ "--i": 3 } as CSSProperties} d="M330 4v5M312 22h-5M353 22h-5M317 9l3.5 3.5M343 9l-3.5 3.5" />
         </svg>      </div>
+      {apps && apps.length > 0 && <Corriendo />}
       <ErrorBox error={error} />
       <Publicada onlyNewer />
       {apps && apps.length > 0 && <MesaAviso />}
@@ -143,9 +134,8 @@ export function Dashboard() {
           </div>
           <label className="mosaico-buscar">
             <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5 21 21" /></svg>
-            <input ref={box} type="search" value={q} onChange={(e) => poner("q", e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") poner("q", ""); }}
+            <input type="search" value={q} onChange={(e) => poner("q", e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") poner("q", ""); }}
               placeholder={t("Search by name, repository or address")} aria-label={t("Search apps")} />
-            <kbd aria-hidden="true">/</kbd>
           </label>
           {shown.length === 0 && (
             <div className="card empty">
