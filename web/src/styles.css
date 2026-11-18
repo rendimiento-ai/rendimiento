@@ -1010,9 +1010,15 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 @media (prefers-reduced-motion: reduce){.vuelta,.sep,.check svg{animation:none;transition:none}}
 
 /* ---- the welcome page (signed out) ---- */
-.bienv { min-height: 100vh; display: flex; flex-direction: column; }
-.bienv-barra { display: flex; align-items: center; gap: 8px; padding: 12px 24px; max-width: 1120px; width: 100%; margin: 0 auto; }
+.bienv { min-height: 100vh; display: flex; flex-direction: column; overflow-x: clip; }
+.bienv-barra { position: relative; display: flex; align-items: center; gap: 8px; padding: 12px 24px; max-width: 1120px; width: 100%; margin: 0 auto; }
 .bienv-barra .spacer { flex: 1; }
+.bienv-barra .brand, .bienv-barra .btn.primary { flex: none; white-space: nowrap; }
+/* Day / night, the colors, movement and the language: one group, every control the same height. */
+.bienv-ajustes { display: flex; align-items: center; gap: 8px; }
+.bienv-ajustes .tema-selector { display: flex; }
+.bienv-ajustes .icon-btn { width: 38px; height: 38px; }
+.bienv-ajustes .lang-switch { height: 38px; padding: 0 10px; justify-content: center; }
 .bienv-main { max-width: 1040px; width: 100%; margin: 0 auto; padding: 8px 16px 48px; flex: 1; }
 .bienv h2 { font-size: clamp(24px, 3.4vw, 32px); margin: 0 0 16px; }
 .bienv h3 { margin: 6px 0 4px; font-size: 17px; }
@@ -1130,9 +1136,24 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 @media (max-width: 640px) {
   .bienv-barra { padding: 10px 16px; gap: 6px; }
   .bienv-barra .brand-name { font-size: 18px; }
+  .bienv-ajustes { gap: 6px; }
   .bienv-diccionario { padding: 18px 16px; }
   .bienv-ruta { padding: 20px 16px; }
   .bienv-heroe { padding-top: 24px; }
+}
+
+/* On a phone, with Sign in, two rows like the app's top bar: the brand and Sign in, and under them the
+   switches, to the right. Without it (Write to us) they stay beside the brand while they fit. */
+@media (max-width: 560px) {
+  .bienv-barra { flex-wrap: wrap; row-gap: 8px; }
+  .bienv-ajustes { margin-left: auto; }
+  .bienv-barra:has(> .btn.primary) .bienv-ajustes { order: 1; flex-basis: 100%; justify-content: flex-end; }
+  .bienv-ajustes .icon-btn { width: 32px; height: 32px; }
+  .bienv-ajustes .lang-switch { height: 32px; min-width: 36px; padding: 0 8px; }
+}
+@media (max-width: 360px) {
+  .bienv-barra .brand-name { font-size: 16px; }
+  .bienv-barra .btn.primary { padding-inline: 12px; }
 }
 
 /* Welcome: "ren·dir" as a dictionary entry with a drawing per sense, the hanging signs and the bando. */

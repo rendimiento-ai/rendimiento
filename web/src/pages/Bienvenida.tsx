@@ -149,9 +149,11 @@ export function Bienvenida({ book, activity }: { book: BookLinks; activity: bool
       <header className="bienv-barra">
         <span className="brand"><Logo /> <span className="brand-name">rendimiento</span></span>
         <span className="spacer" />
-        <TemaSwitch />
-        <MovimientoSwitch />
-        <LangSwitch />
+        <span className="bienv-ajustes">
+          <TemaSwitch />
+          <MovimientoSwitch />
+          <LangSwitch />
+        </span>
         <a className="btn primary" href="/api/auth/login">{t("Sign in")}</a>
       </header>
 
