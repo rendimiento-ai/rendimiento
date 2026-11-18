@@ -177,7 +177,7 @@ func TestManifests(t *testing.T) {
 	}
 
 	// make deploy has not recorded a commit yet.
-	st, _ := u.Status(ctx)
+	st, _ := u.status(ctx)
 	if m := st.Manifests; m == nil || m.Applied != "" || len(m.Changed) != 0 {
 		t.Errorf("no record: %+v", m)
 	}
@@ -185,7 +185,7 @@ func TestManifests(t *testing.T) {
 	// The newest release changes the CRD and the permissions since then.
 	applied("c1")
 	for range 2 { // the second asks GitHub no more
-		st, _ = u.Status(ctx)
+		st, _ = u.status(ctx)
 		if m := st.Manifests; m == nil || m.Applied != "c1" || strings.Join(m.Changed, " ") != "deploy/crds/rendimiento.ai_apps.yaml deploy/rbac.yaml" {
 			t.Errorf("changed: %+v", m)
 		}
@@ -196,13 +196,40 @@ func TestManifests(t *testing.T) {
 
 	// Only code changed: nothing to apply.
 	applied("c0")
-	if st, _ = u.Status(ctx); st.Manifests == nil || len(st.Manifests.Changed) != 0 {
+	if st, _ = u.status(ctx); st.Manifests == nil || len(st.Manifests.Changed) != 0 {
 		t.Errorf("code only: %+v", st.Manifests)
 	}
 
 	// make deploy applied the newest release's commit.
 	applied("c2")
-	if st, _ = u.Status(ctx); st.Manifests == nil || len(st.Manifests.Changed) != 0 {
+	if st, _ = u.status(ctx); st.Manifests == nil || len(st.Manifests.Changed) != 0 {
 		t.Errorf("up to date: %+v", st.Manifests)
+	}
+}
+
+// Status is kept a while (the page does not wait for the cluster and
+// GitHub on each look), and an update forgets it.
+func TestStatusIsKept(t *testing.T) {
+	ctx := context.Background()
+	u := updater(t, old)
+	if st, err := u.Status(ctx); err != nil || !st.Available {
+		t.Fatalf("first: %+v, %v", st, err)
+	}
+	var pod corev1.Pod
+	if err := u.Kube.Get(ctx, client.ObjectKey{Namespace: "rendimiento-system", Name: "rendimiento-abc"}, &pod); err != nil {
+		t.Fatal(err)
+	}
+	pod.Status.ContainerStatuses[0].ImageID = neu
+	if err := u.Kube.Status().Update(ctx, &pod); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := u.Status(ctx); !st.Available {
+		t.Error("a new answer was read within statusTTL")
+	}
+	if _, err := u.Update(ctx, 2, "ana"); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := u.Status(ctx); st.Available {
+		t.Errorf("after an update, Status still says %+v", st)
 	}
 }

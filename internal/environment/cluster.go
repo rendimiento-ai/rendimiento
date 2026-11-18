@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -65,42 +66,61 @@ var nodeMetricsGVK = schema.GroupVersionKind{Group: "metrics.k8s.io", Version: "
 // their use, deployments, problems in pods and certificates.
 func (c *Checker) snapshot(ctx context.Context) *snapshot {
 	s := &snapshot{}
+	// The cluster's lists are independent: read them at once, not one
+	// after another (each is a round trip to the API server, and the pods
+	// of the whole cluster are a big answer).
+	var (
+		wg                  sync.WaitGroup
+		versionErr, nodeErr error
+		nodes               corev1.NodeList
+		pods                corev1.PodList
+		nss                 corev1.NamespaceList
+		deps                appsv1.DeploymentList
+		svcs                corev1.ServiceList
+		nm                  = &unstructured.UnstructuredList{}
+		nmErr               error
+	)
+	nm.SetGroupVersionKind(nodeMetricsGVK)
+	run := func(f func()) {
+		wg.Add(1)
+		go func() { defer wg.Done(); f() }()
+	}
 	if c.Discovery != nil {
-		if v, err := c.Discovery.ServerVersion(); err == nil {
-			s.cluster.Version = v.GitVersion
-		} else {
-			s.err = err
-		}
+		run(func() {
+			v, err := c.Discovery.ServerVersion()
+			if err == nil {
+				s.cluster.Version = v.GitVersion
+			}
+			versionErr = err
+		})
+	}
+	run(func() { nodeErr = c.Kube.List(ctx, &nodes) })
+	run(func() { _ = c.Kube.List(ctx, &pods) })
+	run(func() { _ = c.Kube.List(ctx, &nss) })
+	run(func() { _ = c.Kube.List(ctx, &deps) })
+	run(func() { _ = c.Kube.List(ctx, &svcs) })
+	run(func() { nmErr = c.Kube.List(ctx, nm) })
+	run(func() { s.certTotal, s.certProblems = c.certificateProblems(ctx) })
+	wg.Wait()
+	if versionErr != nil {
+		s.err = versionErr
+	}
+	if nodeErr != nil {
+		s.err = nodeErr
 	}
 
-	var nodes corev1.NodeList
-	if err := c.Kube.List(ctx, &nodes); err != nil {
-		s.err = err
-	}
 	var first *corev1.Node
 	if len(nodes.Items) > 0 {
 		first = &nodes.Items[0]
 	}
 	s.cluster.Distribution, s.cluster.Name = Distribution(s.cluster.Version, first)
-
-	var pods corev1.PodList
-	_ = c.Kube.List(ctx, &pods)
-	var nss corev1.NamespaceList
-	_ = c.Kube.List(ctx, &nss)
 	s.cluster.Pods, s.cluster.Namespaces = len(pods.Items), len(nss.Items)
-
-	var deps appsv1.DeploymentList
-	_ = c.Kube.List(ctx, &deps)
 	s.deployments = deps.Items
-	var svcs corev1.ServiceList
-	_ = c.Kube.List(ctx, &svcs)
 	s.services = svcs.Items
 
 	// Live usage, when metrics-server is installed.
 	usage := map[string][2]int64{} // node → {milliCPU, bytes}
-	nm := &unstructured.UnstructuredList{}
-	nm.SetGroupVersionKind(nodeMetricsGVK)
-	if err := c.Kube.List(ctx, nm); err == nil && len(nm.Items) > 0 {
+	if nmErr == nil && len(nm.Items) > 0 {
 		s.metrics = true
 		for _, item := range nm.Items {
 			cpu, _, _ := unstructured.NestedString(item.Object, "usage", "cpu")
@@ -172,7 +192,6 @@ func (c *Checker) snapshot(ctx context.Context) *snapshot {
 	sort.Slice(s.nodes, func(i, j int) bool { return s.nodes[i].Name < s.nodes[j].Name })
 
 	s.problems = podProblems(pods.Items, time.Now())
-	s.certTotal, s.certProblems = c.certificateProblems(ctx)
 	return s
 }
 

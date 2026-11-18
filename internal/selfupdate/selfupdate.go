@@ -18,6 +18,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/rendimiento-ai/rendimiento/internal/fresco"
 	"github.com/rendimiento-ai/rendimiento/internal/i18n"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -49,6 +50,9 @@ type Updater struct {
 
 	mu      sync.Mutex
 	changed map[[2]string][]string // two commits never change: compare once
+
+	once     sync.Once
+	statuses fresco.Cache[struct{}, *Status]
 }
 
 // Changes is the part of the GitHub client the manifest check uses.
@@ -99,9 +103,26 @@ type Status struct {
 // releases looked at for the running version: a few weeks of pushes.
 const history = 50
 
+// statusTTL is how long Status keeps its answer as it is; an older one
+// (up to statusStale) is the answer while a new one is read behind it, so
+// the Environment page does not wait for the database, the cluster and
+// GitHub's compare on each look.
+const (
+	statusTTL   = 30 * time.Second
+	statusStale = 10 * time.Minute
+)
+
 // Status says which release runs (by the pod's image digest) and whether
 // the newest release holds another image.
 func (u *Updater) Status(ctx context.Context) (*Status, error) {
+	u.once.Do(func() {
+		u.statuses.TTL, u.statuses.Stale, u.statuses.Build, u.statuses.Parallel = statusTTL, statusStale, 30*time.Second, 1
+	})
+	return u.statuses.Get(ctx, struct{}{}, u.status)
+}
+
+// status reads Status anew.
+func (u *Updater) status(ctx context.Context) (*Status, error) {
 	st := &Status{App: u.App}
 	app, versions, err := u.versions(ctx)
 	if err != nil {
@@ -193,6 +214,7 @@ func (u *Updater) Update(ctx context.Context, release int64, login string) (*Ver
 	if err := u.patch(ctx, u.Deployment, v, login); err != nil {
 		return nil, err
 	}
+	u.statuses.Forget()
 	return v, nil
 }
 
