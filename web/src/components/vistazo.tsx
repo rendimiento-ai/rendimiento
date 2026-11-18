@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
-import { api, isLibrary, type App, type Reliability, type Visits } from "../api";
+import { api, duration, isLibrary, type App, type Reliability, type Run, type Step, type Visits } from "../api";
 import { LoUltimo } from "./lo-ultimo";
-import { usePoll } from "./ui";
+import { statusText, usePoll } from "./ui";
+import { BuildNow, puedeConstruir } from "./construir";
+import { porque } from "./mesa";
 import { locale, t, tn } from "../i18n";
 
 /** How an app is, in one word: a bud before its first release, open and breathing when it runs, closing when it is slow or fails now and then, withered when it does not answer. */
@@ -53,12 +55,12 @@ export function floracion(app: App, enLinea?: number, dias: Dia[] = []): Floraci
 const palabra: Record<Floracion, string> = { brote: "Not live yet", abierta: "It's alive", cerrandose: "A little slow", marchita: "Not answering" };
 
 /**
- * The glance at an app, for whoever does not need the technical side: a cempasúchil that blooms while the app runs, a
- * hummingbird while an agent works on it, a sentence of what changed, its addresses, its visits and its week, its diary, and
- * what it needs of you, only when it needs something. While its numbers are missing, the steps that bring them stand in
- * their place. The details stay a tap further.
+ * The glance at an app, for whoever does not need the technical side. Its head, the width of the card: a cempasúchil that
+ * blooms while the app runs (a hummingbird while an agent works on it), its state in a word, a sentence of what changed,
+ * its addresses, its numbers, and the two buttons. Below, three columns that fill: what runs now and what waits for you;
+ * the week; and its diary, with what it still needs for its flower to tell more. The details stay a tap further.
  */
-export function Vistazo({ app }: { app: App }) {
+export function Vistazo({ app, onBuilt }: { app: App; onBuilt?: () => void }) {
   const name = app.name;
   const { data: rel } = usePoll(() => api.reliability(name, "7d"), [name], 60000);
   const { data: vis } = usePoll(() => api.visits(name, "7d"), [name], 300000);
@@ -66,59 +68,56 @@ export function Vistazo({ app }: { app: App }) {
   const { data: encargos } = usePoll(() => api.encargos().catch(() => []), [], 60000);
   const sem = semana(rel);
   const flor = floracion(app, sem.enLinea, sem.dias);
-  const mios = (encargos ?? []).filter((e) => e.app === name);
-  const trabajando = mios.some((e) => e.status === "taken" || e.status === "waiting");
-  const porRevisar = mios.filter((e) => e.status === "delivered").length;
+  const trabajando = (encargos ?? []).some((e) => e.app === name && (e.status === "taken" || e.status === "waiting"));
   const frase = resumen?.days.flatMap((d) => d.lines).find((l) => l.app === name)?.text;
   const cambios = rel?.releases.length ?? 0;
   const malDia = [...sem.dias].reverse().find((d) => d.estado === "caida" || d.estado === "lenta");
-  const fallo = app.lastRun?.deploy && app.lastRun.status === "failed";
   return (
     <section className="vistazo">
-      <div className="vistazo-izq">
-        <div className="vistazo-flor">
-          <FlorGrande estado={flor} colibri={trabajando} />
-          <div>
-            <div className={`vistazo-palabra ${flor}`}>{t(palabra[flor])}</div>
-            {frase && <p className="vistazo-frase">{frase}</p>}
-            {trabajando && <p className="vistazo-agente">{t("An agent is working on it. You don't need to do anything.")}</p>}
+      <div className="vistazo-cabeza">
+        <FlorGrande estado={flor} colibri={trabajando} />
+        <div className="vistazo-texto">
+          <div className={`vistazo-palabra ${flor}`}>{t(palabra[flor])}</div>
+          {frase && <p className="vistazo-frase">{frase}</p>}
+          {trabajando && <p className="vistazo-agente">{t("An agent is working on it. You don't need to do anything.")}</p>}
+          <Enlaces app={app} />
+          <div className="vistazo-chips">
+            {sem.respuestaMs !== undefined && <span className="chip"><b>{respuesta(sem.respuestaMs)}</b> {t("to answer")}</span>}
+            <span className="chip"><b>{cambios}</b> {tn(cambios, "change this week", "changes this week")}</span>
+            {sem.enLinea !== undefined && <span className="chip"><b>{Math.round(sem.enLinea * 1000) / 10}%</b> {t("online")}</span>}
           </div>
         </div>
-        <Enlaces app={app} />
-        <div className="vistazo-chips">
-          {sem.respuestaMs !== undefined && <span className="chip"><b>{respuesta(sem.respuestaMs)}</b> {t("to answer")}</span>}
-          <span className="chip"><b>{cambios}</b> {tn(cambios, "change this week", "changes this week")}</span>
+        <div className="vistazo-acciones">
+          {puedeConstruir(app) && <BuildNow name={name} main={app.defaultBranch} onDone={() => onBuilt?.()} />}
+          <Link className="btn" to={`/apps/${name}/runs`}>{t("See runs")}</Link>
         </div>
       </div>
 
-      <div className="vistazo-der">
-        <div className="vistazo-datos">
-          {sem.enLinea !== undefined && <Anillo parte={sem.enLinea} />}
-          <div className="vistazo-semana">
-            <div className="small muted">{t("This week, day by day")}</div>
-            <div className="vistazo-dias" role="img" aria-label={sem.dias.map((d) => `${diaCorto(d.day)}: ${t(estadoDia[d.estado])}`).join(", ")}>
-              {sem.dias.map((d) => <span key={d.day} className={`vistazo-dia ${d.estado}`} title={`${diaCorto(d.day)}: ${t(estadoDia[d.estado])}`}><i />{diaCorto(d.day).slice(0, 2)}</span>)}
-            </div>
-            {malDia && <div className="small muted">{t(malDia.estado === "caida" ? "On {day} it did not answer for a while." : "On {day} it was slow for a while.", { day: diaLargo(malDia.day) })}</div>}
+      <div className="vistazo-columnas">
+        <section className="vistazo-col vistazo-ahora" aria-labelledby="vistazo-ahora">
+          <h2 id="vistazo-ahora">{t("Now")}</h2>
+          <Ahora app={app} />
+          <h3>{t("Waiting for you")}</h3>
+          <LeEspera app={app} />
+        </section>
+
+        <section className="vistazo-col vistazo-semana" aria-labelledby="vistazo-semana">
+          <h2 id="vistazo-semana">{t("This week")}</h2>
+          <div className="vistazo-dias" role="img" aria-label={sem.dias.map((d) => `${diaCorto(d.day)}: ${t(estadoDia[d.estado])}`).join(", ")}>
+            {sem.dias.map((d) => <span key={d.day} className={`vistazo-dia ${d.estado}`} title={`${diaCorto(d.day)}: ${t(estadoDia[d.estado])}`}><i />{diaCorto(d.day).slice(0, 2)}</span>)}
           </div>
-        </div>
-
-        <Visitas vis={vis} />
-
-        {(porRevisar > 0 || fallo) && (
-          <div className="vistazo-usted">
-            <strong>{t("For you")}</strong>
-            {fallo && <Link to={`/apps/${name}/runs/${app.lastRun!.id}`}>{t("The last publication failed: see why")}</Link>}
-            {porRevisar > 0 && <Link to="/ruta?tab=encargos">{tn(porRevisar, "An agent finished something for you to review", "{n} things agents finished wait for your review")}</Link>}
+          <div className="small muted">
+            {malDia ? t(malDia.estado === "caida" ? "On {day} it did not answer for a while." : "On {day} it was slow for a while.", { day: diaLargo(malDia.day) })
+              : sem.enLinea !== undefined ? t("Every day went well.") : t("No checks yet this week.")}
           </div>
-        )}
+          <Visitas vis={vis} />
+        </section>
 
-        <Pasos app={app} conRevisiones={sem.enLinea !== undefined} vis={vis} />
-
-        <div className="vistazo-diario">
-          <div className="small muted">{t("The latest")}</div>
+        <section className="vistazo-col vistazo-diario" aria-labelledby="vistazo-diario">
+          <h2 id="vistazo-diario">{t("The latest")}</h2>
           <LoUltimo app={app} n={5} plain />
-        </div>
+          <Pasos app={app} conRevisiones={sem.enLinea !== undefined} vis={vis} />
+        </section>
       </div>
 
       <div className="vistazo-pie">
@@ -126,6 +125,76 @@ export function Vistazo({ app }: { app: App }) {
         <label className="small muted"><input type="checkbox" checked={tecnicoPrimero()} onChange={(e) => ponerTecnico(e.target.checked)} /> {t("Show me the technical side first")}</label>
       </div>
     </section>
+  );
+}
+
+/** A step of a run as a short bar: green when done, amber while it runs, red when it failed, grey before. */
+const barra = (s: Step["status"]) => (s === "succeeded" || s === "reused" ? "ok" : s === "running" ? "va" : s === "failed" ? "mal" : s === "skipped" ? "salto" : "");
+
+/**
+ * What runs for the app now: each run (three at most) with its branch, its steps as bars, the step it is on and for how
+ * long, and the way to it. When nothing runs, one quiet line says so.
+ */
+function Ahora({ app }: { app: App }) {
+  const name = app.name;
+  // The page hears each run start and end (it reloads the app): the list follows at once, not at the next poll.
+  const { data: runs } = usePoll(() => api.runs(name), [name, app.lastRun?.id, app.lastRun?.status], 10000);
+  const vivas = (runs ?? []).filter((r) => r.status === "running" || r.status === "queued").slice(0, 3);
+  const ids = vivas.map((r) => r.id).join(",");
+  const { data: detalle } = usePoll(() => (vivas.length ? Promise.all(vivas.map((r) => api.run(r.id).catch(() => r))) : Promise.resolve([] as Run[])), [ids], 5000);
+  if (!runs) return null;
+  if (vivas.length === 0) return <p className="vistazo-tranquilo small muted">{t("Nothing is running for it now.")}</p>;
+  return (
+    <div className="vistazo-corren">
+      {vivas.map((r0) => {
+        const r = detalle?.find((d) => d.id === r0.id) ?? r0;
+        const pasos = r.steps ?? [];
+        const ahora = pasos.find((s) => s.status === "running");
+        const cola = r.status === "queued";
+        return (
+          <div key={r.id} className={`vistazo-corre${cola ? " cola" : ""}`}>
+            <div className="vistazo-corre-que">
+              <Link to={`/apps/${name}/runs/${r.id}`}><strong>{t("Run #{n}", { n: r.id })}</strong></Link>
+              <span className="mono small">{r.branch}</span>
+            </div>
+            {pasos.length > 0 && (
+              <div className="vistazo-barras" role="img" aria-label={pasos.map((s) => `${s.id}: ${statusText(s.status)}`).join(", ")}>
+                {pasos.map((s) => <i key={s.id} className={barra(s.status)} />)}
+              </div>
+            )}
+            <div className="small muted">
+              {cola ? t("Waiting its turn") : ahora ? <><b className="mono">{ahora.id}</b> · {t("for {time}", { time: duration(ahora.startedAt) })}</> : t("Running for {time}", { time: duration(r.startedAt ?? r.createdAt) })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * What waits for the person on this app: the last publication when it failed, and the work board's "your turn" lines
+ * (a pull request that passed or failed, a conflict, an encargo to review), each a door to the board. Quiet when none.
+ */
+function LeEspera({ app }: { app: App }) {
+  const name = app.name;
+  const { data } = usePoll(() => api.mesa(name).catch(() => undefined), [name, app.lastRun?.id, app.lastRun?.status], 60000);
+  const fallo = app.lastRun?.deploy && app.lastRun.status === "failed";
+  const suyas = (data?.lines ?? []).filter((l) => l.group === "you");
+  if (!data && !fallo) return null;
+  if (suyas.length === 0 && !fallo) return <p className="vistazo-tranquilo small muted">{t("Nothing waits for you.")}</p>;
+  const MAX = 4;
+  return (
+    <ul className="vistazo-espera">
+      {fallo && <li><Link to={`/apps/${name}/runs/${app.lastRun!.id}`}>{t("The last publication failed: see why")}</Link></li>}
+      {suyas.slice(0, MAX).map((l) => (
+        <li key={(l.branch ?? "") + (l.encargos?.[0]?.id ?? "")}>
+          <Link to={`/apps/${name}/mesa`}>{l.pullTitle || l.branch || l.encargos?.[0]?.title}</Link>
+          <div className="small muted">{porque(l, app)}</div>
+        </li>
+      ))}
+      {suyas.length > MAX && <li><Link to={`/apps/${name}/mesa`} className="small">{t("{n} more on the work board →", { n: suyas.length - MAX })}</Link></li>}
+    </ul>
   );
 }
 
@@ -153,7 +222,7 @@ function Pasos({ app, conRevisiones, vis }: { app: App; conRevisiones: boolean; 
   const base = `/apps/${app.name}`;
   if (isLibrary(app.spec) || !app.status.release) return null;
   const pasos: { id: string; marca: string; titulo: string; texto: string; ir?: { to: string; label: string } }[] = [];
-  if (!conRevisiones) pasos.push({ id: "revisiones", marca: "Next", titulo: "Knowing whether it answers", texto: "A check every minute fills in the days of the week and the ring. They start by themselves once it is published.", ir: { to: `${base}/reliability`, label: "See its availability" } });
+  if (!conRevisiones) pasos.push({ id: "revisiones", marca: "Next", titulo: "Knowing whether it answers", texto: "A check every minute fills in the days of the week. They start by themselves once it is published.", ir: { to: `${base}/reliability`, label: "See its availability" } });
   if (vis && (!vis.configured || vis.reports.length === 0)) pasos.push({ id: "visitas", marca: "Optional", titulo: "Counting visits", texto: "Without cookies. The week's bars appear here.", ir: { to: `${base}/visits`, label: "How to turn them on" } });
   if (!app.spec.previews) pasos.push({ id: "copias", marca: "Try it", titulo: "Seeing a change before merging it", texto: "Add previews: {} to rendimiento.yaml, and each pull request gets its own live copy." });
   if (pasos.length === 0) return null;
@@ -201,21 +270,6 @@ export function VolverAlVistazo() {
   );
 }
 
-/** The share of the week in line, as a ring that fills. */
-function Anillo({ parte }: { parte: number }) {
-  const c = 2 * Math.PI * 50, pct = Math.round(parte * 1000) / 10;
-  const color = parte >= 0.999 ? "var(--nopal)" : parte >= 0.99 ? "var(--maiz)" : "var(--grana)";
-  return (
-    <svg viewBox="0 0 120 120" width="104" role="img" aria-label={t("{pct}% in line this week", { pct })} className="vistazo-anillo">
-      <circle cx="60" cy="60" r="50" fill="none" stroke="var(--border)" strokeWidth="12" />
-      <circle className="llena" cx="60" cy="60" r="50" fill="none" stroke={color} strokeWidth="12" strokeLinecap="round"
-        strokeDasharray={c} strokeDashoffset={c * (1 - parte)} transform="rotate(-90 60 60)" />
-      <text x="60" y="58" textAnchor="middle" fontSize="20" fontWeight="800" fill="var(--text)">{pct}%</text>
-      <text x="60" y="77" textAnchor="middle" fontSize="11" fill="var(--muted)">{t("in line")}</text>
-    </svg>
-  );
-}
-
 /** The week's visits as bars, with how they compare with the week before. */
 function Visitas({ vis }: { vis?: Visits }) {
   if (!vis?.configured || !vis.reports.length) return null;
@@ -231,9 +285,10 @@ function Visitas({ vis }: { vis?: Visits }) {
           return <rect key={p.at} className="barra" x={i * 34 + 4} y={58 - h} width="26" height={h} rx="6" fill="var(--rosa)" style={{ animationDelay: `${i * 0.08}s` }}><title>{p.n}</title></rect>;
         })}
       </svg>
-      <div className="vistazo-chips">
-        <span className="chip"><b>{cur}</b> {tn(cur, "visitor this week", "visitors this week")}</span>
-        {cambio !== undefined && <span className="chip"><b>{cambio > 0 ? "+" : ""}{cambio}%</b> {t("than the week before")}</span>}
+      <div className="small muted">
+        {tn(cur, "{n} visitor", "{n} visitors")}
+        {cambio !== undefined && cambio !== 0 && <> · {t(cambio > 0 ? "{pct}% more than the week before" : "{pct}% fewer than the week before", { pct: Math.abs(cambio) })}</>}
+        {cambio === 0 && <> · {t("as many as the week before")}</>}
       </div>
     </div>
   );

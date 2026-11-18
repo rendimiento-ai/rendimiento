@@ -113,11 +113,13 @@ export function EsqListaDetalle({ cabeza = true, acciones, cuentas, codigo }: { 
 /**
  * (c) The page of one thing: a head with its title and actions, a row of figures, tabs and a body. The flower and
  * the tabs are an app's; "pasos" is a run's body (its steps beside the log), "calle" the Environment's street and
- * signs, "hoja" one large sheet (the Ruta's notebook).
+ * signs, "hoja" one large sheet (the Ruta's notebook). "vistazo" is an app's glance (components/vistazo.tsx): its head
+ * carries the buttons, so the page's head has none, and three columns below.
  */
-export function EsqCosa({ flor, volver, datos = 0, pestanas, cuerpo = "bloques", acciones, renglones, codigo }: {
-  codigo?: boolean; flor?: boolean; volver?: boolean; datos?: number; pestanas?: boolean; cuerpo?: "bloques" | "pasos" | "calle" | "hoja"; acciones?: boolean; renglones?: number;
+export function EsqCosa({ flor, volver, datos = 0, pestanas, cuerpo: pedido = "bloques", acciones, renglones, codigo, vistazo }: {
+  codigo?: boolean; flor?: boolean; volver?: boolean; datos?: number; pestanas?: boolean; cuerpo?: "bloques" | "pasos" | "calle" | "hoja"; acciones?: boolean; renglones?: number; vistazo?: boolean;
 }) {
+  const cuerpo = vistazo ? "vistazo" : pedido;
   return (
     <Esqueleto codigo={codigo}>
       {volver && <Hueso className="esq-volver" />}
@@ -125,7 +127,7 @@ export function EsqCosa({ flor, volver, datos = 0, pestanas, cuerpo = "bloques",
         <div className="app-cabeza">
           <Hueso w={64} h={64} r="50%" />
           <div className="app-titulo"><Hueso className="esq-titulo" w="52%" /><Hueso className="esq-renglon" w="70%" /></div>
-          <div className="row"><Hueso w={132} h={40} r={999} /><Hueso w={128} h={40} r={10} /></div>
+          {!vistazo && <div className="row"><Hueso w={132} h={40} r={999} /><Hueso w={128} h={40} r={10} /></div>}
         </div>
       ) : <Cabeza acciones={acciones} renglones={renglones} />}
       {datos > 0 && <div className="datos">{Array.from({ length: datos }, (_, i) => <Hueso key={i} className="esq-dato" />)}</div>}
@@ -143,6 +145,24 @@ export function EsqCosa({ flor, volver, datos = 0, pestanas, cuerpo = "bloques",
           <Hueso className="esq-calle" r={20} />
           <div className="letreros">{Array.from({ length: 4 }, (_, i) => <Hueso key={i} w={150} h={110} r={12} />)}</div>
         </>
+      )}
+      {cuerpo === "vistazo" && (
+        <div className="esq-vistazo">
+          <div className="esq-vistazo-cabeza">
+            <Hueso w={96} h={88} r={20} />
+            <div className="esq-cabeza-texto">
+              <Hueso className="esq-titulo" w="28%" />
+              <Hueso className="esq-renglon" w="66%" />
+              <div className="row"><Hueso w={110} h={28} r={999} /><Hueso w={150} h={28} r={999} /><Hueso w={96} h={28} r={999} /></div>
+            </div>
+            <div className="row"><Hueso w={128} h={40} r={10} /><Hueso w={100} h={40} r={10} /></div>
+          </div>
+          <div className="esq-vistazo-columnas">
+            {[[84, 120], [60, 110], [180, 90]].map(([a, b], i) => (
+              <div key={i} className="esq-vistazo-col"><Hueso w="34%" h={12} /><Hueso h={a} r={12} /><Hueso h={b} r={12} /></div>
+            ))}
+          </div>
+        </div>
       )}
       {cuerpo === "hoja" && <Hueso className="esq-hoja" r="6px 16px 16px 6px" />}
     </Esqueleto>

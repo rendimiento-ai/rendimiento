@@ -1652,38 +1652,56 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 :root[data-motion="off"] .marcador-barra, :root[data-motion="off"] .marcador-carta, :root[data-motion="off"] .marcador-late { animation: none; }
 :root[data-motion="off"] .marcador-carta, :root[data-motion="off"] .marcador-anillo .llena { transition: none; }
 
-/* The glance at an app (components/vistazo.tsx): a big cempasúchil and the week, for whoever does not need the technical side. */
+/* The glance at an app (components/vistazo.tsx), for whoever does not need the technical side: a head the width of the card
+   (the cempasúchil, its state, its numbers and the buttons), then three columns that fill: now, this week, the latest. */
 .vistazo { display: flex; flex-direction: column; gap: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 22px; padding: 18px; }
-.vistazo-flor { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
-.vistazo-flor > div { flex: 1; min-width: 12rem; }
-.flor-grande { width: 180px; max-width: 45vw; flex: none; }
+.vistazo-cabeza { display: flex; gap: 14px 20px; align-items: center; flex-wrap: wrap; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.vistazo-texto { flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.vistazo-acciones { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.flor-grande { width: 96px; flex: none; }
 .vistazo-palabra { font: 700 1.9rem/1.1 Fraunces, Georgia, serif; }
 .vistazo-palabra.abierta { color: var(--nopal); }
 .vistazo-palabra.cerrandose { color: var(--warn); }
 .vistazo-palabra.marchita { color: var(--bad); }
 .vistazo-palabra.brote { color: var(--muted); }
-.vistazo-frase { margin: 8px 0 0; font-size: 1.05rem; }
-.vistazo-agente { margin: 6px 0 0; color: var(--muted); font-size: .95rem; }
-.vistazo-datos { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
-.vistazo-semana { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.vistazo-frase { margin: 0; font-size: 1.05rem; }
+.vistazo-agente { margin: 0; color: var(--muted); font-size: .95rem; }
+.vistazo-columnas { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.vistazo-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.vistazo-col h2, .vistazo-col h3 { margin: 0; font-family: inherit; font-size: .75rem; font-weight: 800; line-height: 1.3; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.vistazo-col h3 { margin-top: 6px; }
+.vistazo-tranquilo { margin: 0; }
+.vistazo-corren { display: flex; flex-direction: column; gap: 8px; }
+.vistazo-corre { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1.5px solid var(--warn); border-radius: 12px; background: var(--bg); min-width: 0; }
+.vistazo-corre.cola { border-color: var(--border); }
+.vistazo-corre-que { display: flex; gap: 4px 10px; align-items: baseline; flex-wrap: wrap; min-width: 0; }
+.vistazo-corre-que .mono { color: var(--muted); overflow-wrap: anywhere; }
+.vistazo-barras { display: flex; gap: 3px; }
+.vistazo-barras i { flex: 1; height: 6px; border-radius: 3px; background: var(--border); }
+.vistazo-barras i.ok { background: var(--ok); }
+.vistazo-barras i.salto { background: var(--ok); opacity: .4; }
+.vistazo-barras i.mal { background: var(--bad); }
+.vistazo-barras i.va { background: var(--warn); animation: vistazo-late 1.2s ease-in-out infinite; }
+@keyframes vistazo-late { 50% { opacity: .4; } }
+.vistazo-espera { list-style: none; margin: 0; padding: 6px 12px; display: flex; flex-direction: column; gap: 8px; border-left: 4px solid var(--cempasuchil); background: var(--bg); border-radius: 8px; }
+.vistazo-espera a { font-weight: 700; overflow-wrap: anywhere; }
 .vistazo-dias { display: flex; gap: 8px; flex-wrap: wrap; }
 .vistazo-dia { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: .72rem; color: var(--muted); text-transform: capitalize; }
 .vistazo-dia i { width: 16px; height: 16px; border-radius: 50%; background: var(--border); }
 .vistazo-dia.ok i { background: var(--nopal); }
 .vistazo-dia.lenta i { background: var(--maiz); }
 .vistazo-dia.caida i { background: var(--bad); }
+.vistazo-visitas { display: flex; flex-direction: column; gap: 6px; }
 .vistazo-visitas svg { width: 100%; max-width: 360px; }
 .vistazo-chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .vistazo-chips .chip { background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; font-size: .9rem; }
 .vistazo-chips .chip b { font-weight: 800; }
-.vistazo-usted { display: flex; flex-direction: column; gap: 4px; border-left: 4px solid var(--cempasuchil); padding: 6px 12px; background: var(--bg); border-radius: 8px; }
 .vistazo-pie { display: flex; gap: 12px 18px; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--border); padding-top: 10px; }
 .vistazo-mas { font-weight: 800; }
-.vistazo-izq, .vistazo-der { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .vistazo-enlaces { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .vistazo-enlaces a { font-weight: 800; overflow-wrap: anywhere; }
 .vistazo-pasos { display: flex; flex-direction: column; gap: 8px; }
-.vistazo-pasos-lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.vistazo-pasos-lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
 .vistazo-paso { display: flex; flex-direction: column; gap: 4px; background: var(--bg); border: 1px dashed var(--border); border-radius: 14px; padding: 12px; }
 /* Its label, not the colored dot the global .marca draws: on a phone the dot's 10px box made the text spill over the title. */
 .vistazo-paso .marca { width: auto; height: auto; border-radius: 0; background: none; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--warn); }
@@ -1698,17 +1716,14 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .mesa-ideas { display: flex; flex-wrap: wrap; gap: 6px; }
 .mesa-ideas button { background: transparent; border: 1px dashed var(--border); border-radius: 999px; padding: 4px 12px; color: var(--text); cursor: pointer; }
 
-/* On a wide screen the glance is two columns: the flower, its addresses and its chips on the left; the week, the
-   visits, the steps it still needs and its diary on the right, so the page is not a narrow strip beside empty space. */
+/* On a wide screen the three columns stand side by side and fill the card; on a narrow one they stack. */
 @media (min-width: 900px) {
-  .vistazo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 22px 40px; padding: 28px 32px; align-items: start; }
-  .vistazo > .vistazo-pie { grid-column: 1 / -1; }
-  .vistazo-izq .vistazo-flor { flex-direction: column; align-items: flex-start; }
-  .vistazo-izq .vistazo-flor > div { min-width: 0; }
-  .flor-grande { width: 260px; }
-  .vistazo-palabra { font-size: 2.4rem; }
+  .vistazo { padding: 24px 28px; }
+  .vistazo-columnas { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 20px; }
+  .vistazo-col + .vistazo-col { border-left: 1px solid var(--border); padding-left: 20px; }
+  .flor-grande { width: 112px; }
+  .vistazo-palabra { font-size: 2.2rem; }
   .vistazo-visitas svg { max-width: none; }
-  .vistazo-dia i { width: 22px; height: 22px; }
 }
 .flor-grande .corola { transform-origin: 100px 100px; animation: flor-respira 4s ease-in-out infinite; }
 .flor-grande.cerrandose .corola { animation: none; transform: scale(.82); }
@@ -1717,12 +1732,11 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .flor-grande .colibri { animation: colibri-vuela 6s ease-in-out infinite; }
 .flor-grande .ala { transform-origin: 6px 4px; animation: colibri-aletea .12s linear infinite alternate; }
 .vistazo-visitas .barra { transform-origin: bottom; transform-box: fill-box; animation: barra-crece 1.2s cubic-bezier(.2,.8,.2,1) both; }
-.vistazo-anillo .llena { transition: stroke-dashoffset 1.2s ease-out; }
 @keyframes flor-respira { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.04) rotate(2deg); } }
 @keyframes colibri-vuela { 0%, 100% { transform: translate(150px, 30px); } 50% { transform: translate(180px, 8px); } }
 @keyframes colibri-aletea { from { transform: rotate(-25deg); } to { transform: rotate(25deg); } }
 @keyframes barra-crece { from { transform: scaleY(0); } }
-@media (prefers-reduced-motion: reduce) { .flor-grande .corola, .flor-grande .colibri, .flor-grande .ala, .vistazo-visitas .barra { animation: none; } .flor-grande .colibri { transform: translate(160px, 20px); } }
+@media (prefers-reduced-motion: reduce) { .flor-grande .corola, .flor-grande .colibri, .flor-grande .ala, .vistazo-visitas .barra, .vistazo-barras i.va { animation: none; } .flor-grande .colibri { transform: translate(160px, 20px); } }
 :root[data-motion="off"] .flor-grande .colibri { transform: translate(160px, 20px); }
 
 /* The work board (components/mesa.tsx): one row per line of work, grouped by who it waits for. */
@@ -2483,6 +2497,12 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .esq-renglon { height: 12px; margin: 5.6px 0; }
 .esq-volver { width: 140px; height: 12px; margin: 17px 0 17px; }
 .esq-cuerpo { display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
+/* An app's glance (.vistazo): its head, then three columns side by side on a wide screen. */
+.esq-vistazo { display: flex; flex-direction: column; gap: 18px; padding: 18px; border: 1px solid var(--border); border-radius: 22px; background: var(--surface); }
+.esq-vistazo-cabeza { display: flex; gap: 14px 20px; align-items: center; flex-wrap: wrap; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.esq-vistazo-columnas { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+.esq-vistazo-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+@media (min-width: 900px) { .esq-vistazo { padding: 24px 28px; } .esq-vistazo-columnas { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 20px; } }
 /* (a) The mosaic (.mosaico-cuentas, .mosaico): the counters, the search and the cards. */
 .esq-buscar { height: 48px; border-radius: 999px; margin-bottom: 18px; }
 .esq-teja { height: 146px; border-radius: 16px; }
