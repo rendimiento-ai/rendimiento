@@ -103,6 +103,66 @@ func readStream(t *testing.T, e *testEnv, path string, c *http.Cookie, d time.Du
 	return res.StatusCode, string(b)
 }
 
+// liveStream is a server-sent stream being read while a test goes on.
+type liveStream struct {
+	cancel context.CancelFunc
+	done   chan struct{}
+	mu     sync.Mutex
+	body   strings.Builder
+}
+
+// openStream starts reading a server-sent stream until close (or a minute).
+func openStream(t *testing.T, e *testEnv, path string, c *http.Cookie) *liveStream {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	s := &liveStream{cancel: cancel, done: make(chan struct{})}
+	t.Cleanup(s.close)
+	req, _ := http.NewRequestWithContext(ctx, "GET", e.srv.URL+path, nil)
+	req.AddCookie(c)
+	go func() {
+		defer close(s.done)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return
+		}
+		defer res.Body.Close()
+		buf := make([]byte, 4096)
+		for {
+			n, err := res.Body.Read(buf)
+			s.mu.Lock()
+			s.body.Write(buf[:n])
+			s.mu.Unlock()
+			if err != nil {
+				return
+			}
+		}
+	}()
+	return s
+}
+
+func (s *liveStream) text() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.body.String()
+}
+
+// waitFor is whether the stream says what within d.
+func (s *liveStream) waitFor(t *testing.T, what string, d time.Duration) bool {
+	t.Helper()
+	for end := time.Now().Add(d); time.Now().Before(end); time.Sleep(10 * time.Millisecond) {
+		if strings.Contains(s.text(), what) {
+			return true
+		}
+	}
+	return false
+}
+
+// close stops reading and waits for the reader to end.
+func (s *liveStream) close() {
+	s.cancel()
+	<-s.done
+}
+
 // An app with a list: a person on it as guest sees it and only reads it;
 // a collaborator of the organization left off it finds nothing of it
 // (404, never 403), in lists, by number and in the streams, and keeps
@@ -213,29 +273,27 @@ func TestPermisosPorApp(t *testing.T) {
 	// The activity stream: what happens to caja reaches who is on the list.
 	defer func(p time.Duration) { activityPoll = p }(activityPoll)
 	activityPoll = 50 * time.Millisecond
-	var wg sync.WaitGroup
-	bodies := map[string]string{}
-	var mu sync.Mutex
-	for who, c := range map[string]*http.Cookie{"dentro": dentro, "fuera": fuera} {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			_, body := readStream(t, e, "/api/activity/stream", c, 1500*time.Millisecond)
-			mu.Lock()
-			bodies[who] = body
-			mu.Unlock()
-		}()
+	// Each stream takes its starting point before it says it is connected,
+	// so the encargo is made only once both have: a fixed wait was not
+	// enough on a busy worker (run 1541).
+	sDentro, sFuera := openStream(t, e, "/api/activity/stream", dentro), openStream(t, e, "/api/activity/stream", fuera)
+	for who, st := range map[string]*liveStream{"dentro": sDentro, "fuera": sFuera} {
+		if !st.waitFor(t, ": connected", 10*time.Second) {
+			t.Fatalf("the activity stream of %s did not connect: %q", who, st.text())
+		}
 	}
-	time.Sleep(400 * time.Millisecond)
 	if _, err := e.store.CreateEncargo(ctx, store.Encargo{Title: "encargo nuevo de la caja", App: "caja", CreatedBy: "p0dxD"}); err != nil {
 		t.Fatal(err)
 	}
-	wg.Wait()
-	if !strings.Contains(bodies["dentro"], "encargo nuevo de la caja") {
-		t.Errorf("the activity for someone on the list: %q", bodies["dentro"])
+	if !sDentro.waitFor(t, "encargo nuevo de la caja", 10*time.Second) {
+		t.Errorf("the activity for someone on the list: %q", sDentro.text())
 	}
-	if strings.Contains(bodies["fuera"], "caja") {
-		t.Errorf("the activity for someone off the list: %q", bodies["fuera"])
+	// Once the one on the list has it, a few more polls for the other.
+	time.Sleep(10 * activityPoll)
+	sDentro.close()
+	sFuera.close()
+	if strings.Contains(sFuera.text(), "caja") {
+		t.Errorf("the activity for someone off the list: %q", sFuera.text())
 	}
 
 	// The administrator always enters, and sees the list.
