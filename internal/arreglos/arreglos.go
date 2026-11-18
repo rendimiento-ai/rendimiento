@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rendimiento-ai/rendimiento/internal/i18n"
 	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
@@ -101,8 +102,8 @@ type Result struct {
 
 // Errors a request can get before anything runs.
 var (
-	ErrDefaultBranch = errors.New("a fix never runs on the default branch: it only gets what a person merges")
-	ErrNoFix         = errors.New("no such fix in the default branch's rendimiento.yaml")
+	ErrDefaultBranch = errors.New(i18n.M("a fix never runs on the default branch: it only gets what a person merges"))
+	ErrNoFix         = errors.New(i18n.M("no such fix in the default branch's rendimiento.yaml"))
 )
 
 // Declared are the fixes in the default branch's rendimiento.yaml: the only
@@ -207,7 +208,7 @@ func (s *Service) Run(ctx context.Context, req Request) (Result, error) {
 	select {
 	case s.sem <- struct{}{}:
 	case <-ctx.Done():
-		return finish(store.FixFailed, "cancelled before it started")
+		return finish(store.FixFailed, i18n.M("cancelled before it started"))
 	}
 	out, err := s.Exec.Fix(ctx, pipeline.Source{Repo: app.Repo, SHA: sha, Branch: req.Branch},
 		pipeline.FixJob{ID: strconv.FormatInt(rec.ID, 10), Image: plan.Image, Command: plan.Command, Path: plan.Path, Writes: plan.Writes,
@@ -240,14 +241,14 @@ func (s *Service) Run(ctx context.Context, req Request) (Result, error) {
 		res.Written = append(res.Written, c.Path)
 	}
 	if len(res.Written) == 0 && len(res.Removed) == 0 {
-		return finish(store.FixUnchanged, "it ran, and nothing it may write changed")
+		return finish(store.FixUnchanged, i18n.M("it ran, and nothing it may write changed"))
 	}
 	fmt.Fprintf(lw, "rendimiento: it wrote %s\n", strings.Join(append(append([]string{}, res.Written...), res.Removed...), ", "))
 	if req.Commit {
 		msg := CommitMessage(plan, append(append([]string{}, res.Written...), res.Removed...), req.AskedKind, req.AskedBy, req.CoAuthor)
 		c, err := s.Repos.CommitFiles(ctx, app.InstallationID, app.Repo, req.Branch, msg, res.Files, res.Removed)
 		if err != nil {
-			return finish(store.FixFailed, "the commit failed: "+err.Error())
+			return finish(store.FixFailed, i18n.M("the commit failed: %s", err.Error()))
 		}
 		res.Commit = c
 		fmt.Fprintf(lw, "rendimiento: committed %s to %s\n", short(c), req.Branch)
@@ -313,7 +314,7 @@ func Keep(plan Plan, out pipeline.FixOutput, max int) ([]pipeline.FixChange, []s
 	}
 	sort.Strings(ignored)
 	if total > max {
-		return nil, ignored, fmt.Errorf("the files it wrote add up to %.1f MB, more than the %d MB a fix may write", float64(total)/(1<<20), max>>20)
+		return nil, ignored, errors.New(i18n.M("the files it wrote add up to %.1f MB, more than the %d MB a fix may write", float64(total)/(1<<20), max>>20))
 	}
 	return kept, ignored, nil
 }

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rendimiento-ai/rendimiento/internal/i18n"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -181,7 +182,7 @@ func (k *KubeExecutor) Fix(ctx context.Context, src Source, job FixJob, w io.Wri
 	}
 	for _, c := range []string{"clone", "apply", "fix"} {
 		if err := k.waitStarted(ctx, name, c); err != nil {
-			return FixOutput{Failed: true, Message: fmt.Sprintf("%s: %v", c, err)}, nil
+			return FixOutput{Failed: true, Message: i18n.M("the fix's %s container did not start: %s", c, err.Error())}, nil
 		}
 		fmt.Fprintf(w, "::group::%s\n", c)
 		if err := k.streamLogs(ctx, name, c, w); err != nil {
@@ -196,15 +197,15 @@ func (k *KubeExecutor) Fix(ctx context.Context, src Source, job FixJob, w io.Wri
 	final, err := k.waitDone(ctx, name)
 	if err != nil {
 		if ctx.Err() != nil {
-			return FixOutput{Failed: true, Message: fmt.Sprintf("the fix timed out after %s", timeout)}, nil
+			return FixOutput{Failed: true, Message: i18n.M("the fix timed out after %s", timeout)}, nil
 		}
 		return FixOutput{}, err
 	}
 	if final.Status.Phase != corev1.PodSucceeded {
 		if final.Status.Reason == "DeadlineExceeded" {
-			return FixOutput{Failed: true, Message: fmt.Sprintf("the fix timed out after %s", timeout)}, nil
+			return FixOutput{Failed: true, Message: i18n.M("the fix timed out after %s", timeout)}, nil
 		}
-		return FixOutput{Failed: true, Message: "the fix failed: " + terminationSummary(final)}, nil
+		return FixOutput{Failed: true, Message: i18n.M("the fix failed: %s", terminationSummary(final))}, nil
 	}
 	return ParseFixOutput(out.Bytes())
 }
@@ -310,7 +311,7 @@ func ParseFixOutput(raw []byte) (FixOutput, error) {
 		case line == "RENDIMIENTO-FIX-TAR":
 			inTar = true
 		case strings.HasPrefix(line, "RENDIMIENTO-FIX-TOOBIG "):
-			return FixOutput{Failed: true, Message: fmt.Sprintf("the files it wrote are %s bytes compressed, more than a fix may send back", strings.TrimPrefix(line, "RENDIMIENTO-FIX-TOOBIG "))}, nil
+			return FixOutput{Failed: true, Message: i18n.M("the files it wrote are %s bytes compressed, more than a fix may send back", strings.TrimPrefix(line, "RENDIMIENTO-FIX-TOOBIG "))}, nil
 		case strings.HasPrefix(line, "RENDIMIENTO-FIX-OTHER "):
 			out.Others = append(out.Others, strings.TrimPrefix(line, "RENDIMIENTO-FIX-OTHER "))
 		case strings.HasPrefix(line, "RENDIMIENTO-FIX-CHANGED "):
