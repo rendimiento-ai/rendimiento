@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, session, type DayBoard, type DayCard } from "../api";
+import { api, session, type DayBoard, type DayCard, type SummaryView } from "../api";
 import { usePoll } from "./ui";
 import { still } from "./maqueta";
 import { lang, t, tn } from "../i18n";
@@ -21,15 +21,37 @@ function dayTitle(day: string) {
   return d.toDateString() === yesterday.toDateString() ? t("Yesterday, {day}", { day: name }) : d.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" });
 }
 
+/** The day's summary, read once for the home page (the folded line, the scoreboard and the Need help card share it). */
+export function useResumen() {
+  return usePoll(() => api.summary(), [], 20000);
+}
+export type Resumen = ReturnType<typeof useResumen>;
+
+/** The newest day with numbers, and its board. */
+export function ultimoTablero(data?: SummaryView): { day: string; board: DayBoard } | undefined {
+  const boards = data?.boards ?? {};
+  const day = Object.keys(boards).sort().reverse()[0];
+  return day ? { day, board: boards[day] } : undefined;
+}
+
+/** A day in one word: «Yesterday», or its weekday. */
+export function diaCorto(day: string): string {
+  const d = new Date(day + "T12:00:00");
+  const yesterday = new Date(Date.now() - 864e5);
+  if (d.toDateString() === yesterday.toDateString()) return t("Yesterday");
+  const w = d.toLocaleDateString(lang === "es" ? "es-MX" : "en", { weekday: "long" });
+  return w.charAt(0).toUpperCase() + w.slice(1);
+}
+
 /**
- * The day's summary at the top of the home page, as a scoreboard: the newest day's numbers counting up, its runs by hour,
+ * The day's summary on the home page, as a scoreboard: the newest day's numbers counting up, its runs by hour,
  * each app with a ring of the runs that passed and the line the platform's AI wrote about it, and the day's lotería card.
  * Older days since the reader's last visit (at most three) keep their lines. It asks again while a day is being written.
  */
-export function ResumenDelDia() {
-  const [hidden, setHidden] = useState(() => hiddenOn() === new Date().toDateString());
+export function ResumenDelDia({ resumen, plegar }: { resumen: Resumen; plegar?: () => void }) {
+  const [hidden, setHidden] = useState(() => !plegar && hiddenOn() === new Date().toDateString());
   const [redoing, setRedoing] = useState(false);
-  const { data, setData } = usePoll(() => api.summary(), [], 20000);
+  const { data, setData } = resumen;
   if (hidden || !data) return null;
   const boards = data.boards ?? {};
   const newest = Object.keys(boards).sort().reverse()[0] ?? data.days[0]?.day;
@@ -48,7 +70,7 @@ export function ResumenDelDia() {
   };
   const lineOf = (app: string) => today?.lines.find((l) => l.app === app)?.text;
   return (
-    <section className="card resumen-dia marcador" aria-label={t("The day's summary")}>
+    <section id="marcador-del-dia" className="card resumen-dia marcador" aria-label={t("The day's summary")}>
       <div className="marcador-cabeza">
         <div>
           <div className="resumen-dia-fecha">{dayTitle(newest)}</div>
@@ -102,7 +124,9 @@ export function ResumenDelDia() {
       <div className="resumen-dia-pie small muted">
         <span>{data.days.some((d) => d.source === "ia") ? t("The numbers are counted from what was recorded; the sentences were written by the platform's AI and can be wrong.") : data.days.some((d) => d.source === "counts") ? t("Only the numbers: the AI's answer could not be used this time. Redo tries again.") : t("Written from what was recorded.")}</span>
         {session.role !== "guest" && today && <button className="link small" disabled={redoing} onClick={() => redo(today.day)}>{t("Redo")}</button>}
-        <button className="link small" onClick={hide}>{t("Hide for today")}</button>
+        {plegar
+          ? <button className="link small" onClick={plegar}>{t("Fold it")}</button>
+          : <button className="link small" onClick={hide}>{t("Hide for today")}</button>}
       </div>
     </section>
   );

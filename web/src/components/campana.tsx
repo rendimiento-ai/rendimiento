@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
-import { api, timeAgo } from "../api";
+import { api, envApi, timeAgo, type Published, type SenalesView } from "../api";
 import { lang, t, tn } from "../i18n";
 import { usePoll } from "./ui";
 import { useHistorial } from "./avisos";
@@ -15,7 +15,8 @@ interface Pendiente {
 /**
  * The bell in the top bar: how many things wait for this person (changes to
  * production agents ask for, encargos delivered for review, agents'
- * answers to their comments, open problems for the platform's operators),
+ * answers to their comments, open problems, a new version of rendimiento
+ * and the señales' notice for the platform's operators),
  * and, opened, those things and what happened since the page opened.
  * Nothing that waits goes unseen.
  */
@@ -28,6 +29,9 @@ export function Campana({ role, operator, buzon }: { role?: string; operator?: b
   const { data: vigia } = usePoll(() => (operator ? api.vigiaNuevos() : Promise.resolve({ nuevos: 0 })), [operator], 5 * 60000);
   const { data: comentarios } = usePoll(() => (buzon ? api.opinionesPorRevisar() : Promise.resolve({ porRevisar: 0 })), [buzon], 60000);
   const { data: delEquipo } = usePoll(() => (role ? api.respuestasDelEquipo() : Promise.resolve({ sinVer: 0 })), [role], 5 * 60000);
+  // What used to be strips on the home page: a newer rendimiento, and the señales until an operator saw them.
+  const { data: publicada } = usePoll(() => (operator ? envApi.published().catch(() => undefined) : Promise.resolve(undefined as Published | undefined)), [operator], 30 * 60000);
+  const { data: senales } = usePoll(() => (operator ? api.senales().catch(() => undefined) : Promise.resolve(undefined as SenalesView | undefined)), [operator], 10 * 60000);
   const historial = useHistorial();
   const [abierta, setAbierta] = useState(false);
   const [donde, setDonde] = useState<CSSProperties>({});
@@ -94,6 +98,23 @@ export function Campana({ role, operator, buzon }: { role?: string; operator?: b
       clave: "vigia",
       texto: tn(vigia!.nuevos, "The lookout saw {n} thing this week", "The lookout saw {n} things this week"),
       a: "/registro",
+    }] : []),
+    ...(publicada && publicada.how !== "self" && publicada.newer && publicada.latest ? [{
+      clave: "publicada",
+      texto: t("rendimiento {v} is published: you can update", { v: publicada.latest.version }),
+      a: "/environment",
+    }] : []),
+    ...(publicada && publicada.how !== "self" && publicada.lastChange && Date.now() - new Date(publicada.lastChange.cuando).getTime() < 864e5 ? [{
+      clave: "cambio",
+      texto: publicada.lastChange.regreso
+        ? t("{a} did not stay up: rendimiento went back to {b}", { a: publicada.lastChange.de, b: publicada.lastChange.a })
+        : t("rendimiento was updated from {a} to {b}", { a: publicada.lastChange.de, b: publicada.lastChange.a }),
+      a: "/environment",
+    }] : []),
+    ...(senales && senales.encendidas && !senales.avisoVisto ? [{
+      clave: "senales",
+      texto: t("rendimiento sends a señal de vida once a week: see exactly what"),
+      a: "/senales",
     }] : []),
     ...((problemas?.open ?? 0) > 0 ? [{
       clave: "problemas",

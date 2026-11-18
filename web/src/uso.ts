@@ -17,13 +17,14 @@ export const RUTAS = [
   "/addons", "/problems", "/ruta", "/bitacora", "/senales", "/registro",
   "/ia", "/buzon", "/escribir", "/members", "/addons/:name",
   "/services/:ns/:name", "/apps/:name", "/apps/:name/:tab",
-  "/apps/:name/runs/:id", "/uso",
+  "/apps/:name/runs/:id", "/uso", "/numeros",
 ] as const;
 
 /** The actions noted, by a short fixed name: the closed list (the same in internal/api/uso.go). */
 export const ACCIONES = [
   "build_now", "retry", "cancel_run", "merge", "dismiss_problem",
   "ask_agent", "select_step", "switch_theme", "switch_language", "rollback",
+  "customize_home", "save_home",
 ] as const;
 export type Accion = (typeof ACCIONES)[number];
 

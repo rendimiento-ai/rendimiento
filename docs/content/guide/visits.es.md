@@ -1,6 +1,6 @@
 # Visitas (Umami)
 
-Si [Umami](https://umami.is) cuenta las visitas de sus aplicaciones (es analítica web de código abierto y sin galletas), rendimiento le muestra sus visitantes donde usted ya mira: una pestaña **Visitas** en cada aplicación y un panel **Visitantes** en el inicio. rendimiento solo lee Umami; nunca lo cambia.
+Si [Umami](https://umami.is) cuenta las visitas de sus aplicaciones (es analítica web de código abierto y sin galletas), rendimiento le muestra sus visitantes donde usted ya mira: una pestaña **Visitas** en cada aplicación y un panel **Visitantes** en la página [Números](../start/tour.md#numbers) (el inicio guarda una línea de él). rendimiento solo lee Umami; nunca lo cambia.
 
 ## Lo que se ve {#what-you-see}
 
@@ -12,7 +12,7 @@ En la pestaña **Visitas** de una aplicación, para **hoy**, **ayer**, los últi
 - **Las visitas** de ese tiempo, la más reciente primero: cuándo, el país y la ciudad, el equipo y el navegador, cuántas páginas y por cuánto tiempo. Al abrir una se ven **las páginas que vio, en orden**, de dónde llegó y cualquier evento. Cada renglón es una visita anónima: Umami no guarda quién es la persona, y rendimiento tampoco.
 - **Abrir en Umami →**, para todo lo demás (cuando `UMAMI_PUBLIC_URL` está definida).
 
-En el inicio, **Visitantes, últimos 7 días** suma todas las aplicaciones que Umami cuenta. Tiene una fila por aplicación, la más visitada primero, con su cambio frente a los 7 días anteriores. Cuando también se cuentan las páginas de rendimiento ([`UMAMI_WEBSITE_ID`](../reference/config.md)), un administrador de la organización de la plataforma las ve en una última fila aparte, fuera de los totales; nadie más las ve.
+En la página Números (y en el inicio, si la enciende en [Personalizar inicio](../start/tour.md#customize-home)), **Visitantes, últimos 7 días** suma todas las aplicaciones que Umami cuenta. Tiene una fila por aplicación, la más visitada primero, con su cambio frente a los 7 días anteriores. Cuando también se cuentan las páginas de rendimiento ([`UMAMI_WEBSITE_ID`](../reference/config.md)), un administrador de la organización de la plataforma las ve en una última fila aparte, fuera de los totales; nadie más las ve.
 
 Los números se guardan dos minutos: así las páginas cargan rápido y a Umami no se le pregunta lo mismo una y otra vez. Los días y las horas se cuentan en `PUBLIC_STATS_TZ` (UTC si no se define).
 

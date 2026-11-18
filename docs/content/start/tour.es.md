@@ -5,6 +5,7 @@ El panel está en **https://rendimiento.example.com**. Se entra con GitHub; solo
 ```mermaid
 flowchart TB
     top[Barra superior] --> apps[Aplicaciones /]
+    top --> num[Números /numeros]
     top --> svc[Servicios /services]
     top --> add[Complementos /addons]
     top --> env[Entorno /environment]
@@ -23,7 +24,7 @@ La franja al pie de cada página dice qué rendimiento contesta, a cualquiera co
 
 ## La barra superior {#top-bar}
 
-En una pantalla ancha, el primer renglón tiene la marca, el **buscador**, la campana, **Nueva aplicación** (administradores) y su **cuenta** (su inicial y su usuario). El segundo renglón tiene todas las páginas que puede abrir, cada una con su dibujo: Aplicaciones, Universo, Servicios y Complementos (operadores, en un clúster), Entorno, Ruta, Bitácora (no invitados), IA, Problemas con cuántos hay abiertos (operadores) y Comentarios.
+En una pantalla ancha, el primer renglón tiene la marca, el **buscador**, la campana, **Nueva aplicación** (administradores) y su **cuenta** (su inicial y su usuario). El segundo renglón tiene todas las páginas que puede abrir, cada una con su dibujo: Aplicaciones, Universo, [Números](#numbers), Servicios y Complementos (operadores, en un clúster), Entorno, Ruta, Bitácora (no invitados), IA, Problemas con cuántos hay abiertos (operadores) y Comentarios.
 
 - **El buscador** encuentra, mientras escribe, aplicaciones por su nombre o su repositorio, ejecuciones por su número o su rama (entre las últimas de sus aplicaciones, o cualquier número que escriba) y páginas por su nombre, en su idioma y con o sin acentos. Pulse **/** en cualquier página para ir a él (no mientras escribe en una caja), las flechas para moverse, **Intro** para abrir el primer resultado y **Escape** para vaciarlo y cerrarlo. El buscador de la página Aplicaciones sigue filtrando el mosaico.
 - **El menú de su cuenta** tiene quién es usted (abre Miembros), la **organización** (una lista cuando pertenece a más de una), el **tema** (día o noche, la familia de colores y el movimiento), el **idioma** y la bandera, **Mis comentarios** (lo que le escribió al equipo y sus respuestas) y **Cerrar sesión**. Escape o un clic afuera lo cierra; las flechas se mueven entre sus renglones.
@@ -32,9 +33,25 @@ En un teléfono la barra es un solo renglón corto: la marca, un botón de búsq
 
 ## Aplicaciones {#apps}
 
-La página de inicio enumera cada aplicación con su fase (*Saludable*, *En curso*, *Degradado*, *Esperando la primera construcción*…), su última ejecución y sus direcciones públicas. Las fases se actualizan en vivo.
+La página de inicio lo recibe con los cerros (y caen pétalos cuando una aplicación estrena versión mientras está abierta). Bajo el saludo, cuántas aplicaciones florecen y, en una línea, los números de ayer (*Ayer: 68 ejecuciones, 13 fallaron ▸*): tóquela y [el marcador del día](../guide/ai.md#the-days-summary) se abre ahí mismo; **Plegarlo** lo cierra.
 
-Arriba, **Corriendo ahora** tiene una tarjeta por cada ejecución en cola o en curso: su aplicación (abre la aplicación), su rama, sus pasos como barritas (pasó, en curso, falló, por venir), el paso de ahora y cuánto lleva, y **Ver la ejecución N →**. Se actualiza sola. Cuando nada corre es una sola línea, **Todo en calma**, con la última ejecución que terminó.
+Luego la franja **Hoy**, tres tarjetas del mismo tamaño (una bajo otra en un teléfono), cada una con su cifra:
+
+- **En ejecución**: hasta tres ejecuciones en cola o en curso, cada una un renglón con su aplicación, el paso de ahora y cuánto lleva, que abre la ejecución. Se actualiza sola. Cuando nada corre: **Todo en calma**, con la última ejecución que terminó.
+- **Esperan su atención**: lo que los [tableros de trabajo](#the-app-page) de las aplicaciones tienen en su turno, primero las aplicaciones con más, cada una una puerta a su tablero.
+- **Necesitan ayuda**: las aplicaciones con una comprobación caída o cargas de trabajo que fallan, cuya última versión falló, o de las que ayer no pasó ninguna ejecución, cada una con el porqué y el camino a ella.
+
+Debajo, el mosaico: cada aplicación con su flor, su estado, su última ejecución y sus direcciones públicas, con filtros (*Todas*, *Floreciendo*, *Marchitas*, *Falló la última ejecución*) y un buscador. Los estados se actualizan en vivo. Al pie, una sola línea tranquila: los visitantes de la semana (abre [Números](#numbers)), cuántas de las versiones de ayer quedaron sanas (abre el marcador) y, para los operadores donde está configurado, el [Mercado](../guide/mercado.md).
+
+Arriba de la franja solo queda lo urgente: el aviso del entorno, cuando el clúster tiene uno. Lo demás que antes eran avisos aquí (cambios a producción que esperan aprobación, una versión nueva de rendimiento, las señales la primera vez) está en la campana.
+
+### Personalizar inicio {#customize-home}
+
+**Personalizar inicio**, bajo el saludo, abre la lista de las secciones del inicio, cada una con su interruptor: En ejecución, Esperan su atención, Necesitan ayuda, Sus aplicaciones (el mosaico), El marcador de ayer desplegado, Visitas, Entregas (operadores) y la lluvia de pétalos. Arrastre un renglón para cambiar el orden, o use sus flechas (también funcionan con el teclado); la página cambia mientras tanto. **Guardar** lo guarda para usted, en el servidor, así su teléfono muestra lo mismo en cada organización a la que pertenece; **Cancelar** lo deja como estaba; **Volver a lo de siempre** olvida lo suyo y muestra lo predeterminado. Un administrador de la plataforma también tiene **Hacer esto lo predeterminado para todos**: lo que ven quienes nunca personalizaron su inicio (y **Volver a lo de fábrica**). De fábrica están encendidos la franja, el mosaico y los pétalos; el marcador queda plegado, y las visitas y las entregas viven en Números.
+
+## Números {#numbers}
+
+Lo que antes cerraba la página de inicio: los **visitantes** de las aplicaciones de los últimos días, según [Umami](../guide/visits.md) (o por qué no hay), y, para los operadores de la plataforma, los números de **entregas** y un enlace al [uso de la interfaz](../guide/uso.md).
 
 ## Nueva aplicación {#new-app}
 

@@ -483,7 +483,7 @@ export interface BitacoraCheck {
 // person's account ("Use this template").
 export const EXAMPLE_URL = "https://github.com/rendimiento-ai/hola/generate";
 
-export const session: { operator: boolean; role: MemberRole; cluster: boolean; mercado: boolean; appPrefix: string; uso: boolean } = { operator: false, role: "guest", cluster: false, mercado: false, appPrefix: "", uso: false };
+export const session: { operator: boolean; role: MemberRole; cluster: boolean; mercado: boolean; appPrefix: string; uso: boolean; demo: boolean } = { operator: false, role: "guest", cluster: false, mercado: false, appPrefix: "", uso: false, demo: false };
 
 // The AI gateway (internal/ia, api.IAView).
 export type AIProvider = "local" | "own" | "platform";
@@ -1128,7 +1128,26 @@ export interface SummaryView {
   boards: Record<string, DayBoard>;
 }
 
+/** A section of the home page and whether it shows (store.SeccionInicio); a list of them, in order, is a person's home. */
+export interface SeccionInicio { id: string; on: boolean }
+/** The signed-in person's home page (api.InicioView). */
+export interface InicioView {
+  secciones: SeccionInicio[];
+  /** They chose it; otherwise it is the default. */
+  propias: boolean;
+  predeterminado: SeccionInicio[];
+  /** Who set the default, when an administrator did. */
+  predeterminadoPor?: string;
+  /** May set the default for everyone (an administrator of the platform). */
+  puedeFijar: boolean;
+}
+
 export const api = {
+  inicio: () => request<InicioView>("GET", "/api/inicio"),
+  guardarInicio: (secciones: SeccionInicio[]) => request<InicioView>("PUT", "/api/inicio", { secciones }),
+  inicioDeSiempre: () => request<InicioView>("DELETE", "/api/inicio"),
+  fijarInicio: (secciones: SeccionInicio[]) => request<InicioView>("PUT", "/api/inicio/predeterminado", { secciones }),
+  inicioDeFabrica: () => request<InicioView>("DELETE", "/api/inicio/predeterminado"),
   summary: () => request<SummaryView>("GET", "/api/summary"),
   redoSummary: (day: string) => request<void>("POST", "/api/summary/redo", { day }),
   // Whether the interface notes its use is learnt here, with who is signed in (uso.ts reads it).

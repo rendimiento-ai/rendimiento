@@ -5,6 +5,7 @@ The dashboard is at **https://rendimiento.example.com**. You sign in with GitHub
 ```mermaid
 flowchart TB
     top[Top bar] --> apps[Apps /]
+    top --> num[Numbers /numeros]
     top --> svc[Services /services]
     top --> add[Add-ons /addons]
     top --> env[Environment /environment]
@@ -23,7 +24,7 @@ The band at the foot of every page says which rendimiento answers, for anyone si
 
 ## The top bar {#top-bar}
 
-On a wide screen, the first row has the brand, the **search**, the bell, **New app** (administrators) and your **account** (your initial and login). The second row has every page you can open, each with its drawing: Apps, Universe, Services and Add-ons (operators, on a cluster), Environment, Ruta, Bitácora (not guests), AI, Problems with how many are open (operators) and Comments.
+On a wide screen, the first row has the brand, the **search**, the bell, **New app** (administrators) and your **account** (your initial and login). The second row has every page you can open, each with its drawing: Apps, Universe, [Numbers](#numbers), Services and Add-ons (operators, on a cluster), Environment, Ruta, Bitácora (not guests), AI, Problems with how many are open (operators) and Comments.
 
 - **The search** finds, as you type, apps by their name or repository, runs by their number or branch (among the last ones of your apps, or any number you type), and pages by their name, in your language and with or without accents. Press **/** on any page to go to it (not while writing in a box), the arrows to move, **Enter** to open the first result, **Escape** to empty it and close it. The search on the Apps page still filters the mosaic.
 - **Your account's menu** has who you are (it opens Members), the **organization** (a list when you belong to more than one), the **theme** (day or night, the family of colors and the movement), the **language** and the flag, **My comments** (what you wrote to the team, and its answers) and **Sign out**. Escape or a click outside closes it; the arrows move between its rows.
@@ -32,9 +33,25 @@ On a phone the bar is one short row: the brand, a search button that opens the b
 
 ## Apps
 
-The home page lists every app with its phase (*Healthy*, *Progressing*, *Degraded*, *Waiting for first build*…), its latest run and its public addresses. Phases update live.
+The home page greets you with the hills (and petals fall when an app gets a new release while it is open). Under the greeting, how many apps bloom and, in one line, yesterday's numbers (*Yesterday: 68 runs, 13 of them failed ▸*): touch it and [the day's scoreboard](../guide/ai.md#the-days-summary) opens in place; **Fold it** closes it.
 
-At the top, **Running now** has a card for each run queued or running: its app (it opens the app), its branch, its steps as small bars (passed, running, failed, still to come), the step at hand and how long it has run, and **See run N →**. It updates by itself. When nothing runs it is one line, **All quiet**, with the last run that ended.
+Then the **Today** band, three cards of the same size (one under another on a phone), each with its count:
+
+- **Running**: up to three runs queued or running, each a line with its app, the step at hand and how long it has run, that opens the run. It updates by itself. When nothing runs: **All quiet**, with the last run that ended.
+- **Waiting for you**: what the apps' [work boards](#the-app-page) have on your turn, the apps with the most first, each a door to its board.
+- **Need help**: the apps with a check down or failing workloads, whose last release failed, or none of whose runs passed yesterday, each with why and a way to it.
+
+Under them, the mosaic: every app with its flower, its state, its latest run and its public addresses, with filters (*All of them*, *In bloom*, *Withered*, *Last run failed*) and a search. States update live. At the foot, one quiet line: the week's visitors (it opens [Numbers](#numbers)), how many of yesterday's releases stayed healthy (it opens the scoreboard) and, for operators where it is set up, the [Mercado](../guide/mercado.md).
+
+Only what is urgent sits above the band: the environment's warning, when the cluster has one. The rest of what used to be notices here (changes to production waiting for approval, a new version of rendimiento, the señales the first time) is in the bell.
+
+### Customize home {#customize-home}
+
+**Customize home**, under the greeting, opens a list of the home's sections, each with a switch: Running, Waiting for you, Need help, Your apps (the mosaic), Yesterday's scoreboard unfolded, Visits, Delivery (operators) and the petal rain. Drag a row to change the order, or use its arrows (they work from the keyboard too); the page changes as you go. **Save** keeps it for you, on the server, so your phone shows the same in every organization you belong to; **Cancel** leaves it as it was; **Back to the usual** forgets your own and shows the default. An administrator of the platform also has **Make this the default for everyone**: what people who never customized their home see (and **Back to the built-in default**). Out of the box, the band, the mosaic and the petals are on; the scoreboard stays folded, and visits and delivery live on Numbers.
+
+## Numbers {#numbers}
+
+What used to close the home page: the apps' **visitors** of the last days, from [Umami](../guide/visits.md) (or why there are none), and, for the platform's operators, the **delivery** numbers and a link to [the use of the interface](../guide/uso.md).
 
 ## New app
 

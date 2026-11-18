@@ -115,7 +115,7 @@ function VinoDe() {
 }
 
 // The pages a person may have meant, for an address that names none.
-const paginas = ["/universe", "/services", "/addons", "/environment", "/problems", "/ruta", "/bitacora", "/senales", "/ia", "/buzon", "/escribir", "/members", "/mercado", "/new"];
+const paginas = ["/universe", "/numeros", "/services", "/addons", "/environment", "/problems", "/ruta", "/bitacora", "/senales", "/ia", "/buzon", "/escribir", "/members", "/mercado", "/new"];
 
 /** Edit distance between two short strings. */
 function distancia(a: string, b: string): number {

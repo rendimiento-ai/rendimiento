@@ -38,6 +38,11 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 
 | Method | Path | Does |
 |---|---|---|
+| GET | `/api/inicio` | the signed-in person's home page: its sections in order, each `{id, on}` (`secciones`), whether they chose it (`propias`), the default (`predeterminado`, and `predeterminadoPor` when an administrator set it), and whether they may set it (`puedeFijar`) |
+| PUT | `/api/inicio` | keeps the person's own home page, `{"secciones": [{"id": "apps", "on": true}, …]}` (any role; not in a demo) |
+| DELETE | `/api/inicio` | *Back to the usual*: forgets the person's own home page |
+| PUT | `/api/inicio/predeterminado` | the home page of everyone who never chose theirs (the platform's administrators) |
+| DELETE | `/api/inicio/predeterminado` | back to the built-in default (the platform's administrators) |
 | GET | `/api/me` | the signed-in login, and which rendimiento answers: `version`, `modo` (`local` or `kubernetes`), `os`, `arch` |
 | GET | `/api/installations` | GitHub App installations |
 | GET | `/api/installations/{id}/repos` | repositories of an installation |
@@ -137,7 +142,7 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | Method | Path | Does |
 |---|---|---|
 | GET | `/api/runs/{id}` | a run with its steps (the graph) |
-| GET | `/api/corriendo` | what goes on in the organization's apps the person can enter: the runs queued or running with their steps (`ahora`, the Apps page's *Running now*), and the last 30 that ended (`recientes`, also for the top bar's search) |
+| GET | `/api/corriendo` | what goes on in the organization's apps the person can enter: the runs queued or running with their steps (`ahora`, the home page's *Running* card), and the last 30 that ended (`recientes`, also for the top bar's search) |
 | POST | `/api/runs/{id}/cancel` | cancel it; its build pods are deleted |
 | GET | `/api/runs/{id}/steps/{step}/log` | a step's log (stored, or live while running) |
 | GET | `/api/runs/{id}/events` | SSE: step state and log lines |

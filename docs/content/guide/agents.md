@@ -42,7 +42,7 @@ A typical turn: the agent calls `ruta_inicio`, which shows the pending encargos,
 
 ## Asking for a change to production {#asking-for-a-change-to-production}
 
-An agent never changes production itself: its branch runs are tested, not deployed. It can **ask**. With a collaborator key and a cargo, `produccion_pedir` asks to roll an app back to an earlier release, saying why ("release 42 broke payments"). Nothing happens yet: the administrators get an email, the Apps page says a change waits, and the **Bitácora** page shows it with **Approve and roll back** and **Reject** (and a comment). Approved, the platform rolls back at once in that person's name. The agent waits for the decision with `produccion_esperar`. A request expires after 24 hours.
+An agent never changes production itself: its branch runs are tested, not deployed. It can **ask**. With a collaborator key and a cargo, `produccion_pedir` asks to roll an app back to an earlier release, saying why ("release 42 broke payments"). Nothing happens yet: the administrators get an email, the bell says a change waits, and the **Bitácora** page shows it with **Approve and roll back** and **Reject** (and a comment). Approved, the platform rolls back at once in that person's name. The agent waits for the decision with `produccion_esperar`. A request expires after 24 hours.
 
 Each step is in the [bitácora](../architecture/security.md#the-bitacora): the agent's request, the person's decision, and the platform's rollback, which records who asked and who approved. Rolling back is the first change an agent may ask for; deploying a commit already tested on a branch comes next.
 

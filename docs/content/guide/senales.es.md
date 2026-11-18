@@ -33,7 +33,7 @@ Nombres de aplicaciones, repositorios, ramas o dominios; usuarios de GitHub, cor
 
 ## Apagarlas {#turning-them-off}
 
-- **Miembros → Lo que rendimiento manda → Apagar** (los operadores de la plataforma), o **Apagarla** en el aviso que la página de Aplicaciones muestra una vez, la primera.
+- **Miembros → Lo que rendimiento manda → Apagar** (los operadores de la plataforma), o desde la campana, que se lo recuerda a los operadores hasta que uno de ellos dice **De acuerdo** (su renglón abre la página de Señales, con el interruptor).
 - `SENALES=off` en el entorno las apaga para siempre, diga lo que diga la página.
 
 ## Qué hace rendimiento.ai con ellas {#what-rendimiento-ai-does-with-them}
