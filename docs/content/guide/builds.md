@@ -28,6 +28,25 @@ Either way:
 - **A conflict where both sides only added lines is joined by rendimiento.** Two branches that each add a line after the same one (a page to the book's menu, a phrase to the translations) conflict for git, though nothing needs deciding. rendimiento merges the default branch into the branch with a three-way merge: when, in every file both changed, the two sides only added lines at the same places, it keeps both (the default branch's first), commits the merge on the branch through GitHub, and tests it. The run says which files it joined. The yes given to the branch carries over to that commit, since it holds nothing new: it is merged when it passes. If anything else conflicts (a line both changed, a file one deleted and the other changed), nothing is committed.
 - **Any other conflict is never merged.** The run names the files, and its page offers **Ask an agent to resolve it**: that makes an [encargo](agents.md) for your own agent, which has git; the platform's agent cannot merge branches. The new commit runs, and is merged if it passes.
 
+### What no step tests {#what-no-step-tests}
+
+A run that passed vouches only for what its steps read. When a branch also changes a folder no step builds or tests (a `mobile/` app beside services in `api/` and `web/`, say), its run still passes, but:
+
+- rendimiento does **not** merge it by itself: an open pull request is not the yes for it, only a person's **Merge this branch** (or an accepted encargo) is.
+- Its GitHub check concludes **Action required** instead of success, titled *No step builds or tests `mobile/`: a person must merge this*. Tools that wait for green checks wait too: Renovate does not automerge it, nor does GitHub when the branch's rules require the check.
+- The run's page names those paths. A person's yes there turns the check green and merges it.
+
+What counts as tested, on a branch's run: the folder of each built service, build and job, with its `watch` paths and its Dockerfile; and the folder and `watch` paths of each task with `when: always` (a task that runs only on deploys, or before or after one, tests no branch). A step whose folder is the root (`path: .`, or none for a service) reads the whole repository, so then everything is tested, root lockfiles included. `rendimiento.yaml` always counts, since the run reads it, and so do files no build reads: Markdown, licences, and the settings of git, editors and Renovate (`renovate.json`). To have a folder tested, give it a step:
+
+```yaml
+tasks:
+  - name: mobile
+    image: node:22
+    path: mobile
+    command: npm ci && npm test
+    when: always
+```
+
 ## Dockerfile or Railpack
 
 | The service's folder has… | rendimiento uses… |

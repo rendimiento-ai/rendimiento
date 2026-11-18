@@ -176,6 +176,8 @@ export interface Run {
   merge?: "merged" | "conflict" | "blocked" | "resolved";
   /** Who said in rendimiento that this commit is to be merged. */
   approvedBy?: string;
+  /** What of a branch's change no step builds or tests ("mobile/"): it is not merged by itself. */
+  untested?: string[];
   /** How often what failed was run again, and at most how often it may be. */
   retries?: number;
   maxRetries?: number;

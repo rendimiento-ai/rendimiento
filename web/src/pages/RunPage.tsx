@@ -131,6 +131,7 @@ export function RunPage() {
 
       {run.status === "failed" && <WhyFailed run={run} d={diagnosis} setD={setDiagnosis} />}
       {run.merge === "conflict" && <Conflict run={run} app={name} />}
+      <Untested run={run} app={app} />
       {app && <Approve run={run} app={app} onApproved={setRun} />}
 
       {run.steps?.length ? (
@@ -255,6 +256,33 @@ function Registro({ text, empty, innerRef, onScroll }: { text?: string; empty: s
 function formatLog(s?: string) {
   if (!s) return "";
   return s.replace(/^::group::(.*)$/gm, "── $1 ──").replace(/^::endgroup::$\n?/gm, "");
+}
+
+/**
+ * On a branch's run that passed: what of its change no step builds or
+ * tests. rendimiento does not merge it by itself, and its GitHub check asks
+ * for a person, so Renovate's automerge waits too.
+ */
+function Untested({ run, app }: { run: Run; app?: App }) {
+  if (!run.untested?.length || run.status !== "succeeded" || run.merge === "merged") return null;
+  return (
+    <div className="card" id="untested" style={{ borderLeft: "4px solid var(--warn)", marginBottom: 16 }}>
+      <h2 style={{ margin: 0 }}>{t("It passed, but no step tested all of it")}</h2>
+      <p className="small" style={{ margin: 0 }}>
+        {run.approvedBy
+          ? t("No step builds or tests these paths; {who} approved merging it anyway:", { who: run.approvedBy })
+          : t("No step builds or tests these paths, so a person must merge this: rendimiento does not merge it by itself, and its check in GitHub asks for a person, so Renovate's automerge waits too.")}
+      </p>
+      <ul className="small mono" style={{ margin: 0 }}>
+        {run.untested.map((p) => <li key={p}>{p}</li>)}
+      </ul>
+      <p className="small muted" style={{ margin: 0 }}>
+        {app?.autoMerge && !run.approvedBy
+          ? t("Merge this branch below is your yes to that part too. To have it tested, add a step for it to rendimiento.yaml (a task with its path and when: always).")
+          : t("To have it tested, add a step for it to rendimiento.yaml (a task with its path and when: always).")}
+      </p>
+    </div>
+  );
 }
 
 /**

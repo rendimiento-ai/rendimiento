@@ -226,6 +226,10 @@ type Run struct {
 	ApprovedBy string `json:"approvedBy,omitempty"`
 	// Retries is how often a person or an agent had what failed run again.
 	Retries int `json:"retries,omitempty"`
+	// Untested is what of a branch's change no step builds or tests
+	// ("mobile/"): such a run is never merged by itself, only on a
+	// person's yes.
+	Untested []string `json:"untested,omitempty"`
 }
 
 // What became of the pull request of a run that passed.
@@ -262,12 +266,12 @@ const (
 	RunCancelled = "cancelled"
 )
 
-const runCols = `id, app_id, sha, branch, event, deploy, status, message, check_run, created_at, started_at, finished_at, pull_number, merge_state, approved_by, retries`
+const runCols = `id, app_id, sha, branch, event, deploy, status, message, check_run, created_at, started_at, finished_at, pull_number, merge_state, approved_by, retries, untested`
 
 // scanRun reads a run row, without its steps.
 func scanRun(row pgx.Row) (*Run, error) {
 	var r Run
-	err := row.Scan(&r.ID, &r.AppID, &r.SHA, &r.Branch, &r.Event, &r.Deploy, &r.Status, &r.Message, &r.CheckRun, &r.CreatedAt, &r.StartedAt, &r.FinishedAt, &r.Pull, &r.Merge, &r.ApprovedBy, &r.Retries)
+	err := row.Scan(&r.ID, &r.AppID, &r.SHA, &r.Branch, &r.Event, &r.Deploy, &r.Status, &r.Message, &r.CheckRun, &r.CreatedAt, &r.StartedAt, &r.FinishedAt, &r.Pull, &r.Merge, &r.ApprovedBy, &r.Retries, &r.Untested)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -437,6 +441,15 @@ func (s *Store) TriedOn(ctx context.Context, appID int64, branch, sha string) (b
 // passed, in its message too. A run whose pull request was merged stays so.
 func (s *Store) SetRunMerge(ctx context.Context, runID int64, pull int, state, message string) error {
 	_, err := s.pool.Exec(ctx, `UPDATE runs SET pull_number = $2, merge_state = $3, message = $4 WHERE id = $1 AND merge_state <> 'merged'`, runID, pull, state, message)
+	return err
+}
+
+// SetRunUntested records what of the run's change no step builds or tests.
+func (s *Store) SetRunUntested(ctx context.Context, runID int64, paths []string) error {
+	if paths == nil {
+		paths = []string{}
+	}
+	_, err := s.pool.Exec(ctx, `UPDATE runs SET untested = $2 WHERE id = $1`, runID, paths)
 	return err
 }
 
