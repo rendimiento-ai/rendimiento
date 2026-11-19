@@ -2479,4 +2479,14 @@ export const es: Record<string, string> = {
   "requests open": "pedidos abiertos",
   "request discarded": "descartado",
   "requests discarded": "descartados",
+  // En seco: a branch's checks against the published release (RunPage).
+  "Passed, with a warning": "Pasó, con un aviso",
+  "En seco": "En seco",
+  "En seco: a check did not pass against the published release #{n}": "En seco: una prueba no pasó contra la versión publicada #{n}",
+  "En seco, against the published release #{n}": "En seco, contra la versión publicada #{n}",
+  "This branch changes only the checks, so their new version ran against what is already published. One did not pass: nothing was rolled back and the release was not touched, but rendimiento does not merge it by itself, and Renovate's automerge waits.": "Esta rama cambia solo las pruebas, así que se corrió su versión nueva contra lo que ya está publicado. Una no pasó: no se regresó nada ni se tocó la versión, pero rendimiento no la integra sola, y la integración automática de Renovate espera.",
+  "This branch changes only the checks, so their new version ran against what is already published. It only warns: nothing is rolled back and the release is not touched.": "Esta rama cambia solo las pruebas, así que se corrió su versión nueva contra lo que ya está publicado. Solo avisa: no regresa nada ni toca la versión.",
+  "own tests": "pruebas propias",
+  "Merge anyway": "Integrar de todos modos",
+  "A check did not pass en seco. Your yes merges it anyway: rendimiento opens the pull request into {branch} if there is none, merges it, and notes in the Ruta that it was merged despite that.": "Una prueba no pasó en seco. Su sí la integra de todos modos: rendimiento abre la solicitud de incorporación hacia {branch} si no hay una, la integra, y anota en la Ruta que se integró a pesar de eso.",
 };

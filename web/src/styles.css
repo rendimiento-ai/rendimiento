@@ -31,6 +31,7 @@
   --ok-bg: #E2F0DC;
   --warn: #8A5300;
   --warn-bg: #FBEBC7;
+  --seco: #23408E; /* en seco: the dashed section of a branch's checks */
   --bad: #B3261E;
   --bad-bg: #FBE3DF;
   --idle: #6B5444;
@@ -64,6 +65,7 @@
   --ok-bg: #1E3320;
   --warn: #F2C14E;
   --warn-bg: #3A2E10;
+  --seco: #9DB4F2; /* en seco: the dashed section of a branch's checks */
   --bad: #FF8A9A;
   --bad-bg: #45121E;
   --idle: #B8A9C9;
@@ -92,6 +94,7 @@
     --ok-bg: #1E3320;
     --warn: #F2C14E;
     --warn-bg: #3A2E10;
+    --seco: #9DB4F2; /* en seco: the dashed section of a branch's checks */
     --bad: #FF8A9A;
     --bad-bg: #45121E;
     --idle: #B8A9C9;
@@ -264,6 +267,17 @@ tr.clickable:hover td { background: var(--surface-2); }
 
 .alert { border-radius: 8px; padding: 10px 14px; background: var(--bad-bg); color: var(--bad); }
 .alert.info { background: var(--idle-bg); color: var(--text); }
+/* En seco (RunPage): a branch's checks against the published release, in a dashed section of their own. */
+.en-seco { --c: var(--seco); border: 1.5px dashed var(--c); border-radius: var(--radius); background: var(--surface); overflow: hidden; margin-top: 16px; }
+.en-seco.bad { --c: var(--bad); }
+.en-seco-cabeza { padding: 14px 16px; background: color-mix(in srgb, var(--c) 9%, var(--surface)); }
+.en-seco-cabeza h2 { margin: 0 0 4px; font-size: 17px; color: var(--c); }
+.en-seco-cabeza p { margin: 0; line-height: 1.5; }
+.en-seco-fila { padding: 10px 16px; border-top: 1px solid var(--border); margin: 0; }
+.en-seco-fila .row { flex-wrap: wrap; }
+.en-seco-marca { font-weight: 800; width: 1.2em; }
+.en-seco-marca.succeeded { color: var(--ok); } .en-seco-marca.failed { color: var(--bad); } .en-seco-marca.skipped, .en-seco-marca.running { color: var(--muted); }
+.en-seco-registro { margin: 8px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--code-bg); color: var(--code-text); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; }
 
 pre.log {
   background: var(--code-bg); color: var(--code-text); border-radius: var(--radius);

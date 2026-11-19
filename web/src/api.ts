@@ -141,6 +141,8 @@ export interface AppTests {
   timeout?: number;
   size?: Size; // none: a browser's, 250m and 256Mi asked, no CPU limit, 2Gi
   resources?: { cpu?: string; memory?: string; cpuLimit?: string; memoryLimit?: string };
+  /** Also run en seco, against the published release, on a branch that changes only the checks (the tests' build). */
+  dryRun?: boolean;
 }
 
 /** A library: nothing of it runs or is built to keep, so a run tests it and there is nothing to deploy. */
@@ -151,7 +153,11 @@ export function isLibrary(s: Spec): boolean {
 /** A command run as a CI step (mobile builds, smoke tests, release scripts). */
 export interface Task {
   name: string;
-  image: string;
+  /** build (a CI step, the default), pre-deploy or post-deploy. */
+  stage?: "build" | "pre-deploy" | "post-deploy";
+  image?: string;
+  /** Pre- and post-deploy tasks may run in a service's image and environment instead. */
+  service?: string;
   command: string;
   path?: string;
   watch?: string[];
@@ -165,6 +171,8 @@ export interface Task {
   postgres?: boolean;
   /** A /cache kept between runs; build tasks only. */
   cache?: boolean;
+  /** Post-deploy tasks without service: only: also run en seco, against the published release, on a branch that changes only the checks. */
+  dryRun?: boolean;
 }
 
 /** Every secret an app reads: its services', jobs' and tasks'. */
@@ -241,12 +249,26 @@ export interface Run {
   approvedBy?: string;
   /** What of a branch's change no step builds or tests ("mobile/"): it is not merged by itself. */
   untested?: string[];
+  /** What a branch that changed only its checks ran en seco, against the published release. */
+  dry?: DryRun;
   /** How often what failed was run again, and at most how often it may be. */
   retries?: number;
   maxRetries?: number;
   /** The app's steps that stumbled lately (failed, then passed on the same commit), and from how many a step is flaky. */
   stumbles?: Record<string, number>;
   flakyAfter?: number;
+}
+
+/**
+ * A branch's checks run en seco (store.DryRun): its new post-deploy tasks and tests with dryRun, against the release
+ * already published. It only warns: when one fails, rendimiento does not merge the branch by itself.
+ */
+export interface DryRun {
+  /** The published release they ran against; 0 (absent) when none ran, and note says why. */
+  release?: number;
+  note?: string;
+  failed?: boolean;
+  tasks?: ReleaseTask[];
 }
 
 export interface ServiceStatus {
@@ -1022,7 +1044,8 @@ export interface ReleaseTest {
 /** A post-deploy task of a release: a command run against it once live. */
 export interface ReleaseTask {
   name: string;
-  stage: "pre-deploy" | "post-deploy";
+  /** en-seco: a branch's check, run against the published release (DryRun). */
+  stage: "pre-deploy" | "post-deploy" | "en-seco";
   status: "running" | "succeeded" | "failed" | "skipped";
   optional?: boolean;
   message?: string;
@@ -1442,6 +1465,7 @@ export const api = {
   retryRun: (id: number) => request<Run>("POST", `/api/runs/${id}/retry`),
   approveMerge: (id: number) => request<Run>("POST", `/api/runs/${id}/merge`),
   stepLog: (id: number, step: string) => request<string>("GET", `/api/runs/${id}/steps/${encodeURIComponent(step)}/log`),
+  dryLog: (id: number, task: string) => request<string>("GET", `/api/runs/${id}/dry/${encodeURIComponent(task)}/log`),
 };
 
 /**

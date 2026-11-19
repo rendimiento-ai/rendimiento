@@ -1000,9 +1000,15 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 		p.deployPreview(ctx, app, run, sp, runImages(sp, append(toRun, keptSteps...), results, reuse))
 	}
 	if status == store.RunSucceeded && !run.Deploy {
+		files, complete, known := p.branchFiles(ctx, app, run)
+		// A branch that changes only its checks runs them en seco, against
+		// the published release: a failure only warns.
+		if known && complete {
+			p.dryRun(runCtx, app, run, sp, files, runImages(sp, append(toRun, keptSteps...), results, reuse))
+		}
 		// What of the change no step looked at: the run is not merged by
 		// itself, and its check asks a person.
-		if run.Untested = p.untested(ctx, app, run, sp); len(run.Untested) > 0 {
+		if run.Untested = p.untested(app, run, sp, files, complete, known); len(run.Untested) > 0 {
 			if err := p.Store.SetRunUntested(ctx, run.ID, run.Untested); err != nil {
 				log.Error("record untested paths", "err", err)
 			}
@@ -1014,7 +1020,7 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 	if status == store.RunFailed && run.Deploy {
 		p.notifyRunFailed(app, run, msg, toRun, results)
 	}
-	if len(run.Untested) > 0 {
+	if len(run.Untested) > 0 || run.DryFailed() {
 		if fresh, err := p.Store.GetRun(ctx, run.ID); err == nil {
 			run.ApprovedBy = fresh.ApprovedBy // a yes given while it ran
 		}
@@ -1287,7 +1293,8 @@ func (p *Platform) startCheck(ctx context.Context, app *store.App, run *store.Ru
 
 // finishCheck completes the run's GitHub check: success, failure or
 // cancelled, with the run's message; action_required for a run that passed
-// with paths no step tests (run.Untested) that nobody approved.
+// with paths no step tests (run.Untested), or with a check that failed en
+// seco (run.Dry), that nobody approved.
 func (p *Platform) finishCheck(ctx context.Context, app *store.App, run *store.Run, id int64, status, msg string) {
 	if id == 0 {
 		return
@@ -1298,13 +1305,21 @@ func (p *Platform) finishCheck(ctx context.Context, app *store.App, run *store.R
 		title += ": " + msg
 	}
 	summary := fmt.Sprintf("[View run](%s/apps/%s/runs/%d)", p.Config.BaseURL, app.Name, run.ID)
-	if status == store.RunSucceeded && len(run.Untested) > 0 {
+	switch {
+	case status == store.RunSucceeded && len(run.Untested) > 0:
 		if run.ApprovedBy == "" {
 			// Not a failure, and not green: whoever waits for green checks
 			// (Renovate's automerge, a required check) waits for a person.
 			conclusion, title, summary = "action_required", untestedTitle(run.Untested), untestedSummary(p, app, run)
 		} else {
 			title = approvedUntestedTitle(run.ApprovedBy, run.Untested)
+		}
+	case status == store.RunSucceeded && run.DryFailed():
+		// The same for a check that failed en seco (enseco.go).
+		if run.ApprovedBy == "" {
+			conclusion, title, summary = "action_required", dryFailedTitle(run), dryFailedSummary(p, app, run)
+		} else {
+			title = approvedDryTitle(run.ApprovedBy, run)
 		}
 	}
 	if err := p.GitHub.UpdateCheck(ctx, app.InstallationID, app.Repo, id, gh.CheckRun{

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, dollars, duration, session, subscribe, timeAgo, type App, type Diagnosis, type FixOffer, type FixRun, type Run, type Step } from "../api";
+import { api, dollars, duration, session, subscribe, timeAgo, type App, type Diagnosis, type FixOffer, type FixRun, type ReleaseTask, type Run, type Step } from "../api";
 import { RunBadge } from "../components/ui";
 import { Falla, NoExiste } from "../components/falla";
 import { lang, t, tn } from "../i18n";
@@ -109,7 +109,9 @@ export function RunPage() {
       <div className="row between">
         <div className="row">
           <h1 data-listo="">{t("Run #{n}", { n: run.id })}</h1>
-          <RunBadge status={run.status} />
+          {run.status === "succeeded" && run.dry?.failed
+            ? <span className="badge warn" id="paso-con-aviso">{t("Passed, with a warning")}</span>
+            : <RunBadge status={run.status} />}
         </div>
         {(run.status === "running" || run.status === "queued") && (
           <Cancelar id={run.id} />
@@ -168,6 +170,7 @@ export function RunPage() {
       ) : (
         <p className="muted">{t("Waiting to start…")}</p>
       )}
+      <EnSeco run={run} />
     </>
   );
 }
@@ -287,6 +290,65 @@ function Untested({ run, app }: { run: Run; app?: App }) {
 }
 
 /**
+ * On a branch's run that changed only its checks: the new post-deploy tasks and tests with dryRun, run en seco against
+ * the release already published, in a dashed section of their own. It only warns: when one fails, the run passed with a
+ * warning, rendimiento does not merge it by itself and Renovate's automerge waits; a person can still merge it.
+ */
+function EnSeco({ run }: { run: Run }) {
+  const d = run.dry;
+  const [abierto, setAbierto] = useState<string>();
+  const [registros, setRegistros] = useState<Record<string, string>>({});
+  if (!d) return null;
+  if (!d.release) {
+    return (
+      <section className="en-seco" id="en-seco" aria-labelledby="en-seco-titulo">
+        <div className="en-seco-cabeza">
+          <h2 id="en-seco-titulo">{t("En seco")}</h2>
+          <p>{d.note}</p>
+        </div>
+      </section>
+    );
+  }
+  const tareas = d.tasks ?? [];
+  const andando = !d.failed && (run.status === "running" || tareas.some((x) => x.status === "running"));
+  const ver = (x: ReleaseTask) => {
+    if (abierto === x.name) return setAbierto(undefined);
+    setAbierto(x.name);
+    api.dryLog(run.id, x.name).then((text) => setRegistros((cur) => ({ ...cur, [x.name]: text })), () => {});
+  };
+  return (
+    <section className={`en-seco${d.failed ? " bad" : ""}`} id="en-seco" aria-labelledby="en-seco-titulo">
+      <div className="en-seco-cabeza">
+        <h2 id="en-seco-titulo">
+          {d.failed ? t("En seco: a check did not pass against the published release #{n}", { n: d.release }) : t("En seco, against the published release #{n}", { n: d.release })}
+        </h2>
+        <p>
+          {d.failed
+            ? t("This branch changes only the checks, so their new version ran against what is already published. One did not pass: nothing was rolled back and the release was not touched, but rendimiento does not merge it by itself, and Renovate's automerge waits.")
+            : t("This branch changes only the checks, so their new version ran against what is already published. It only warns: nothing is rolled back and the release is not touched.")}
+        </p>
+      </div>
+      {tareas.length === 0 && <p className="en-seco-fila muted">{andando ? t("Starting…") : t("No output yet.")}</p>}
+      {tareas.map((x) => (
+        <div className="en-seco-fila" key={x.name}>
+          <div className="row">
+            <span className={`en-seco-marca ${x.status}`} aria-hidden="true">{x.status === "succeeded" ? "✓" : x.status === "failed" ? "✕" : x.status === "skipped" ? "–" : "…"}</span>
+            <span style={{ flex: 1 }}>
+              <strong>{x.name === "pruebas" ? t("own tests") : x.name}</strong>
+              {x.status !== "succeeded" && <> · <RunBadge status={x.status} /></>}
+              {x.message && <span className="small muted"> · {x.message}</span>}
+            </span>
+            <span className="small muted">{duration(x.startedAt, x.finishedAt)}</span>
+            {x.status !== "skipped" && <button className="small" aria-expanded={abierto === x.name} onClick={() => ver(x)}>{t("Log")}</button>}
+          </div>
+          {abierto === x.name && <pre className="en-seco-registro">{registros[x.name] ?? t("Loading…")}</pre>}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/**
  * On a branch's run, in an app that merges by itself: the person's yes to
  * merging this commit, and who gave it. rendimiento opens the pull request
  * when the branch has none, and merges once the run has passed.
@@ -314,9 +376,11 @@ function Approve({ run, app, onApproved }: { run: Run; app: App; onApproved: (r:
         setBusy(true);
         anotar("merge");
         api.approveMerge(run.id).then((r) => { setBusy(false); onApproved({ ...run, ...r, steps: run.steps }); }, (e) => { setBusy(false); alert(e.message); });
-      }}>{t("Merge this branch")}</button>
+      }}>{run.status === "succeeded" && run.dry?.failed ? t("Merge anyway") : t("Merge this branch")}</button>
       <span className="small muted">
-        {run.status === "succeeded"
+        {run.status === "succeeded" && run.dry?.failed
+          ? t("A check did not pass en seco. Your yes merges it anyway: rendimiento opens the pull request into {branch} if there is none, merges it, and notes in the Ruta that it was merged despite that.", { branch: app.defaultBranch })
+          : run.status === "succeeded"
           ? t("Your yes to this commit: rendimiento opens the pull request into {branch} if there is none, merges it and deletes the branch.", { branch: app.defaultBranch })
           : t("Your yes to this commit: rendimiento opens the pull request into {branch} if there is none, and merges it when this run passes.", { branch: app.defaultBranch })}
       </span>
