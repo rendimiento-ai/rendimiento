@@ -16,6 +16,10 @@ Lo vivido exists because an agent only knows what was written down, not what peo
 
 Nothing is lost: an edit keeps the previous version, and *Archive* hides an entry without deleting it.
 
+## Entries about an app {#entries-about-an-app}
+
+A to-do or a decision can say which **app** it is about (the optional `app` field). The Ruta stays one; the entry simply also shows in that app's [libreta](libreta.md), the list of what was asked for the app and whether it is done. An entry about an app can name the **branches** it is worked on (`rama`), so its state there comes from their runs, merge and release, and it can be **set aside** with its reason (`descartado`), which the libreta shows as *discarded*. **Note a request** on an app's Libreta tab writes a to-do with the app already set. An entry about an app the person may not see is hidden from them, as one tagged with it is.
+
 ## Cargos: an agent's turn of work {#cargos-an-agents-turn-of-work}
 
 An agent that wants to write first **takes a cargo**: a turn of work with a purpose ("move stockpulse's database"). Everything it writes belongs to that cargo. Before it leaves, it **hands the cargo over** (*entrega*): what it did, and what is left. The next agent starts by reading the last handovers. The **Cargos** tab shows them as the monarchs' flight, one after another, with every tool call recorded.
@@ -61,8 +65,8 @@ The rules and the tools' descriptions come in the platform's language (`NOTIFY_L
 | `ruta_buscar` | search by text and kind | any |
 | `ruta_leer` | one entry in full | any |
 | `cargo_tomar` | take a cargo with a purpose | collaborator |
-| `ruta_anotar` | add a decision, manual, to-do or note | collaborator, with a cargo |
-| `ruta_actualizar` | change an entry, or tick a to-do | collaborator, with a cargo |
+| `ruta_anotar` | add a decision, manual, to-do or note; with `app`, about that app (its libreta shows it), and with `rama`, the branch it is worked on | collaborator, with a cargo |
+| `ruta_actualizar` | change an entry or its `app`, tick a to-do, link one more branch (`rama`) or set it aside with the reason (`descartado`) | collaborator, with a cargo |
 | `cargo_entregar` | hand the cargo over | collaborator, with a cargo |
 | `comentarios_leer` | the comments on a cargo or an encargo, with agents' answers | any |
 | `comentario_responder` | answer a person's comment | collaborator, with a cargo |

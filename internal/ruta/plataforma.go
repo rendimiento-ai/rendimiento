@@ -9,6 +9,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/rendimiento-ai/rendimiento/internal/libreta"
 	"github.com/rendimiento-ai/rendimiento/internal/mesa"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -39,6 +40,9 @@ type Plataforma interface {
 	// Mesa is the app's work board: each branch, how it stands and who it
 	// waits for.
 	Mesa(ctx context.Context, app *store.App) (mesa.Board, error)
+	// Libreta is the app's notebook: what was asked for it and whether it
+	// is done.
+	Libreta(ctx context.Context, app *store.App) (libreta.Libreta, error)
 }
 
 // ---- inputs and outputs ----
@@ -133,6 +137,8 @@ type estadoOut struct {
 	Ejecuciones []Corrida  `json:"ejecuciones"`
 	Versiones   []Version  `json:"versiones"`
 	Problemas   []Problema `json:"problemas"`
+	// Libreta: lo que se pidió para la aplicación y si ya se hizo.
+	Libreta *LibretaOut `json:"libreta,omitempty"`
 }
 
 // LineaMesa is a line of the work board as agents see it.
@@ -209,7 +215,7 @@ func short(sha string) string {
 // limited to some apps sees and acts on those only.
 func (s *Server) addPlataformaTools(srv herramientas, write bool) {
 	addTool(s, srv, &mcp.Tool{Name: "apps_listar", Description: "Las aplicaciones que despliega la plataforma, con su última ejecución y su versión en producción."}, s.appsListar)
-	addTool(s, srv, &mcp.Tool{Name: "app_estado", Description: "El estado de una aplicación: sus servicios, sus últimas ejecuciones y versiones (con su verificación) y los problemas abiertos."}, s.appEstado)
+	addTool(s, srv, &mcp.Tool{Name: "app_estado", Description: "El estado de una aplicación: sus servicios, sus últimas ejecuciones y versiones (con su verificación), los problemas abiertos y su libreta (lo que se pidió para ella y si ya se hizo: lo abierto, y lo hecho o descartado esta semana)."}, s.appEstado)
 	addTool(s, srv, &mcp.Tool{Name: "mesa_leer", Description: "La mesa de trabajo de una aplicación: cada rama con su solicitud de integración, su última ejecución y sus encargos, y a quién le toca (usted: una persona; trabajando; sobra: se puede cerrar; hoy: entró hoy). Léala antes de abrir una rama nueva: si ya hay una para lo mismo, siga en esa."}, s.mesaLeer)
 	addTool(s, srv, &mcp.Tool{Name: "ejecucion_leer", Description: "Una ejecución de CI con sus pasos y el estado de cada uno. Para ver por qué falló un paso, use paso_registro."}, s.ejecucionLeer)
 	addTool(s, srv, &mcp.Tool{Name: "paso_registro", Description: "El final del registro de un paso de una ejecución (200 líneas si no se piden más)."}, s.pasoRegistro)
@@ -363,6 +369,12 @@ func (s *Server) appEstado(ctx context.Context, k store.AgentKey, in appIn) (est
 		if p.ResolvedAt == nil {
 			out.Problemas = append(out.Problemas, Problema{Nivel: p.Level, Componente: p.Component, Mensaje: p.Message, Detalle: p.Detail, Veces: p.Count, Ultima: p.LastAt})
 		}
+	}
+	// The libreta is a help, not the answer: without it the rest still is.
+	if l, err := s.Plataforma.Libreta(ctx, a); err == nil {
+		out.Libreta = libretaOut(l, time.Now())
+	} else {
+		s.Log.Warn("app_estado: libreta", "app", a.Name, "err", err)
 	}
 	return out, nil
 }

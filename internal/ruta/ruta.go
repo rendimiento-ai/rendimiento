@@ -44,6 +44,8 @@ type Backend interface {
 	SearchRuta(ctx context.Context, orgID int64, kind, text string, limit int) ([]store.RutaEntry, error)
 	RecordAgentAction(ctx context.Context, a store.AgentAction) error
 	AnotarBitacora(ctx context.Context, b store.Bitacora) (store.Bitacora, error)
+	// LinkRutaBranch notes that an entry is worked on a branch.
+	LinkRutaBranch(ctx context.Context, entryID int64, branch, who string) error
 }
 
 // TokenPrefix starts every agent key, so a leaked one is easy to recognise.
@@ -208,15 +210,17 @@ func keyFrom(req *mcp.CallToolRequest) (store.AgentKey, error) {
 
 // Summary is an entry without its full body.
 type Summary struct {
-	ID        int64     `json:"id"`
-	Tipo      string    `json:"tipo"`
-	Titulo    string    `json:"titulo"`
-	Autor     string    `json:"autor"`
-	PorAgente bool      `json:"por_agente"`
-	Hecho     bool      `json:"hecho,omitempty"`
-	Etiquetas []string  `json:"etiquetas,omitempty"`
-	Cambio    time.Time `json:"actualizado"`
-	Inicio    string    `json:"inicio"` // the body's first characters
+	ID         int64     `json:"id"`
+	Tipo       string    `json:"tipo"`
+	Titulo     string    `json:"titulo"`
+	Autor      string    `json:"autor"`
+	PorAgente  bool      `json:"por_agente"`
+	Hecho      bool      `json:"hecho,omitempty"`
+	Etiquetas  []string  `json:"etiquetas,omitempty"`
+	App        string    `json:"app,omitempty"`        // the app it is about
+	Descartado string    `json:"descartado,omitempty"` // why it was set aside
+	Cambio     time.Time `json:"actualizado"`
+	Inicio     string    `json:"inicio"` // the body's first characters
 }
 
 // Entry is a full entry.
@@ -282,14 +286,19 @@ type anotarIn struct {
 	Titulo    string   `json:"titulo" jsonschema:"título corto"`
 	Cuerpo    string   `json:"cuerpo" jsonschema:"el contenido, en Markdown; en una decisión, incluya el porqué"`
 	Etiquetas []string `json:"etiquetas,omitempty" jsonschema:"palabras para encontrarla, p. ej. el nombre de una aplicación"`
+	App       string   `json:"app,omitempty" jsonschema:"la aplicación de la que trata, si es de una: la entrada sale en su libreta"`
+	Rama      string   `json:"rama,omitempty" jsonschema:"la rama en que se trabaja, si ya hay una: su estado sale de sus ejecuciones, su integración y su versión"`
 }
 
 type actualizarIn struct {
-	ID        int64     `json:"id" jsonschema:"el número de la entrada"`
-	Titulo    *string   `json:"titulo,omitempty" jsonschema:"título nuevo"`
-	Cuerpo    *string   `json:"cuerpo,omitempty" jsonschema:"contenido nuevo (reemplaza al anterior, que se conserva en el historial)"`
-	Etiquetas *[]string `json:"etiquetas,omitempty" jsonschema:"etiquetas nuevas"`
-	Hecho     *bool     `json:"hecho,omitempty" jsonschema:"en un pendiente: true cuando quedó hecho"`
+	ID         int64     `json:"id" jsonschema:"el número de la entrada"`
+	Titulo     *string   `json:"titulo,omitempty" jsonschema:"título nuevo"`
+	Cuerpo     *string   `json:"cuerpo,omitempty" jsonschema:"contenido nuevo (reemplaza al anterior, que se conserva en el historial)"`
+	Etiquetas  *[]string `json:"etiquetas,omitempty" jsonschema:"etiquetas nuevas"`
+	Hecho      *bool     `json:"hecho,omitempty" jsonschema:"en un pendiente: true cuando quedó hecho"`
+	App        *string   `json:"app,omitempty" jsonschema:"la aplicación de la que trata; vacío para ninguna"`
+	Rama       string    `json:"rama,omitempty" jsonschema:"una rama más en que se trabaja (las anteriores siguen ligadas)"`
+	Descartado *string   `json:"descartado,omitempty" jsonschema:"por qué se deja de lado (sale como descartado en la libreta); vacío para retomarla"`
 }
 
 type entregarIn struct {
@@ -306,7 +315,7 @@ func summary(e store.RutaEntry) Summary {
 		start = string(r[:200]) + "…"
 	}
 	return Summary{ID: e.ID, Tipo: e.Kind, Titulo: e.Title, Autor: e.Author, PorAgente: e.ByAgent, Hecho: e.Done,
-		Etiquetas: e.Tags, Cambio: e.UpdatedAt, Inicio: start}
+		Etiquetas: e.Tags, App: e.App, Descartado: e.Discarded, Cambio: e.UpdatedAt, Inicio: start}
 }
 
 // summaries is summary for each entry.
@@ -403,8 +412,8 @@ func (s *Server) newServer(write, ingles bool) *mcp.Server {
 	addTool(s, srv, &mcp.Tool{Name: "ruta_leer", Description: "Lee una entrada completa de la Ruta por su número."}, s.leer)
 	if write {
 		addTool(s, srv, &mcp.Tool{Name: "cargo_tomar", Description: "Toma un cargo (un turno de trabajo) con su propósito. Hace falta para escribir. Devuelve las últimas entregas para que sepa dónde quedó quien estuvo antes."}, s.tomar)
-		addTool(s, srv, &mcp.Tool{Name: "ruta_anotar", Description: "Anota una entrada nueva: una decisión (con su porqué), un manual, un pendiente o una nota. Nunca incluya secretos. Necesita un cargo abierto."}, s.anotar)
-		addTool(s, srv, &mcp.Tool{Name: "ruta_actualizar", Description: "Cambia una entrada (título, cuerpo, etiquetas, o marca un pendiente como hecho). La versión anterior se conserva. Lo vivido no se puede cambiar desde aquí. Necesita un cargo abierto."}, s.actualizar)
+		addTool(s, srv, &mcp.Tool{Name: "ruta_anotar", Description: "Anota una entrada nueva: una decisión (con su porqué), un manual, un pendiente o una nota. Con app, la entrada trata de esa aplicación y sale en su libreta; con rama, la rama en que se trabaja, cuyas ejecuciones, integración y versión dan su estado. Nunca incluya secretos. Necesita un cargo abierto."}, s.anotar)
+		addTool(s, srv, &mcp.Tool{Name: "ruta_actualizar", Description: "Cambia una entrada (título, cuerpo, etiquetas, su aplicación, o marca un pendiente como hecho), le liga una rama más (rama) o la deja de lado con su porqué (descartado). La versión anterior se conserva. Lo vivido no se puede cambiar desde aquí. Necesita un cargo abierto."}, s.actualizar)
 		addTool(s, srv, &mcp.Tool{Name: "cargo_entregar", Description: "Entrega su cargo antes de irse: qué hizo y qué queda pendiente, para quien siga."}, s.entregar)
 	}
 	if s.Mercado != nil {
@@ -646,10 +655,23 @@ func (s *Server) anotar(ctx context.Context, k store.AgentKey, in anotarIn) (Ent
 	if err := checkText(in.Titulo, in.Cuerpo, tags); err != nil {
 		return Entry{}, err
 	}
-	e, err := s.Store.AddRuta(ctx, store.RutaEntry{Kind: in.Tipo, Title: strings.TrimSpace(in.Titulo), Body: in.Cuerpo, Tags: tags,
-		Author: k.Name, ByAgent: true, CargoID: &c.ID, OrgID: k.OrgID})
+	app, err := s.appOfEntry(ctx, k, in.App)
 	if err != nil {
 		return Entry{}, err
+	}
+	rama, err := checkRama(in.Rama, app)
+	if err != nil {
+		return Entry{}, err
+	}
+	e, err := s.Store.AddRuta(ctx, store.RutaEntry{Kind: in.Tipo, Title: strings.TrimSpace(in.Titulo), Body: in.Cuerpo, Tags: tags,
+		Author: k.Name, ByAgent: true, CargoID: &c.ID, OrgID: k.OrgID, App: app})
+	if err != nil {
+		return Entry{}, err
+	}
+	if rama != "" {
+		if err := s.Store.LinkRutaBranch(ctx, e.ID, rama, k.Name); err != nil {
+			return Entry{}, err
+		}
 	}
 	return Entry{Summary: summary(e), Cuerpo: e.Body}, nil
 }
@@ -685,6 +707,28 @@ func (s *Server) actualizar(ctx context.Context, k store.AgentKey, in actualizar
 		}
 		e.Done = *in.Hecho
 	}
+	if e.App != "" && !k.AllowsApp(e.App) {
+		return Entry{}, fmt.Errorf("esta llave no tiene acceso a la aplicación %s", e.App)
+	}
+	if in.App != nil {
+		if e.App, err = s.appOfEntry(ctx, k, *in.App); err != nil {
+			return Entry{}, err
+		}
+	}
+	if in.Descartado != nil {
+		d := strings.TrimSpace(*in.Descartado)
+		if len([]rune(d)) > maxTitle*5 {
+			return Entry{}, fmt.Errorf("el porqué pasa de %d caracteres", maxTitle*5)
+		}
+		if LooksSecret(d) {
+			return Entry{}, errSecret
+		}
+		e.Discarded = d
+	}
+	rama, err := checkRama(in.Rama, e.App)
+	if err != nil {
+		return Entry{}, err
+	}
 	if err := checkText(e.Title, e.Body, e.Tags); err != nil {
 		return Entry{}, err
 	}
@@ -692,7 +736,51 @@ func (s *Server) actualizar(ctx context.Context, k store.AgentKey, in actualizar
 	if err != nil {
 		return Entry{}, err
 	}
+	if rama != "" {
+		if err := s.Store.LinkRutaBranch(ctx, e.ID, rama, k.Name); err != nil {
+			return Entry{}, err
+		}
+	}
 	return Entry{Summary: summary(e), Cuerpo: e.Body}, nil
+}
+
+// appOfEntry is the app an entry is to be about: "" for none; else one the
+// key may see, by its own name when the platform's tools are on.
+func (s *Server) appOfEntry(ctx context.Context, k store.AgentKey, name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", nil
+	}
+	if s.Plataforma == nil {
+		if !k.AllowsApp(name) {
+			return "", fmt.Errorf("esta llave no tiene acceso a la aplicación %s", name)
+		}
+		return name, nil
+	}
+	a, err := s.appFor(ctx, k, name)
+	if err != nil {
+		return "", err
+	}
+	return a.Name, nil
+}
+
+// branchName is what a branch's name may be: no spaces, at most 200
+// characters, as git allows them.
+var branchName = regexp.MustCompile(`^[A-Za-z0-9._/-]{1,200}$`)
+
+// checkRama tidies a branch to link to an entry: it needs the entry to be
+// about an app, and a name git would take.
+func checkRama(rama, app string) (string, error) {
+	rama = strings.TrimSpace(rama)
+	switch {
+	case rama == "":
+		return "", nil
+	case app == "":
+		return "", errors.New("para ligar una rama, diga también de qué aplicación es la entrada (app)")
+	case !branchName.MatchString(rama) || strings.Contains(rama, ".."):
+		return "", fmt.Errorf("%q no parece el nombre de una rama", rama)
+	}
+	return rama, nil
 }
 
 // entregar (cargo_entregar) closes the agent's cargo with what it did and

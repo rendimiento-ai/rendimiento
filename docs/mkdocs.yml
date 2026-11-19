@@ -90,6 +90,7 @@ plugins:
             Declared fixes (lockfiles and go.sum): Arreglos declarados (archivos de bloqueo y go.sum)
             Reliability (uptime and charts): Confiabilidad (disponibilidad y gráficas)
             Roads (branches as caminos): Caminos (las ramas como veredas)
+            The libreta (what was asked for each app, and whether it is done): La libreta (lo que se pidió para cada aplicación, y si ya se hizo)
             Notifications (email): Notificaciones (correo)
             Problems (what went wrong in the platform): Problemas (lo que salió mal en la plataforma)
             The log (every line of the platform, in one place): El registro (cada línea de la plataforma, en un solo lugar)
@@ -193,6 +194,7 @@ nav:
       - Declared fixes (lockfiles and go.sum): guide/fixes.md
       - Reliability (uptime and charts): guide/reliability.md
       - Roads (branches as caminos): guide/caminos.md
+      - The libreta (what was asked for each app, and whether it is done): guide/libreta.md
       - Visits (Umami): guide/visits.md
       - The Mercado (pages without code): guide/mercado.md
       - Notifications (email): guide/notifications.md

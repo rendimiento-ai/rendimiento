@@ -49,6 +49,7 @@ import (
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/i18n"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
+	"github.com/rendimiento-ai/rendimiento/internal/libreta"
 	"github.com/rendimiento-ai/rendimiento/internal/logarchive"
 	"github.com/rendimiento-ai/rendimiento/internal/mercado"
 	"github.com/rendimiento-ai/rendimiento/internal/mesa"
@@ -919,6 +920,10 @@ func (m plataformaMCP) CancelRun(ctx context.Context, id int64) error { return m
 
 func (m plataformaMCP) Mesa(ctx context.Context, a *store.App) (mesa.Board, error) {
 	return m.p.Mesa(ctx, a)
+}
+
+func (m plataformaMCP) Libreta(ctx context.Context, a *store.App) (libreta.Libreta, error) {
+	return m.p.Libreta(ctx, a)
 }
 
 func (m plataformaMCP) RetryRun(ctx context.Context, id int64) (*store.Run, error) {

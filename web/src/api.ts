@@ -333,6 +333,9 @@ export interface RutaEntry {
   cargoId?: number;
   createdAt: string;
   updatedAt: string;
+  /** The app it is about (its libreta shows it), and why it was set aside. */
+  app?: string;
+  discarded?: string;
 }
 
 export interface RutaInput {
@@ -341,6 +344,9 @@ export interface RutaInput {
   body: string;
   tags: string[];
   done: boolean;
+  /** Left out, they stay as they are. */
+  app?: string;
+  discarded?: string;
 }
 
 export interface Cargo {
@@ -1092,6 +1098,42 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return (type.includes("json") ? res.json() : res.text()) as Promise<T>;
 }
 
+// ---- the libreta: what was asked for an app and whether it is done (libreta.Libreta) ----
+
+/** A line's state, computed by rendimiento (libreta.*): never set by hand. */
+export type LibretaStatus = "pedido" | "en_curso" | "listo" | "integrado" | "publicado" | "esperando" | "descartado" | "hecho";
+
+/** One line of an app's libreta: a Ruta entry, an encargo, a pull request of Renovate's, or the app's own tests. */
+export interface LibretaItem {
+  source: "ruta" | "encargo" | "renovate" | "pruebas";
+  id: number;
+  kind?: string;
+  title: string;
+  by?: string;
+  byAgent?: boolean;
+  agent?: string;
+  status: LibretaStatus;
+  why?: string;
+  reason?: string;
+  cargo?: number;
+  branch?: string;
+  pull?: number;
+  run?: number;
+  runStatus?: string;
+  failed?: string[];
+  release?: number;
+  at: string;
+  doneAt?: string;
+  progress?: { done: number; of: number };
+  tests?: string[];
+}
+
+export interface Libreta {
+  defaultBranch: string;
+  items: LibretaItem[];
+  github: boolean;
+}
+
 // ---- caminos: an app's branches as roads (the Caminos tab) ----
 
 /** One run, as a stop on the road. */
@@ -1320,6 +1362,8 @@ export const api = {
   caminos: (app: string) => request<Caminos>("GET", `/api/apps/${app}/caminos`),
   branchKinds: (app: string) => request<BranchKinds>("GET", `/api/apps/${app}/branch-kinds`),
   mesa: (app: string) => request<Mesa>("GET", `/api/apps/${app}/mesa`),
+  libreta: (app: string) => request<Libreta>("GET", `/api/apps/${app}/libreta`),
+  anotarPedido: (app: string, p: { title: string; body: string }) => request<RutaEntry>("POST", `/api/apps/${app}/libreta`, p),
   closeSpare: (app: string, branch: string) => request<void>("POST", `/api/apps/${app}/mesa/close`, { branch }),
   mesaCounts: () => request<{ app: string; you: number }[]>("GET", "/api/mesa"),
   triggerRun: (app: string, branch?: string) => request<Run>("POST", `/api/apps/${app}/runs`, { branch }),

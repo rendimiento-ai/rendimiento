@@ -176,11 +176,14 @@ func argsApp(raw string) string {
 	return ""
 }
 
-// rutaAboutHidden says whether a Ruta entry is tagged with an app the
+// rutaAboutHidden says whether a Ruta entry is about (or tagged with) an app the
 // person may not see (a known failure of it, say): the Ruta is the
 // organization's, but what it says of an app is that app's.
 func rutaAboutHidden(acc store.AppAccess, e store.RutaEntry) bool {
 	for _, n := range acc.Hidden() {
+		if e.App != "" && strings.EqualFold(e.App, n) {
+			return true
+		}
 		for _, t := range e.Tags {
 			if strings.EqualFold(t, n) {
 				return true

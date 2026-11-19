@@ -27,12 +27,12 @@ Todo por un mismo servidor MCP, en `https://<su rendimiento>/mcp`:
 | Herramienta | Hace | Función |
 |---|---|---|
 | `ruta_inicio`, `ruta_buscar`, `ruta_leer` | empezar por las últimas entregas y los pendientes; buscar y leer la Ruta | lector |
-| `apps_listar`, `app_estado` | las aplicaciones, con su última ejecución, su versión (y su verificación) y los problemas abiertos | lector |
+| `apps_listar`, `app_estado` | las aplicaciones, con su última ejecución, su versión (y su verificación) y los problemas abiertos; `app_estado` trae también la [libreta](libreta.md) de la aplicación | lector |
 | `mesa_leer` | la [mesa de trabajo](../start/tour.md#the-app-page) de una aplicación: cada rama, en qué va y a quién le toca; léala antes de abrir una rama nueva | lector |
 | `ejecucion_leer`, `paso_registro` | una ejecución con sus pasos y el final del registro de un paso: por qué falló algo | lector |
 | `solicitudes_listar`, `solicitud_leer` | las solicitudes guardadas y su [cascada](universe.md#following-one-request): en qué se le fue el tiempo a una solicitud lenta o fallida | lector |
 | `cargo_tomar`, `cargo_entregar` | tomar y entregar un turno de trabajo | colaborador |
-| `ruta_anotar`, `ruta_actualizar` | escribir decisiones, manuales, pendientes y notas | colaborador, con un cargo |
+| `ruta_anotar`, `ruta_actualizar` | escribir decisiones, manuales, pendientes y notas, de una aplicación (`app`) y su rama (`rama`) si lo son | colaborador, con un cargo |
 | `ejecucion_lanzar`, `ejecucion_cancelar`, `ejecucion_reintentar` | probar una rama en CI; cancelar una ejecución; [reintentar lo que falló](builds.md#retrying-what-failed) en la ejecución de una rama | colaborador, con un cargo |
 | `encargos_listar`, `encargo_leer` | el trabajo que se les pidió a los agentes, y un encargo con su historia | lector |
 | `encargo_crear`, `encargo_tomar`, `encargo_esperar`, `encargo_entregar`, `encargo_soltar` | dejar trabajo para después; tomar un encargo; esperar su ejecución; entregarlo; soltarlo | colaborador, con un cargo |

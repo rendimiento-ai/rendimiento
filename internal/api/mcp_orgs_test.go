@@ -13,6 +13,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/rendimiento-ai/rendimiento/internal/libreta"
 	"github.com/rendimiento-ai/rendimiento/internal/mercado"
 	"github.com/rendimiento-ai/rendimiento/internal/mesa"
 	"github.com/rendimiento-ai/rendimiento/internal/ruta"
@@ -50,6 +51,10 @@ func (p plataformaDePrueba) CancelRun(_ context.Context, id int64) error {
 
 func (p plataformaDePrueba) Mesa(ctx context.Context, a *store.App) (mesa.Board, error) {
 	return p.s.Platform.Mesa(ctx, a)
+}
+
+func (p plataformaDePrueba) Libreta(ctx context.Context, a *store.App) (libreta.Libreta, error) {
+	return p.s.Platform.Libreta(ctx, a)
 }
 
 func (p plataformaDePrueba) WaitRun(ctx context.Context, id int64) (*store.Run, error) {

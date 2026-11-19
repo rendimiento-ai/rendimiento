@@ -16,6 +16,10 @@ Lo vivido existe porque un agente solo sabe lo que alguien escribió, no lo que 
 
 No se pierde nada: una edición conserva la versión anterior, y *Archivar* esconde una entrada sin borrarla.
 
+## Entradas de una aplicación {#entries-about-an-app}
+
+Un pendiente o una decisión puede decir de qué **aplicación** trata (el campo opcional `app`). La Ruta sigue siendo una sola; la entrada simplemente sale también en la [libreta](libreta.md) de esa aplicación, la lista de lo que se pidió para ella y si ya se hizo. Una entrada de una aplicación puede nombrar las **ramas** en que se trabaja (`rama`), para que su estado salga de sus ejecuciones, su integración y su versión, y se puede **dejar de lado** con su porqué (`descartado`), que la libreta muestra como *descartado*. **Anotar un pedido**, en la pestaña Libreta de una aplicación, escribe un pendiente con la aplicación ya puesta. Una entrada de una aplicación que la persona no puede ver se le esconde, igual que una etiquetada con ella.
+
 ## Cargos: el turno de trabajo de un agente {#cargos-an-agents-turn-of-work}
 
 Un agente que quiere escribir primero **toma un cargo**: un turno de trabajo con un propósito ("mudar la base de datos de stockpulse"). Todo lo que escribe pertenece a ese cargo. Antes de irse, **entrega el cargo**: qué hizo y qué falta. El siguiente agente empieza leyendo las últimas entregas. La pestaña **Cargos** las muestra como el vuelo de las monarcas, una tras otra, con cada llamada a una herramienta anotada.
@@ -61,8 +65,8 @@ Las reglas y las descripciones de las herramientas vienen en el idioma de la pla
 | `ruta_buscar` | busca por texto y por tipo | cualquiera |
 | `ruta_leer` | una entrada completa | cualquiera |
 | `cargo_tomar` | toma un cargo con un propósito | colaborador |
-| `ruta_anotar` | agrega una decisión, un manual, un pendiente o una nota | colaborador, con cargo |
-| `ruta_actualizar` | cambia una entrada, o marca un pendiente como hecho | colaborador, con cargo |
+| `ruta_anotar` | agrega una decisión, un manual, un pendiente o una nota; con `app`, de esa aplicación (sale en su libreta), y con `rama`, la rama en que se trabaja | colaborador, con cargo |
+| `ruta_actualizar` | cambia una entrada o su `app`, marca un pendiente como hecho, liga una rama más (`rama`) o la deja de lado con su porqué (`descartado`) | colaborador, con cargo |
 | `cargo_entregar` | entrega el cargo | colaborador, con cargo |
 | `comentarios_leer` | los comentarios de un cargo o un encargo, con las respuestas de los agentes | cualquiera |
 | `comentario_responder` | responde al comentario de una persona | colaborador, con cargo |

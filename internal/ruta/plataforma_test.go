@@ -11,6 +11,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/rendimiento-ai/rendimiento/internal/libreta"
 	"github.com/rendimiento-ai/rendimiento/internal/mesa"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
@@ -119,6 +120,18 @@ func (f *fakePlataforma) Mesa(_ context.Context, a *store.App) (mesa.Board, erro
 		Encargos: []mesa.LineEncargo{{ID: 3}}}}}, nil
 }
 
+func (f *fakePlataforma) Libreta(_ context.Context, a *store.App) (libreta.Libreta, error) {
+	done := time.Now().Add(-time.Hour)
+	return libreta.Libreta{GitHub: true, Items: []libreta.Item{
+		{Source: libreta.FromRuta, ID: 5, Title: "Que el arreglo se dispare desde el botón", Status: libreta.EnCurso, Why: libreta.WhyRunning, Branch: "arreglo", Run: 99},
+		{Source: libreta.FromPruebas, Status: libreta.Esperando, Why: libreta.WhyTests, Tests: []string{"vuelve"}, Progress: &libreta.Progress{Done: 1, Of: 5}},
+		{Source: libreta.FromRenovate, ID: 17, Title: "Spring Boot 4", Status: libreta.Publicado, Pull: 17, Release: 70, DoneAt: &done},
+		{Source: libreta.FromEncargo, ID: 3, Title: "viejo", Status: libreta.Hecho, DoneAt: ptrTime(time.Now().AddDate(0, 0, -30))},
+	}}, nil
+}
+
+func ptrTime(t time.Time) *time.Time { return &t }
+
 func (f *fakePlataforma) RetryRun(_ context.Context, id int64) (*store.Run, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -203,6 +216,14 @@ func TestPlataformaTools(t *testing.T) {
 	if msg != "" || len(out["servicios"].([]any)) != 1 || len(out["problemas"].([]any)) != 1 {
 		t.Fatalf("estado = %v %s", out, msg)
 	}
+	// Its libreta: what is open, and what was done this week (not before).
+	lib, _ := out["libreta"].(map[string]any)
+	abiertos, _ := lib["abiertos"].([]any)
+	hechos, _ := lib["hechos_semana"].([]any)
+	if len(abiertos) != 2 || len(hechos) != 1 || abiertos[0].(map[string]any)["estado"] != "en_curso" ||
+		abiertos[1].(map[string]any)["progreso"] != "1 de 5 versiones limpias" || hechos[0].(map[string]any)["version"] != float64(70) {
+		t.Fatalf("libreta = %v", lib)
+	}
 	out, msg = call(t, col, "ejecucion_leer", map[string]any{"id": 10})
 	if msg != "" || out["estado"] != store.RunFailed || out["commit"] != "1234567" {
 		t.Fatalf("run = %v %s", out, msg)
@@ -238,6 +259,30 @@ func TestPlataformaTools(t *testing.T) {
 		t.Fatalf("retry = %v %s", out, msg)
 	}
 
+	// An entry about an app, with the branch it is worked on, goes to the
+	// app's libreta; the app must exist, and a branch needs an app.
+	out, msg = call(t, col, "ruta_anotar", map[string]any{"tipo": "pendiente", "titulo": "Que el arreglo se dispare desde el botón", "cuerpo": "x", "app": "shop", "rama": "arreglo"})
+	if msg != "" || out["app"] != "shop" {
+		t.Fatalf("anotar with app = %v %s", out, msg)
+	}
+	id := int64(out["id"].(float64))
+	if got := m.ramas[id]; len(got) != 1 || got[0] != "arreglo" {
+		t.Fatalf("linked branches = %v", got)
+	}
+	if _, msg := call(t, col, "ruta_anotar", map[string]any{"tipo": "pendiente", "titulo": "x", "cuerpo": "y", "app": "nadie"}); !strings.Contains(msg, "no existe") {
+		t.Fatalf("an unknown app: %q", msg)
+	}
+	if _, msg := call(t, col, "ruta_anotar", map[string]any{"tipo": "pendiente", "titulo": "x", "cuerpo": "y", "rama": "suelta"}); !strings.Contains(msg, "app") {
+		t.Fatalf("a branch with no app: %q", msg)
+	}
+	out, msg = call(t, col, "ruta_actualizar", map[string]any{"id": id, "rama": "otra-rama", "descartado": "Maven no tiene lockfile"})
+	if msg != "" || out["descartado"] != "Maven no tiene lockfile" || len(m.ramas[id]) != 2 {
+		t.Fatalf("actualizar = %v %s %v", out, msg, m.ramas[id])
+	}
+	if out, msg = call(t, col, "ruta_actualizar", map[string]any{"id": id, "app": "", "descartado": ""}); msg != "" || out["app"] != nil || out["descartado"] != nil {
+		t.Fatalf("clearing app and descartado = %v %s", out, msg)
+	}
+
 	// A key limited to shop sees and acts on shop only.
 	shop := session("solo-shop")
 	out, _ = call(t, shop, "apps_listar", map[string]any{})
@@ -253,5 +298,9 @@ func TestPlataformaTools(t *testing.T) {
 	}
 	if _, msg := call(t, shop, "solicitud_leer", map[string]any{"id": "t2"}); !strings.Contains(msg, "no tiene acceso") {
 		t.Fatalf("another app's request: %q", msg)
+	}
+	call(t, shop, "cargo_tomar", map[string]any{"proposito": "Anotar en blog"})
+	if _, msg := call(t, shop, "ruta_anotar", map[string]any{"tipo": "nota", "titulo": "x", "cuerpo": "y", "app": "blog"}); !strings.Contains(msg, "no tiene acceso") {
+		t.Fatalf("an entry about another app: %q", msg)
 	}
 }
