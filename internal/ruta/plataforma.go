@@ -490,7 +490,8 @@ func (s *Server) solicitudLeer(ctx context.Context, k store.AgentKey, in solicit
 // ejecucionLanzar (ejecucion_lanzar) queues a run of a branch other than
 // the default one: agents test; deploying stays with people.
 func (s *Server) ejecucionLanzar(ctx context.Context, k store.AgentKey, in lanzarIn) (Corrida, error) {
-	if _, err := s.cargoFor(ctx, k); err != nil {
+	c, err := s.cargoFor(ctx, k)
+	if err != nil {
 		return Corrida{}, err
 	}
 	a, err := s.appFor(ctx, k, in.App)
@@ -510,6 +511,11 @@ func (s *Server) ejecucionLanzar(ctx context.Context, k store.AgentKey, in lanza
 	}
 	if r == nil {
 		return Corrida{}, fmt.Errorf("no se puso en cola: la rama %s no tiene un rendimiento.yaml válido", branch)
+	}
+	// The branch answers what the agent wrote or changed about the app in
+	// this cargo: its libreta shows it on that branch.
+	if _, err := s.Store.LinkCargoEntries(ctx, c.ID, k.OrgID, a.Name, branch, k.Name); err != nil {
+		s.Log.Warn("libreta: link the cargo's entries", "app", a.Name, "branch", branch, "err", err)
 	}
 	return corrida(r, a.Name), nil
 }

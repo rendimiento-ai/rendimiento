@@ -33,7 +33,7 @@ Todo por un mismo servidor MCP, en `https://<su rendimiento>/mcp`:
 | `solicitudes_listar`, `solicitud_leer` | las solicitudes guardadas y su [cascada](universe.md#following-one-request): en qué se le fue el tiempo a una solicitud lenta o fallida | lector |
 | `cargo_tomar`, `cargo_entregar` | tomar y entregar un turno de trabajo | colaborador |
 | `ruta_anotar`, `ruta_actualizar` | escribir decisiones, manuales, pendientes y notas, de una aplicación (`app`) y su rama (`rama`) si lo son | colaborador, con un cargo |
-| `ejecucion_lanzar`, `ejecucion_cancelar`, `ejecucion_reintentar` | probar una rama en CI; cancelar una ejecución; [reintentar lo que falló](builds.md#retrying-what-failed) en la ejecución de una rama | colaborador, con un cargo |
+| `ejecucion_lanzar`, `ejecucion_cancelar`, `ejecucion_reintentar` | probar una rama en CI (la rama se liga a los pendientes y las decisiones de la aplicación escritos en el mismo cargo: [la libreta](libreta.md#which-branches-belong-to-a-request)); cancelar una ejecución; [reintentar lo que falló](builds.md#retrying-what-failed) en la ejecución de una rama | colaborador, con un cargo |
 | `encargos_listar`, `encargo_leer` | el trabajo que se les pidió a los agentes, y un encargo con su historia | lector |
 | `encargo_crear`, `encargo_tomar`, `encargo_esperar`, `encargo_entregar`, `encargo_soltar` | dejar trabajo para después; tomar un encargo; esperar su ejecución; entregarlo; soltarlo | colaborador, con un cargo |
 | `mercado_*` | leer y editar páginas del [Mercado](mercado.md) | lector / colaborador |

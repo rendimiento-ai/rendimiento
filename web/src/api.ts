@@ -1389,6 +1389,8 @@ export const api = {
   mesa: (app: string) => request<Mesa>("GET", `/api/apps/${app}/mesa`),
   libreta: (app: string) => request<Libreta>("GET", `/api/apps/${app}/libreta`),
   anotarPedido: (app: string, p: { title: string; body: string }) => request<RutaEntry>("POST", `/api/apps/${app}/libreta`, p),
+  /** Sets a request of the libreta aside with its reason; an empty reason takes it up again. */
+  descartarPedido: (app: string, id: number, reason: string) => request<RutaEntry>("POST", `/api/apps/${app}/libreta/${id}/discard`, { reason }),
   closeSpare: (app: string, branch: string) => request<void>("POST", `/api/apps/${app}/mesa/close`, { branch }),
   mesaCounts: () => request<{ app: string; you: number }[]>("GET", "/api/mesa"),
   triggerRun: (app: string, branch?: string) => request<Run>("POST", `/api/apps/${app}/runs`, { branch }),

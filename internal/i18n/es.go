@@ -709,6 +709,7 @@ var catalog = map[string]string{
 	"rendimiento.yaml writes fixes: on one line; add the fix by hand": "rendimiento.yaml escribe fixes: en una sola línea; agregue el arreglo a mano",
 	"rendimiento.yaml writes fixes: in a way rendimiento cannot add to; add the fix by hand": "rendimiento.yaml escribe fixes: de una forma en la que rendimiento no puede agregar; agregue el arreglo a mano",
 	"why it was set aside must be up to 1,000 characters, with no secrets": "el porqué de dejarla de lado debe tener hasta 1,000 caracteres, sin secretos",
+	"only a to-do or a decision is set aside here": "aquí solo se descarta un pendiente o una decisión",
 	// En seco: a branch's checks against the published release (internal/platform/enseco.go).
 	"no release is published yet: the checks run en seco once there is one": "aún no hay una versión publicada: las pruebas correrán en seco cuando la haya",
 	"this branch changes the app too: its checks do not run en seco against the published release": "esta rama también cambia la aplicación: sus pruebas no corren en seco contra la versión publicada",

@@ -28,30 +28,39 @@ Nadie marca un estado a mano: rendimiento lo calcula cada vez con lo que ya sabe
 Y dos aparte:
 
 - **Esperando**: depende de algo que todavía no pasa. Un encargo entregado espera su revisión; una rama que pasó espera mientras GitHub no la deje integrar (una revisión o una comprobación obligatoria); las pruebas propias de la aplicación esperan versiones limpias seguidas.
-- **Descartado**: se dejó de lado, con su porqué. Un encargo cancelado, con la nota con que se canceló; una entrada de la Ruta dejada de lado con su porqué (`descartado` en `ruta_actualizar`, o `discarded` desde la API); una solicitud de Renovate cerrada sin integrarse.
+- **Descartado**: se dejó de lado, con su porqué. Un encargo cancelado, con la nota con que se canceló; una entrada de la Ruta dejada de lado con su porqué (**Descartar** en su tarjeta, `descartado` en `ruta_actualizar`, o `discarded` desde la API); una solicitud de Renovate cerrada sin integrarse.
 
 Un pendiente marcado en la Ruta, una decisión o un encargo aceptado, sin rama que diga más, queda **Hecho**.
 
 ### Qué ramas son de un pedido {#which-branches-belong-to-a-request}
 
-- Una entrada de la Ruta: las ramas que tiene ligadas (`rama` en `ruta_anotar` o `ruta_actualizar`; cada nueva se agrega).
+- Una entrada de la Ruta: las ramas que tiene ligadas. Una rama se liga de tres maneras, y cada nueva se agrega:
+    - **Una línea al pie de una confirmación**: `Ruta: 150` en cualquier confirmación que se suba a la rama (también `Ruta: #150`, o varios números separados por comas: `Ruta: 150, 151`). Cuando llega el aviso de GitHub de la subida, la rama se liga a esas entradas si existen, son de la organización y tratan de la aplicación del repositorio (o de ninguna; la línea nunca le pone la aplicación). La rama principal nunca se liga así.
+    - **A mano**: `rama` en `ruta_anotar` o `ruta_actualizar`.
+    - **Por el cargo de un agente**: una rama que un agente ejecuta con `ejecucion_lanzar` se liga a los pendientes y las decisiones de esa aplicación que escribió o cambió en el mismo cargo, antes o después de la ejecución (no a los descartados). Es la única forma en que rendimiento sabe qué rama subió un agente: un `git push` no lleva la llave de ningún agente.
 - Un encargo: la rama que el agente de código le pone (`feature/encargo-<n>-…`), la rama de su ejecución, y las ramas y solicitudes de sus enlaces. Una rama cuenta en cuanto rendimiento la ha visto (una ejecución o una solicitud).
 
 Cuando un pedido tiene varias ramas, habla por él la que va más adelante.
+
+### Lo que se guarda {#what-is-kept}
+
+Cuando rendimiento ve integrada una rama ligada (la integró él, o el aviso de GitHub dice que se integró su solicitud), anota en el enlace la confirmación que se integró y cuándo. Cuando una versión pasa su verificación (o no la necesita), la anota en los enlaces integrados de la aplicación que ninguna versión había llevado, si su ejecución vino después de la integración. Una integración o una versión que la libreta deduce de las ejecuciones y de GitHub, y que no estaba guardada, también se anota la primera vez que se muestra. Lo guardado habla primero, así que un pedido publicado hace mucho sigue diciendo adónde fue aunque sus ejecuciones ya pasen de los 60 días que lee la libreta.
 
 ## Qué se ve {#what-you-see}
 
 - **Abiertos**, **Hechos** y **Todos**: los pedidos abiertos con cuánto ha avanzado cada uno (pedido, su rama, integrado, publicado) y sus enlaces (su entrada de la Ruta o su encargo, el cargo, la rama, la solicitud y la ejecución); lo que se hizo esta semana con su integración y la versión en que salió; y lo descartado, con su porqué.
 - **Esta semana**: cuántos se hicieron, cuántos siguen abiertos y cuántos se dejaron de lado.
+- **Descartar**, en cada tarjeta abierta que viene de la Ruta (para colaboradores): pide el porqué en la tarjeta misma y deja la entrada de lado en la Ruta, con la versión anterior en su historial. Una descartada tiene **Retomar**. Los encargos se cancelan desde su propia página, y las solicitudes de Renovate en GitHub.
 - En el teléfono va en una sola columna, y el camino de cada pedido es una barra de cuatro pasos.
 
 ## Para los agentes {#for-agents}
 
-`app_estado` trae la libreta en su campo `libreta`: `abiertos`, `hechos_semana` (lo hecho en los últimos siete días) y `descartados_semana`, cada renglón con su `fuente` (ruta, encargo, renovate, pruebas), su `estado` (pedido, en_curso, listo, integrado, publicado, esperando, descartado, hecho), su `porque`, y su rama, solicitud, ejecución y versión. Un agente que trabaja en una aplicación ve de un vistazo qué falta ahí. Cambia un estado haciendo el trabajo (una rama, una ejecución, una integración), nunca marcándolo.
+`app_estado` trae la libreta en su campo `libreta`: `abiertos`, `hechos_semana` (lo hecho en los últimos siete días) y `descartados_semana`, cada renglón con su `fuente` (ruta, encargo, renovate, pruebas), su `estado` (pedido, en_curso, listo, integrado, publicado, esperando, descartado, hecho), su `porque`, y su rama, solicitud, ejecución y versión. Un agente que trabaja en una aplicación ve de un vistazo qué falta ahí. Cambia un estado haciendo el trabajo (una rama, una ejecución, una integración), nunca marcándolo. Para atar su rama a la entrada que responde, agrega la línea `Ruta: N` al pie de una confirmación, o pasa `rama`.
 
 ## De dónde salen los datos {#where-the-data-comes-from}
 
 - Las entradas de la Ruta, sus ramas ligadas y los encargos salen de la base de datos de rendimiento. Se leen hasta 300 de cada uno.
+- Lo guardado de cada rama (su integración y su versión) va primero.
 - Las ejecuciones son las de los últimos 60 días, y las versiones las últimas 100 con su verificación; la versión en que salió una integración es la primera hecha por una ejecución de la rama principal creada después de la integración.
 - Las solicitudes de integración, y si la confirmación de una rama ya está en la rama principal, salen de GitHub, como en la [mesa de trabajo](../start/tour.md#the-app-page), y se recuerdan dos minutos. Si GitHub no responde, las integraciones se saben solo por las ejecuciones (las que integró rendimiento) y faltan las solicitudes de Renovate; la pestaña lo dice.
 
@@ -62,5 +71,7 @@ Cuando un pedido tiene varias ramas, habla por él la que va más adelante.
 | Los estados, calculados con los hechos | `internal/libreta` (`Build`) |
 | La lectura de los hechos | `platform.Libreta` |
 | Las entradas de una aplicación, sus ramas, los encargos de una aplicación | `store.RutaOfApp`, `store.RutaBranches`, `store.EncargosOfApp` (migración `0057_libreta.sql`) |
+| Ligar ramas solas | `platform.RutaRefs` (la línea al pie, en el aviso de subida), `store.LinkCargoEntries` y `store.LinkCargoLaunches` (el cargo) |
+| Lo que se guarda de una rama | `store.MarkRutaMerged`, `store.MarkRutaReleased`, `store.KeepRutaBranch` (migración `0058_libreta_firme.sql`) |
 | La pestaña | `web/src/components/libreta.tsx` |
-| La API | `GET` y `POST /api/apps/{app}/libreta` |
+| La API | `GET` y `POST /api/apps/{app}/libreta`; `POST /api/apps/{app}/libreta/{id}/discard` con `{"reason": "…"}` (vacío para retomarla) |

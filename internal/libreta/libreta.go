@@ -82,8 +82,18 @@ type Entry struct {
 	Discarded string // why it was set aside, "" while it stands
 	Cargo     int64
 	Branches  []string // the branches it is worked on
+	// Kept is what rendimiento wrote down of its branches when it saw
+	// them merged and released: it wins over what the runs say now.
+	Kept      map[string]Kept
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+// Kept is what was written down of a branch: when it was merged and the
+// release that carried it (0 while none has).
+type Kept struct {
+	MergedAt *time.Time
+	Release  int64
 }
 
 // Encargo is an encargo about the app.
@@ -257,7 +267,7 @@ func Build(in Input) Libreta {
 	items := []Item{}
 	for _, e := range in.Entries {
 		it := Item{Source: FromRuta, ID: e.ID, Kind: e.Kind, Title: e.Title, By: e.Author, ByAgent: e.ByAgent, Cargo: e.Cargo, At: e.CreatedAt}
-		bs, ok := b.best(e.Branches, true)
+		bs, ok := b.best(e.Branches, true, e.Kept)
 		for _, br := range e.Branches {
 			claimed[br] = true
 		}
@@ -295,7 +305,7 @@ func Build(in Input) Libreta {
 				branches = append(branches, p.Branch)
 			}
 		}
-		bs, ok := b.best(branches, false)
+		bs, ok := b.best(branches, false, nil)
 		for _, br := range branches {
 			if b.seen(br) {
 				claimed[br] = true
@@ -338,7 +348,7 @@ func Build(in Input) Libreta {
 		}
 		claimed[p.Branch] = true
 		it := Item{Source: FromRenovate, ID: int64(p.Number), Title: p.Title, By: p.Author, At: p.CreatedAt}
-		bs, _ := b.best([]string{p.Branch}, false)
+		bs, _ := b.best([]string{p.Branch}, false, nil)
 		b.apply(&it, bs)
 		if bs.status == Pedido { // closed without merging
 			it.Status, it.Why, it.DoneAt = Descartado, WhyClosed, p.ClosedAt
@@ -390,8 +400,9 @@ func (b *book) seen(branch string) bool {
 }
 
 // best is what the most advanced of the branches says (false when none is
-// known). A branch named by hand (explicit) counts even with no run yet.
-func (b *book) best(branches []string, explicit bool) (branchState, bool) {
+// known). A branch named by hand (explicit) counts even with no run yet;
+// what was kept of a branch counts before what its runs say now.
+func (b *book) best(branches []string, explicit bool, kept map[string]Kept) (branchState, bool) {
 	var out branchState
 	found := false
 	done := map[string]bool{}
@@ -400,10 +411,16 @@ func (b *book) best(branches []string, explicit bool) (branchState, bool) {
 			continue
 		}
 		done[br] = true
-		if !b.seen(br) && !explicit {
+		k, has := kept[br]
+		if !b.seen(br) && !explicit && !has {
 			continue
 		}
-		s := b.state(br)
+		var s branchState
+		if has && k.MergedAt != nil {
+			s = b.keptState(br, k)
+		} else {
+			s = b.state(br)
+		}
 		if !found || rank[s.status] > rank[out.status] || rank[s.status] == rank[out.status] && s.lastAt.After(out.lastAt) {
 			out, found = s, true
 		}
@@ -456,6 +473,25 @@ func (b *book) state(branch string) branchState {
 	default:
 		s.status, s.why = EnCurso, WhyFailed
 	}
+	return s
+}
+
+// keptState is what a branch says from what was written down of it: it
+// was merged then, and went out in its release, or (while none is kept)
+// in the one the releases now say.
+func (b *book) keptState(branch string, k Kept) branchState {
+	s := branchState{branch: branch, status: Integrado, why: WhyMerged, mergedAt: k.MergedAt, lastAt: *k.MergedAt}
+	if p := b.pulls[branch]; p != nil {
+		s.pull, s.closedAt = p.Number, p.ClosedAt
+	}
+	if r := b.runs[branch]; r != nil {
+		s.run = r
+	}
+	if k.Release != 0 {
+		s.status, s.why, s.release = Publicado, "", k.Release
+		return s
+	}
+	b.published(&s)
 	return s
 }
 

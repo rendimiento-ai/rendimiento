@@ -2785,6 +2785,9 @@ button.menu-cuenta-fila { width: 100%; border: 0; background: none; font: inheri
 .libreta-descartados { background: var(--surface); border: 1px dashed var(--border); border-radius: var(--radius); }
 .libreta-descartado { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 12px 18px; border-top: 1px dashed var(--border); }
 .libreta-descartado:first-child { border-top: 0; }
+.libreta-descartar, .libreta-retomar { justify-self: start; align-self: flex-start; min-height: 44px; }
+.libreta-retomar { margin-left: auto; }
+.libreta-descarte { border-top: 1px dashed var(--border); padding-top: 12px; max-width: 620px; }
 .libreta-tachado { flex: 1 1 260px; min-width: 0; color: var(--muted); text-decoration: line-through; overflow-wrap: anywhere; }
 .libreta-semana h2 { margin: 0 0 8px; font-size: 20px; }
 .libreta-cuentas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center; }
