@@ -1,0 +1,14 @@
+# Browser tests that ask for more than a browser's default (250m and 256Mi
+# requested, no CPU limit, 2Gi of memory): a size, as for a task, with
+# one of its limits raised.
+services:
+  - name: web
+    port: 3000
+    domain: tienda.example.com
+builds:
+  - name: e2e
+    path: e2e
+tests:
+  build: e2e
+  size: large
+  resources: { memoryLimit: 3Gi }

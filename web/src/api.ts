@@ -139,6 +139,8 @@ export interface AppTests {
   secretEnv?: Record<string, string>;
   blockingAfter?: number; // clean releases before a test may roll one back (5)
   timeout?: number;
+  size?: Size; // none: a browser's, 250m and 256Mi asked, no CPU limit, 2Gi
+  resources?: { cpu?: string; memory?: string; cpuLimit?: string; memoryLimit?: string };
 }
 
 /** A library: nothing of it runs or is built to keep, so a run tests it and there is nothing to deploy. */

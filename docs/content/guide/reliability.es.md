@@ -112,10 +112,11 @@ tests:
   # command: npx playwright test      (lo predeterminado)
   # url: https://tienda.example.com   (si no: el dominio del primer servicio, como BASE_URL)
   # blockingAfter: 5                  (versiones limpias antes de que una prueba pueda revertir una)
+  # size: large                       (y resources:, como en una tarea; vea abajo)
   secretEnv: { TEST_PASSWORD: tienda-pruebas/password }
 ```
 
-Cuando la versión ya está en vivo, corren como una tarea posterior al despliegue (`pruebas`), con un reintento, y cada prueba se juzga sola:
+Cuando la versión ya está en vivo, corren como una tarea posterior al despliegue (`pruebas`), con un reintento, y cada prueba se juzga sola. Un navegador necesita espacio, así que la tarea nunca corre sin recursos reservados: sin `size` pide lo mismo que la sección `test:` de una construcción, 250m de CPU y 256Mi de memoria, sin límite de CPU y con un límite de memoria de 2Gi (Chromium y sus procesos pasan de los 512Mi de `medium`, lo predeterminado de una tarea). `size` (`small`, `medium`, `large`) y `resources` (`cpu`, `memory`, `cpuLimit`, `memoryLimit`; un límite puede ser `none`) lo cambian como en una tarea:
 
 | Una prueba que… | cuando falla |
 |---|---|

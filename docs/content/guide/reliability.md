@@ -112,10 +112,11 @@ tests:
   # command: npx playwright test      (the default)
   # url: https://tienda.example.com   (default: the first service's domain, as BASE_URL)
   # blockingAfter: 5                  (clean releases before a test may roll one back)
+  # size: large                       (and resources:, as for a task; see below)
   secretEnv: { TEST_PASSWORD: tienda-pruebas/password }
 ```
 
-Once the release is live they run as a post-deploy task (`pruebas`), with one retry, and every test is judged on its own:
+Once the release is live they run as a post-deploy task (`pruebas`), with one retry, and every test is judged on its own. A browser needs room, so the task never runs best-effort: without a `size` it asks for what a build's `test:` section does, 250m of CPU and 256Mi of memory, with no CPU limit and a 2Gi memory limit (Chromium and its workers go past `medium`'s 512Mi, a task's default). `size` (`small`, `medium`, `large`) and `resources` (`cpu`, `memory`, `cpuLimit`, `memoryLimit`, a limit may be `none`) change it as for a task:
 
 | A test that is… | when it fails |
 |---|---|

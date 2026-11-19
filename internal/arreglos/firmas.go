@@ -82,3 +82,75 @@ func Covering(fixes []spec.Fix, stale Stale, dir string, recipesOnly bool) (spec
 	}
 	return best, found
 }
+
+// Found is a failed step whose log says a lockfile is stale, and the
+// step's folder.
+type Found struct {
+	Step   string
+	Folder string
+	Stale  Stale
+}
+
+// Match is a failed step and the declared fix that covers it.
+type Match struct {
+	Found
+	Fix spec.Fix
+}
+
+// Covered is, for each failed step, the declared fix that covers it (see
+// Covering), in the steps' order; steps no fix covers are left out.
+func Covered(found []Found, fixes []spec.Fix, recipesOnly bool) []Match {
+	var out []Match
+	for _, f := range found {
+		if fix, ok := Covering(fixes, f.Stale, f.Folder, recipesOnly); ok {
+			out = append(out, Match{Found: f, Fix: fix})
+		}
+	}
+	return out
+}
+
+// deeper reports whether folder a is deeper than b, and, at the same
+// depth, whether step a comes first: the same answer in any order.
+func deeper(a, b, stepA, stepB string) bool {
+	if da, db := depth(a), depth(b); da != db {
+		return da > db
+	}
+	if a != b {
+		return a < b
+	}
+	return stepA < stepB
+}
+
+func depth(dir string) int {
+	dir = path.Clean(dir)
+	if dir == "." {
+		return 0
+	}
+	return strings.Count(dir, "/") + 1
+}
+
+// Best is the one failed step a run's page offers to fix, whatever the
+// steps' order: of the steps a declared fix covers, the one with the
+// deepest fix (then the deepest folder); when no fix covers any, ok is
+// false and step is the one in the deepest folder, for the fix to declare.
+// found must not be empty.
+func Best(found []Found, fixes []spec.Fix, recipesOnly bool) (step Found, fix spec.Fix, ok bool) {
+	if ms := Covered(found, fixes, recipesOnly); len(ms) > 0 {
+		best := ms[0]
+		for _, m := range ms[1:] {
+			bp, mp := path.Clean(best.Fix.Path), path.Clean(m.Fix.Path)
+			if mp != bp && deeper(mp, bp, "", "") ||
+				mp == bp && deeper(m.Folder, best.Folder, m.Step, best.Step) {
+				best = m
+			}
+		}
+		return best.Found, best.Fix, true
+	}
+	best := found[0]
+	for _, f := range found[1:] {
+		if deeper(f.Folder, best.Folder, f.Step, best.Step) {
+			best = f
+		}
+	}
+	return best, spec.Fix{}, false
+}
