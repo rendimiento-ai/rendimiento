@@ -15,7 +15,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/rendimiento-ai/rendimiento/internal/arreglos"
-	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
 	"github.com/rendimiento-ai/rendimiento/internal/mezcla"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
@@ -597,7 +597,7 @@ func (j *job) fetchBig(ctx context.Context, p string) string {
 	}
 	f, err := j.c.Repos.FileAt(ctx, j.app.InstallationID, j.app.Repo, p, j.branch)
 	switch {
-	case gh.IsNotFound(err):
+	case forja.IsNotFound(err):
 		return ""
 	case err != nil:
 		return fmt.Sprintf("could not read %s: %v", p, err)
@@ -791,7 +791,7 @@ func (j *job) mergeDefault(ctx context.Context) (string, bool) {
 	}
 	read := func(p, ref string) ([]byte, bool, error) {
 		b, err := c.Repos.FileAt(ctx, inst, repo, p, ref)
-		if gh.IsNotFound(err) {
+		if forja.IsNotFound(err) {
 			return nil, false, nil
 		}
 		return b, err == nil, err

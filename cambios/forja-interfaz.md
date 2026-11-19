@@ -1,0 +1,1 @@
+- **Forjas:** nothing visible changes. Inside, everything rendimiento does with GitHub (each push's webhook, cloning, checks, pull requests and merging, sign-in) now goes through one interface, `internal/forja`, with GitHub as its only implementation, so GitLab and Bitbucket can come next (Ruta 102).

@@ -8,7 +8,7 @@ import (
 	"testing/fstest"
 
 	"github.com/rendimiento-ai/rendimiento/internal/arreglos"
-	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
@@ -51,7 +51,7 @@ func TestRenovateFixOncePerCommit(t *testing.T) {
 	repos := &fixRepos{fakeGitHub: fake}
 	exec := &fixExec{}
 	p.Fixes = &arreglos.Service{Exec: exec, Repos: repos, Store: p.Store}
-	bot := gh.PullInfo{Number: 5}
+	bot := forja.Change{Number: 5}
 	bot.Head.Ref, bot.Head.Repo.FullName, bot.User.Type = "renovate/react", app.Repo, "Bot"
 	fake.mu.Lock()
 	fake.pulls = append(fake.pulls, bot)

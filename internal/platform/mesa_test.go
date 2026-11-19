@@ -6,7 +6,7 @@ import (
 	"slices"
 	"testing"
 
-	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -23,13 +23,13 @@ func TestCloseSpare(t *testing.T) {
 	if err := p.Store.CreateApp(ctx, a); err != nil {
 		t.Fatal(err)
 	}
-	pull := func(n int, branch string) gh.PullInfo {
-		var pr gh.PullInfo
+	pull := func(n int, branch string) forja.Change {
+		var pr forja.Change
 		pr.Number, pr.State, pr.Title = n, "open", branch
 		pr.Head.Ref, pr.Head.SHA, pr.Base.Ref = branch, "c1", "main"
 		return pr
 	}
-	fake.recent = []gh.PullInfo{pull(6, "una-copia"), pull(5, "una")}
+	fake.recent = []forja.Change{pull(6, "una-copia"), pull(5, "una")}
 
 	b, err := p.Mesa(ctx, a)
 	if err != nil {

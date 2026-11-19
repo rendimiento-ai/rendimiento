@@ -108,11 +108,12 @@ flowchart TB
     crd[api/v1alpha1] --> spec[internal/spec]
 ```
 
-- **Hasta abajo**, `internal/spec` (los tipos de `rendimiento.yaml`) y paquetes hoja pequeños (`dns`, `detect`, `events`, `github`) no dependen de nada nuestro.
+- **Hasta abajo**, `internal/spec` (los tipos de `rendimiento.yaml`) y paquetes hoja pequeños (`dns`, `detect`, `events`, `forja`) no dependen de nada nuestro; `github` solo depende de `forja`.
 - **`api/v1alpha1`** define los recursos personalizados (`App`, `Addon`), reutilizando los tipos de la especificación para que un `App` lleve exactamente lo que dice `rendimiento.yaml`.
 - **`render`** es puro: entran la especificación y las imágenes, salen objetos de Kubernetes. Sin entrada ni salida, lo que lo hace fácil de probar con archivos de referencia.
 - **`controller`** y **`pipeline`** hacen la entrada y salida contra Kubernetes.
-- **`platform`** une la integración continua, el almacén y GitHub.
+- **`platform`** une la integración continua, el almacén y la forja.
+- **`forja`** es donde vive el código de una aplicación, y lo que rendimiento hace ahí: enterarse de cada envío (un aviso web, verificado y leído), clonar con una ficha de vida corta, decir si una confirmación pasó (una verificación, también «una persona debe integrarla»), abrir e integrar cambios, e iniciar sesión. La plataforma, el aviso web y el inicio de sesión de la API, y el agente de código le hablan a ella; `github` la implementa (el `Holder`), y GitLab y Bitbucket están planeados a su lado. Conectar una forja se queda en su propio paquete, porque cada una lo hace a su manera: el manifiesto de la aplicación de GitHub, sus instalaciones y la ficha de Renovate son de GitHub.
 - **`destino`** es donde corren las versiones. La plataforma le pide crear una aplicación, aplicar una versión, correr sus tareas de despliegue, informar cómo va el despliegue y quitar la aplicación, y para la página de la aplicación, lo que corre para ella, sus secretos, un reinicio y lo que haría borrarla o desconectarla; la plataforma no sabe cómo lo hace. Kubernetes es el primer destino (escribe el objeto `App`, que el controlador despliega); `Local` las corre en una computadora, como contenedores de su motor detrás de un proxy en `<app>.localhost` (vea [En una computadora](../environment/deploy.md#on-one-computer)); un servidor por SSH y las nubes vienen después.
 - **`api`** es la capa más externa.
 

@@ -27,8 +27,8 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/destino"
 	"github.com/rendimiento-ai/rendimiento/internal/detect"
 	"github.com/rendimiento-ai/rendimiento/internal/events"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"github.com/rendimiento-ai/rendimiento/internal/generate"
-	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/rendimiento-ai/rendimiento/internal/notify"
@@ -39,31 +39,6 @@ import (
 
 	. "github.com/rendimiento-ai/rendimiento/internal/i18n" //nolint:revive // M marks messages for people
 )
-
-// GitHub is the subset of the GitHub App the platform needs; faked in tests.
-type GitHub interface {
-	FileAt(ctx context.Context, installation int64, repo, path, ref string) ([]byte, error)
-	RepoFS(ctx context.Context, installation int64, repo, ref string) (fs.FS, error)
-	OpenPR(ctx context.Context, installation int64, repo, base, branch, title, body string, files map[string]string) (*gh.PullRequest, error)
-	CreateCheck(ctx context.Context, installation int64, repo string, cr gh.CheckRun) (int64, error)
-	UpdateCheck(ctx context.Context, installation int64, repo string, id int64, cr gh.CheckRun) error
-	CloneToken(ctx context.Context, installation int64) (string, error)
-	ChangedFiles(ctx context.Context, installation int64, repo, base, head string) ([]string, bool, error)
-	BranchSHA(ctx context.Context, installation int64, repo, branch string) (string, error)
-	RecentPullRequests(ctx context.Context, installation int64, repo string) ([]gh.PullInfo, error)
-	OpenPulls(ctx context.Context, installation int64, repo string) ([]gh.PullInfo, error)
-	Pull(ctx context.Context, installation int64, repo string, number int) (*gh.PullInfo, error)
-	MergePull(ctx context.Context, installation int64, repo string, number int, sha string) error
-	DeleteBranch(ctx context.Context, installation int64, repo, branch string) error
-	ClosePull(ctx context.Context, installation int64, repo string, number int) error
-	Comment(ctx context.Context, installation int64, repo string, number int, id int64, body string) (int64, error)
-	Branches(ctx context.Context, installation int64, repo string) ([]gh.Branch, error)
-	CreatePull(ctx context.Context, installation int64, repo, base, branch, title, body string) (int, error)
-	CommitSubject(ctx context.Context, installation int64, repo, sha string) (string, error)
-	MergeBase(ctx context.Context, installation int64, repo, base, head string) (string, time.Time, error)
-	FirstParent(ctx context.Context, installation int64, repo, sha string) (string, error)
-	CommitMerge(ctx context.Context, installation int64, repo, branch, head, other, message string, files map[string][]byte, remove []string) (string, error)
-}
 
 // Config is the platform's cluster-level settings.
 type Config struct {
@@ -82,7 +57,7 @@ type Config struct {
 type Platform struct {
 	Store     *store.Store
 	Kube      client.Client
-	GitHub    GitHub
+	Forja     forja.Repos
 	Runner    *pipeline.Runner
 	Generator generate.Generator
 	Hub       *events.Hub
@@ -277,7 +252,7 @@ func (p *Platform) inspectNamespace(ctx context.Context, ns string) (*Migration,
 // Propose inspects a repo and proposes how to deploy it: its rendimiento.yaml if it has one,
 // otherwise a generated one, plus what is already running in the namespace it would use.
 func (p *Platform) Propose(ctx context.Context, installation int64, repo, branch string) (*Proposal, error) {
-	fsys, err := p.GitHub.RepoFS(ctx, installation, repo, branch)
+	fsys, err := p.Forja.RepoFS(ctx, installation, repo, branch)
 	if err != nil {
 		return nil, err
 	}
@@ -340,9 +315,9 @@ type OnboardRequest struct {
 
 // OnboardResult is the created app and either the onboarding PR or the first run.
 type OnboardResult struct {
-	App *store.App      `json:"app"`
-	PR  *gh.PullRequest `json:"pr,omitempty"`
-	Run *store.Run      `json:"run,omitempty"`
+	App *store.App    `json:"app"`
+	PR  *forja.Opened `json:"pr,omitempty"`
+	Run *store.Run    `json:"run,omitempty"`
 }
 
 // Onboard registers the app, creates its App object (waiting for a build)
@@ -378,7 +353,7 @@ func (p *Platform) Onboard(ctx context.Context, req OnboardRequest, existing boo
 		}
 	}
 	body += "\nThe build runs on this PR first, so you can see it pass before merging."
-	pr, err := p.GitHub.OpenPR(ctx, req.Installation, req.Repo, req.DefaultBranch, "rendimiento/onboard", "Deploy with rendimiento.ai", body, files)
+	pr, err := p.Forja.OpenPR(ctx, req.Installation, req.Repo, req.DefaultBranch, "rendimiento/onboard", "Deploy with rendimiento.ai", body, files)
 	if err != nil {
 		return nil, fmt.Errorf("app registered, but opening the PR failed: %w", err)
 	}
@@ -495,26 +470,12 @@ func (p *Platform) DisconnectApp(ctx context.Context, app *store.App) error {
 
 // ---- webhooks ----
 
-// PushEvent is the part of a GitHub push webhook the platform uses.
-type PushEvent struct {
-	Installation int64
-	Repo         string
-	Branch       string
-	SHA          string
-	Deleted      bool
-	// SkipCI: the head commit's message asks not to run ([skip ci]).
-	SkipCI bool
-	// Messages are the pushed commits' messages: a «Ruta: N» line in one
-	// links the branch to that Ruta entry (its libreta).
-	Messages []string
-}
+// PushEvent is a push to a branch, as the forja told it.
+type PushEvent = forja.Push
 
 // SaysSkipCI reports whether a commit message asks for no run, the way
 // GitHub Actions reads it: [skip ci], [ci skip] or [no ci], in any case.
-func SaysSkipCI(message string) bool {
-	m := strings.ToLower(message)
-	return strings.Contains(m, "[skip ci]") || strings.Contains(m, "[ci skip]") || strings.Contains(m, "[no ci]")
-}
+func SaysSkipCI(message string) bool { return forja.SaysSkipCI(message) }
 
 // HandlePush queues a run for every app deployed from the repo. Pushes to
 // the app's default branch deploy; other branches only build, and not
@@ -566,7 +527,7 @@ func (p *Platform) QueueRun(ctx context.Context, app *store.App, branch, sha, ev
 	if sha == "" {
 		// Manual runs build the branch head: pin it to a commit so the image,
 		// the GitHub check and change detection all refer to a real SHA.
-		if head, err := p.GitHub.BranchSHA(ctx, app.InstallationID, app.Repo, branch); err == nil {
+		if head, err := p.Forja.BranchSHA(ctx, app.InstallationID, app.Repo, branch); err == nil {
 			sha = head
 		}
 	}
@@ -574,8 +535,8 @@ func (p *Platform) QueueRun(ctx context.Context, app *store.App, branch, sha, ev
 	if ref == "" {
 		ref = branch
 	}
-	raw, err := p.GitHub.FileAt(ctx, app.InstallationID, app.Repo, spec.FileName, ref)
-	if gh.IsNotFound(err) {
+	raw, err := p.Forja.FileAt(ctx, app.InstallationID, app.Repo, spec.FileName, ref)
+	if forja.IsNotFound(err) {
 		if event == "manual" || event == "agent" {
 			return nil, fmt.Errorf("%s is not on %s yet; merge the onboarding PR first", spec.FileName, branch)
 		}
@@ -887,7 +848,7 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 	sp := app.Spec
 	if !run.Deploy {
 		// Branch/PR runs build the spec at their own commit.
-		if raw, err := p.GitHub.FileAt(ctx, app.InstallationID, app.Repo, spec.FileName, run.SHA); err == nil {
+		if raw, err := p.Forja.FileAt(ctx, app.InstallationID, app.Repo, spec.FileName, run.SHA); err == nil {
 			if s, err := spec.Parse(raw); err == nil {
 				sp = *s
 			}
@@ -1123,7 +1084,7 @@ func (p *Platform) changes(ctx context.Context, app *store.App, run *store.Run) 
 	if err != nil || !fullSHA.MatchString(prev.SHA) || prev.SHA == run.SHA {
 		return nil, nil
 	}
-	files, complete, err := p.GitHub.ChangedFiles(ctx, app.InstallationID, app.Repo, prev.SHA, run.SHA)
+	files, complete, err := p.Forja.ChangedFiles(ctx, app.InstallationID, app.Repo, prev.SHA, run.SHA)
 	if err != nil {
 		p.Log.Warn("change detection failed; building everything", "app", app.Name, "err", err)
 		return nil, nil
@@ -1277,7 +1238,7 @@ func (p *Platform) startCheck(ctx context.Context, app *store.App, run *store.Ru
 	if len(run.SHA) != 40 {
 		return 0 // manual runs on a branch name have no commit to attach to
 	}
-	id, err := p.GitHub.CreateCheck(ctx, app.InstallationID, app.Repo, gh.CheckRun{
+	id, err := p.Forja.CreateCheck(ctx, app.InstallationID, app.Repo, forja.Check{
 		Name: "rendimiento: " + app.Name, HeadSHA: run.SHA, Status: "in_progress",
 		DetailsURL: fmt.Sprintf("%s/apps/%s/runs/%d", p.Config.BaseURL, app.Name, run.ID),
 	})
@@ -1311,8 +1272,8 @@ func (p *Platform) finishCheck(ctx context.Context, app *store.App, run *store.R
 			title = approvedUntestedTitle(run.ApprovedBy, run.Untested)
 		}
 	}
-	if err := p.GitHub.UpdateCheck(ctx, app.InstallationID, app.Repo, id, gh.CheckRun{
-		Status: "completed", Conclusion: conclusion, Output: gh.CheckOutput(title, summary),
+	if err := p.Forja.UpdateCheck(ctx, app.InstallationID, app.Repo, id, forja.Check{
+		Status: "completed", Conclusion: conclusion, Output: forja.CheckOutput(title, summary),
 	}); err != nil {
 		p.Log.Warn("update check run", "err", err)
 	}
@@ -1352,5 +1313,5 @@ func (p *Platform) CloneToken(ctx context.Context, _ string) (string, error) {
 	if !ok || id == 0 {
 		return "", nil
 	}
-	return p.GitHub.CloneToken(ctx, id)
+	return p.Forja.CloneToken(ctx, id)
 }

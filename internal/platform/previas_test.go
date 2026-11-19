@@ -12,7 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
-	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/render"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
@@ -33,13 +33,13 @@ func TestPreviewCopies(t *testing.T) {
 	if err := p.Store.CreateApp(ctx, app); err != nil {
 		t.Fatal(err)
 	}
-	pull := func(n int, branch, state string) gh.PullInfo {
-		var pr gh.PullInfo
+	pull := func(n int, branch, state string) forja.Change {
+		var pr forja.Change
 		pr.Number, pr.State = n, state
 		pr.Head.Ref, pr.Base.Ref = branch, "main"
 		return pr
 	}
-	fake.recent = []gh.PullInfo{pull(8, "otra", "open"), pull(7, "propina", "open"), pull(6, "sin-copia", "closed")}
+	fake.recent = []forja.Change{pull(8, "otra", "open"), pull(7, "propina", "open"), pull(6, "sin-copia", "closed")}
 	images := map[string]string{"web": "registry.example.lan:5000/copias-web@sha256:1"}
 	sha := strings.Repeat("a", 40)
 
@@ -51,7 +51,7 @@ func TestPreviewCopies(t *testing.T) {
 	if cr.Spec.Preview != 7 || cr.Labels[render.LabelPreview] != "7" || cr.Spec.Services[0].Domain != "copias-pr-7.example.com" || cr.Spec.Images["web"] != images["web"] {
 		t.Fatalf("copy %+v %v", cr.Spec, cr.Labels)
 	}
-	var check gh.CheckRun
+	var check forja.Check
 	for _, c := range fake.checks {
 		if c.Name == "preview: copias" {
 			check = c
@@ -156,10 +156,10 @@ func TestPreviewRunsTheAppsTests(t *testing.T) {
 	if err := p.Store.CreateApp(ctx, app); err != nil {
 		t.Fatal(err)
 	}
-	var pr gh.PullInfo
+	var pr forja.Change
 	pr.Number, pr.State = 3, "open"
 	pr.Head.Ref, pr.Base.Ref = "con-pruebas", "main"
-	fake.recent = []gh.PullInfo{pr}
+	fake.recent = []forja.Change{pr}
 	p.Verify.Rollout = func(context.Context, string, int64) (RolloutState, string, error) { return RolloutHealthy, "", nil }
 	var ran spec.Task
 	var where string
@@ -262,10 +262,10 @@ func TestPreviewCatchUp(t *testing.T) {
 	sha := strings.Repeat("d", 40)
 	fake.files[sha] = fstest.MapFS{spec.FileName: {Data: []byte(yaml)}}
 	passedRun(t, p, app, sp, sha, "al-dia")
-	var pr gh.PullInfo
+	var pr forja.Change
 	pr.Number, pr.State = 4, "open"
 	pr.Head.Ref, pr.Base.Ref = "al-dia", "main"
-	fake.recent = []gh.PullInfo{pr}
+	fake.recent = []forja.Change{pr}
 	// setup's Work already sweeps in the background: what it asked GitHub
 	// before the pull request existed is kept for branchPullsTTL.
 	p.branchPullsCache.mu.Lock()

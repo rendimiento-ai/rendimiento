@@ -24,6 +24,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 )
 
 // Credentials are produced once by the manifest flow and stored in a Kubernetes Secret.
@@ -283,6 +285,45 @@ func (e *APIError) Error() string {
 		msg += fmt.Sprintf("; this computer's clock is %s %s GitHub's, so GitHub refuses its signature: set the clock right (on Windows: Settings → Time → Sync now, then wsl --shutdown) and try again", duracion(cuanto), hacia)
 	}
 	return msg
+}
+
+// Is makes errors.Is find forja.ErrNotFound in a 404, and forja.ErrConflict
+// in a 409 (a merge whose head moved).
+func (e *APIError) Is(target error) bool {
+	switch target {
+	case forja.ErrNotFound:
+		return e.Status == http.StatusNotFound
+	case forja.ErrConflict:
+		return e.Status == http.StatusConflict
+	}
+	return false
+}
+
+// Says is the sentence GitHub gave for refusing, without the rest of its
+// answer ("" when its answer has none): see forja.Says.
+func (e *APIError) Says() string {
+	var body struct {
+		Message string `json:"message"`
+		// Errors say what a "Validation Failed" was about.
+		Errors []struct {
+			Message string `json:"message"`
+			Code    string `json:"code"`
+			Field   string `json:"field"`
+		} `json:"errors"`
+	}
+	if json.Unmarshal([]byte(e.Body), &body) != nil || body.Message == "" {
+		return ""
+	}
+	says := strings.TrimSuffix(body.Message, ".")
+	for _, er := range body.Errors {
+		switch {
+		case er.Message != "":
+			says += ": " + strings.TrimSuffix(er.Message, ".")
+		case er.Field != "":
+			says += ": " + er.Field + " " + er.Code
+		}
+	}
+	return says
 }
 
 // desfase is how far now is from a response's Date header, when over a

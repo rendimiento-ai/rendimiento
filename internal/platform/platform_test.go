@@ -37,6 +37,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
 	"github.com/rendimiento-ai/rendimiento/internal/destino"
 	"github.com/rendimiento-ai/rendimiento/internal/events"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"github.com/rendimiento-ai/rendimiento/internal/generate"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/notify"
@@ -53,9 +54,9 @@ type fakeGitHub struct {
 	mu      sync.Mutex
 	files   map[string]fstest.MapFS // ref → tree
 	prs     []map[string]string
-	checks  map[int64]gh.CheckRun
+	checks  map[int64]forja.Check
 	changed map[string][]string // "base...head" → changed files
-	pulls   []gh.PullInfo       // the open pull requests, with whether each can be merged
+	pulls   []forja.Change      // the open pull requests, with whether each can be merged
 	merged  []int
 	deleted []string          // the branches deleted after their merge
 	heads   map[string]string // branch → its commit, for a pull request opened on approval
@@ -64,9 +65,9 @@ type fakeGitHub struct {
 	merges  []map[string][]byte
 	removed [][]string
 	closed  []int            // the pull requests closed without merging
-	recent  []gh.PullInfo    // what RecentPullRequests answers
+	recent  []forja.Change   // what RecentPullRequests answers
 	said    map[int64]string // comment id → "#<pull> <body>"
-	listed  []gh.Branch      // what Branches answers (nil: an error)
+	listed  []forja.Branch   // what Branches answers (nil: an error)
 }
 
 func (f *fakeGitHub) tree(ref string) fstest.MapFS {
@@ -87,7 +88,7 @@ func (f *fakeGitHub) FileAt(_ context.Context, _ int64, _, path, ref string) ([]
 func (f *fakeGitHub) RepoFS(_ context.Context, _ int64, _, ref string) (fs.FS, error) {
 	return f.tree(ref), nil
 }
-func (f *fakeGitHub) OpenPR(_ context.Context, _ int64, _, _, _, _, _ string, files map[string]string) (*gh.PullRequest, error) {
+func (f *fakeGitHub) OpenPR(_ context.Context, _ int64, _, _, _, _, _ string, files map[string]string) (*forja.Opened, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.prs = append(f.prs, files)
@@ -95,33 +96,33 @@ func (f *fakeGitHub) OpenPR(_ context.Context, _ int64, _, _, _, _, _ string, fi
 	for p, c := range files {
 		f.files["main"][p] = &fstest.MapFile{Data: []byte(c)}
 	}
-	return &gh.PullRequest{Number: 1, HTMLURL: "https://github.com/p0dxD/hello/pull/1"}, nil
+	return &forja.Opened{Number: 1, HTMLURL: "https://github.com/p0dxD/hello/pull/1"}, nil
 }
-func (f *fakeGitHub) CreateCheck(_ context.Context, _ int64, _ string, cr gh.CheckRun) (int64, error) {
+func (f *fakeGitHub) CreateCheck(_ context.Context, _ int64, _ string, cr forja.Check) (int64, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	id := int64(len(f.checks) + 1)
 	f.checks[id] = cr
 	return id, nil
 }
-func (f *fakeGitHub) UpdateCheck(_ context.Context, _ int64, _ string, id int64, cr gh.CheckRun) error {
+func (f *fakeGitHub) UpdateCheck(_ context.Context, _ int64, _ string, id int64, cr forja.Check) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.checks[id] = cr
 	return nil
 }
 func (f *fakeGitHub) CloneToken(context.Context, int64) (string, error) { return "ghs_x", nil }
-func (f *fakeGitHub) RecentPullRequests(context.Context, int64, string) ([]gh.PullInfo, error) {
+func (f *fakeGitHub) RecentPullRequests(context.Context, int64, string) ([]forja.Change, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return append([]gh.PullInfo(nil), f.recent...), nil
+	return append([]forja.Change(nil), f.recent...), nil
 }
-func (f *fakeGitHub) OpenPulls(context.Context, int64, string) ([]gh.PullInfo, error) {
+func (f *fakeGitHub) OpenPulls(context.Context, int64, string) ([]forja.Change, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return append([]gh.PullInfo(nil), f.pulls...), nil
+	return append([]forja.Change(nil), f.pulls...), nil
 }
-func (f *fakeGitHub) Pull(_ context.Context, _ int64, _ string, number int) (*gh.PullInfo, error) {
+func (f *fakeGitHub) Pull(_ context.Context, _ int64, _ string, number int) (*forja.Change, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	for _, pr := range f.pulls {
@@ -146,7 +147,7 @@ func (f *fakeGitHub) CreatePull(_ context.Context, _ int64, _, base, branch, tit
 		}
 	}
 	yes := true
-	pr := gh.PullInfo{Number: 100 + len(f.opened), State: "open", Mergeable: &yes, MergeableState: "clean"}
+	pr := forja.Change{Number: 100 + len(f.opened), State: "open", Mergeable: &yes, MergeableState: "clean"}
 	pr.Head.Ref, pr.Head.SHA, pr.Base.Ref = branch, f.heads[branch], base
 	f.pulls = append(f.pulls, pr)
 	f.opened = append(f.opened, branch+": "+title)
@@ -184,13 +185,13 @@ func (f *fakeGitHub) ClosePull(_ context.Context, _ int64, _ string, number int)
 	f.closed = append(f.closed, number)
 	return nil
 }
-func (f *fakeGitHub) Branches(context.Context, int64, string) ([]gh.Branch, error) {
+func (f *fakeGitHub) Branches(context.Context, int64, string) ([]forja.Branch, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.listed == nil {
 		return nil, errors.New("no branches in this fake")
 	}
-	return append([]gh.Branch(nil), f.listed...), nil
+	return append([]forja.Branch(nil), f.listed...), nil
 }
 func (f *fakeGitHub) MergeBase(context.Context, int64, string, string, string) (string, time.Time, error) {
 	return f.base, time.Time{}, nil
@@ -280,11 +281,11 @@ func setup(t *testing.T) (*Platform, *fakeGitHub, *fakeExec, client.Client) {
 		t.Fatal(err)
 	}
 
-	gh := &fakeGitHub{checks: map[int64]gh.CheckRun{}, files: map[string]fstest.MapFS{
+	gh := &fakeGitHub{checks: map[int64]forja.Check{}, files: map[string]fstest.MapFS{
 		"main": {"go.mod": {Data: []byte("module hello\ngo 1.23\n")}, "main.go": {Data: []byte("package main")}},
 	}}
 	p := &Platform{
-		Store: st, Kube: kube, GitHub: gh, Generator: generate.Templates{}, Hub: events.NewHub(),
+		Store: st, Kube: kube, Forja: gh, Generator: generate.Templates{}, Hub: events.NewHub(),
 		Config: Config{Registry: "registry.example.lan:5000", BaseURL: "https://rendimiento.example.com", Zone: "example.com"},
 		Log:    slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
@@ -1044,8 +1045,8 @@ func TestFusionAutomatica(t *testing.T) {
 		t.Fatal(err)
 	}
 	yes, no := true, false
-	pull := func(number int, branch, sha string, mergeable *bool) gh.PullInfo {
-		pr := gh.PullInfo{Number: number, State: "open", Mergeable: mergeable, MergeableState: "clean"}
+	pull := func(number int, branch, sha string, mergeable *bool) forja.Change {
+		pr := forja.Change{Number: number, State: "open", Mergeable: mergeable, MergeableState: "clean"}
 		pr.Head.Ref, pr.Head.SHA, pr.Base.Ref = branch, sha, "main"
 		return pr
 	}
@@ -1083,7 +1084,7 @@ func TestFusionAutomatica(t *testing.T) {
 	}
 
 	// Off: a branch that passes is only tested.
-	fake.pulls = []gh.PullInfo{pull(4, "apagada", strings.Repeat("1", 40), &yes)}
+	fake.pulls = []forja.Change{pull(4, "apagada", strings.Repeat("1", 40), &yes)}
 	off := push("apagada", strings.Repeat("1", 40), "")
 	if got := merged(); len(got) != 0 {
 		t.Fatalf("merged with the option off: %v", got)
@@ -1101,7 +1102,7 @@ func TestFusionAutomatica(t *testing.T) {
 	fork := pull(8, "bifurcada", strings.Repeat("6", 40), &yes)
 	fork.Head.Repo.FullName = "otra/fusion"
 	fake.mu.Lock()
-	fake.pulls = []gh.PullInfo{
+	fake.pulls = []forja.Change{
 		pull(5, "lista", strings.Repeat("2", 40), &yes),
 		pull(6, "choca", strings.Repeat("3", 40), &no),
 		pull(7, "otra-vez", strings.Repeat("f", 40), &yes), // its head is not the commit that ran
@@ -1151,7 +1152,7 @@ func TestFusionAutomatica(t *testing.T) {
 		return r
 	}
 	fake.mu.Lock()
-	fake.pulls = []gh.PullInfo{pull(9, "espera", strings.Repeat("7", 40), &yes)}
+	fake.pulls = []forja.Change{pull(9, "espera", strings.Repeat("7", 40), &yes)}
 	fake.mu.Unlock()
 	waits := push("espera", strings.Repeat("7", 40), "")
 	if app, err = p.Store.GetApp(ctx, "fusion"); err != nil {
@@ -1227,7 +1228,7 @@ func TestFusionSinPruebas(t *testing.T) {
 			fake.changed = map[string][]string{}
 		}
 		fake.changed["main..."+sha] = changed
-		pr := gh.PullInfo{Number: number, State: "open", Mergeable: &yes, MergeableState: "clean"}
+		pr := forja.Change{Number: number, State: "open", Mergeable: &yes, MergeableState: "clean"}
 		pr.Head.Ref, pr.Head.SHA, pr.Base.Ref = branch, sha, "main"
 		fake.pulls = append(fake.pulls, pr)
 		fake.mu.Unlock()
@@ -1241,7 +1242,7 @@ func TestFusionSinPruebas(t *testing.T) {
 		}
 		return r
 	}
-	check := func(r *store.Run) gh.CheckRun {
+	check := func(r *store.Run) forja.Check {
 		t.Helper()
 		if r.CheckRun == nil {
 			t.Fatalf("run %d has no check", r.ID)

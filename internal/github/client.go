@@ -17,6 +17,8 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
+
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 )
 
 // Client makes API calls as one installation.
@@ -254,10 +256,7 @@ func (d *dirFile) ReadDir(n int) ([]fs.DirEntry, error) {
 // ---- onboarding PR: one commit with every generated file ----
 
 // PullRequest is an opened (or existing) pull request.
-type PullRequest struct {
-	Number  int    `json:"number"`
-	HTMLURL string `json:"html_url"`
-}
+type PullRequest = forja.Opened
 
 // OpenPR commits files on a new branch off base in a single commit and opens
 // a pull request. Re-running with the same branch replaces its commit.
@@ -334,28 +333,10 @@ func (c *Client) OpenPR(ctx context.Context, repo, base, branch, title, body str
 // ---- check runs ----
 
 // CheckRun is a GitHub check shown on commits and pull requests.
-type CheckRun struct {
-	Name       string `json:"name,omitempty"`
-	HeadSHA    string `json:"head_sha,omitempty"`
-	Status     string `json:"status,omitempty"`     // queued | in_progress | completed
-	Conclusion string `json:"conclusion,omitempty"` // success | failure | cancelled
-	DetailsURL string `json:"details_url,omitempty"`
-	Output     *struct {
-		Title   string `json:"title"`
-		Summary string `json:"summary"`
-	} `json:"output,omitempty"`
-}
+type CheckRun = forja.Check
 
 // CheckOutput builds a check run's title and summary.
-func CheckOutput(title, summary string) *struct {
-	Title   string `json:"title"`
-	Summary string `json:"summary"`
-} {
-	return &struct {
-		Title   string `json:"title"`
-		Summary string `json:"summary"`
-	}{title, summary}
-}
+func CheckOutput(title, summary string) *forja.Output { return forja.CheckOutput(title, summary) }
 
 // CreateCheckRun starts a check run and returns its ID.
 func (c *Client) CreateCheckRun(ctx context.Context, repo string, cr CheckRun) (int64, error) {
@@ -433,12 +414,7 @@ func (c *Client) BranchSHA(ctx context.Context, repo, branch string) (string, er
 }
 
 // Branch is a branch and the commit it points at.
-type Branch struct {
-	Name   string `json:"name"`
-	Commit struct {
-		SHA string `json:"sha"`
-	} `json:"commit"`
-}
+type Branch = forja.Branch
 
 // Branches lists a repo's branches (the first 100).
 func (c *Client) Branches(ctx context.Context, repo string) ([]Branch, error) {
@@ -448,40 +424,7 @@ func (c *Client) Branches(ctx context.Context, repo string) ([]Branch, error) {
 }
 
 // PullInfo is what the Caminos tab needs of a pull request.
-type PullInfo struct {
-	Number int    `json:"number"`
-	Title  string `json:"title"`
-	Labels []struct {
-		Name string `json:"name"`
-	} `json:"labels"`
-	State string `json:"state"`
-	Draft bool   `json:"draft"`
-	Head  struct {
-		Ref  string `json:"ref"`
-		SHA  string `json:"sha"`
-		Repo struct {
-			FullName string `json:"full_name"`
-		} `json:"repo"` // a fork's, when the branch is not this repository's
-	} `json:"head"`
-	Base struct {
-		Ref string `json:"ref"`
-	} `json:"base"`
-	MergedAt       *time.Time `json:"merged_at"`
-	MergeCommitSHA string     `json:"merge_commit_sha"`
-	// CreatedAt and ClosedAt are when it was opened and closed (the
-	// libreta's dates for Renovate's).
-	CreatedAt time.Time  `json:"created_at"`
-	ClosedAt  *time.Time `json:"closed_at"`
-	// User is who opened it: a bot (Type "Bot") for Renovate's.
-	User struct {
-		Login string `json:"login"`
-		Type  string `json:"type"`
-	} `json:"user"`
-	// Mergeable is nil while GitHub still works it out; only Pull has it,
-	// with MergeableState ("clean", "dirty" for a conflict, "blocked"...).
-	Mergeable      *bool  `json:"mergeable"`
-	MergeableState string `json:"mergeable_state"`
-}
+type PullInfo = forja.Change
 
 // OpenPulls lists a repo's open pull requests (up to 100), the most
 // recently updated first.

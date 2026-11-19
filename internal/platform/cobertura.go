@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -29,7 +29,7 @@ func (p *Platform) untested(ctx context.Context, app *store.App, run *store.Run,
 	if run.Deploy || run.Branch == app.DefaultBranch || !fullSHA.MatchString(run.SHA) {
 		return nil
 	}
-	files, complete, err := p.GitHub.ChangedFiles(ctx, app.InstallationID, app.Repo, app.DefaultBranch, run.SHA)
+	files, complete, err := p.Forja.ChangedFiles(ctx, app.InstallationID, app.Repo, app.DefaultBranch, run.SHA)
 	if err != nil {
 		p.Log.Warn("untested paths: list the changed files", "app", app.Name, "run", run.ID, "err", err)
 		return nil
@@ -90,9 +90,9 @@ func (p *Platform) approveUntested(ctx context.Context, app *store.App, run *sto
 		return
 	}
 	title := approvedUntestedTitle(who, run.Untested)
-	if err := p.GitHub.UpdateCheck(ctx, app.InstallationID, app.Repo, *run.CheckRun, gh.CheckRun{
+	if err := p.Forja.UpdateCheck(ctx, app.InstallationID, app.Repo, *run.CheckRun, forja.Check{
 		Status: "completed", Conclusion: "success",
-		Output: gh.CheckOutput(title, fmt.Sprintf("[View run](%s/apps/%s/runs/%d)", p.Config.BaseURL, app.Name, run.ID)),
+		Output: forja.CheckOutput(title, fmt.Sprintf("[View run](%s/apps/%s/runs/%d)", p.Config.BaseURL, app.Name, run.ID)),
 	}); err != nil {
 		p.Log.Warn("update check run", "err", err)
 	}

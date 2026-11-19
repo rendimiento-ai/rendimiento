@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/pruebas"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
@@ -102,9 +102,9 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 	}
 	before, _ := copias.Get(ctx, app.Name, number)
 	commentID := before.CommentID
-	if p.GitHub != nil {
+	if p.Forja != nil {
 		body := previewComment(number, url, run, p.Config.BaseURL, app.Name, time.Now().AddDate(0, 0, sp.Previews.KeepDays()))
-		if id, err := p.GitHub.Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err == nil {
+		if id, err := p.Forja.Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err == nil {
 			commentID = id
 		} else {
 			log.Warn("preview: its comment", "err", err)
@@ -115,10 +115,10 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 		return
 	}
 	log.Info("preview deployed", "run", run.ID, "url", url)
-	if len(run.SHA) == 40 && p.GitHub != nil {
-		_, err := p.GitHub.CreateCheck(ctx, app.InstallationID, app.Repo, gh.CheckRun{
+	if len(run.SHA) == 40 && p.Forja != nil {
+		_, err := p.Forja.CreateCheck(ctx, app.InstallationID, app.Repo, forja.Check{
 			Name: "preview: " + app.Name, HeadSHA: run.SHA, Status: "completed", Conclusion: "success", DetailsURL: url,
-			Output: gh.CheckOutput(M("Live at %s", url),
+			Output: forja.CheckOutput(M("Live at %s", url),
 				M("This pull request's copy. It is deleted when the pull request is closed, or after %d days without a push.", sp.Previews.KeepDays())),
 		})
 		if err != nil {
@@ -141,11 +141,11 @@ func (p *Platform) testPreview(ctx context.Context, app *store.App, run *store.R
 	log := p.Log.With("app", app.Name, "pull", number)
 	url := p.copias().URL(copy, app.Name, number)
 	say := func(section string) {
-		if commentID == 0 || p.GitHub == nil {
+		if commentID == 0 || p.Forja == nil {
 			return
 		}
 		body := previewComment(number, url, run, p.Config.BaseURL, app.Name, time.Now().AddDate(0, 0, sp.Previews.KeepDays())) + "\n\n" + section
-		if _, err := p.GitHub.Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err != nil {
+		if _, err := p.Forja.Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err != nil {
 			log.Warn("preview: its comment", "err", err)
 		}
 	}
@@ -219,7 +219,7 @@ func (p *Platform) deletePreview(ctx context.Context, c copia, why string) error
 	if err := copias.Delete(ctx, c); err != nil {
 		return err
 	}
-	if c.CommentID == 0 || p.GitHub == nil {
+	if c.CommentID == 0 || p.Forja == nil {
 		return nil
 	}
 	app, err := p.Store.GetApp(ctx, c.App)
@@ -227,7 +227,7 @@ func (p *Platform) deletePreview(ctx context.Context, c copia, why string) error
 		return nil
 	}
 	body := M("**Preview of #%d:** deleted, %s.", c.Number, why)
-	if _, err := p.GitHub.Comment(ctx, app.InstallationID, app.Repo, c.Number, c.CommentID, body); err != nil {
+	if _, err := p.Forja.Comment(ctx, app.InstallationID, app.Repo, c.Number, c.CommentID, body); err != nil {
 		p.Log.Warn("preview: its comment", "copy", PreviewName(c.App, c.Number), "err", err)
 	}
 	return nil
@@ -291,7 +291,7 @@ func (p *Platform) previewFromLastRun(ctx context.Context, a *store.App, number 
 		return
 	}
 	sp := a.Spec
-	if raw, err := p.GitHub.FileAt(ctx, a.InstallationID, a.Repo, spec.FileName, run.SHA); err == nil {
+	if raw, err := p.Forja.FileAt(ctx, a.InstallationID, a.Repo, spec.FileName, run.SHA); err == nil {
 		if s, err := spec.Parse(raw); err == nil {
 			sp = *s
 		}
