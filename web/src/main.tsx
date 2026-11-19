@@ -64,7 +64,7 @@ function Shell() {
   useEffect(() => {
     (async () => {
       // Nothing answers and nothing was kept: say so (it comes back by itself), not the setup page.
-      const setup = await api.setupStatus().catch((e) => (claseDe(e) === "unreachable" ? null : { configured: false, book: undefined, activity: false }));
+      const setup = await api.setupStatus().catch((e) => (claseDe(e) === "unreachable" ? null : { configured: false, book: undefined, activity: false, signIn: undefined }));
       if (!setup) return setState({ loading: false, sinRespuesta: true });
       if (!setup.configured) return setState({ configured: false, loading: false });
       try {
