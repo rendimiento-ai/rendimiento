@@ -1,0 +1,9 @@
+# error: tasks[0].dryRun only applies to post-deploy tasks
+services:
+  - name: web
+tasks:
+  - name: revisar
+    stage: pre-deploy
+    image: alpine:3.22
+    command: "true"
+    dryRun: true
