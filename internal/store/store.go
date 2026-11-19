@@ -103,15 +103,31 @@ type App struct {
 	// or with MergeAny every open pull request.
 	AutoMerge bool `json:"autoMerge"`
 	MergeAny  bool `json:"mergeAny"`
+	// Forja is where the app's code lives: "github" (ForjaGitHub) or
+	// "gitlab". A GitLab app's Repo starts with its GitLab's address
+	// (git.example.com/group/project) and its InstallationID is the GitLab
+	// connection's id.
+	Forja string `json:"forja"`
 }
 
-const appCols = `id, name, repo, installation_id, default_branch, spec, created_at, org_id, auto_encargo, auto_merge, merge_any`
+// ForjaGitHub is the forja of every app that came before GitLab.
+const ForjaGitHub = "github"
+
+// ForjaOf is the app's forja, GitHub when it says none.
+func (a *App) ForjaOf() string {
+	if a.Forja == "" {
+		return ForjaGitHub
+	}
+	return a.Forja
+}
+
+const appCols = `id, name, repo, installation_id, default_branch, spec, created_at, org_id, auto_encargo, auto_merge, merge_any, forja`
 
 // scanApp reads an app row (with its spec, stored as JSON).
 func scanApp(row pgx.Row) (*App, error) {
 	var a App
 	var raw []byte
-	if err := row.Scan(&a.ID, &a.Name, &a.Repo, &a.InstallationID, &a.DefaultBranch, &raw, &a.CreatedAt, &a.OrgID, &a.AutoEncargo, &a.AutoMerge, &a.MergeAny); err != nil {
+	if err := row.Scan(&a.ID, &a.Name, &a.Repo, &a.InstallationID, &a.DefaultBranch, &raw, &a.CreatedAt, &a.OrgID, &a.AutoEncargo, &a.AutoMerge, &a.MergeAny, &a.Forja); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -130,9 +146,10 @@ func (s *Store) CreateApp(ctx context.Context, a *App) error {
 	if a.OrgID == 0 {
 		a.OrgID = DefaultOrg
 	}
+	a.Forja = a.ForjaOf()
 	return s.pool.QueryRow(ctx,
-		`INSERT INTO apps (name, repo, installation_id, default_branch, spec, org_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at`,
-		a.Name, a.Repo, a.InstallationID, a.DefaultBranch, raw, a.OrgID).Scan(&a.ID, &a.CreatedAt)
+		`INSERT INTO apps (name, repo, installation_id, default_branch, spec, org_id, forja) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, created_at`,
+		a.Name, a.Repo, a.InstallationID, a.DefaultBranch, raw, a.OrgID, a.Forja).Scan(&a.ID, &a.CreatedAt)
 }
 
 // UpdateAppSpec stores the latest rendimiento.yaml of the default branch.
