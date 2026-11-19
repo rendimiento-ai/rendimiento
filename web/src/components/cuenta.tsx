@@ -96,6 +96,7 @@ export function MenuCuenta({ login, role, org, demo, salir }: { login: string; r
           <div className="menu-cuenta-fila"><span>{t("Theme")}</span><span className="menu-cuenta-ctl"><TemaSwitch /><MovimientoSwitch /></span></div>
           <div className="menu-cuenta-fila"><span>{t("Language")}</span><span className="menu-cuenta-ctl"><LangSwitch /><BanderaSwitch /></span></div>
           <hr />
+          {!demo && <Link to="/cuentas" className="menu-cuenta-fila">{t("Your accounts")}</Link>}
           <Link to="/escribir" className="menu-cuenta-fila">{t("My comments")}</Link>
           <button type="button" className="menu-cuenta-fila menu-cuenta-salir" onClick={salir}>{t("Sign out")}</button>
         </div>

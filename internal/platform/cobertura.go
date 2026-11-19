@@ -30,7 +30,7 @@ func (p *Platform) branchFiles(ctx context.Context, app *store.App, run *store.R
 	if run.Deploy || run.Branch == app.DefaultBranch || !fullSHA.MatchString(run.SHA) {
 		return nil, false, false
 	}
-	files, complete, err := p.Forja.ChangedFiles(ctx, app.InstallationID, app.Repo, app.DefaultBranch, run.SHA)
+	files, complete, err := p.repos(app).ChangedFiles(ctx, app.InstallationID, app.Repo, app.DefaultBranch, run.SHA)
 	if err != nil {
 		p.Log.Warn("list the branch's changed files", "app", app.Name, "run", run.ID, "err", err)
 		return nil, false, false
@@ -104,7 +104,8 @@ func (p *Platform) approveUntested(ctx context.Context, app *store.App, run *sto
 	if len(run.Untested) > 0 {
 		title = approvedUntestedTitle(who, run.Untested)
 	}
-	if err := p.Forja.UpdateCheck(ctx, app.InstallationID, app.Repo, *run.CheckRun, forja.Check{
+	if err := p.repos(app).UpdateCheck(ctx, app.InstallationID, app.Repo, *run.CheckRun, forja.Check{
+		Name: "rendimiento: " + app.Name, HeadSHA: run.SHA, DetailsURL: fmt.Sprintf("%s/apps/%s/runs/%d", p.Config.BaseURL, app.Name, run.ID),
 		Status: "completed", Conclusion: "success",
 		Output: forja.CheckOutput(title, fmt.Sprintf("[View run](%s/apps/%s/runs/%d)", p.Config.BaseURL, app.Name, run.ID)),
 	}); err != nil {

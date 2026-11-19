@@ -55,9 +55,12 @@ type Config struct {
 // Platform connects GitHub, the store, CI and the cluster: webhooks become runs, runs become
 // releases, releases become App objects.
 type Platform struct {
-	Store     *store.Store
-	Kube      client.Client
+	Store *store.Store
+	Kube  client.Client
+	// Forja is GitHub's, where most apps' code lives; Forjas has the other
+	// forjas by name ("gitlab"). repos picks an app's.
 	Forja     forja.Repos
+	Forjas    map[string]forja.Repos
 	Runner    *pipeline.Runner
 	Generator generate.Generator
 	Hub       *events.Hub
@@ -251,8 +254,8 @@ func (p *Platform) inspectNamespace(ctx context.Context, ns string) (*Migration,
 
 // Propose inspects a repo and proposes how to deploy it: its rendimiento.yaml if it has one,
 // otherwise a generated one, plus what is already running in the namespace it would use.
-func (p *Platform) Propose(ctx context.Context, installation int64, repo, branch string) (*Proposal, error) {
-	fsys, err := p.Forja.RepoFS(ctx, installation, repo, branch)
+func (p *Platform) Propose(ctx context.Context, forjaName string, installation int64, repo, branch string) (*Proposal, error) {
+	fsys, err := p.repos(&store.App{Forja: forjaName}).RepoFS(ctx, installation, repo, branch)
 	if err != nil {
 		return nil, err
 	}
@@ -300,6 +303,8 @@ func (p *Platform) Propose(ctx context.Context, installation int64, repo, branch
 
 // OnboardRequest is what the New app wizard submits.
 type OnboardRequest struct {
+	// Forja is where the repository is: "github" (or empty) or "gitlab".
+	Forja         string            `json:"forja,omitempty"`
 	Installation  int64             `json:"installation"`
 	Repo          string            `json:"repo"`
 	DefaultBranch string            `json:"defaultBranch"`
@@ -353,7 +358,7 @@ func (p *Platform) Onboard(ctx context.Context, req OnboardRequest, existing boo
 		}
 	}
 	body += "\nThe build runs on this PR first, so you can see it pass before merging."
-	pr, err := p.Forja.OpenPR(ctx, req.Installation, req.Repo, req.DefaultBranch, "rendimiento/onboard", "Deploy with rendimiento.ai", body, files)
+	pr, err := p.repos(app).OpenPR(ctx, req.Installation, req.Repo, req.DefaultBranch, "rendimiento/onboard", "Deploy with rendimiento.ai", body, files)
 	if err != nil {
 		return nil, fmt.Errorf("app registered, but opening the PR failed: %w", err)
 	}
@@ -381,7 +386,7 @@ func (p *Platform) Register(ctx context.Context, req OnboardRequest) (*store.App
 	if err := p.allowedInOrg(ctx, req.OrgID, 0, req.Spec); err != nil {
 		return nil, err
 	}
-	app := &store.App{Name: req.Name, Repo: req.Repo, InstallationID: req.Installation, DefaultBranch: req.DefaultBranch, Spec: req.Spec, OrgID: req.OrgID}
+	app := &store.App{Name: req.Name, Repo: req.Repo, InstallationID: req.Installation, DefaultBranch: req.DefaultBranch, Spec: req.Spec, OrgID: req.OrgID, Forja: req.Forja}
 	if err := p.Store.CreateApp(ctx, app); err != nil {
 		if store.IsUniqueViolation(err) {
 			return nil, fmt.Errorf("an app named %q already exists", req.Name)
@@ -527,7 +532,7 @@ func (p *Platform) QueueRun(ctx context.Context, app *store.App, branch, sha, ev
 	if sha == "" {
 		// Manual runs build the branch head: pin it to a commit so the image,
 		// the GitHub check and change detection all refer to a real SHA.
-		if head, err := p.Forja.BranchSHA(ctx, app.InstallationID, app.Repo, branch); err == nil {
+		if head, err := p.repos(app).BranchSHA(ctx, app.InstallationID, app.Repo, branch); err == nil {
 			sha = head
 		}
 	}
@@ -535,7 +540,7 @@ func (p *Platform) QueueRun(ctx context.Context, app *store.App, branch, sha, ev
 	if ref == "" {
 		ref = branch
 	}
-	raw, err := p.Forja.FileAt(ctx, app.InstallationID, app.Repo, spec.FileName, ref)
+	raw, err := p.repos(app).FileAt(ctx, app.InstallationID, app.Repo, spec.FileName, ref)
 	if forja.IsNotFound(err) {
 		if event == "manual" || event == "agent" {
 			return nil, fmt.Errorf("%s is not on %s yet; merge the onboarding PR first", spec.FileName, branch)
@@ -848,7 +853,7 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 	sp := app.Spec
 	if !run.Deploy {
 		// Branch/PR runs build the spec at their own commit.
-		if raw, err := p.Forja.FileAt(ctx, app.InstallationID, app.Repo, spec.FileName, run.SHA); err == nil {
+		if raw, err := p.repos(app).FileAt(ctx, app.InstallationID, app.Repo, spec.FileName, run.SHA); err == nil {
 			if s, err := spec.Parse(raw); err == nil {
 				sp = *s
 			}
@@ -905,8 +910,8 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 		}
 		toRun[i].DependsOn = deps
 	}
-	src := pipeline.Source{Repo: app.Repo, SHA: run.SHA, Branch: run.Branch, Deploy: run.Deploy}
-	results, err := p.Runner.Run(withInstallation(runCtx, app.InstallationID), strconv.FormatInt(run.ID, 10), src, toRun)
+	src := pipeline.Source{Repo: p.cloneURL(ctx, app), SHA: run.SHA, Branch: run.Branch, Deploy: run.Deploy}
+	results, err := p.Runner.Run(withInstallation(runCtx, app), strconv.FormatInt(run.ID, 10), src, toRun)
 	for id, r := range kept {
 		if results == nil {
 			results = map[string]pipeline.StepResult{}
@@ -1090,7 +1095,7 @@ func (p *Platform) changes(ctx context.Context, app *store.App, run *store.Run) 
 	if err != nil || !fullSHA.MatchString(prev.SHA) || prev.SHA == run.SHA {
 		return nil, nil
 	}
-	files, complete, err := p.Forja.ChangedFiles(ctx, app.InstallationID, app.Repo, prev.SHA, run.SHA)
+	files, complete, err := p.repos(app).ChangedFiles(ctx, app.InstallationID, app.Repo, prev.SHA, run.SHA)
 	if err != nil {
 		p.Log.Warn("change detection failed; building everything", "app", app.Name, "err", err)
 		return nil, nil
@@ -1244,7 +1249,7 @@ func (p *Platform) startCheck(ctx context.Context, app *store.App, run *store.Ru
 	if len(run.SHA) != 40 {
 		return 0 // manual runs on a branch name have no commit to attach to
 	}
-	id, err := p.Forja.CreateCheck(ctx, app.InstallationID, app.Repo, forja.Check{
+	id, err := p.repos(app).CreateCheck(ctx, app.InstallationID, app.Repo, forja.Check{
 		Name: "rendimiento: " + app.Name, HeadSHA: run.SHA, Status: "in_progress",
 		DetailsURL: fmt.Sprintf("%s/apps/%s/runs/%d", p.Config.BaseURL, app.Name, run.ID),
 	})
@@ -1287,7 +1292,10 @@ func (p *Platform) finishCheck(ctx context.Context, app *store.App, run *store.R
 			title = approvedDryTitle(run.ApprovedBy, run)
 		}
 	}
-	if err := p.Forja.UpdateCheck(ctx, app.InstallationID, app.Repo, id, forja.Check{
+	// Name and commit again: GitLab writes a status by them (GitHub's check
+	// run is the id's).
+	if err := p.repos(app).UpdateCheck(ctx, app.InstallationID, app.Repo, id, forja.Check{
+		Name: "rendimiento: " + app.Name, HeadSHA: run.SHA, DetailsURL: fmt.Sprintf("%s/apps/%s/runs/%d", p.Config.BaseURL, app.Name, run.ID),
 		Status: "completed", Conclusion: conclusion, Output: forja.CheckOutput(title, summary),
 	}); err != nil {
 		p.Log.Warn("update check run", "err", err)
@@ -1315,18 +1323,54 @@ func (p *Platform) publishRun(app *store.App, runID int64) {
 
 type installationKey struct{}
 
-// withInstallation carries the GitHub installation into the steps, so each
-// can get a token to clone the repository (see CloneToken).
-func withInstallation(ctx context.Context, id int64) context.Context {
-	return context.WithValue(ctx, installationKey{}, id)
+// installation is the app's connection to its forja.
+type installation struct {
+	forja string
+	id    int64
+}
+
+// withInstallation carries the app's installation (GitHub's, or its
+// GitLab connection) into the steps, so each can get a token to clone the
+// repository (see CloneToken).
+func withInstallation(ctx context.Context, app *store.App) context.Context {
+	return context.WithValue(ctx, installationKey{}, installation{app.ForjaOf(), app.InstallationID})
 }
 
 // CloneToken is plugged into the executor: it mints a token for the
 // installation carried in the run's context.
 func (p *Platform) CloneToken(ctx context.Context, _ string) (string, error) {
-	id, ok := ctx.Value(installationKey{}).(int64)
-	if !ok || id == 0 {
+	in, ok := ctx.Value(installationKey{}).(installation)
+	if !ok || in.id == 0 {
 		return "", nil
 	}
-	return p.Forja.CloneToken(ctx, id)
+	return p.repos(&store.App{Forja: in.forja}).CloneToken(ctx, in.id)
 }
+
+// repos is the forja the app's code lives on. One that is not connected
+// here answers every call with notConnected.
+func (p *Platform) repos(app *store.App) forja.Repos {
+	name := app.ForjaOf()
+	if name == store.ForjaGitHub {
+		return p.Forja
+	}
+	if f, ok := p.Forjas[name]; ok && f != nil {
+		return f
+	}
+	return notConnected{name}
+}
+
+// cloneURL is where build pods clone the app's repository from: GitHub
+// takes owner/name, another forja says its address.
+func (p *Platform) cloneURL(ctx context.Context, app *store.App) string {
+	if c, ok := p.repos(app).(interface {
+		CloneURL(ctx context.Context, installation int64, repo string) (string, error)
+	}); ok {
+		if u, err := c.CloneURL(ctx, app.InstallationID, app.Repo); err == nil {
+			return u
+		}
+	}
+	return app.Repo
+}
+
+// CloneURL is the app's repository's address for build pods (see cloneURL).
+func (p *Platform) CloneURL(ctx context.Context, app *store.App) string { return p.cloneURL(ctx, app) }

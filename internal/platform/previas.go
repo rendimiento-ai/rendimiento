@@ -104,7 +104,7 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 	commentID := before.CommentID
 	if p.Forja != nil {
 		body := previewComment(number, url, run, p.Config.BaseURL, app.Name, time.Now().AddDate(0, 0, sp.Previews.KeepDays()))
-		if id, err := p.Forja.Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err == nil {
+		if id, err := p.repos(app).Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err == nil {
 			commentID = id
 		} else {
 			log.Warn("preview: its comment", "err", err)
@@ -116,7 +116,7 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 	}
 	log.Info("preview deployed", "run", run.ID, "url", url)
 	if len(run.SHA) == 40 && p.Forja != nil {
-		_, err := p.Forja.CreateCheck(ctx, app.InstallationID, app.Repo, forja.Check{
+		_, err := p.repos(app).CreateCheck(ctx, app.InstallationID, app.Repo, forja.Check{
 			Name: "preview: " + app.Name, HeadSHA: run.SHA, Status: "completed", Conclusion: "success", DetailsURL: url,
 			Output: forja.CheckOutput(M("Live at %s", url),
 				M("This pull request's copy. It is deleted when the pull request is closed, or after %d days without a push.", sp.Previews.KeepDays())),
@@ -145,7 +145,7 @@ func (p *Platform) testPreview(ctx context.Context, app *store.App, run *store.R
 			return
 		}
 		body := previewComment(number, url, run, p.Config.BaseURL, app.Name, time.Now().AddDate(0, 0, sp.Previews.KeepDays())) + "\n\n" + section
-		if _, err := p.Forja.Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err != nil {
+		if _, err := p.repos(app).Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err != nil {
 			log.Warn("preview: its comment", "err", err)
 		}
 	}
@@ -227,7 +227,7 @@ func (p *Platform) deletePreview(ctx context.Context, c copia, why string) error
 		return nil
 	}
 	body := M("**Preview of #%d:** deleted, %s.", c.Number, why)
-	if _, err := p.Forja.Comment(ctx, app.InstallationID, app.Repo, c.Number, c.CommentID, body); err != nil {
+	if _, err := p.repos(app).Comment(ctx, app.InstallationID, app.Repo, c.Number, c.CommentID, body); err != nil {
 		p.Log.Warn("preview: its comment", "copy", PreviewName(c.App, c.Number), "err", err)
 	}
 	return nil
@@ -291,7 +291,7 @@ func (p *Platform) previewFromLastRun(ctx context.Context, a *store.App, number 
 		return
 	}
 	sp := a.Spec
-	if raw, err := p.Forja.FileAt(ctx, a.InstallationID, a.Repo, spec.FileName, run.SHA); err == nil {
+	if raw, err := p.repos(a).FileAt(ctx, a.InstallationID, a.Repo, spec.FileName, run.SHA); err == nil {
 		if s, err := spec.Parse(raw); err == nil {
 			sp = *s
 		}

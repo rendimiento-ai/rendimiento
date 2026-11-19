@@ -7,6 +7,7 @@ import { api, session, type App, type LibretaItem, type LibretaStatus } from "..
 import { locale, t, tn } from "../i18n";
 import { ErrorBox, usePoll } from "./ui";
 import { Rama } from "./lo-ultimo";
+import { forjaOf, pullLabel, pullURL } from "../forja";
 
 const WEEK = 7 * 24 * 3600 * 1000;
 
@@ -166,7 +167,7 @@ function Origen({ app, it }: { app: App; it: LibretaItem }) {
   switch (it.source) {
     case "ruta": return <Link to={`/ruta?entrada=${it.id}`}>{t("Ruta entry {n}", { n: it.id })}</Link>;
     case "encargo": return <Link to={`/ruta?tab=encargos#encargo-${it.id}`}>{t("encargo {n}", { n: it.id })}</Link>;
-    case "renovate": return <a href={`https://github.com/${app.repo}/pull/${it.id}`} target="_blank" rel="noreferrer">{t("pull request #{n}", { n: it.id })}</a>;
+    case "renovate": return <a href={pullURL(app, it.id)} target="_blank" rel="noreferrer">{pullLabel(app, it.id)}</a>;
     default: return null;
   }
 }
@@ -285,8 +286,8 @@ function Abierto({ app, it, puede, onChange }: { app: App; it: LibretaItem; pued
       <p className="small libreta-enlaces">
         <Origen app={app} it={it} />
         {it.cargo ? <> · {t("cargo #{n}", { n: it.cargo })}</> : null}
-        {it.branch && <> · <Rama repo={app.repo} branch={it.branch} className="" /></>}
-        {it.pull && it.source !== "renovate" ? <> · <a href={`https://github.com/${app.repo}/pull/${it.pull}`} target="_blank" rel="noreferrer">#{it.pull}</a></> : null}
+        {it.branch && <> · <Rama repo={app.repo} forja={app.forja} branch={it.branch} className="" /></>}
+        {it.pull && it.source !== "renovate" ? <> · <a href={pullURL(app, it.pull)} target="_blank" rel="noreferrer">{forjaOf(app) === "gitlab" ? "!" : "#"}{it.pull}</a></> : null}
         {it.run ? <> · <Link to={`/apps/${app.name}/runs/${it.run}`}>{t("run {n}", { n: it.run })}</Link></> : null}
       </p>
       {puede && it.source === "ruta" && <Descartar app={app} it={it} onDone={onChange} />}
@@ -296,7 +297,7 @@ function Abierto({ app, it, puede, onChange }: { app: App; it: LibretaItem; pued
 
 /** A done line: its title, and the merge and the release it went out in. */
 function Hecho({ app, it }: { app: App; it: LibretaItem }) {
-  const pull = it.pull ? `#${it.pull}` : "";
+  const pull = it.pull ? `${forjaOf(app) === "gitlab" ? "!" : "#"}${it.pull}` : "";
   const fin = it.status === "publicado" ? t("shipped in #{n}", { n: it.release ?? 0 })
     : it.status === "integrado" ? (it.release ? t("integrated · release #{n} pending", { n: it.release }) : t("integrated"))
       : it.why === "decided" ? t("a decision") : it.why === "accepted" ? t("accepted") : t("ticked in the Ruta");
@@ -306,7 +307,7 @@ function Hecho({ app, it }: { app: App; it: LibretaItem }) {
       <span className="libreta-hecho-titulo">{it.source === "ruta" ? <Link to={`/ruta?entrada=${it.id}`}>{it.title}</Link> : it.title}</span>
       {it.source === "renovate" && <span className="chip">Renovate</span>}
       <span className="small muted">
-        {pull && it.pull ? <a href={`https://github.com/${app.repo}/pull/${it.pull}`} target="_blank" rel="noreferrer">{pull}</a> : null}
+        {pull && it.pull ? <a href={pullURL(app, it.pull)} target="_blank" rel="noreferrer">{pull}</a> : null}
         {pull ? " · " : ""}{fin}
       </span>
     </div>

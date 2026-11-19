@@ -15,6 +15,9 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | GET | `/api/public/stats` | aggregate numbers for a public page; only with `PUBLIC_STATS=true`, and only on the internal `STATS_LISTEN` port when that is set ([what it contains](../guide/reliability.md#public-stats)) |
 | GET | `/api/public/activity` | the welcome page's *Right now in the town*: runs queued or running and the 8 latest releases, by app name and time only (no repositories, commits, branches or messages); only with `PUBLIC_ACTIVITY=true` |
 | POST | `/api/webhooks/github` | GitHub App webhooks (push, pull request, installation), verified by HMAC |
+| POST | `/api/webhooks/gitlab` | GitLab project webhooks (push, merge request), checked by their `X-Gitlab-Token` ([Connecting GitLab](../guide/gitlab.md)) |
+| GET | `/api/auth/gitlab/{id}` | sign in with a connected GitLab |
+| GET | `/api/forjas/gitlab/callback` | GitLab sends people back here: connecting, signing in or linking an account |
 | GET | `/api/opiniones` | the comments received, newest first, without emails (operators, where comments are received) |
 | GET | `/api/opiniones/cuenta` | how many comments wait for an answer: `{porRevisar}` |
 | GET | `/api/opiniones/{id}` | one comment, with its email until it is deleted, and its answer |
@@ -48,6 +51,14 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | GET | `/api/installations/{id}/repos` | repositories of an installation |
 | POST | `/api/installations/{id}/connect` | connect the GitHub App on your own GitHub account to your organization ([GitHub accounts](../guide/members.md#github-accounts)) |
 | DELETE | `/api/installations/{id}` | stop your organization creating apps from an installation |
+| GET | `/api/forjas` | where the apps' code lives: GitHub and the connected GitLabs (operators) |
+| POST | `/api/forjas/gitlab` | connect a GitLab `{baseUrl, applicationId, applicationSecret}`; answers where to authorize it |
+| POST | `/api/forjas/gitlab/{id}/authorize` | authorize a GitLab connection again |
+| DELETE | `/api/forjas/gitlab/{id}` | forget a GitLab connection no app uses |
+| GET | `/api/forjas/gitlab/{id}/projects` | the projects of a GitLab connection, for New app |
+| GET | `/api/me/identities` | your accounts on other forjas, linked to you |
+| POST | `/api/me/identities/gitlab/{id}` | link your account on a GitLab; answers where to authorize it |
+| DELETE | `/api/me/identities` | unlink one of your accounts (`?forja&baseUrl&externalId`) |
 | GET | `/api/org-installations` | operators: every installation and the organizations it is given to |
 | PUT | `/api/org-installations/{id}` | operators: give an installation to an organization: `{org}` |
 | DELETE | `/api/org-installations/{id}?org=` | operators: take it away |

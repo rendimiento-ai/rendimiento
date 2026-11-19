@@ -326,7 +326,7 @@ func (d *Diagnostician) context(ctx context.Context, app *store.App, run *store.
 	if len(services) > 0 {
 		fmt.Fprintf(&b, "Services: %s\n", strings.Join(services, ", "))
 	}
-	if d.Changes != nil && app.InstallationID != 0 {
+	if d.Changes != nil && app.InstallationID != 0 && app.ForjaOf() == store.ForjaGitHub {
 		// A new branch has no good run of its own yet: compare it with the
 		// default branch's, where it started from.
 		from := run.Branch

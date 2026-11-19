@@ -1,14 +1,16 @@
 import { Link } from "react-router-dom";
-import { api, timeAgo, type App, type Release } from "../api";
+import { api, timeAgo, type App, type Forja, type Release } from "../api";
+import { branchURL, forjaOf } from "../forja";
 import { RunBadge, usePoll } from "./ui";
 import { statusClass, statusLabel } from "./encargos";
 import { t } from "../i18n";
 
-/** A branch's name as a link to it on GitHub, where its files, its commits and its pull request are. */
-export function Rama({ repo, branch, className = "mono" }: { repo: string; branch: string; className?: string }) {
+/** A branch's name as a link to it on its forja (GitHub or GitLab), where its files, its commits and its change are. */
+export function Rama({ repo, forja, branch, className = "mono" }: { repo: string; forja?: Forja; branch: string; className?: string }) {
   return (
-    <a className={className} href={`https://github.com/${repo}/tree/${encodeURI(branch)}`} target="_blank" rel="noreferrer"
-      title={t("Open the branch {branch} on GitHub", { branch })} onClick={(e) => e.stopPropagation()}>{branch}</a>
+    <a className={className} href={branchURL({ repo, forja }, branch)} target="_blank" rel="noreferrer"
+      title={forjaOf({ forja }) === "gitlab" ? t("Open the branch {branch} on GitLab", { branch }) : t("Open the branch {branch} on GitHub", { branch })}
+      onClick={(e) => e.stopPropagation()}>{branch}</a>
   );
 }
 
@@ -41,7 +43,7 @@ export function LoUltimo({ app, n = 6, plain }: { app: App; n?: number; plain?: 
     ...(runs ?? []).slice(0, n).map((r) => ({
       at: r.createdAt, key: `r${r.id}`, to: `/apps/${name}/runs/${r.id}`,
       tone: r.status === "succeeded" ? "var(--ok)" : r.status === "failed" ? "var(--bad)" : "var(--warn)",
-      que: t("Run #{n}", { n: r.id }), detalle: <><Rama repo={app.repo} branch={r.branch} /> · {r.message || r.sha.slice(0, 7)}</>, badge: <RunBadge status={r.status} />,
+      que: t("Run #{n}", { n: r.id }), detalle: <><Rama repo={app.repo} forja={app.forja} branch={r.branch} /> · {r.message || r.sha.slice(0, 7)}</>, badge: <RunBadge status={r.status} />,
     })),
     ...(rels ?? []).slice(0, 4).map((r) => ({
       at: r.createdAt, key: `v${r.id}`, to: `/apps/${name}/releases`,

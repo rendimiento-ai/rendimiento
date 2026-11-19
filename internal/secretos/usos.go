@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/gitlab"
 )
 
 // Credenciales keeps the GitHub App's credentials in the Caja (as
@@ -74,4 +75,32 @@ func (l LlavesIA) SetOrgKey(ctx context.Context, orgID int64, key string) error 
 		return l.Caja.Borrar(ctx, nombreIA(orgID))
 	}
 	return l.Caja.Guardar(ctx, nombreIA(orgID), []byte(key))
+}
+
+// GitLab keeps each GitLab connection's secret in the Caja (as
+// api.GitLabSecrets does in Kubernetes).
+type GitLab struct{ Caja *Caja }
+
+func nombreGitLab(id int64) string { return fmt.Sprintf("gitlab-%d", id) }
+
+// Load is the connection's secret, nil when it has none.
+func (g GitLab) Load(ctx context.Context, id int64) (*gitlab.Secret, error) {
+	raw, ok, err := g.Caja.Leer(ctx, nombreGitLab(id))
+	if err != nil || !ok {
+		return nil, err
+	}
+	var s gitlab.Secret
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+// Save creates or replaces it.
+func (g GitLab) Save(ctx context.Context, id int64, s *gitlab.Secret) error {
+	raw, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	return g.Caja.Guardar(ctx, nombreGitLab(id), raw)
 }

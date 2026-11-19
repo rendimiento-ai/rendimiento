@@ -16,6 +16,9 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | GET | `/api/public/stats` | números agregados para una página pública; solo con `PUBLIC_STATS=true`, y solo en el puerto interno `STATS_LISTEN` cuando está definido ([qué contiene](../guide/reliability.md#public-stats)) |
 | GET | `/api/public/activity` | el *Ahora mismo en el pueblo* de la página de bienvenida: las ejecuciones en cola o en curso y las 8 versiones más recientes, solo con el nombre de la aplicación y la hora (sin repositorios, confirmaciones, ramas ni mensajes); solo con `PUBLIC_ACTIVITY=true` |
 | POST | `/api/webhooks/github` | los avisos web de la aplicación de GitHub (envío, solicitud de incorporación, instalación), verificados con HMAC |
+| POST | `/api/webhooks/gitlab` | los webhooks de los proyectos de GitLab (push, merge request), comprobados por su `X-Gitlab-Token` ([Conectar GitLab](../guide/gitlab.md)) |
+| GET | `/api/auth/gitlab/{id}` | iniciar sesión con un GitLab conectado |
+| GET | `/api/forjas/gitlab/callback` | GitLab regresa aquí a las personas: al conectar, al iniciar sesión o al ligar una cuenta |
 | GET | `/api/opiniones` | los comentarios recibidos, del más nuevo al más viejo, sin correos (operadores, donde se reciben comentarios) |
 | GET | `/api/opiniones/cuenta` | cuántos comentarios esperan respuesta: `{porRevisar}` |
 | GET | `/api/opiniones/{id}` | un comentario, con su correo hasta que se borra, y su respuesta |
@@ -49,6 +52,14 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | GET | `/api/installations/{id}/repos` | los repositorios de una instalación |
 | POST | `/api/installations/{id}/connect` | conectar a su organización la aplicación de GitHub de su propia cuenta de GitHub ([Cuentas de GitHub](../guide/members.md#github-accounts)) |
 | DELETE | `/api/installations/{id}` | que su organización deje de crear aplicaciones desde una instalación |
+| GET | `/api/forjas` | dónde vive el código de las aplicaciones: GitHub y los GitLab conectados (operadores) |
+| POST | `/api/forjas/gitlab` | conectar un GitLab `{baseUrl, applicationId, applicationSecret}`; contesta dónde autorizarlo |
+| POST | `/api/forjas/gitlab/{id}/authorize` | autorizar de nuevo una conexión con GitLab |
+| DELETE | `/api/forjas/gitlab/{id}` | olvidar una conexión con GitLab que ninguna aplicación usa |
+| GET | `/api/forjas/gitlab/{id}/projects` | los proyectos de una conexión con GitLab, para Nueva aplicación |
+| GET | `/api/me/identities` | sus cuentas en otras forjas, ligadas a usted |
+| POST | `/api/me/identities/gitlab/{id}` | ligar su cuenta de un GitLab; contesta dónde autorizarla |
+| DELETE | `/api/me/identities` | desligar una de sus cuentas (`?forja&baseUrl&externalId`) |
 | GET | `/api/org-installations` | operadores: todas las instalaciones y las organizaciones a las que se dieron |
 | PUT | `/api/org-installations/{id}` | operadores: darle una instalación a una organización: `{org}` |
 | DELETE | `/api/org-installations/{id}?org=` | operadores: quitársela |

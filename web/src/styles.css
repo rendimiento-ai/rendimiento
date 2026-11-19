@@ -2845,3 +2845,23 @@ button.menu-cuenta-fila { width: 100%; border: 0; background: none; font: inheri
   .libreta-renovate { flex-basis: 100%; }
   .libreta-hueco { display: none; }
 }
+
+/* «Where your code lives» (components/forjas.tsx) and the forja tabs of New app: GitHub, GitLab and, next, Bitbucket. */
+.forjas-tarjetas { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.forja-tarjeta { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); min-width: 0; }
+.forja-tarjeta.apagada { opacity: .62; }
+.forja-cabeza { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.forja-cabeza .badge { margin-left: auto; }
+.forja-sello { display: inline-grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 9px; font-size: 12px; font-weight: 700; color: #fff; background: var(--muted); }
+.forja-sello.github { background: var(--anil); }
+.forja-sello.gitlab { background: var(--grana); }
+.forja-sello.bitbucket { background: var(--nopal); }
+.ld-item .forja-sello { width: 26px; height: 26px; font-size: 11px; border-radius: 8px; }
+.forja-datos { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.forja-pasos { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }
+.forja-pasos code { word-break: break-all; }
+.forja-quien { padding: 10px 14px; border-left: 4px solid var(--cempasuchil); background: color-mix(in srgb, var(--cempasuchil) 10%, transparent); border-radius: 0 10px 10px 0; }
+.forja-pestanas { margin: 0; }
+.forja-nota { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: color-mix(in srgb, var(--grana) 6%, var(--card)); }
+.cuentas-ligadas { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.cuentas-ligadas li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

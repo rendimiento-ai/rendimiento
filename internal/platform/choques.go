@@ -18,20 +18,20 @@ import (
 // file cannot be joined that way, it changes nothing and returns those
 // files, for whoever resolves it.
 func (p *Platform) resolveAddOnly(ctx context.Context, app *store.App, run *store.Run, branch string) (sha string, joined, conflicts []string, err error) {
-	inst, repo := app.InstallationID, app.Repo
-	main, err := p.Forja.BranchSHA(ctx, inst, repo, app.DefaultBranch)
+	inst, repo, fj := app.InstallationID, app.Repo, p.repos(app)
+	main, err := fj.BranchSHA(ctx, inst, repo, app.DefaultBranch)
 	if err != nil {
 		return "", nil, nil, err
 	}
-	base, _, err := p.Forja.MergeBase(ctx, inst, repo, main, run.SHA)
+	base, _, err := fj.MergeBase(ctx, inst, repo, main, run.SHA)
 	if err != nil || base == "" {
 		return "", nil, nil, fmt.Errorf("no merge base of %s and %s: %v", app.DefaultBranch, branch, err)
 	}
-	ours, ok1, err := p.Forja.ChangedFiles(ctx, inst, repo, base, run.SHA)
+	ours, ok1, err := fj.ChangedFiles(ctx, inst, repo, base, run.SHA)
 	if err != nil {
 		return "", nil, nil, err
 	}
-	theirs, ok2, err := p.Forja.ChangedFiles(ctx, inst, repo, base, main)
+	theirs, ok2, err := fj.ChangedFiles(ctx, inst, repo, base, main)
 	if err != nil {
 		return "", nil, nil, err
 	}
@@ -43,7 +43,7 @@ func (p *Platform) resolveAddOnly(ctx context.Context, app *store.App, run *stor
 		mine[f] = true
 	}
 	read := func(path, ref string) ([]byte, bool, error) {
-		b, err := p.Forja.FileAt(ctx, inst, repo, path, ref)
+		b, err := fj.FileAt(ctx, inst, repo, path, ref)
 		if forja.IsNotFound(err) {
 			return nil, false, nil
 		}
@@ -96,7 +96,7 @@ func (p *Platform) resolveAddOnly(ctx context.Context, app *store.App, run *stor
 	sort.Strings(joined)
 	msg := fmt.Sprintf("Merge %s into %s: both sides only added lines\n\nrendimiento joined both sides, %s's lines first, in:\n- %s\n",
 		app.DefaultBranch, branch, app.DefaultBranch, strings.Join(joined, "\n- "))
-	sha, err = p.Forja.CommitMerge(ctx, inst, repo, branch, run.SHA, main, msg, files, remove)
+	sha, err = fj.CommitMerge(ctx, inst, repo, branch, run.SHA, main, msg, files, remove)
 	return sha, joined, nil, err
 }
 

@@ -12,6 +12,17 @@ import (
 // to 39 characters.
 var githubLogin = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9]|-[A-Za-z0-9]){0,38}$`)
 
+// gitlabLogin is a GitLab account no one linked to themselves, as it signs
+// in: its username at its GitLab's address (ana@gitlab.com; see
+// gitlab.Login).
+var gitlabLogin = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,254}@[a-z0-9](?:[a-z0-9.-]{0,252}[a-z0-9])?(?::[0-9]{1,5})?$`)
+
+// memberLogin is a name a person can be added by: their GitHub username,
+// or a GitLab account's user@host.
+func memberLogin(who string) bool {
+	return githubLogin.MatchString(who) || gitlabLogin.MatchString(who)
+}
+
 // listMembers lists the organization's people and their roles.
 func (s *Server) listMembers(w http.ResponseWriter, r *http.Request, _ string) {
 	ms, err := s.Store.Members(r.Context(), orgOf(r))
@@ -32,7 +43,7 @@ func (s *Server) listMembers(w http.ResponseWriter, r *http.Request, _ string) {
 // They can sign in from then on.
 func (s *Server) putMember(w http.ResponseWriter, r *http.Request, login string) {
 	who := r.PathValue("login")
-	if !githubLogin.MatchString(who) {
+	if !memberLogin(who) {
 		httpError(w, http.StatusBadRequest, "that is not a GitHub username")
 		return
 	}

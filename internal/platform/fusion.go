@@ -62,7 +62,7 @@ func (p *Platform) MergeReady(ctx context.Context, app *store.App) {
 	if !app.AutoMerge {
 		return
 	}
-	pulls, err := p.Forja.OpenPulls(ctx, app.InstallationID, app.Repo)
+	pulls, err := p.repos(app).OpenPulls(ctx, app.InstallationID, app.Repo)
 	if err != nil {
 		p.Log.Warn("merge: list pull requests", "app", app.Name, "err", err)
 		return
@@ -126,7 +126,7 @@ func (p *Platform) othersPassed(ctx context.Context, app *store.App, branch, sha
 // mergePull asks GitHub whether the pull request can be merged, merges it
 // when it can, and writes the outcome on the run.
 func (p *Platform) mergePull(ctx context.Context, app *store.App, run *store.Run, number int) {
-	pr, err := p.Forja.Pull(ctx, app.InstallationID, app.Repo, number)
+	pr, err := p.repos(app).Pull(ctx, app.InstallationID, app.Repo, number)
 	if err != nil {
 		p.Log.Warn("merge: read pull request", "app", app.Name, "pull", number, "err", err)
 		return
@@ -157,7 +157,7 @@ func (p *Platform) mergePull(ctx context.Context, app *store.App, run *store.Run
 	case pr.MergeableState == "blocked":
 		state, msg = store.MergeBlocked, M("pull request #%d waits for what GitHub asks of it (a review, a check): not merged", number)
 	default:
-		if err := p.Forja.MergePull(ctx, app.InstallationID, app.Repo, number, run.SHA); err != nil {
+		if err := p.repos(app).MergePull(ctx, app.InstallationID, app.Repo, number, run.SHA); err != nil {
 			if errors.Is(err, forja.ErrConflict) {
 				return // the branch moved while merging
 			}
@@ -165,11 +165,12 @@ func (p *Platform) mergePull(ctx context.Context, app *store.App, run *store.Run
 		} else {
 			p.noteMerged(ctx, app, pr.Head.Ref, run.SHA, time.Now())
 			// The branch did its work.
-			if err := p.Forja.DeleteBranch(ctx, app.InstallationID, app.Repo, pr.Head.Ref); err != nil {
+			if err := p.repos(app).DeleteBranch(ctx, app.InstallationID, app.Repo, pr.Head.Ref); err != nil {
 				p.Log.Warn("merge: delete the branch", "app", app.Name, "branch", pr.Head.Ref, "err", err)
 			}
 		}
 	}
+	msg = inForjaWords(app, msg)
 	if state == run.Merge && state == store.MergeBlocked {
 		return // still waiting: nothing new to tell
 	}
@@ -212,20 +213,20 @@ func (p *Platform) ApproveMerge(ctx context.Context, runID int64, who string) (*
 	if last, err := p.Store.LastRunOf(ctx, app.ID, run.Branch); err == nil && last.SHA != run.SHA {
 		return nil, &NotApprovable{Why: M("the branch has a newer commit: approve its run")}
 	}
-	title, err := p.Forja.CommitSubject(ctx, app.InstallationID, app.Repo, run.SHA)
+	title, err := p.repos(app).CommitSubject(ctx, app.InstallationID, app.Repo, run.SHA)
 	if err != nil || title == "" {
 		title = run.Branch
 	}
 	// What the change says of itself, when it follows the custom.
-	body, _ := p.Forja.FileAt(ctx, app.InstallationID, app.Repo, "cambios/"+run.Branch+".md", run.SHA)
-	number, err := p.Forja.CreatePull(ctx, app.InstallationID, app.Repo, app.DefaultBranch, run.Branch, title, string(body))
+	body, _ := p.repos(app).FileAt(ctx, app.InstallationID, app.Repo, "cambios/"+run.Branch+".md", run.SHA)
+	number, err := p.repos(app).CreatePull(ctx, app.InstallationID, app.Repo, app.DefaultBranch, run.Branch, title, string(body))
 	if err != nil {
 		says := forja.Says(err)
 		if strings.Contains(says, "No commits between") {
 			// Another branch built on this one brought its commits in.
 			return nil, &NotApprovable{Why: M("the branch is already in %s: there is nothing left to merge", app.DefaultBranch)}
 		}
-		return nil, &NotApprovable{Why: M("GitHub did not open the pull request: %s", says)}
+		return nil, &NotApprovable{Why: inForjaWords(app, M("GitHub did not open the pull request: %s", says))}
 	}
 	if err := p.Store.ApproveRun(ctx, run.ID, who); err != nil {
 		return nil, err
@@ -291,4 +292,14 @@ func branchLink(link string) (repo, branch string, ok bool) {
 		}
 	}
 	return "", "", false
+}
+
+// inForjaWords says a merge's message in the words of the app's forja: on
+// GitLab, merge request !7 where GitHub says pull request #7 (the Spanish
+// catalog has both).
+func inForjaWords(app *store.App, msg string) string {
+	if app.ForjaOf() != "gitlab" {
+		return msg
+	}
+	return strings.NewReplacer("pull request #", "merge request !", "the pull request", "the merge request", "GitHub", "GitLab").Replace(msg)
 }

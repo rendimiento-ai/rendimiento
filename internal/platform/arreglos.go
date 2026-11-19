@@ -21,7 +21,7 @@ func (p *Platform) isRenovateBranch(ctx context.Context, app *store.App, branch 
 	if !strings.HasPrefix(branch, "renovate/") {
 		return false
 	}
-	pulls, err := p.Forja.OpenPulls(ctx, app.InstallationID, app.Repo)
+	pulls, err := p.repos(app).OpenPulls(ctx, app.InstallationID, app.Repo)
 	if err != nil {
 		return false
 	}
