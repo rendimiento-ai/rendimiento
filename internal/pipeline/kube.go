@@ -387,7 +387,13 @@ mkdir -p /workspace/src && cd /workspace/src
 git init -q
 git remote add origin "$CLONE_URL"
 if [ -n "${GIT_TOKEN:-}" ]; then
-  git config http.extraHeader "Authorization: basic $(printf 'x-access-token:%s' "$GIT_TOKEN" | base64 | tr -d '\n')"
+  # A GitHub token is the password of x-access-token; another forja's comes
+  # with its user (GitLab: oauth2:<token>).
+  case "$GIT_TOKEN" in
+    *:*) cred=$GIT_TOKEN ;;
+    *) cred=x-access-token:$GIT_TOKEN ;;
+  esac
+  git config http.extraHeader "Authorization: basic $(printf '%s' "$cred" | base64 | tr -d '\n')"
 fi
 git fetch -q --depth 1 origin "$REF"
 git checkout -q FETCH_HEAD
