@@ -1,0 +1,9 @@
+# error: tasks[0].dryRun cannot go with service
+services:
+  - name: web
+tasks:
+  - name: migrate
+    stage: post-deploy
+    service: web
+    command: npm run migrate
+    dryRun: true

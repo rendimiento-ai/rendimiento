@@ -155,6 +155,29 @@ tasks:
 
 When verification is off (`VERIFY_WINDOW=0` or `verify.disabled`), post-deploy tasks still run once the rollout is healthy, and their results are recorded, but nothing is rolled back.
 
+### Dry runs on branches
+
+A post-deploy task only runs once a release is live, so a mistake in it (a smoke test that checks the wrong page) is found when it rolls a release back. A task can ask to also run **en seco** ("dry"), from a branch:
+
+```yaml
+tasks:
+  - name: smoke
+    stage: post-deploy
+    image: curlimages/curl:8.17.0
+    command: sh smoke.sh
+    dryRun: true                 # also en seco, on branches
+  - name: migrate
+    stage: post-deploy
+    service: api                 # never en seco: it writes to the database
+```
+
+- **When:** on a branch's run that passed, when the branch changes **only the checks**: the definition of post-deploy tasks or `tests:` in `rendimiento.yaml`, or the build whose image holds them (`build:<name>`, such as `e2e/`), and nothing of the app (its services, jobs, other builds, or the rest of `rendimiento.yaml`; documentation doesn't count). At least one task with `dryRun: true` must be among what changed; then every task with `dryRun: true` runs, and the app's tests too when they have it ([the app's own tests](reliability.md#the-apps-own-tests)). `after:` holds between them; one naming a task that doesn't run en seco doesn't wait for it.
+- **Against what:** the release **already published**, in the app's namespace, as a Job like the release's own (named `seco-…`), with the branch's version of the task and the branch's own image of its build. Nothing of the release changes.
+- **What a failure does:** it only warns. The run still passed, and its page says **Passed, with a warning**, with the checks in a dashed section of their own (*En seco, against the published release #N*) and each one's log. rendimiento doesn't merge the branch by itself, and its GitHub check concludes `action_required` instead of success, so Renovate's automerge waits too, as for [paths no step tests](builds.md#what-no-step-tests). A person can still merge it: in an app that merges by itself, **Merge anyway** on the run's page merges it, turns the check green, and leaves a note in the Ruta; elsewhere, merge it in GitHub.
+- **Never with `service:`:** such a task runs in the service's environment, its database included, so it would write to production from a branch. `dryRun: true` with `service:` is refused, and so is `dryRun:` on a build or pre-deploy task. Even without `service:`, a post-deploy task can write (a message to Slack): ask for `dryRun` only for those that only read.
+- **Nothing published yet:** the run says the checks run en seco once there is a release.
+- **A branch that changes the app too** (a dependency update) runs nothing en seco against production; the run says so. Running the checks against a preview copy of the branch instead is the next step.
+
 ## Recipes
 
 **Expo / EAS build on every mobile change:**

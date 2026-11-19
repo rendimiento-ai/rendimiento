@@ -126,6 +126,8 @@ Cuando la versión ya está en vivo, corren como una tarea posterior al desplieg
 
 Una prueba que falla y luego pasa al reintentarla nunca revierte una versión: una prueba que da falsas alarmas es peor que ninguna. Cada versión, en la pestaña **Versiones**, lista sus pruebas, primero las que fallaron, con lo que cada una puede hacer ahora. La primera versión no tiene a dónde regresar: una falla ahí solo se reporta.
 
+Con `dryRun: true` bajo `tests:`, una rama que cambia solo las pruebas (las de `e2e/`, por ejemplo) también las corre **en seco**: la imagen de las pruebas hecha en la rama, contra la versión ya publicada. Ahí cuenta toda prueba que falle (son las nuevas), pero solo avisa: la rama no se integra sola, y no se revierte nada. Vea [en seco, en las ramas](tasks.md#dry-runs-on-branches).
+
 ## Estadísticas públicas {#public-stats}
 
 Con `PUBLIC_STATS=true`, rendimiento publica **cifras agregadas** en `GET /api/public/stats` para una página pública. Un portafolio puede mostrarlas, por ejemplo, en una sección *En vivo desde el laboratorio de casa*.

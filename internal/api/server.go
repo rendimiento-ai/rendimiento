@@ -431,6 +431,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberCollaborator, "POST /api/runs/{id}/fix/add", s.addFix)
 	auth(store.MemberGuest, "GET /api/runs/{id}/fixes/{fix}/log", s.fixRunLog)
 	auth(store.MemberGuest, "GET /api/runs/{id}/steps/{step}/log", s.stepLog)
+	auth(store.MemberGuest, "GET /api/runs/{id}/dry/{task}/log", s.dryTaskLog)
 	auth(store.MemberGuest, "GET /api/runs/{id}/events", s.runEvents)
 	auth(store.MemberGuest, "GET /api/runs/{id}/diagnosis", s.getDiagnosis)
 	auth(store.MemberCollaborator, "POST /api/runs/{id}/diagnosis", s.askDiagnosis)

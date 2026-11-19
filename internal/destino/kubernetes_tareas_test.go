@@ -62,6 +62,16 @@ func TestPreDeployJobUsesTheNewImage(t *testing.T) {
 	}
 }
 
+// A check run en seco from a branch is a Job of its own beside the
+// release's: named seco-, with its stage, in the app's namespace.
+func TestDryRunJob(t *testing.T) {
+	rel := &store.Release{Number: 73, Images: map[string]string{}}
+	job := taskJob("shop", rel, spec.Task{Name: "humo", Stage: spec.StageDryRun, Image: "curlimages/curl:8.17.0", Command: "curl -fsS http://web/"}, nil, nil, "abcde")
+	if job.Name != "seco-humo-r73-abcde" || job.Namespace != "shop" || job.Labels["rendimiento.ai/stage"] != spec.StageDryRun || job.Labels["rendimiento.ai/release"] != "73" {
+		t.Fatalf("dry job: name %s namespace %s labels %v", job.Name, job.Namespace, job.Labels)
+	}
+}
+
 // The app's own browser tests run with a browser's requests and limits,
 // not best-effort: without a size, 250m and 256Mi asked, 2Gi of memory and
 // no CPU limit; with one, as the spec says.
