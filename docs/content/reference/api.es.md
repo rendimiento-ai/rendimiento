@@ -19,6 +19,9 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | POST | `/api/webhooks/gitlab` | los webhooks de los proyectos de GitLab (push, merge request), comprobados por su `X-Gitlab-Token` ([Conectar GitLab](../guide/gitlab.md)) |
 | GET | `/api/auth/gitlab/{id}` | iniciar sesión con un GitLab conectado |
 | GET | `/api/forjas/gitlab/callback` | GitLab regresa aquí a las personas: al conectar, al iniciar sesión o al ligar una cuenta |
+| POST | `/api/webhooks/bitbucket` | los webhooks de los repositorios de Bitbucket (push, pull request), verificados con HMAC-SHA256 en `X-Hub-Signature` ([Conectar Bitbucket](../guide/bitbucket.md)) |
+| GET | `/api/auth/bitbucket/{id}` | iniciar sesión con un espacio de trabajo de Bitbucket conectado |
+| GET | `/api/forjas/bitbucket/callback` | Bitbucket regresa aquí a las personas (la URL de retorno del consumidor OAuth): al conectar, al iniciar sesión o al ligar una cuenta |
 | GET | `/api/opiniones` | los comentarios recibidos, del más nuevo al más viejo, sin correos (operadores, donde se reciben comentarios) |
 | GET | `/api/opiniones/cuenta` | cuántos comentarios esperan respuesta: `{porRevisar}` |
 | GET | `/api/opiniones/{id}` | un comentario, con su correo hasta que se borra, y su respuesta |
@@ -52,13 +55,18 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | GET | `/api/installations/{id}/repos` | los repositorios de una instalación |
 | POST | `/api/installations/{id}/connect` | conectar a su organización la aplicación de GitHub de su propia cuenta de GitHub ([Cuentas de GitHub](../guide/members.md#github-accounts)) |
 | DELETE | `/api/installations/{id}` | que su organización deje de crear aplicaciones desde una instalación |
-| GET | `/api/forjas` | dónde vive el código de las aplicaciones: GitHub y los GitLab conectados (operadores) |
+| GET | `/api/forjas` | dónde vive el código de las aplicaciones: GitHub, los GitLab y los espacios de trabajo de Bitbucket conectados (operadores) |
 | POST | `/api/forjas/gitlab` | conectar un GitLab `{baseUrl, applicationId, applicationSecret}`; contesta dónde autorizarlo |
 | POST | `/api/forjas/gitlab/{id}/authorize` | autorizar de nuevo una conexión con GitLab |
 | DELETE | `/api/forjas/gitlab/{id}` | olvidar una conexión con GitLab que ninguna aplicación usa |
 | GET | `/api/forjas/gitlab/{id}/projects` | los proyectos de una conexión con GitLab, para Nueva aplicación |
+| POST | `/api/forjas/bitbucket` | conectar un espacio de trabajo de Bitbucket `{workspace, consumerKey, consumerSecret}`; contesta dónde autorizarlo |
+| POST | `/api/forjas/bitbucket/{id}/authorize` | autorizar de nuevo una conexión con Bitbucket |
+| DELETE | `/api/forjas/bitbucket/{id}` | olvidar una conexión con Bitbucket que ninguna aplicación usa |
+| GET | `/api/forjas/bitbucket/{id}/repos` | los repositorios de un espacio de trabajo de Bitbucket, para Nueva aplicación |
 | GET | `/api/me/identities` | sus cuentas en otras forjas, ligadas a usted |
 | POST | `/api/me/identities/gitlab/{id}` | ligar su cuenta de un GitLab; contesta dónde autorizarla |
+| POST | `/api/me/identities/bitbucket/{id}` | ligar su cuenta de Bitbucket; contesta dónde autorizarla |
 | DELETE | `/api/me/identities` | desligar una de sus cuentas (`?forja&baseUrl&externalId`) |
 | GET | `/api/org-installations` | operadores: todas las instalaciones y las organizaciones a las que se dieron |
 | PUT | `/api/org-installations/{id}` | operadores: darle una instalación a una organización: `{org}` |

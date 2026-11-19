@@ -99,6 +99,7 @@ plugins:
             The Mercado (pages without code): El Mercado (páginas sin código)
             Members and roles (who can sign in and do what): Miembros y funciones (quién entra y qué puede hacer)
             Connecting GitLab (gitlab.com and your own): Conectar GitLab (gitlab.com y el suyo propio)
+            Connecting Bitbucket (Bitbucket Cloud, by workspace): Conectar Bitbucket (Bitbucket Cloud, por espacio de trabajo)
             "AI: the gateway, providers and caps": "IA: la pasarela, los proveedores y los topes"
             Built for agents (roles, tools, where it is going): Hecha para agentes (funciones, herramientas, hacia dónde va)
             La Ruta (memory for people and agents, over MCP): La Ruta (la memoria de personas y agentes, por MCP)
@@ -204,6 +205,7 @@ nav:
       - The lookout (a few findings each week): guide/vigia.md
       - Members and roles (who can sign in and do what): guide/members.md
       - Connecting GitLab (gitlab.com and your own): guide/gitlab.md
+      - Connecting Bitbucket (Bitbucket Cloud, by workspace): guide/bitbucket.md
       - "AI: the gateway, providers and caps": guide/ai.md
       - Built for agents (roles, tools, where it is going): guide/agents.md
       - La Ruta (memory for people and agents, over MCP): guide/ruta.md

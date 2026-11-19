@@ -56,4 +56,4 @@ Once a GitLab is connected, the welcome page offers **Sign in with GitLab** besi
 
 ## Not yet {#not-yet}
 
-These still work through GitHub only, and skip GitLab apps for now: [Renovate](renovate.md), [declared fixes](fixes.md), the coding agent, and rendimiento joining a conflict by itself (GitLab's API writes commits with one parent). A GitLab connection is used by the platform's organization. Bitbucket comes next.
+These still work through GitHub only, and skip GitLab apps for now: [Renovate](renovate.md), [declared fixes](fixes.md), the coding agent, and rendimiento joining a conflict by itself (GitLab's API writes commits with one parent). A GitLab connection is used by the platform's organization. For Bitbucket, see [Connecting Bitbucket](bitbucket.md).
