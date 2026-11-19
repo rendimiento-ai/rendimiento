@@ -111,7 +111,9 @@ export function porque(l: MesaLine, app: App): string {
   const at = l.at && !l.at.startsWith("0001") ? timeAgo(l.at) : "";
   switch (l.why) {
     case "passed": return t("passed: it can be merged");
-    case "blocked": return forjaOf(app) === "gitlab" ? t("passed, but GitLab will not merge it (an approval or a required pipeline)") : t("passed, but GitHub will not merge it (a review or a required check)");
+    case "blocked": return forjaOf(app) === "gitlab" ? t("passed, but GitLab will not merge it (an approval or a required pipeline)")
+      : forjaOf(app) === "bitbucket" ? t("passed, but Bitbucket will not merge it (a review or a required check)")
+      : t("passed, but GitHub will not merge it (a review or a required check)");
     case "conflict": return t("it conflicts with {branch}", { branch: app.defaultBranch });
     case "failed": return l.failed?.length ? t("failed in {steps}", { steps: l.failed.join(", ") }) : t("its run failed");
     case "cancelled": return t("its run was cancelled");
@@ -137,7 +139,7 @@ function accion(l: MesaLine, app: App, repo: string) {
     case "review":
       return <Link className="btn small" to={`/ruta?tab=encargos${l.encargos?.length ? `#encargo-${l.encargos[0].id}` : ""}`}>{t("Review")}</Link>;
     case "copy":
-      return <a className="btn small" href={pullURL(app, l.pull ?? 0)} target="_blank" rel="noreferrer">{forjaOf(app) === "gitlab" ? t("Close it on GitLab") : t("Close it on GitHub")}</a>;
+      return <a className="btn small" href={pullURL(app, l.pull ?? 0)} target="_blank" rel="noreferrer">{forjaOf(app) === "gitlab" ? t("Close it on GitLab") : forjaOf(app) === "bitbucket" ? t("Close it on Bitbucket") : t("Close it on GitHub")}</a>;
     case "stale":
       return <a className="btn small" href={forjaOf(app) === "gitlab" ? `${repo}/-/branches` : `${repo}/branches`} target="_blank" rel="noreferrer">{t("See the branches")}</a>;
     case "untested":
