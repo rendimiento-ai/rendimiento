@@ -400,7 +400,7 @@ button.nota:hover{transform:rotate(0) translateY(-2px)}
 .nav-link.active .dibujo { color: var(--cempasuchil); opacity: 1; }
 .nav-link:hover .dibujo { transform: translateY(-2px) rotate(-6deg); }
 @media (prefers-reduced-motion: reduce) { .dibujo { transition: none; } .nav-link:hover .dibujo { transform: none; } }
-.topbar-yo { flex: none; justify-content: center; line-height: 1; width: 34px; height: 34px; padding: 0; border-radius: 50%; font-weight: 700; text-transform: lowercase; background: var(--anil); color: #fff; border: 0; }
+.topbar-yo { flex: none; justify-content: center; line-height: 1; width: 38px; height: 38px; padding: 0; border-radius: 50%; font-weight: 700; text-transform: lowercase; background: var(--anil); color: #fff; border: 0; }
 
 /* On a phone the menu is a sheet that always peeks from the bottom: the first pages and the edge of the rest.
    Its handle raises it to every page, then to the account and preferences. */
@@ -2613,14 +2613,47 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 /* The top bar (main.tsx). On a wide screen two rows: the brand, the search, the bell, New app and the account's
    menu; under them every page, all in sight. On a phone one short row; the pages live in the sheet. */
 .topbar { display: block; padding: 0; }
+/* The first row: the brand, the search and the actions (the bell, New app, the account), every one 38px high and
+   centered on the row's line. Up to 900px the search fills the room between the brand and the actions. */
 .topbar-fila { display: flex; align-items: center; gap: 14px; padding: 10px 24px; min-width: 0; }
 .topbar-fila .brand, .topbar-fila .btn.primary { flex: none; white-space: nowrap; }
-.topbar-secciones { display: flex; flex-wrap: wrap; align-items: center; gap: 0 20px; padding: 0 24px; border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
+.topbar-acciones { flex: none; display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.topbar-acciones .btn.primary { height: 38px; padding: 0 16px; border-radius: 10px; font-weight: 800; }
+/* The bell (and, on a phone, the search's button): square 38px controls with a fine border, as the account's pill. */
+.topbar-acciones .campana-boton, .topbar-acciones .buscador-abrir { position: relative; width: 38px; height: 38px; padding: 0; justify-content: center;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); }
+.topbar-acciones .campana-boton:hover, .topbar-acciones .buscador-abrir:hover { background: var(--surface-2); }
+.topbar-acciones .campana-boton.con { color: var(--warn); }
+.topbar-acciones .campana-boton .nav-count { position: absolute; top: -3px; right: -3px; min-width: 16px; margin: 0; padding: 0 4px; line-height: 16px; font-size: 10px; }
+.topbar-secciones { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0 20px; padding: 0 24px; border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent); }
 .topbar-secciones .nav-link { padding: 8px 0 9px; font-size: 14px; white-space: nowrap; }
-@media (max-width: 640px) { .topbar-fila { padding: 8px 16px; gap: 8px; } }
+/* From 900px three columns, the outer two of one width, so the search sits at the true middle of the bar, over the
+   centered pages. When the actions need more than their half, their column takes it and the search moves aside a
+   little instead of running under them. */
+@media (min-width: 900px) {
+  .topbar-fila { display: grid; grid-template-columns: 1fr auto 1fr; column-gap: 20px; }
+  .topbar-fila > .brand { justify-self: start; }
+  .topbar-fila > .buscador { width: clamp(280px, 42vw, 560px); min-width: 0; }
+  .topbar-acciones { justify-self: end; margin-left: 0; }
+}
+/* Under 1200px the account's button keeps only the initial (the login is the menu's first row). */
+@media (max-width: 1199px) { .topbar-acciones .cuenta-login { display: none; } .topbar-acciones .cuenta-boton { padding-right: 8px; } }
+/* From 641 to 899px the search takes the room: New app is its seed alone (its name stays for a screen reader and in
+   its tooltip) and the account is its round initial. */
+@media (max-width: 899px) {
+  .topbar-fila { padding-inline: 20px; gap: 12px; }
+  .topbar-acciones { gap: 8px; }
+  .topbar-acciones .btn.primary { width: 38px; padding: 0; justify-content: center; }
+  .topbar-acciones .btn.primary .nueva-app-texto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .topbar-acciones .cuenta-boton { width: 38px; padding: 0; justify-content: center; border: 0; background: var(--anil); }
+  .topbar-acciones .cuenta-boton > svg { display: none; }
+  .topbar-acciones .cuenta-boton[aria-expanded="true"] { box-shadow: 0 0 0 2px var(--accent); }
+  .topbar-acciones .cuenta-inicial { width: 38px; height: 38px; }
+}
+@media (max-width: 640px) { .topbar-fila { padding: 8px 16px; gap: 8px; } .topbar-acciones { gap: 8px; } }
 
 /* The search (components/buscador): a box that opens what it finds under it; on a phone, over the top of the screen. */
-.buscador { position: relative; flex: 1 1 auto; max-width: 480px; min-width: 160px; }
+.buscador { position: relative; flex: 1 1 auto; min-width: 120px; }
 .buscador-caja { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border: 1.5px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--muted); cursor: text; }
 .buscador-caja:focus-within { border-color: var(--accent); }
 .buscador-caja input { flex: 1; min-width: 0; width: auto; height: 100%; border: 0; border-radius: 0; padding: 0; background: transparent; font-size: 14px; color: var(--text); }
@@ -2645,9 +2678,9 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 
 /* The account's menu (components/cuenta): its button with the initial and the login, and the rows under it. */
 .cuenta { position: relative; flex: none; }
-.cuenta-boton { display: inline-flex; align-items: center; gap: 7px; max-width: 220px; padding: 3px 10px 3px 3px; border: 1.5px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font-weight: 600; font-size: 14px; }
+.cuenta-boton { display: inline-flex; align-items: center; gap: 8px; max-width: 220px; height: 38px; padding: 0 10px 0 3px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font-weight: 600; font-size: 14px; }
 .cuenta-boton[aria-expanded="true"] { border-color: var(--accent); }
-.cuenta-inicial { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--anil); color: #fff; font-weight: 800; text-transform: lowercase; }
+.cuenta-inicial { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--anil); color: #fff; font-weight: 800; text-transform: lowercase; }
 .cuenta-login { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .menu-cuenta { position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: 290px; max-width: calc(100vw - 32px); display: flex; flex-direction: column; gap: 2px;
   background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 18px 40px -20px rgba(0, 0, 0, .6); padding: 6px; }
