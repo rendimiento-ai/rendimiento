@@ -36,6 +36,8 @@ A run that passed vouches only for what its steps read. When a branch also chang
 - Its GitHub check concludes **Action required** instead of success, titled *No step builds or tests `mobile/`: a person must merge this*. Tools that wait for green checks wait too: Renovate does not automerge it, nor does GitHub when the branch's rules require the check.
 - The run's page names those paths. A person's yes there turns the check green and merges it.
 
+The same holds for a branch whose checks failed [en seco](tasks.md#dry-runs-on-branches), against the published release: the button then says **Merge anyway**, and the yes is noted in the Ruta.
+
 What counts as tested, on a branch's run: the folder of each built service, build and job, with its `watch` paths and its Dockerfile; and the folder and `watch` paths of each task with `when: always` (a task that runs only on deploys, or before or after one, tests no branch). A step whose folder is the root (`path: .`, or none for a service) reads the whole repository, so then everything is tested, root lockfiles included. `rendimiento.yaml` always counts, since the run reads it, and so do files no build reads: Markdown, licences, and the settings of git, editors and Renovate (`renovate.json`). To have a folder tested, give it a step:
 
 ```yaml

@@ -155,6 +155,29 @@ tasks:
 
 Cuando la verificación está desactivada (`VERIFY_WINDOW=0` o `verify.disabled`), las tareas posteriores igual se ejecutan en cuanto el despliegue está sano, y sus resultados se registran, pero no se revierte nada.
 
+### En seco, en las ramas {#dry-runs-on-branches}
+
+Una tarea posterior al despliegue solo corre cuando una versión ya está en vivo, así que un error en ella (una prueba de humo que revisa la página equivocada) se descubre cuando regresa una versión. Una tarea puede pedir correr también **en seco**, desde una rama:
+
+```yaml
+tasks:
+  - name: smoke
+    stage: post-deploy
+    image: curlimages/curl:8.17.0
+    command: sh smoke.sh
+    dryRun: true                 # también en seco, en las ramas
+  - name: migrate
+    stage: post-deploy
+    service: api                 # nunca en seco: escribe en la base de datos
+```
+
+- **Cuándo:** en la ejecución de una rama que pasó, cuando la rama cambia **solo las pruebas**: la definición de las tareas posteriores o de `tests:` en `rendimiento.yaml`, o la imagen de `builds:` que las tiene (`build:<nombre>`, como `e2e/`), y nada de la aplicación (sus servicios, tareas programadas, otras imágenes ni el resto de `rendimiento.yaml`; la documentación no cuenta). Al menos una tarea con `dryRun: true` debe estar entre lo que cambió; entonces corren todas las que tienen `dryRun: true`, y también las pruebas de la aplicación si lo tienen ([las pruebas de la propia aplicación](reliability.md#the-apps-own-tests)). `after:` se respeta entre ellas; una que nombra una tarea que no corre en seco no la espera.
+- **Contra qué:** la versión **ya publicada**, en el espacio de nombres de la aplicación, como una tarea de Kubernetes (Job) igual a las de la versión (llamada `seco-…`), con la versión de la tarea que trae la rama y la imagen de su construcción hecha en la rama. Nada de la versión cambia.
+- **Qué hace una falla:** solo avisa. La ejecución igual pasó, y su página dice **Pasó, con un aviso**, con las pruebas en una sección punteada propia (*En seco, contra la versión publicada #N*) y el registro de cada una. rendimiento no integra la rama por sí solo, y su comprobación en GitHub termina en `action_required` en vez de éxito, así que la integración automática de Renovate también espera, como con [las rutas que ningún paso prueba](builds.md#what-no-step-tests). Una persona sí puede integrarla: en una aplicación que integra por sí sola, **Integrar de todos modos** en la página de la ejecución la integra, pone la comprobación en verde y deja una nota en la Ruta; en las demás, intégrela en GitHub.
+- **Nunca con `service:`:** una tarea así corre en el entorno del servicio, base de datos incluida, así que escribiría en producción desde una rama. Se rechaza `dryRun: true` junto con `service:`, y también `dryRun:` en una tarea de compilación o previa al despliegue. Aun sin `service:`, una tarea posterior puede escribir (un mensaje a Slack): pida `dryRun` solo para las que solo leen.
+- **Si aún no hay nada publicado:** la ejecución dice que las pruebas correrán en seco cuando haya una versión.
+- **Una rama que también cambia la aplicación** (una actualización de dependencias) no corre nada en seco contra producción; la ejecución lo dice. Correr las pruebas contra una copia de vista previa de la rama es el paso siguiente.
+
 ## Recetas {#recipes}
 
 **Construcción de Expo / EAS en cada cambio de la aplicación móvil:**

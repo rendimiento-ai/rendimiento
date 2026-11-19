@@ -77,7 +77,7 @@ fixes:
 | `redis` | object | see [needs](#postgres-and-redis) | Settings for `needs: [redis]`. |
 | `observe` | bool | `false` | Send traces from every service, for latency on the [Universe](universe.md#latency-on-every-line) map. Java, Node and Python services get the OpenTelemetry agent without code changes. Does nothing until the platform has `TELEMETRY_ENDPOINT`. |
 | `previews` | object | off | A live copy for each pull request, at `pr-<number>.<domain>` (`tienda.com` → `pr-7.tienda.com`; a subdomain keeps one level under its zone: `tienda.example.com` → `tienda-pr-7.example.com`, which a proxy's wildcard certificate covers) ([preview environments](../future/previews.md), being built): `data` (`empty`, or `seed` with `seed`, the name of a task that loads sample data; a copy of production's data is never offered), `keep` (days without a push before it is deleted, 1–30, default 7), `max` (copies at once, 1–5, default 3). In a cluster a copy needs a service with a `domain`; on a computer it answers at `http://<app>-pr-<number>.localhost`. Each copy runs every service once, asking for a quarter of its CPU and memory, with no scheduled jobs, no LAN ports and no verification. |
-| `tests` | object | none | The app's own browser tests, run against each release once it is live and judged test by test: `build` (required, a build whose image holds them), `command`, `url`, `env`, `secretEnv`, `blockingAfter` (1–50, default 5), `timeout`, `size` and `resources` (as for a task; without a size, a browser's: 250m / 256Mi, no CPU limit, limit 2Gi) ([the app's own tests](reliability.md#the-apps-own-tests)). |
+| `tests` | object | none | The app's own browser tests, run against each release once it is live and judged test by test: `build` (required, a build whose image holds them), `command`, `url`, `env`, `secretEnv`, `blockingAfter` (1–50, default 5), `timeout`, `size` and `resources` (as for a task; without a size, a browser's: 250m / 256Mi, no CPU limit, limit 2Gi), and `dryRun` (also en seco on branches that change only the checks, [dry runs on branches](tasks.md#dry-runs-on-branches)) ([the app's own tests](reliability.md#the-apps-own-tests)). |
 | `barrio` | string | grouped by what it calls | The barrio the app is drawn in on the [Universe](universe.md#barrios) map: a team or a domain (`Pagos`, `Clientes`). Letters, digits, spaces and dashes, up to 40. |
 
 ## Services
@@ -249,6 +249,7 @@ Commands run as CI steps; see [Tasks](tasks.md) for when they run and how secret
 | `timeout` | seconds | `STEP_TIMEOUT` | Only shorter than the platform's limit. |
 | `env`, `secrets`, `secretEnv` | as for services | | Secrets are read from the app's namespace when the step starts. |
 | `postgres`, `cache` | bool | `false` | Build tasks only, as for tests: a throwaway Postgres beside the task (`DATABASE_URL`) and a `/cache` kept between runs. For a task that drives the app with its database, such as a browser test. |
+| `dryRun` | bool | `false` | Post-deploy tasks without `service:` only: also run en seco, against the published release, on a branch that changes only the checks; a failure only warns ([dry runs on branches](tasks.md#dry-runs-on-branches)). |
 
 ## Fixes
 
