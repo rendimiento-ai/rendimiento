@@ -2,6 +2,7 @@ package ruta
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http/httptest"
 	"strings"
@@ -199,6 +200,14 @@ func TestPlataformaTools(t *testing.T) {
 		names = append(names, tl.Name)
 	}
 	all := strings.Join(names, ",")
+	// Output schemas stay open: a session that listed them before a field
+	// was added (app_estado's libreta) still takes the answer.
+	for _, tl := range res.Tools {
+		raw, _ := json.Marshal(tl.OutputSchema)
+		if strings.Contains(string(raw), `"additionalProperties":false`) {
+			t.Fatalf("%s's output schema is closed: %s", tl.Name, raw)
+		}
+	}
 	if !strings.Contains(all, "apps_listar") || !strings.Contains(all, "paso_registro") || strings.Contains(all, "ejecucion_lanzar") {
 		t.Fatalf("reader's tools = %s", all)
 	}
@@ -275,12 +284,25 @@ func TestPlataformaTools(t *testing.T) {
 	if _, msg := call(t, col, "ruta_anotar", map[string]any{"tipo": "pendiente", "titulo": "x", "cuerpo": "y", "rama": "suelta"}); !strings.Contains(msg, "app") {
 		t.Fatalf("a branch with no app: %q", msg)
 	}
+	// Written in the cargo that ran a branch of its app: linked to it.
+	out, msg = call(t, col, "ruta_anotar", map[string]any{"tipo": "pendiente", "titulo": "El botón en el teléfono", "cuerpo": "x", "app": "shop"})
+	sinRama := int64(out["id"].(float64))
+	if got := m.ramas[sinRama]; msg != "" || len(got) != 1 || got[0] != "arreglo" {
+		t.Fatalf("linked from the cargo's run = %v %s", got, msg)
+	}
 	out, msg = call(t, col, "ruta_actualizar", map[string]any{"id": id, "rama": "otra-rama", "descartado": "Maven no tiene lockfile"})
 	if msg != "" || out["descartado"] != "Maven no tiene lockfile" || len(m.ramas[id]) != 2 {
 		t.Fatalf("actualizar = %v %s %v", out, msg, m.ramas[id])
 	}
 	if out, msg = call(t, col, "ruta_actualizar", map[string]any{"id": id, "app": "", "descartado": ""}); msg != "" || out["app"] != nil || out["descartado"] != nil {
 		t.Fatalf("clearing app and descartado = %v %s", out, msg)
+	}
+	// A branch run later in the cargo answers what it wrote about the app.
+	if _, msg := call(t, col, "ejecucion_lanzar", map[string]any{"app": "shop", "rama": "segunda"}); msg != "" {
+		t.Fatal(msg)
+	}
+	if got := m.ramas[sinRama]; len(got) != 2 || got[1] != "segunda" || len(m.ramas[id]) != 2 {
+		t.Fatalf("linked from a later run = %v, %v", got, m.ramas[id])
 	}
 
 	// A key limited to shop sees and acts on shop only.

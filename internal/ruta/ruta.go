@@ -46,6 +46,12 @@ type Backend interface {
 	AnotarBitacora(ctx context.Context, b store.Bitacora) (store.Bitacora, error)
 	// LinkRutaBranch notes that an entry is worked on a branch.
 	LinkRutaBranch(ctx context.Context, entryID int64, branch, who string) error
+	// LinkCargoEntries links a branch an agent ran in its cargo to the
+	// app's to-dos and decisions it wrote or changed in that cargo, and
+	// LinkCargoLaunches an entry it wrote or changed to the branches of its
+	// app it ran earlier in the cargo.
+	LinkCargoEntries(ctx context.Context, cargoID, orgID int64, app, branch, who string) (int64, error)
+	LinkCargoLaunches(ctx context.Context, cargoID, entryID int64, who string) (int64, error)
 }
 
 // TokenPrefix starts every agent key, so a leaked one is easy to recognise.
@@ -453,6 +459,13 @@ func addTool[In, Out any](s *Server, srv herramientas, t *mcp.Tool, h func(conte
 	if srv.ingles {
 		t = s.enIngles(t, schemaFor[In]())
 	}
+	if t.OutputSchema == nil {
+		if out := outputSchemaFor[Out](); out != nil {
+			open := *t
+			open.OutputSchema = out // see esquemas.go: old sessions keep working
+			t = &open
+		}
+	}
 	mcp.AddTool(srv.Server, t, func(ctx context.Context, req *mcp.CallToolRequest, in In) (*mcp.CallToolResult, Out, error) {
 		var zero Out
 		k, err := keyFrom(req)
@@ -673,13 +686,24 @@ func (s *Server) anotar(ctx context.Context, k store.AgentKey, in anotarIn) (Ent
 			return Entry{}, err
 		}
 	}
+	s.linkCargo(ctx, c.ID, e.ID, k.Name)
 	return Entry{Summary: summary(e), Cuerpo: e.Body}, nil
+}
+
+// linkCargo links an entry written or changed in a cargo to the branches
+// of its app the agent ran (ejecucion_lanzar) in it: the work it answers.
+// The libreta is a help: a failure here never fails the call.
+func (s *Server) linkCargo(ctx context.Context, cargo, entry int64, who string) {
+	if _, err := s.Store.LinkCargoLaunches(ctx, cargo, entry, who); err != nil {
+		s.Log.Warn("libreta: link the cargo's branches", "entry", entry, "err", err)
+	}
 }
 
 // actualizar (ruta_actualizar) changes an entry, or marks a to-do done,
 // within the agent's open cargo.
 func (s *Server) actualizar(ctx context.Context, k store.AgentKey, in actualizarIn) (Entry, error) {
-	if _, err := s.cargoFor(ctx, k); err != nil {
+	c, err := s.cargoFor(ctx, k)
+	if err != nil {
 		return Entry{}, err
 	}
 	e, err := s.Store.Ruta(ctx, in.ID)
@@ -741,6 +765,7 @@ func (s *Server) actualizar(ctx context.Context, k store.AgentKey, in actualizar
 			return Entry{}, err
 		}
 	}
+	s.linkCargo(ctx, c.ID, e.ID, k.Name)
 	return Entry{Summary: summary(e), Cuerpo: e.Body}, nil
 }
 

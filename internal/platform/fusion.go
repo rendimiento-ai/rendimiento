@@ -164,6 +164,7 @@ func (p *Platform) mergePull(ctx context.Context, app *store.App, run *store.Run
 			}
 			state, msg = store.MergeBlocked, M("pull request #%d not merged: %s", number, githubSays(err))
 		} else {
+			p.noteMerged(ctx, app, pr.Head.Ref, run.SHA, time.Now())
 			// The branch did its work.
 			if err := p.GitHub.DeleteBranch(ctx, app.InstallationID, app.Repo, pr.Head.Ref); err != nil {
 				p.Log.Warn("merge: delete the branch", "app", app.Name, "branch", pr.Head.Ref, "err", err)

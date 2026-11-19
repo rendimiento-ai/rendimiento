@@ -2,6 +2,9 @@ package platform
 
 import (
 	"context"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rendimiento-ai/rendimiento/internal/libreta"
@@ -36,6 +39,10 @@ func (p *Platform) Libreta(ctx context.Context, a *store.App) (libreta.Libreta, 
 	if err != nil {
 		return libreta.Libreta{}, err
 	}
+	kept, err := p.Store.RutaBranchesKept(ctx, ids)
+	if err != nil {
+		return libreta.Libreta{}, err
+	}
 	encargos, err := p.Store.EncargosOfApp(ctx, a.OrgID, a.Name)
 	if err != nil {
 		return libreta.Libreta{}, err
@@ -55,8 +62,15 @@ func (p *Platform) Libreta(ctx context.Context, a *store.App) (libreta.Libreta, 
 		if e.CargoID != nil {
 			cargo = *e.CargoID
 		}
+		var k map[string]libreta.Kept
+		for b, kb := range kept[e.ID] {
+			if k == nil {
+				k = map[string]libreta.Kept{}
+			}
+			k[b] = libreta.Kept{MergedAt: kb.MergedAt, Release: kb.Release}
+		}
 		in.Entries = append(in.Entries, libreta.Entry{ID: e.ID, Kind: e.Kind, Title: e.Title, Author: e.Author, ByAgent: e.ByAgent,
-			Done: e.Done, Discarded: e.Discarded, Cargo: cargo, Branches: ramas[e.ID], CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt})
+			Done: e.Done, Discarded: e.Discarded, Cargo: cargo, Branches: ramas[e.ID], Kept: k, CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt})
 	}
 	for _, e := range encargos {
 		branches := []string{store.RamaDeEncargo(e.Encargo)}
@@ -122,5 +136,132 @@ func (p *Platform) Libreta(ctx context.Context, a *store.App) (libreta.Libreta, 
 		}
 		in.Tests = t
 	}
-	return libreta.Build(in), nil
+	l := libreta.Build(in)
+	p.keepLibreta(ctx, l, kept, rels)
+	return l, nil
+}
+
+// keepLibreta writes down what the libreta worked out of a Ruta entry's
+// branch and was not kept yet (merged by hand, say, while rendimiento was
+// not looking): its merge, and the release that carried it. So it is still
+// known once its runs are past the window the libreta reads.
+func (p *Platform) keepLibreta(ctx context.Context, l libreta.Libreta, kept map[int64]map[string]store.KeptBranch, rels []*store.Release) {
+	for _, it := range l.Items {
+		if it.Source != libreta.FromRuta || it.Branch == "" || it.DoneAt == nil || (it.Status != libreta.Integrado && it.Status != libreta.Publicado) {
+			continue
+		}
+		k := kept[it.ID][it.Branch]
+		var release int64
+		var releasedAt *time.Time
+		if it.Status == libreta.Publicado && k.Release == 0 {
+			release = it.Release
+			for _, r := range rels {
+				if r.Number == release {
+					at := r.CreatedAt
+					if r.VerifiedAt != nil {
+						at = *r.VerifiedAt
+					}
+					releasedAt = &at
+				}
+			}
+		}
+		if k.MergedAt != nil && release == 0 {
+			continue
+		}
+		if err := p.Store.KeepRutaBranch(ctx, it.ID, it.Branch, it.DoneAt, release, releasedAt); err != nil {
+			p.Log.Warn("libreta: keep a branch", "entry", it.ID, "branch", it.Branch, "err", err)
+		}
+	}
+}
+
+// noteMerged writes down, on the Ruta entries worked on a branch, that it
+// was merged: its head commit then, and when.
+func (p *Platform) noteMerged(ctx context.Context, app *store.App, branch, sha string, at time.Time) {
+	if branch == "" || branch == app.DefaultBranch {
+		return
+	}
+	n, err := p.Store.MarkRutaMerged(ctx, app.OrgID, app.Name, branch, sha, at)
+	if err != nil {
+		p.Log.Warn("libreta: note a merge", "app", app.Name, "branch", branch, "err", err)
+	} else if n > 0 {
+		p.Log.Info("libreta: merge noted", "app", app.Name, "branch", branch, "entries", n)
+	}
+}
+
+// PullMerged is GitHub saying a pull request was merged (by a person, or
+// by rendimiento): every app of the repository notes it on the entries
+// worked on its branch.
+func (p *Platform) PullMerged(ctx context.Context, repo, branch, sha string, at time.Time) {
+	apps, err := p.Store.AppsForRepo(ctx, repo)
+	if err != nil {
+		p.Log.Warn("libreta: apps of a merged pull request", "repo", repo, "err", err)
+		return
+	}
+	for _, a := range apps {
+		p.noteMerged(ctx, a, branch, sha, at)
+	}
+}
+
+// noteReleased writes down, on the app's merged branches no release had
+// carried yet, the release that passed its verification (or needed none):
+// its run came after their merge, so it holds them. A rollback carries
+// nothing new.
+func (p *Platform) noteReleased(ctx context.Context, app *store.App, rel *store.Release) {
+	if rel.RollbackOf != nil || rel.RunID == nil {
+		return
+	}
+	run, err := p.Store.GetRun(ctx, *rel.RunID)
+	if err != nil {
+		p.Log.Warn("libreta: the run of a release", "app", app.Name, "release", rel.Number, "err", err)
+		return
+	}
+	n, err := p.Store.MarkRutaReleased(ctx, app.OrgID, app.Name, rel.Number, run.CreatedAt, time.Now())
+	if err != nil {
+		p.Log.Warn("libreta: note a release", "app", app.Name, "release", rel.Number, "err", err)
+	} else if n > 0 {
+		p.Log.Info("libreta: release noted", "app", app.Name, "release", rel.Number, "branches", n)
+	}
+}
+
+// linkRutaTrailers links a pushed branch to the Ruta entries its commits
+// name in a «Ruta: N» trailer (see RutaRefs).
+func (p *Platform) linkRutaTrailers(ctx context.Context, app *store.App, e PushEvent) {
+	if e.Branch == app.DefaultBranch {
+		return
+	}
+	var ids []int64
+	for _, m := range e.Messages {
+		ids = append(ids, RutaRefs(m)...)
+	}
+	if len(ids) == 0 {
+		return
+	}
+	n, err := p.Store.LinkRutaRefs(ctx, app.OrgID, app.Name, e.Branch, ids, "github")
+	if err != nil {
+		p.Log.Warn("libreta: link a commit's Ruta entries", "app", app.Name, "branch", e.Branch, "err", err)
+	} else if n > 0 {
+		p.Log.Info("libreta: branch linked from its commits", "app", app.Name, "branch", e.Branch, "entries", n)
+	}
+}
+
+// rutaTrailer is a commit message line naming Ruta entries: «Ruta: 150»,
+// «Ruta: #150», «Ruta: 150, 151», in any case.
+var rutaTrailer = regexp.MustCompile(`(?im)^[ \t]*ruta:[ \t]*(#?[0-9]+(?:[ \t]*,[ \t]*#?[0-9]+)*)[ \t\r]*$`)
+
+// RutaRefs are the Ruta entries a commit message names in its «Ruta: N»
+// lines, each once, in order.
+func RutaRefs(message string) []int64 {
+	var out []int64
+	seen := map[int64]bool{}
+	for _, m := range rutaTrailer.FindAllStringSubmatch(message, -1) {
+		for _, f := range strings.Split(m[1], ",") {
+			n, err := strconv.ParseInt(strings.TrimPrefix(strings.TrimSpace(f), "#"), 10, 64)
+			if err != nil || n <= 0 || seen[n] {
+				continue
+			}
+			seen[n] = true
+			out = append(out, n)
+		}
+	}
+	return out
 }

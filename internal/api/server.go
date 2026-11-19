@@ -400,6 +400,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/apps/{app}/caminos", s.appCaminos)
 	auth(store.MemberGuest, "GET /api/apps/{app}/libreta", s.appLibreta)
 	auth(store.MemberCollaborator, "POST /api/apps/{app}/libreta", s.anotarPedido)
+	auth(store.MemberCollaborator, "POST /api/apps/{app}/libreta/{id}/discard", s.descartarPedido)
 	auth(store.MemberGuest, "GET /api/apps/{app}/mesa", s.appMesa)
 	auth(store.MemberCollaborator, "POST /api/apps/{app}/mesa/close", s.closeSpare)
 	auth(store.MemberGuest, "GET /api/mesa", s.mesaCounts)
@@ -876,8 +877,11 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 		Action      string `json:"action"` // pull_request: opened, closed...
 		Number      int    `json:"number"`
 		PullRequest *struct {
-			Head struct {
+			Merged   bool       `json:"merged"`
+			MergedAt *time.Time `json:"merged_at"`
+			Head     struct {
 				Ref  string `json:"ref"`
+				SHA  string `json:"sha"`
 				Repo *struct {
 					FullName string `json:"full_name"`
 				} `json:"repo"`
@@ -889,6 +893,9 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 		HeadCommit *struct {
 			Message string `json:"message"`
 		} `json:"head_commit"`
+		Commits []struct {
+			Message string `json:"message"`
+		} `json:"commits"`
 		Installation struct {
 			ID int64 `json:"id"`
 		} `json:"installation"`
@@ -907,6 +914,12 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 		if branch, ok := strings.CutPrefix(payload.Ref, "refs/heads/"); ok {
 			push = &platform.PushEvent{Installation: payload.Installation.ID, Repo: payload.Repository.FullName, Branch: branch, SHA: payload.After, Deleted: payload.Deleted,
 				SkipCI: payload.HeadCommit != nil && platform.SaysSkipCI(payload.HeadCommit.Message)}
+			for _, c := range payload.Commits {
+				push.Messages = append(push.Messages, c.Message)
+			}
+			if len(push.Messages) == 0 && payload.HeadCommit != nil {
+				push.Messages = []string{payload.HeadCommit.Message}
+			}
 		}
 	}
 	// Pull requests need no run of their own: the branch push already ran
@@ -917,6 +930,14 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 		switch payload.Action {
 		case "closed":
 			s.Platform.ClosePreview(r.Context(), payload.Repository.FullName, payload.Number)
+			// A merge, by a person or by rendimiento: the libreta keeps it.
+			if pr := payload.PullRequest; pr != nil && pr.Merged && (pr.Head.Repo == nil || strings.EqualFold(pr.Head.Repo.FullName, payload.Repository.FullName)) {
+				at := time.Now()
+				if pr.MergedAt != nil {
+					at = *pr.MergedAt
+				}
+				s.Platform.PullMerged(r.Context(), payload.Repository.FullName, pr.Head.Ref, pr.Head.SHA, at)
+			}
 		case "opened", "reopened":
 			// A branch that already passed gets its copy now, not on its next push.
 			if pr := payload.PullRequest; pr != nil {
