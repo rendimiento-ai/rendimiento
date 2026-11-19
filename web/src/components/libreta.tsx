@@ -37,7 +37,7 @@ export function LibretaTab({ app }: { app: App }) {
   const [filtro, setFiltro] = useState<Filtro>("open");
   const [renovate, setRenovate] = useState(true);
   const [anotando, setAnotando] = useState(false);
-  const puede = session.role !== "guest";
+  const puede = (app.role ?? session.role) !== "guest";
 
   const items = (data?.items ?? []).filter((it) => renovate || it.source !== "renovate");
   const open = items.filter((it) => abierto(it.status));
@@ -81,7 +81,7 @@ export function LibretaTab({ app }: { app: App }) {
             {filtro !== "done" && open.length > 0 && (
               <section aria-labelledby="libreta-abiertos" className="libreta-seccion">
                 <h2 id="libreta-abiertos" className="libreta-titulo">{t("Open")}</h2>
-                {open.map((it) => <Abierto key={it.source + it.id} app={app} it={it} />)}
+                {open.map((it) => <Abierto key={it.source + it.id} app={app} it={it} puede={puede} onChange={reload} />)}
               </section>
             )}
             {filtro !== "done" && open.length === 0 && items.length > 0 && <p className="muted">{t("Nothing open: everything asked is done or set aside.")}</p>}
@@ -103,6 +103,7 @@ export function LibretaTab({ app }: { app: App }) {
                     <div key={it.source + it.id} className="libreta-descartado">
                       <span className="libreta-tachado">{it.title}</span>
                       <span className="small muted">{it.reason || (it.why === "closed" ? t("its pull request was closed without merging") : t("no reason was written"))}</span>
+                      {puede && it.source === "ruta" && <Retomar app={app} it={it} onDone={reload} />}
                     </div>
                   ))}
                 </div>
@@ -195,8 +196,53 @@ function porque(it: LibretaItem, app: App): string {
 /** Where a line is on the way: 0 asked, 1 on its branch, 2 merged, 3 shipped. */
 const paso = (s: LibretaStatus) => (s === "publicado" ? 3 : s === "integrado" ? 2 : s === "pedido" ? 0 : 1);
 
+/** «Discard» on an open Ruta line: the reason is asked for here, in the card, and kept in the Ruta. */
+function Descartar({ app, it, onDone }: { app: App; it: LibretaItem; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>();
+  if (!open) {
+    return <button type="button" className="libreta-descartar" aria-expanded={false} onClick={() => setOpen(true)}>{t("Discard")}</button>;
+  }
+  const save = () => {
+    setBusy(true); setErr(undefined);
+    api.descartarPedido(app.name, it.id, reason.trim()).then(() => { setBusy(false); setOpen(false); onDone(); }, (e) => { setBusy(false); setErr(e); });
+  };
+  return (
+    <div className="stack libreta-descarte">
+      <label className="field"><span>{t("Why is it set aside?")}</span>
+        <textarea rows={2} value={reason} maxLength={1000} autoFocus onChange={(e) => setReason(e.target.value)}
+          placeholder={t("e.g. Another branch already solved it")} />
+      </label>
+      <p className="small muted" style={{ margin: 0 }}>{t("The reason stays in the Ruta, beside the entry; it can be taken up again later.")}</p>
+      <ErrorBox error={err} />
+      <div className="row">
+        <button className="danger" disabled={busy || !reason.trim()} onClick={save}>{t("Discard it")}</button>
+        <button onClick={() => { setOpen(false); setReason(""); }}>{t("Cancel")}</button>
+      </div>
+    </div>
+  );
+}
+
+/** «Take it up again» on a discarded Ruta line. */
+function Retomar({ app, it, onDone }: { app: App; it: LibretaItem; onDone: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>();
+  const save = () => {
+    setBusy(true); setErr(undefined);
+    api.descartarPedido(app.name, it.id, "").then(() => { setBusy(false); onDone(); }, (e) => { setBusy(false); setErr(e); });
+  };
+  return (
+    <>
+      <button type="button" className="libreta-retomar" disabled={busy} onClick={save}>{t("Take it up again")}</button>
+      <ErrorBox error={err} />
+    </>
+  );
+}
+
 /** An open line: its title and state, who asked, its way so far, and its links. */
-function Abierto({ app, it }: { app: App; it: LibretaItem }) {
+function Abierto({ app, it, puede, onChange }: { app: App; it: LibretaItem; puede: boolean; onChange: () => void }) {
   const e = ESTADO[it.status];
   if (it.source === "pruebas") {
     const p = it.progress ?? { done: 0, of: 5 };
@@ -243,6 +289,7 @@ function Abierto({ app, it }: { app: App; it: LibretaItem }) {
         {it.pull && it.source !== "renovate" ? <> · <a href={`https://github.com/${app.repo}/pull/${it.pull}`} target="_blank" rel="noreferrer">#{it.pull}</a></> : null}
         {it.run ? <> · <Link to={`/apps/${app.name}/runs/${it.run}`}>{t("run {n}", { n: it.run })}</Link></> : null}
       </p>
+      {puede && it.source === "ruta" && <Descartar app={app} it={it} onDone={onChange} />}
     </article>
   );
 }

@@ -504,6 +504,9 @@ type PushEvent struct {
 	Deleted      bool
 	// SkipCI: the head commit's message asks not to run ([skip ci]).
 	SkipCI bool
+	// Messages are the pushed commits' messages: a «Ruta: N» line in one
+	// links the branch to that Ruta entry (its libreta).
+	Messages []string
 }
 
 // SaysSkipCI reports whether a commit message asks for no run, the way
@@ -527,6 +530,7 @@ func (p *Platform) HandlePush(ctx context.Context, e PushEvent) ([]*store.Run, e
 	}
 	var runs []*store.Run
 	for _, app := range apps {
+		p.linkRutaTrailers(ctx, app, e) // even when the push is not run
 		event := "push"
 		if e.Branch != app.DefaultBranch {
 			event = "branch"

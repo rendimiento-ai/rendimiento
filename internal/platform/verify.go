@@ -462,6 +462,9 @@ func (p *Platform) setVerification(app *store.App, rel *store.Release, status, m
 		p.Log.Warn("could not record verification", "app", app.Name, "release", rel.Number, "err", err)
 	}
 	rel.VerifyStatus, rel.VerifyMessage = status, message
+	if status == store.VerifyPassed || status == store.VerifySkipped {
+		p.noteReleased(context.Background(), app, rel) // the libreta: what this release carried
+	}
 	p.Hub.Publish(appTopic(app.Name), events.Event{Type: "release", Data: rel})
 }
 

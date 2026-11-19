@@ -149,8 +149,50 @@ func (m *memory) LinkRutaBranch(_ context.Context, id int64, branch, _ string) e
 	if m.ramas == nil {
 		m.ramas = map[int64][]string{}
 	}
+	for _, b := range m.ramas[id] {
+		if b == branch {
+			return nil
+		}
+	}
 	m.ramas[id] = append(m.ramas[id], branch)
 	return nil
+}
+
+// linkable is which entries a cargo's branch links to by itself.
+func linkable(e store.RutaEntry) bool {
+	return e.ArchivedAt == nil && e.Discarded == "" && (e.Kind == store.KindPendiente || e.Kind == store.KindDecision)
+}
+
+func (m *memory) LinkCargoEntries(ctx context.Context, cargo, _ int64, app, branch, who string) (int64, error) {
+	m.mu.Lock()
+	var ids []int64
+	for _, e := range m.entries {
+		if e.CargoID != nil && *e.CargoID == cargo && e.App == app && linkable(e) {
+			ids = append(ids, e.ID)
+		}
+	}
+	m.mu.Unlock()
+	for _, id := range ids {
+		m.LinkRutaBranch(ctx, id, branch, who)
+	}
+	return int64(len(ids)), nil
+}
+
+func (m *memory) LinkCargoLaunches(ctx context.Context, cargo, entry int64, who string) (int64, error) {
+	m.mu.Lock()
+	e := m.entries[entry-1]
+	var branches []string
+	for _, a := range m.actions {
+		var in struct{ App, Rama string }
+		if a.CargoID != nil && *a.CargoID == cargo && a.Tool == "ejecucion_lanzar" && a.OK && json.Unmarshal([]byte(a.Args), &in) == nil && in.App == e.App && linkable(e) {
+			branches = append(branches, in.Rama)
+		}
+	}
+	m.mu.Unlock()
+	for _, b := range branches {
+		m.LinkRutaBranch(ctx, entry, b, who)
+	}
+	return int64(len(branches)), nil
 }
 
 type bearer struct{ token string }

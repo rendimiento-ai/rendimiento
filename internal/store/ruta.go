@@ -341,8 +341,8 @@ func (s *Store) UpdateRuta(ctx context.Context, e RutaEntry, changedBy string) (
 	}
 	defer tx.Rollback(ctx)
 	tag, err := tx.Exec(ctx, `
-		INSERT INTO ruta_history (entry_id, title, body, tags, done, changed_by)
-		SELECT id, title, body, tags, done, $2 FROM ruta_entries WHERE id = $1`, e.ID, changedBy)
+		INSERT INTO ruta_history (entry_id, title, body, tags, done, changed_by, app, discarded)
+		SELECT id, title, body, tags, done, $2, app, discarded FROM ruta_entries WHERE id = $1`, e.ID, changedBy)
 	if err != nil {
 		return e, err
 	}

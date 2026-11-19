@@ -178,3 +178,39 @@ func TestUnseenBranch(t *testing.T) {
 		t.Fatalf("unseen branch: %+v", it)
 	}
 }
+
+// What was kept of a branch (its merge, its release) speaks for it when
+// its runs and its pull request are gone, and before what they say now.
+func TestKept(t *testing.T) {
+	in := Input{
+		DefaultBranch: "main",
+		Entries: []Entry{
+			{ID: 1, Kind: "pendiente", Title: "shipped long ago", Branches: []string{"antigua"},
+				Kept: map[string]Kept{"antigua": {MergedAt: ptr(at(1)), Release: 4}}, CreatedAt: at(0)},
+			{ID: 2, Kind: "pendiente", Title: "merged long ago, released now", Branches: []string{"fusion"},
+				Kept: map[string]Kept{"fusion": {MergedAt: ptr(at(2))}}, CreatedAt: at(0)},
+			{ID: 3, Kind: "pendiente", Title: "kept merge wins over a later failed run", Branches: []string{"reusada"},
+				Kept: map[string]Kept{"reusada": {MergedAt: ptr(at(3))}}, CreatedAt: at(0)},
+			{ID: 4, Kind: "decision", Title: "a decision, kept shipped", Branches: []string{"decidida"},
+				Kept: map[string]Kept{"decidida": {MergedAt: ptr(at(1)), Release: 5}}, CreatedAt: at(0)},
+		},
+		Runs: []Run{
+			{ID: 10, Branch: "main", Status: "succeeded", Release: 9, CreatedAt: at(4)},
+			{ID: 11, Branch: "reusada", Status: "failed", Failed: []string{"test"}, CreatedAt: at(5)},
+		},
+		Releases: []Release{{Number: 9, RunID: 10, Verify: "passed"}},
+	}
+	l := Build(in)
+	if it := byKey(t, l, FromRuta, 1); it.Status != Publicado || it.Release != 4 || it.DoneAt == nil || !it.DoneAt.Equal(at(1)) {
+		t.Errorf("kept release: %+v", it)
+	}
+	if it := byKey(t, l, FromRuta, 2); it.Status != Publicado || it.Release != 9 {
+		t.Errorf("kept merge, release from the runs: %+v", it)
+	}
+	if it := byKey(t, l, FromRuta, 3); it.Status != Publicado || it.Run != 11 {
+		t.Errorf("kept merge wins: %+v", it)
+	}
+	if it := byKey(t, l, FromRuta, 4); it.Status != Publicado || it.Release != 5 {
+		t.Errorf("a decision with a kept branch: %+v", it)
+	}
+}

@@ -18,7 +18,7 @@ Nothing is lost: an edit keeps the previous version, and *Archive* hides an entr
 
 ## Entries about an app {#entries-about-an-app}
 
-A to-do or a decision can say which **app** it is about (the optional `app` field). The Ruta stays one; the entry simply also shows in that app's [libreta](libreta.md), the list of what was asked for the app and whether it is done. An entry about an app can name the **branches** it is worked on (`rama`), so its state there comes from their runs, merge and release, and it can be **set aside** with its reason (`descartado`), which the libreta shows as *discarded*. **Note a request** on an app's Libreta tab writes a to-do with the app already set. An entry about an app the person may not see is hidden from them, as one tagged with it is.
+A to-do or a decision can say which **app** it is about (the optional `app` field). The Ruta stays one; the entry simply also shows in that app's [libreta](libreta.md), the list of what was asked for the app and whether it is done. An entry about an app can name the **branches** it is worked on (`rama`), so its state there comes from their runs, merge and release, and it can be **set aside** with its reason (`descartado`), which the libreta shows as *discarded* (or with **Discard** on its card there). A branch is also linked by itself: a commit pushed to it with a line `Ruta: 150` names that entry, and a branch an agent runs in its cargo answers the entries about that app it wrote or changed in the cargo ([which branches belong to a request](libreta.md#which-branches-belong-to-a-request)). The history keeps an entry's app and its reason for being set aside too, like its other fields. **Note a request** on an app's Libreta tab writes a to-do with the app already set. An entry about an app the person may not see is hidden from them, as one tagged with it is.
 
 ## Cargos: an agent's turn of work {#cargos-an-agents-turn-of-work}
 
@@ -58,6 +58,10 @@ Agents reach the Ruta through **MCP** (Model Context Protocol), an open standard
 3. When the agent connects, the server tells it the rules: start with `ruta_inicio`, take a cargo before writing, hand it over before leaving, never write secrets.
 
 The rules and the tools' descriptions come in the platform's language (`NOTIFY_LANG`), or in the one the address asks for: `/mcp?lang=en` or `/mcp?lang=es`. The tools keep their Spanish names (`ruta_inicio`, `cargo_tomar`…) in both, and so do the fields of their answers; the English instructions explain the words an agent meets (*cargo*, *encargo*, *entrega*).
+
+### When a release changes the tools {#when-a-release-changes-the-tools}
+
+An agent's client lists the tools, and what each one answers (its output schema), when it connects, and keeps that list for the whole session. The endpoint is stateless: each request is answered on its own, with no stream back to the client, so it cannot send `notifications/tools/list_changed` when a release adds or changes a tool. A session opened before a release keeps the tools of the release before: what was added since is missing until the agent starts a new session. So that such a session keeps working meanwhile, output schemas are open (they never say `additionalProperties: false`) and a new field of an answer is always optional: an old session takes an answer with one field more. Sessions opened before the first release with open schemas still have closed ones; if a tool answers *Structured content does not match the tool's output schema*, start a new session.
 
 | Tool | Does | Key |
 |---|---|---|
