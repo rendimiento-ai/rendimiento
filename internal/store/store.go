@@ -103,10 +103,11 @@ type App struct {
 	// or with MergeAny every open pull request.
 	AutoMerge bool `json:"autoMerge"`
 	MergeAny  bool `json:"mergeAny"`
-	// Forja is where the app's code lives: "github" (ForjaGitHub) or
-	// "gitlab". A GitLab app's Repo starts with its GitLab's address
-	// (git.example.com/group/project) and its InstallationID is the GitLab
-	// connection's id.
+	// Forja is where the app's code lives: "github" (ForjaGitHub),
+	// "gitlab" or "bitbucket". A GitLab app's Repo starts with its GitLab's
+	// address (git.example.com/group/project), a Bitbucket app's with
+	// bitbucket.org/<workspace>, and its InstallationID is its connection's
+	// id.
 	Forja string `json:"forja"`
 }
 
