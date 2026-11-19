@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/rendimiento-ai/rendimiento/internal/bitbucket"
 	"github.com/rendimiento-ai/rendimiento/internal/gitlab"
 	"github.com/rendimiento-ai/rendimiento/internal/i18n"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
@@ -119,6 +120,12 @@ type forjaView struct {
 	// Webhook where GitLab delivers.
 	Callback string `json:"callback"`
 	Webhook  string `json:"webhook"`
+	// Bitbucket are the workspaces connected; BitbucketCallback is the
+	// callback URL their OAuth consumer needs, and BitbucketWebhook where
+	// Bitbucket delivers.
+	Bitbucket         []bitbucketView `json:"bitbucket"`
+	BitbucketCallback string          `json:"bitbucketCallback"`
+	BitbucketWebhook  string          `json:"bitbucketWebhook"`
 }
 
 type gitlabView struct {
@@ -132,6 +139,7 @@ type gitlabView struct {
 func (s *Server) listForjas(w http.ResponseWriter, r *http.Request, _ string) {
 	var v forjaView
 	v.Callback, v.Webhook = s.BaseURL+gitlab.CallbackPath, s.BaseURL+gitlab.WebhookPath
+	v.BitbucketCallback, v.BitbucketWebhook = s.BaseURL+bitbucket.CallbackPath, s.BaseURL+bitbucket.WebhookPath
 	if app, err := s.GitHub.Get(); err == nil {
 		c := app.Credentials()
 		v.GitHub.Configured, v.GitHub.Slug, v.GitHub.HTMLURL = true, c.Slug, c.HTMLURL
@@ -146,7 +154,7 @@ func (s *Server) listForjas(w http.ResponseWriter, r *http.Request, _ string) {
 		if a.ForjaOf() == store.ForjaGitHub {
 			v.GitHub.Apps++
 		} else {
-			counts[fmt.Sprint(a.InstallationID)]++
+			counts[a.ForjaOf()+"/"+fmt.Sprint(a.InstallationID)]++
 		}
 	}
 	list, err := s.Store.GitLabConnections(r.Context())
@@ -156,8 +164,12 @@ func (s *Server) listForjas(w http.ResponseWriter, r *http.Request, _ string) {
 	}
 	v.GitLab = []gitlabView{}
 	for _, c := range list {
-		gv := gitlabView{GitLabConnection: c, Host: gitlab.Host(c.BaseURL), Authorized: c.Username != "", Apps: counts[fmt.Sprint(c.ID)]}
+		gv := gitlabView{GitLabConnection: c, Host: gitlab.Host(c.BaseURL), Authorized: c.Username != "", Apps: counts[gitlab.Name+"/"+fmt.Sprint(c.ID)]}
 		v.GitLab = append(v.GitLab, gv)
+	}
+	if v.Bitbucket, err = s.bitbucketViews(r.Context(), counts); err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
 	}
 	writeJSON(w, v)
 }
@@ -328,7 +340,7 @@ func (s *Server) linkGitLab(w http.ResponseWriter, r *http.Request, login string
 }
 
 // myIdentities is GET /api/me/identities: the person's linked accounts,
-// and the GitLabs they could link one of.
+// and the GitLabs and Bitbucket workspaces they could link one of.
 func (s *Server) myIdentities(w http.ResponseWriter, r *http.Request, login string) {
 	ids, err := s.Store.Identities(r.Context(), login)
 	if err != nil {
@@ -348,7 +360,16 @@ func (s *Server) myIdentities(w http.ResponseWriter, r *http.Request, login stri
 	for _, c := range list {
 		opts = append(opts, option{c.ID, gitlab.Host(c.BaseURL)})
 	}
-	writeJSON(w, map[string]any{"login": login, "identities": ids, "gitlab": opts})
+	workspaces, err := s.Store.BitbucketConnections(r.Context())
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	bb := []option{}
+	for _, c := range workspaces {
+		bb = append(bb, option{c.ID, c.Workspace})
+	}
+	writeJSON(w, map[string]any{"login": login, "identities": ids, "gitlab": opts, "bitbucket": bb})
 }
 
 // unlinkIdentity is DELETE /api/me/identities: one of the person's own

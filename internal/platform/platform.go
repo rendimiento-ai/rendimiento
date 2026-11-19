@@ -303,7 +303,7 @@ func (p *Platform) Propose(ctx context.Context, forjaName string, installation i
 
 // OnboardRequest is what the New app wizard submits.
 type OnboardRequest struct {
-	// Forja is where the repository is: "github" (or empty) or "gitlab".
+	// Forja is where the repository is: "github" (or empty), "gitlab" or "bitbucket".
 	Forja         string            `json:"forja,omitempty"`
 	Installation  int64             `json:"installation"`
 	Repo          string            `json:"repo"`

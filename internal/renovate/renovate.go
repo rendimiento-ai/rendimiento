@@ -229,7 +229,7 @@ func (r *Runner) Repos(ctx context.Context, s Settings) ([]string, error) {
 	var out []string
 	for _, a := range apps {
 		if a.ForjaOf() != store.ForjaGitHub {
-			continue // Renovate runs through the GitHub App: GitLab apps are not covered yet
+			continue // Renovate runs through the GitHub App: GitLab and Bitbucket apps are not covered yet
 		}
 		if !seen[strings.ToLower(a.Repo)] {
 			seen[strings.ToLower(a.Repo)] = true
