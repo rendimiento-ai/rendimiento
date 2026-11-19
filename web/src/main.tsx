@@ -161,21 +161,23 @@ function Shell() {
     <>
       <Cielo />
       <Techo />
-      {/* On a wide screen two rows: the brand, the search, the bell, New app and the account's menu; under them
-          every page. On a phone one short row, and the pages and the account in the sheet. */}
+      {/* On a wide screen two rows: the brand, the search in the middle of the bar, and the bell, New app and the
+          account's menu at the end; under them every page, centered. On a phone one short row, and the pages and the
+          account in the sheet. */}
       <header className="topbar">
         <div className="topbar-fila">
           <Link to="/" className="brand"><Logo /> <span className="brand-name">rendimiento</span></Link>
           {!telefono && <Buscador paginas={buscables} />}
-          <span className="spacer" />
-          {telefono && <Buscador paginas={buscables} telefono />}
-          <Campana role={state.role} operator={state.operator} buzon={state.buzon} />
-          {telefono
-            ? <button type="button" className="topbar-yo" title={t("Your account and preferences")} onClick={() => setAltura(altura === 2 ? 0 : 2)}>{(state.login ?? "?").slice(0, 1)}<span className="sr-only">{t("Your account and preferences")}</span></button>
-            : <>
-              {state.role === "admin" && <Link to="/new" className="btn primary"><Semilla />{t("New app")}</Link>}
-              <MenuCuenta login={state.login} role={state.role} org={state.org} demo={state.demo} salir={salir} />
-            </>}
+          <div className="topbar-acciones">
+            {telefono && <Buscador paginas={buscables} telefono />}
+            <Campana role={state.role} operator={state.operator} buzon={state.buzon} />
+            {telefono
+              ? <button type="button" className="topbar-yo" title={t("Your account and preferences")} onClick={() => setAltura(altura === 2 ? 0 : 2)}>{(state.login ?? "?").slice(0, 1)}<span className="sr-only">{t("Your account and preferences")}</span></button>
+              : <>
+                {state.role === "admin" && <Link to="/new" className="btn primary" title={t("New app")}><Semilla /><span className="nueva-app-texto">{t("New app")}</span></Link>}
+                <MenuCuenta login={state.login} role={state.role} org={state.org} demo={state.demo} salir={salir} />
+              </>}
+          </div>
         </div>
         {!telefono && <nav className="topbar-secciones" aria-label={t("Pages")}>{paginas}</nav>}
       </header>
