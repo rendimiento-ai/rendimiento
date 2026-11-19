@@ -29,6 +29,12 @@ type Tests struct {
 	BlockingAfter int `json:"blockingAfter,omitempty"`
 	// Timeout bounds the run, in seconds (default the deploy tasks' 10 min).
 	Timeout int `json:"timeout,omitempty"`
+	// Size and Resources are the run's requests and limits, as for a task.
+	// Without a size, a browser's: like a build's test: section, 250m and
+	// 256Mi requested, no CPU limit and 2Gi of memory (Chromium and its
+	// workers need more than medium's 512Mi).
+	Size      Size              `json:"size,omitempty"`
+	Resources *ResourceOverride `json:"resources,omitempty"`
 }
 
 // TestsTaskName is the post-deploy task that runs the app's tests.
@@ -80,8 +86,20 @@ func (t *Tests) Task(s *Spec) Task {
 		env[k] = v
 	}
 	script := fmt.Sprintf("%s --retries=1 --reporter=list,json; node -e %s; exit 0", cmd, shellQuote(testsReport))
+	// The task carries the resolved resources (no size: "" is unset there).
+	r := t.Requests()
+	res := &ResourceOverride{CPU: r.CPURequest, Memory: r.MemRequest, CPULimit: r.CPULimit, MemoryLimit: r.MemLimit}
 	return Task{Name: TestsTaskName, Stage: StagePostDeploy, Image: "build:" + t.Build, Command: script,
-		Optional: true, Env: env, SecretEnv: t.SecretEnv, Timeout: t.Timeout}
+		Optional: true, Env: env, SecretEnv: t.SecretEnv, Timeout: t.Timeout, Resources: res}
+}
+
+// Requests resolves the tests' requests and limits ("" = unset).
+func (t *Tests) Requests() Resources {
+	r := testResources
+	if t.Size != "" {
+		r = t.Size.Resources()
+	}
+	return override(r, t.Resources)
 }
 
 // url is BASE_URL: the one given, or the first service's domain.
@@ -115,6 +133,11 @@ func (t *Tests) validate(s *Spec) []error {
 	if t.Timeout < 0 {
 		errs = append(errs, fmt.Errorf("tests.timeout must be a number of seconds"))
 	}
+	if _, ok := sizes[t.Size]; t.Size != "" && !ok {
+		errs = append(errs, fmt.Errorf("tests.size %q must be small, medium or large", t.Size))
+	}
+	errs = append(errs, validateResources("tests", t.Resources)...)
+	errs = append(errs, validateFit("tests", t.Requests())...)
 	if t.URL != "" && !strings.HasPrefix(t.URL, "http://") && !strings.HasPrefix(t.URL, "https://") {
 		errs = append(errs, fmt.Errorf("tests.url %q must start with http:// or https://", t.URL))
 	}

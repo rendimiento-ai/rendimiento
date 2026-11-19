@@ -1,0 +1,10 @@
+# error: tests.size "enorme" must be small, medium or large
+services:
+  - name: web
+    domain: tienda.example.com
+builds:
+  - name: e2e
+    path: e2e
+tests:
+  build: e2e
+  size: enorme

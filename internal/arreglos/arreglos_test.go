@@ -151,6 +151,41 @@ func TestCovering(t *testing.T) {
 	}
 }
 
+// The run page's offer looks at every failed step, in any order: a stale
+// web/package-lock.json fails both web-ui:task (in web, which lockfile-web
+// covers) and web:build (in ., which no fix covers), and the page offers
+// lockfile-web either way; without a fix that covers any, it offers to
+// declare one for the deepest folder.
+func TestBest(t *testing.T) {
+	npm := Stale{Recipe: "npm", File: "package-lock.json"}
+	task := Found{Step: "web-ui:task", Folder: "web", Stale: npm}
+	build := Found{Step: "web:build", Folder: ".", Stale: npm}
+	fixes := []spec.Fix{{Name: "lockfile-web", Recipe: "npm", Path: "web"}}
+	for _, order := range [][]Found{{task, build}, {build, task}} {
+		step, f, ok := Best(order, fixes, false)
+		if !ok || f.Name != "lockfile-web" || step.Step != "web-ui:task" {
+			t.Errorf("%s first: got %s %s %v, want web-ui:task lockfile-web", order[0].Step, step.Step, f.Name, ok)
+		}
+		step, _, ok = Best(order, nil, false)
+		if ok || step.Step != "web-ui:task" || step.Folder != "web" {
+			t.Errorf("%s first, no fixes: got %s in %s %v, want web-ui:task in web", order[0].Step, step.Step, step.Folder, ok)
+		}
+	}
+	// Of two fixes that cover, the deepest; at the same fix, the deepest
+	// folder, then the step's name.
+	deep := Found{Step: "a:task", Folder: "web/app", Stale: npm}
+	two := []spec.Fix{{Name: "raiz", Recipe: "npm", Path: "."}, {Name: "lockfile-web", Recipe: "npm", Path: "web"}}
+	for _, order := range [][]Found{{build, task, deep}, {deep, task, build}, {task, deep, build}} {
+		step, f, ok := Best(order, two, false)
+		if !ok || f.Name != "lockfile-web" || step.Step != "a:task" {
+			t.Errorf("%v: got %s %s %v, want a:task lockfile-web", order, step.Step, f.Name, ok)
+		}
+	}
+	if m := Covered([]Found{build, task}, two, false); len(m) != 2 || m[0].Fix.Name != "raiz" || m[1].Fix.Name != "lockfile-web" {
+		t.Errorf("covered: %+v", m)
+	}
+}
+
 // Only the files under the fix's folder that match its patterns come back;
 // the rest is ignored and listed; and there is a cap on their size.
 func TestKeep(t *testing.T) {

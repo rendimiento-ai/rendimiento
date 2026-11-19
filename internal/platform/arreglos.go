@@ -56,6 +56,7 @@ func (p *Platform) fixRenovate(ctx context.Context, app *store.App, run *store.R
 	if err != nil || len(declared) == 0 {
 		return
 	}
+	var found []arreglos.Found
 	for _, st := range ran {
 		if results[st.ID].Status != pipeline.StatusFailed {
 			continue
@@ -64,13 +65,14 @@ func (p *Platform) fixRenovate(ctx context.Context, app *store.App, run *store.R
 		if err != nil {
 			continue
 		}
-		stale, ok := arreglos.Signature(log)
-		if !ok {
-			continue
+		if stale, ok := arreglos.Signature(log); ok {
+			found = append(found, arreglos.Found{Step: st.ID, Folder: st.Path, Stale: stale})
 		}
-		if f, ok := arreglos.Covering(declared, stale, st.Path, true); ok && !seen[f.Name] {
-			seen[f.Name] = true
-			fixes = append(fixes, f.Name)
+	}
+	for _, m := range arreglos.Covered(found, declared, true) {
+		if !seen[m.Fix.Name] {
+			seen[m.Fix.Name] = true
+			fixes = append(fixes, m.Fix.Name)
 		}
 	}
 	for _, name := range fixes {

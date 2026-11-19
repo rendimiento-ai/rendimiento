@@ -61,3 +61,27 @@ func TestPreDeployJobUsesTheNewImage(t *testing.T) {
 		t.Fatal("a post-deploy job runs the live (already new) Deployment's image as is")
 	}
 }
+
+// The app's own browser tests run with a browser's requests and limits,
+// not best-effort: without a size, 250m and 256Mi asked, 2Gi of memory and
+// no CPU limit; with one, as the spec says.
+func TestTestsJobResources(t *testing.T) {
+	rel := &store.Release{Number: 9}
+	base := "services:\n  - name: web\n    domain: tienda.example.com\nbuilds:\n  - name: e2e\n    path: e2e\n"
+	for in, want := range map[string][4]string{
+		"tests: {build: e2e}": {"250m", "256Mi", "0", "2Gi"},
+		"tests: {build: e2e, size: large, resources: {memoryLimit: 3Gi}}": {"250m", "512Mi", "2", "3Gi"},
+	} {
+		sp, err := spec.Parse([]byte(base + in))
+		if err != nil {
+			t.Fatal(err)
+		}
+		task := sp.Tests.Task(sp)
+		c := taskJob("tienda", rel, task, &corev1.Container{Image: "reg/e2e@sha256:1"}, nil, "abcde").Spec.Template.Spec.Containers[0]
+		got := [4]string{c.Resources.Requests.Cpu().String(), c.Resources.Requests.Memory().String(),
+			c.Resources.Limits.Cpu().String(), c.Resources.Limits.Memory().String()}
+		if got != want {
+			t.Errorf("%s: resources %v, want %v", in, got, want)
+		}
+	}
+}

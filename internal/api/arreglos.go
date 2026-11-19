@@ -57,8 +57,9 @@ func (s *Server) fixRunApp(w http.ResponseWriter, r *http.Request) (*store.Run, 
 	return run, app, true
 }
 
-// offer reads the run's failed steps' logs for a stale lockfile, and finds
-// the declared fix (from the default branch) that covers the step's folder.
+// offer reads every failed step's log for a stale lockfile, and finds the
+// declared fix (from the default branch) that covers one of those steps'
+// folders; without one, the recipe to declare for the deepest folder.
 func (s *Server) offer(ctx context.Context, run *store.Run, app *store.App) fixOffer {
 	out := fixOffer{Runs: []store.FixRun{}, Available: s.Platform.Fixes != nil}
 	if runs, err := s.Store.FixRuns(ctx, app.ID, run.ID, 20); err == nil {
@@ -71,6 +72,7 @@ func (s *Server) offer(ctx context.Context, run *store.Run, app *store.App) fixO
 	for _, st := range pipeline.Plan(app.Name, s.Platform.Config.Registry, app.Spec) {
 		folders[st.ID] = st.Path
 	}
+	var found []arreglos.Found
 	for _, st := range run.Steps {
 		if st.Status != store.RunFailed {
 			continue
@@ -87,17 +89,25 @@ func (s *Server) offer(ctx context.Context, run *store.Run, app *store.App) fixO
 		if folder == "" {
 			folder = "."
 		}
-		out.Step, out.Folder, out.Stale = st.ID, path.Clean(folder), &stale
-		break
+		found = append(found, arreglos.Found{Step: st.ID, Folder: path.Clean(folder), Stale: stale})
 	}
-	if out.Stale == nil || s.Platform.Fixes == nil {
+	if len(found) == 0 {
 		return out
 	}
-	declared, err := s.Platform.Fixes.Declared(ctx, app)
-	if err != nil {
+	var declared []spec.Fix
+	known := s.Platform.Fixes != nil
+	if known {
+		d, err := s.Platform.Fixes.Declared(ctx, app)
+		declared, known = d, err == nil
+	}
+	// Every failed step counts, whatever their order: the one a declared
+	// fix covers first, else the one to declare a fix for.
+	step, f, ok := arreglos.Best(found, declared, false)
+	out.Step, out.Folder, out.Stale = step.Step, step.Folder, &step.Stale
+	if !known {
 		return out
 	}
-	if f, ok := arreglos.Covering(declared, *out.Stale, out.Folder, false); ok {
+	if ok {
 		out.Declared, out.Writes = &f, f.Writes
 		if f.Recipe != "" {
 			out.Writes = arreglos.RecipeWrites(f.Recipe)
