@@ -22,16 +22,26 @@ import (
 //   - a person's yes in rendimiento turns the check green, and rendimiento
 //     merges it.
 
-// untested lists what of the branch's change, against the default branch,
-// no step of its run builds or tests. Nothing for runs of the default
-// branch, or when GitHub does not say what changed.
-func (p *Platform) untested(ctx context.Context, app *store.App, run *store.Run, sp spec.Spec) []string {
+// branchFiles are the files a branch's commit changes against the default
+// branch; complete is false when GitHub listed only part of them (300
+// files). Nothing (ok false) for runs of the default branch, or when
+// GitHub does not say what changed.
+func (p *Platform) branchFiles(ctx context.Context, app *store.App, run *store.Run) (files []string, complete, ok bool) {
 	if run.Deploy || run.Branch == app.DefaultBranch || !fullSHA.MatchString(run.SHA) {
-		return nil
+		return nil, false, false
 	}
 	files, complete, err := p.Forja.ChangedFiles(ctx, app.InstallationID, app.Repo, app.DefaultBranch, run.SHA)
 	if err != nil {
-		p.Log.Warn("untested paths: list the changed files", "app", app.Name, "run", run.ID, "err", err)
+		p.Log.Warn("list the branch's changed files", "app", app.Name, "run", run.ID, "err", err)
+		return nil, false, false
+	}
+	return files, complete, true
+}
+
+// untested lists what of the branch's change (files, as branchFiles says),
+// no step of its run builds or tests. Nothing when the change is unknown.
+func (p *Platform) untested(app *store.App, run *store.Run, sp spec.Spec, files []string, complete, ok bool) []string {
+	if !ok {
 		return nil
 	}
 	if !complete {
@@ -85,11 +95,15 @@ func untestedSummary(p *Platform, app *store.App, run *store.Run) string {
 
 // approveUntested turns the check of a run with untested paths green once
 // a person said yes to merging it: the yes stands for the test no step did.
+// The same for a run whose checks failed en seco.
 func (p *Platform) approveUntested(ctx context.Context, app *store.App, run *store.Run, who string) {
-	if len(run.Untested) == 0 || run.CheckRun == nil || *run.CheckRun == 0 || run.Status != store.RunSucceeded {
+	if (len(run.Untested) == 0 && !run.DryFailed()) || run.CheckRun == nil || *run.CheckRun == 0 || run.Status != store.RunSucceeded {
 		return
 	}
-	title := approvedUntestedTitle(who, run.Untested)
+	title := approvedDryTitle(who, run)
+	if len(run.Untested) > 0 {
+		title = approvedUntestedTitle(who, run.Untested)
+	}
 	if err := p.Forja.UpdateCheck(ctx, app.InstallationID, app.Repo, *run.CheckRun, forja.Check{
 		Status: "completed", Conclusion: "success",
 		Output: forja.CheckOutput(title, fmt.Sprintf("[View run](%s/apps/%s/runs/%d)", p.Config.BaseURL, app.Name, run.ID)),

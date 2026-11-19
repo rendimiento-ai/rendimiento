@@ -35,6 +35,10 @@ type Tests struct {
 	// workers need more than medium's 512Mi).
 	Size      Size              `json:"size,omitempty"`
 	Resources *ResourceOverride `json:"resources,omitempty"`
+	// DryRun also runs the tests en seco on a branch that changes only the
+	// checks (the tests' build, say): against the release already
+	// published, where a failure only warns (see Spec.DryRunPlan).
+	DryRun bool `json:"dryRun,omitempty"`
 }
 
 // TestsTaskName is the post-deploy task that runs the app's tests.
@@ -90,7 +94,7 @@ func (t *Tests) Task(s *Spec) Task {
 	r := t.Requests()
 	res := &ResourceOverride{CPU: r.CPURequest, Memory: r.MemRequest, CPULimit: r.CPULimit, MemoryLimit: r.MemLimit}
 	return Task{Name: TestsTaskName, Stage: StagePostDeploy, Image: "build:" + t.Build, Command: script,
-		Optional: true, Env: env, SecretEnv: t.SecretEnv, Timeout: t.Timeout, Resources: res}
+		Optional: true, Env: env, SecretEnv: t.SecretEnv, Timeout: t.Timeout, Resources: res, DryRun: t.DryRun}
 }
 
 // Requests resolves the tests' requests and limits ("" = unset).

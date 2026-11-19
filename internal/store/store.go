@@ -230,7 +230,27 @@ type Run struct {
 	// ("mobile/"): such a run is never merged by itself, only on a
 	// person's yes.
 	Untested []string `json:"untested,omitempty"`
+	// Dry is what the branch's run checked en seco, against the published
+	// release (nil when nothing was to run).
+	Dry *DryRun `json:"dry,omitempty"`
 }
+
+// DryRun is what a branch's run checked en seco: its new post-deploy
+// checks, against the release already published. It only warns: a failure
+// keeps the run from being merged by itself, nothing more.
+type DryRun struct {
+	// Release is the published release they ran against (0: none ran).
+	Release int64 `json:"release,omitempty"`
+	// Note says why none ran (no release is published yet).
+	Note   string `json:"note,omitempty"`
+	Failed bool   `json:"failed,omitempty"`
+	// Tasks are each check's result (filled in by GetRun).
+	Tasks []ReleaseTask `json:"tasks,omitempty"`
+}
+
+// DryFailed says whether a check run en seco failed: the run is not
+// merged by itself, and its check asks a person.
+func (r *Run) DryFailed() bool { return r.Dry != nil && r.Dry.Failed }
 
 // What became of the pull request of a run that passed.
 const (
@@ -266,14 +286,24 @@ const (
 	RunCancelled = "cancelled"
 )
 
-const runCols = `id, app_id, sha, branch, event, deploy, status, message, check_run, created_at, started_at, finished_at, pull_number, merge_state, approved_by, retries, untested`
+const runCols = `id, app_id, sha, branch, event, deploy, status, message, check_run, created_at, started_at, finished_at, pull_number, merge_state, approved_by, retries, untested, dry_release, dry_note, dry_failed`
 
 // scanRun reads a run row, without its steps.
 func scanRun(row pgx.Row) (*Run, error) {
 	var r Run
-	err := row.Scan(&r.ID, &r.AppID, &r.SHA, &r.Branch, &r.Event, &r.Deploy, &r.Status, &r.Message, &r.CheckRun, &r.CreatedAt, &r.StartedAt, &r.FinishedAt, &r.Pull, &r.Merge, &r.ApprovedBy, &r.Retries, &r.Untested)
+	var dryRelease *int64
+	var dryNote string
+	var dryFailed bool
+	err := row.Scan(&r.ID, &r.AppID, &r.SHA, &r.Branch, &r.Event, &r.Deploy, &r.Status, &r.Message, &r.CheckRun, &r.CreatedAt, &r.StartedAt, &r.FinishedAt, &r.Pull, &r.Merge, &r.ApprovedBy, &r.Retries, &r.Untested,
+		&dryRelease, &dryNote, &dryFailed)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
+	}
+	if dryRelease != nil || dryNote != "" {
+		r.Dry = &DryRun{Note: dryNote, Failed: dryFailed}
+		if dryRelease != nil {
+			r.Dry.Release = *dryRelease
+		}
 	}
 	return &r, err
 }
@@ -484,7 +514,16 @@ func (s *Store) GetRun(ctx context.Context, id int64) (*Run, error) {
 		}
 		r.Steps = append(r.Steps, st)
 	}
-	return r, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	if r.Dry != nil {
+		if r.Dry.Tasks, err = s.RunDryTasks(ctx, id); err != nil {
+			return nil, err
+		}
+	}
+	return r, nil
 }
 
 // ListRuns returns an app's most recent runs, newest first.

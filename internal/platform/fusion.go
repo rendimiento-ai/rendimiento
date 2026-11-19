@@ -21,7 +21,8 @@ import (
 // as the yes (MergeAny), except a dependency update's: Renovate merges what
 // its rules allow and leaves the rest for a person. Nor is it the yes for a
 // run whose change touches what no step builds or tests (run.Untested,
-// cobertura.go): only a person's approval merges that. A fork's pull request is
+// cobertura.go), or whose checks failed en seco (run.Dry, enseco.go): only
+// a person's approval merges that. A fork's pull request is
 // never merged, and a branch
 // nobody approved is only tested. What is merged is the commit that was
 // tested and approved, never a newer one.
@@ -77,8 +78,8 @@ func (p *Platform) MergeReady(ctx context.Context, app *store.App) {
 		if err != nil || run.Status != store.RunSucceeded || run.Deploy {
 			continue // not tested yet
 		}
-		if run.ApprovedBy == "" && (!app.MergeAny || depsPull(pr, app) || len(run.Untested) > 0) {
-			continue // nobody said yes in rendimiento; an open pull request is not one for what no step tested
+		if run.ApprovedBy == "" && (!app.MergeAny || depsPull(pr, app) || len(run.Untested) > 0 || run.DryFailed()) {
+			continue // nobody said yes in rendimiento; an open pull request is not one for what no step tested, nor for a check that failed en seco
 		}
 		if run.Merge == store.MergeMerged || run.Merge == store.MergeConflict || run.Merge == store.MergeResolved {
 			continue // a conflict only goes away with a new commit, which runs again
@@ -231,6 +232,7 @@ func (p *Platform) ApproveMerge(ctx context.Context, runID int64, who string) (*
 	}
 	p.Log.Info("merge approved", "app", app.Name, "branch", run.Branch, "run", run.ID, "pull", number, "by", who)
 	p.approveUntested(ctx, app, run, who)
+	p.noteMergedDespiteDry(ctx, app, run, who)
 	p.publishRun(app, run.ID)
 	if run.Status == store.RunSucceeded {
 		// GitHub takes a few seconds to say whether a new pull request can

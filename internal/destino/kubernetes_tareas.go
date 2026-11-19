@@ -30,12 +30,17 @@ const defaultTaskTimeout = 10 * time.Minute
 
 var nonJobName = regexp.MustCompile(`[^a-z0-9-]+`)
 
-// taskJob builds the Job for a post-deploy task. base, for a service: task,
-// is the service's live container: its image, env and mounts are reused.
+// taskJob builds the Job for a post-deploy task (or one run en seco from a
+// branch, stage spec.StageDryRun, never with service:). base, for a
+// service: task, is the service's live container: its image, env and
+// mounts are reused.
 func taskJob(app string, rel *store.Release, t spec.Task, base *corev1.Container, baseVolumes []corev1.Volume, suffix string) *batchv1.Job {
 	prefix := "post"
-	if t.PreDeploy() {
+	switch {
+	case t.PreDeploy():
 		prefix = "pre"
+	case t.Stage == spec.StageDryRun:
+		prefix = "seco" // a branch's check, against the published release
 	}
 	name := nonJobName.ReplaceAllString(strings.ToLower(fmt.Sprintf("%s-%s-r%d", prefix, t.Name, rel.Number)), "-")
 	if len(name) > 52 {

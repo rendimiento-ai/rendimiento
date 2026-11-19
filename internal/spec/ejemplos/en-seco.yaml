@@ -1,0 +1,25 @@
+# A web service whose checks may also run en seco: on a branch that changes
+# only them (the smoke test's command, or the tests in e2e/), they run
+# against the release already published, and a failure only warns. The
+# migration never does: it carries the service's environment.
+services:
+  - name: web
+    port: 3000
+    domain: tienda.example.com
+builds:
+  - name: e2e
+    path: e2e
+tasks:
+  - name: migrate
+    stage: post-deploy
+    service: web
+    command: npm run migrate
+  - name: humo
+    stage: post-deploy
+    image: curlimages/curl:8.17.0
+    command: curl -fsS http://web:3000/
+    after: [migrate]
+    dryRun: true
+tests:
+  build: e2e
+  dryRun: true

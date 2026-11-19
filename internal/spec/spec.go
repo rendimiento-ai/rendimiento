@@ -180,6 +180,11 @@ type Task struct {
 	// browser test.
 	Postgres bool `json:"postgres,omitempty"`
 	Cache    bool `json:"cache,omitempty"`
+	// DryRun (post-deploy tasks only, never with service:) also runs the
+	// task "en seco" on a branch that changes only the checks: against the
+	// release already published, where a failure only warns (see
+	// Spec.DryRunPlan).
+	DryRun bool `json:"dryRun,omitempty"`
 }
 
 const (
@@ -189,6 +194,10 @@ const (
 	StageBuild      = "build"
 	StagePreDeploy  = "pre-deploy"
 	StagePostDeploy = "post-deploy"
+	// StageDryRun is not written in rendimiento.yaml: it marks a
+	// post-deploy task run en seco from a branch, against the published
+	// release (its Job and container are named apart).
+	StageDryRun = "en-seco"
 )
 
 // PostDeploy reports whether the task runs after the release is live.
@@ -1184,6 +1193,9 @@ func (s *Spec) validateTasks() []error {
 			if t.Service != "" {
 				errs = append(errs, fmt.Errorf("%s.service only applies to pre- and post-deploy tasks", p))
 			}
+			if t.DryRun {
+				errs = append(errs, fmt.Errorf("%s.dryRun only applies to post-deploy tasks", p))
+			}
 		case StagePreDeploy, StagePostDeploy:
 			if (t.Image == "") == (t.Service == "") || strings.TrimSpace(t.Command) == "" {
 				errs = append(errs, fmt.Errorf("%s needs a command and exactly one of image or service", p))
@@ -1196,6 +1208,12 @@ func (s *Spec) validateTasks() []error {
 			}
 			if t.Postgres || t.Cache {
 				errs = append(errs, fmt.Errorf("%s: postgres and cache only apply to build tasks (%s tasks run in the app's place)", p, t.Stage))
+			}
+			if t.DryRun && t.PreDeploy() {
+				errs = append(errs, fmt.Errorf("%s.dryRun only applies to post-deploy tasks", p))
+			}
+			if t.DryRun && t.Service != "" {
+				errs = append(errs, fmt.Errorf("%s.dryRun cannot go with service: a task in the service's environment (its database included) never runs against the published release from a branch", p))
 			}
 		default:
 			errs = append(errs, fmt.Errorf("%s.stage %q must be build, pre-deploy or post-deploy", p, t.Stage))

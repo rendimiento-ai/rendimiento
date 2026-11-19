@@ -54,7 +54,13 @@ func (p *Platform) runPostDeploy(ctx context.Context, app *store.App, rel *store
 // succeeded (a task whose dependency failed is skipped), and records each
 // one's state as it goes.
 func (p *Platform) runStage(ctx context.Context, app *store.App, rel *store.Release, stage string) []store.ReleaseTask {
-	tasks := stageTasks(rel, stage)
+	return p.runTasks(ctx, app, rel, stageTasks(rel, stage), stage, p.saveTask)
+}
+
+// runTasks runs tasks against a release, each once its after: tasks
+// succeeded, and hands each state to save as it goes (stage is what the
+// results say they were).
+func (p *Platform) runTasks(ctx context.Context, app *store.App, rel *store.Release, tasks []spec.Task, stage string, save func(store.ReleaseTask)) []store.ReleaseTask {
 	run := p.Verify.RunTask
 	if run == nil {
 		run = p.Target().Tarea
@@ -90,7 +96,7 @@ func (p *Platform) runStage(ctx context.Context, app *store.App, rel *store.Rele
 			}
 			if blocked != "" {
 				r := store.ReleaseTask{ReleaseID: rel.ID, Name: t.Name, Stage: stage, Optional: t.Optional, Status: store.TaskSkipped, Message: M("%s did not succeed", blocked)}
-				p.saveTask(r)
+				save(r)
 				results[t.Name], done[t.Name] = r, true
 				continue
 			}
@@ -101,7 +107,7 @@ func (p *Platform) runStage(ctx context.Context, app *store.App, rel *store.Rele
 				var r store.ReleaseTask
 				if img, ok := buildImage(rel, t.Image); ok {
 					t.Image = img
-					p.saveTask(store.ReleaseTask{ReleaseID: rel.ID, Name: t.Name, Stage: stage, Optional: t.Optional, Status: store.TaskRunning, StartedAt: &now})
+					save(store.ReleaseTask{ReleaseID: rel.ID, Name: t.Name, Stage: stage, Optional: t.Optional, Status: store.TaskRunning, StartedAt: &now})
 					r = run(ctx, app, rel, t)
 				} else {
 					r = store.ReleaseTask{Status: store.TaskFailed, Message: M("the release has no image of %s", strings.TrimPrefix(t.Image, "build:"))}
@@ -111,7 +117,7 @@ func (p *Platform) runStage(ctx context.Context, app *store.App, rel *store.Rele
 					end := time.Now()
 					r.FinishedAt = &end
 				}
-				p.saveTask(r)
+				save(r)
 				mu.Lock()
 				results[t.Name] = r
 				mu.Unlock()

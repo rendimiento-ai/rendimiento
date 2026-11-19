@@ -1,0 +1,1 @@
+- **Top bar:** on a wide screen the search sits in the middle of the bar, with the bell, New app and the account together at its end, all 38 px high, and the pages centered under it; between 641 and 899 px the search fills the room, New app is its icon alone and the account its round initial; under 1200 px the account's button shows only the initial.

@@ -36,6 +36,8 @@ Una ejecución que pasó responde solo por lo que leyeron sus pasos. Cuando una 
 - Su comprobación en GitHub termina en **Action required** (se requiere una acción) en lugar de éxito, con el título *No step builds or tests `mobile/`: a person must merge this*. Las herramientas que esperan comprobaciones en verde también esperan: Renovate no la integra solo, ni GitHub cuando las reglas de la rama exigen la comprobación.
 - La página de la ejecución nombra esas carpetas o archivos. El sí de una persona ahí pone la comprobación en verde y la integra.
 
+Lo mismo vale para una rama cuyas pruebas fallaron [en seco](tasks.md#dry-runs-on-branches), contra la versión publicada: el botón dice entonces **Integrar de todos modos**, y el sí queda anotado en la Ruta.
+
 Qué cuenta como probado en la ejecución de una rama: la carpeta de cada servicio, imagen y trabajo que se construye, con sus rutas de `watch` y su Dockerfile; y la carpeta y las rutas de `watch` de cada tarea con `when: always` (una tarea que solo corre al desplegar, o antes o después de un despliegue, no prueba ninguna rama). Un paso cuya carpeta es la raíz (`path: .`, o ninguna en un servicio) lee todo el repositorio, así que entonces todo queda probado, incluidos los archivos de bloqueo de la raíz. `rendimiento.yaml` siempre cuenta, porque la ejecución lo lee, y también los archivos que ninguna construcción lee: Markdown, licencias y los ajustes de git, de los editores y de Renovate (`renovate.json`). Para que se pruebe una carpeta, dele un paso:
 
 ```yaml

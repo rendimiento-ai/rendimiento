@@ -652,7 +652,11 @@ func (l *Local) Tarea(ctx context.Context, a *store.App, rel *store.Release, t s
 	tctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	var log strings.Builder
-	err := l.Motor.Correr(tctx, motor.Contenedor{Nombre: fmt.Sprintf("%s-task-%s-r%d", a.Name, t.Name, rel.Number), Imagen: image,
+	kind := "task"
+	if t.Stage == spec.StageDryRun {
+		kind = "seco" // a branch's check, beside the release's own
+	}
+	err := l.Motor.Correr(tctx, motor.Contenedor{Nombre: fmt.Sprintf("%s-%s-%s-r%d", a.Name, kind, t.Name, rel.Number), Imagen: image,
 		Comando: []string{"sh", "-c", t.Command}, Env: env, Red: red(a.Name)}, &log)
 	switch {
 	case tctx.Err() == context.DeadlineExceeded:
