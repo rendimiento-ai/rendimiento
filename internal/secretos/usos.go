@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/rendimiento-ai/rendimiento/internal/bitbucket"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/gitlab"
 )
@@ -103,4 +104,32 @@ func (g GitLab) Save(ctx context.Context, id int64, s *gitlab.Secret) error {
 		return err
 	}
 	return g.Caja.Guardar(ctx, nombreGitLab(id), raw)
+}
+
+// Bitbucket keeps each Bitbucket connection's secret in the Caja (as
+// api.BitbucketSecrets does in Kubernetes).
+type Bitbucket struct{ Caja *Caja }
+
+func nombreBitbucket(id int64) string { return fmt.Sprintf("bitbucket-%d", id) }
+
+// Load is the connection's secret, nil when it has none.
+func (b Bitbucket) Load(ctx context.Context, id int64) (*bitbucket.Secret, error) {
+	raw, ok, err := b.Caja.Leer(ctx, nombreBitbucket(id))
+	if err != nil || !ok {
+		return nil, err
+	}
+	var s bitbucket.Secret
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
+
+// Save creates or replaces it.
+func (b Bitbucket) Save(ctx context.Context, id int64, s *bitbucket.Secret) error {
+	raw, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	return b.Caja.Guardar(ctx, nombreBitbucket(id), raw)
 }

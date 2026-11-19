@@ -12,7 +12,7 @@ People sign in to rendimiento with GitHub, and only **members** get in. Each mem
 
 On **Members** (your name, first in the account's menu at the right of the top bar), people are listed by role on the left; choosing one shows their role and, line by line, **what they can do**. An administrator presses **Add someone**, writes the person's **GitHub username** and picks their role. They can sign in from then on, at the same address. Changing a role or removing someone takes effect on their next click; a removed person is signed out at once. An organization always keeps at least one administrator.
 
-Someone who signs in with a [GitLab](gitlab.md#signing-in-with-gitlab) account linked to no one is added by its `username@host` (such as `ana@gitlab.com`); a person who has both links their GitLab account from **Your accounts** instead, and stays one member.
+Someone who signs in with a [GitLab](gitlab.md#signing-in-with-gitlab) account linked to no one is added by its `username@host` (such as `ana@gitlab.com`); a person who has both links their GitLab account from **Your accounts** instead, and stays one member. The same goes for [Bitbucket](bitbucket.md#signing-in-with-bitbucket), as `nickname@bitbucket.org`.
 
 ## Who enters an app {#who-enters-an-app}
 

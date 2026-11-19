@@ -740,4 +740,20 @@ var catalog = map[string]string{
 	"merge request !%d conflicts with %s in %s: not merged": "el merge request !%d choca con %s en %s: no se integró",
 	"GitLab merges it when its pipeline succeeds": "GitLab lo integrará cuando pase su integración continua",
 	"fixes are declared on GitHub apps only yet": "los arreglos se declaran solo en aplicaciones de GitHub, por ahora",
+
+	// Forjas: Bitbucket Cloud (internal/api/bitbucket.go, Ruta 102).
+	"Bitbucket cannot be connected on this platform": "en esta plataforma no se puede conectar Bitbucket",
+	"%s is not a Bitbucket workspace like bitbucket.org/my-team": "%s no es un espacio de trabajo de Bitbucket como bitbucket.org/mi-equipo",
+	"the OAuth consumer's key is missing": "falta la clave del consumidor OAuth",
+	"the OAuth consumer's secret is missing": "falta el secreto del consumidor OAuth",
+	"no such Bitbucket connection": "no existe esa conexión con Bitbucket",
+	"%s still builds from this Bitbucket workspace: delete or disconnect its apps first": "%s todavía se construye desde este espacio de trabajo de Bitbucket: primero borre o desconecte sus aplicaciones",
+	"Bitbucket did not accept the sign-in: %s": "Bitbucket no aceptó el inicio de sesión: %s",
+	"that Bitbucket account is already linked to another person": "esa cuenta de Bitbucket ya está ligada a otra persona",
+	"this organization cannot use the platform's Bitbucket connections yet": "esta organización todavía no puede usar las conexiones con Bitbucket de la plataforma",
+	"that repository is not in this Bitbucket workspace": "ese repositorio no está en este espacio de trabajo de Bitbucket",
+	"Bitbucket did not add the repository's webhook: %s": "Bitbucket no agregó el aviso de push del repositorio: %s",
+	// The same, for Bitbucket apps (inForjaWords, internal/platform/fusion.go).
+	"pull request #%d waits for what Bitbucket asks of it (a review, a check): not merged": "la solicitud de incorporación n.º %d espera lo que Bitbucket le pide (una revisión, una comprobación): no se integró",
+	"Bitbucket did not open the pull request: %s": "Bitbucket no abrió la solicitud de incorporación: %s",
 }

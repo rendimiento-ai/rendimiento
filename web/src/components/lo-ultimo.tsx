@@ -5,11 +5,13 @@ import { RunBadge, usePoll } from "./ui";
 import { statusClass, statusLabel } from "./encargos";
 import { t } from "../i18n";
 
-/** A branch's name as a link to it on its forja (GitHub or GitLab), where its files, its commits and its change are. */
+/** A branch's name as a link to it on its forja (GitHub, GitLab or Bitbucket), where its files, its commits and its change are. */
 export function Rama({ repo, forja, branch, className = "mono" }: { repo: string; forja?: Forja; branch: string; className?: string }) {
   return (
     <a className={className} href={branchURL({ repo, forja }, branch)} target="_blank" rel="noreferrer"
-      title={forjaOf({ forja }) === "gitlab" ? t("Open the branch {branch} on GitLab", { branch }) : t("Open the branch {branch} on GitHub", { branch })}
+      title={forjaOf({ forja }) === "gitlab" ? t("Open the branch {branch} on GitLab", { branch })
+        : forjaOf({ forja }) === "bitbucket" ? t("Open the branch {branch} on Bitbucket", { branch })
+        : t("Open the branch {branch} on GitHub", { branch })}
       onClick={(e) => e.stopPropagation()}>{branch}</a>
   );
 }

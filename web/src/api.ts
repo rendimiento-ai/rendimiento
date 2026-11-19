@@ -298,7 +298,7 @@ export interface App {
   mergeAny: boolean; // any open pull request, not only the runs a person approved in rendimiento
   repo: string;
   installationId: number;
-  /** Where its code lives: GitHub, or a GitLab (whose repo starts with its address, git.example.com/group/project). */
+  /** Where its code lives: GitHub, a GitLab (whose repo starts with its address, git.example.com/group/project) or Bitbucket (bitbucket.org/workspace/repo). */
   forja?: Forja;
   defaultBranch: string;
   spec: Spec;
@@ -1350,7 +1350,7 @@ export const api = {
   deleteDemoLink: (id: number) => request<void>("DELETE", `/api/demo-links/${id}`),
   logout: () => request<void>("POST", "/api/auth/logout"),
   setupStatus: () => request<{ configured: boolean; appSlug?: string; installURL?: string; book?: { en?: string; es?: string }; activity?: boolean; tokenCommand?: string;
-    /** The GitLabs one can sign in with, besides GitHub. */
+    /** The GitLabs and Bitbucket workspaces one can sign in with, besides GitHub (host is a workspace's slug for Bitbucket). */
     signIn?: { forja: Forja; id: number; host: string }[] }>("GET", "/api/setup/status"),
   publicActivity: () => request<PublicActivity>("GET", "/api/public/activity"),
   /** The accounts this organization creates apps from, and those its administrator could connect (the App on their own GitHub account). */
@@ -1679,8 +1679,8 @@ export interface EnvReport {
 
 // ---- where the apps' code lives (internal/api/forjas.go) ----
 
-/** A forja (a forge) rendimiento works with. Bitbucket comes next. */
-export type Forja = "github" | "gitlab";
+/** A forja (a forge) rendimiento works with. */
+export type Forja = "github" | "gitlab" | "bitbucket";
 
 /** A GitLab connected on the Environment page (store.GitLabConnection). */
 export interface GitLabConnection {
@@ -1703,6 +1703,34 @@ export interface ForjasView {
   /** The redirect URI a GitLab OAuth application needs, and where GitLab delivers webhooks. */
   callback: string;
   webhook: string;
+  /** The Bitbucket workspaces connected, the callback URL their OAuth consumer needs, and where Bitbucket delivers webhooks. */
+  bitbucket: BitbucketConnection[];
+  bitbucketCallback: string;
+  bitbucketWebhook: string;
+}
+
+/** A Bitbucket Cloud workspace connected on the Environment page (store.BitbucketConnection). */
+export interface BitbucketConnection {
+  id: number;
+  workspace: string;
+  consumerKey: string;
+  /** The Bitbucket account rendimiento acts as; empty until someone authorized it. */
+  username: string;
+  authorized: boolean;
+  apps: number;
+  addedBy: string;
+  createdAt: string;
+}
+
+/** A Bitbucket repository the wizard can make an app of (bitbucket.Repository). */
+export interface BitbucketRepository {
+  slug: string;
+  fullName: string;
+  repo: string;
+  defaultBranch: string;
+  webUrl: string;
+  private: boolean;
+  updatedOn: string;
 }
 
 /** A GitLab project the wizard can make an app of (gitlab.Project). */
@@ -1733,8 +1761,13 @@ export const forjasApi = {
   authorizeGitLab: (id: number) => request<{ authorizeUrl: string }>("POST", `/api/forjas/gitlab/${id}/authorize`),
   removeGitLab: (id: number) => request<void>("DELETE", `/api/forjas/gitlab/${id}`),
   projects: (id: number) => request<GitLabProject[]>("GET", `/api/forjas/gitlab/${id}/projects`),
-  identities: () => request<{ login: string; identities: Identity[]; gitlab: { id: number; host: string }[] }>("GET", "/api/me/identities"),
-  link: (id: number) => request<{ authorizeUrl: string }>("POST", `/api/me/identities/gitlab/${id}`),
+  connectBitbucket: (workspace: string, consumerKey: string, consumerSecret: string) =>
+    request<{ connection: BitbucketConnection; authorizeUrl: string }>("POST", "/api/forjas/bitbucket", { workspace, consumerKey, consumerSecret }),
+  authorizeBitbucket: (id: number) => request<{ authorizeUrl: string }>("POST", `/api/forjas/bitbucket/${id}/authorize`),
+  removeBitbucket: (id: number) => request<void>("DELETE", `/api/forjas/bitbucket/${id}`),
+  bitbucketRepos: (id: number) => request<BitbucketRepository[]>("GET", `/api/forjas/bitbucket/${id}/repos`),
+  identities: () => request<{ login: string; identities: Identity[]; gitlab: { id: number; host: string }[]; bitbucket?: { id: number; host: string }[] }>("GET", "/api/me/identities"),
+  link: (id: number, forja: "gitlab" | "bitbucket" = "gitlab") => request<{ authorizeUrl: string }>("POST", `/api/me/identities/${forja}/${id}`),
   unlink: (i: Identity) =>
     request<void>("DELETE", `/api/me/identities?${new URLSearchParams({ forja: i.forja, baseUrl: i.baseUrl, externalId: i.externalId })}`),
 };

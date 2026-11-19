@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, catalogApi, EXAMPLE_URL, forjasApi, session, timeAgo, type CatalogEntry, type Forja, type GitLabConnection, type Installation, type Need, type Proposal, type Repo, type Service, type Size } from "../api";
-import { forjaName, pullLabel } from "../forja";
+import { api, catalogApi, EXAMPLE_URL, forjasApi, session, timeAgo, type BitbucketConnection, type CatalogEntry, type Forja, type GitLabConnection, type Installation, type Need, type Proposal, type Repo, type Service, type Size } from "../api";
+import { forjaName, forjaSello, pullLabel } from "../forja";
 import { ErrorBox } from "../components/ui";
 import { t } from "../i18n";
 import { useConexion } from "../conexion";
@@ -17,7 +17,7 @@ const sizes: { value: Size; label: string }[] = [
 
 type Result = Awaited<ReturnType<typeof api.createApp>>;
 
-/** A repository the wizard offers, from GitHub or from a GitLab: what picking it needs. */
+/** A repository the wizard offers, from GitHub, a GitLab or a Bitbucket workspace: what picking it needs. */
 interface Cand {
   key: string;
   forja: Forja;
@@ -27,7 +27,7 @@ interface Cand {
   defaultBranch: string;
   private: boolean;
   pushedAt: string;
-  /** A GitLab's address, shown beside the project. */
+  /** A GitLab's address (or bitbucket.org), shown beside the project. */
   host?: string;
 }
 
@@ -47,6 +47,9 @@ export function NewApp() {
   // The GitLabs connected (and authorized) on the Environment page, and their projects.
   const [gitlabs, setGitlabs] = useState<GitLabConnection[]>([]);
   const [projects, setProjects] = useState<Cand[]>([]);
+  // The Bitbucket workspaces connected (and authorized), and their repositories.
+  const [workspaces, setWorkspaces] = useState<BitbucketConnection[]>([]);
+  const [bbRepos, setBbRepos] = useState<Cand[]>([]);
   const [pestana, setPestana] = useState<Pestana>("all");
   const [filter, setFilter] = useState("");
   const [repo, setRepo] = useState<Cand>();
@@ -70,7 +73,10 @@ export function NewApp() {
     loadInstalls();
     api.zones().then(setZones, () => setZones([]));
     // Only the platform's organization uses its GitLabs: elsewhere this answers 403, and there is no GitLab tab.
-    forjasApi.list().then((f) => setGitlabs(f.gitlab.filter((g) => g.authorized)), () => setGitlabs([]));
+    forjasApi.list().then((f) => {
+      setGitlabs(f.gitlab.filter((g) => g.authorized));
+      setWorkspaces((f.bitbucket ?? []).filter((b) => b.authorized));
+    }, () => { setGitlabs([]); setWorkspaces([]); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // An administrator of an organization other than the platform's connects
@@ -103,6 +109,14 @@ export function NewApp() {
       (e) => { setError(e); return [] as Cand[]; },
     ))).then((all) => setProjects(all.flat()));
   }, [gitlabs]);
+  useEffect(() => {
+    if (workspaces.length === 0) return;
+    Promise.all(workspaces.map((b) => forjasApi.bitbucketRepos(b.id).then(
+      (list) => list.map((r): Cand => ({ key: `bitbucket-${b.id}-${r.slug}`, forja: "bitbucket", installation: b.id, fullName: r.repo, name: r.slug,
+        defaultBranch: r.defaultBranch || "main", private: r.private, pushedAt: r.updatedOn, host: "bitbucket.org" })),
+      (e) => { setError(e); return [] as Cand[]; },
+    ))).then((all) => setBbRepos(all.flat()));
+  }, [workspaces]);
 
   const pick = async (r: Cand) => {
     setRepo(r);
@@ -165,12 +179,15 @@ export function NewApp() {
     ...(repos ?? []).map((r): Cand => ({ key: `github-${r.id}`, forja: "github", installation: inst ?? 0, fullName: r.full_name, name: r.name,
       defaultBranch: r.default_branch, private: r.private, pushedAt: r.pushed_at })),
     ...projects,
-  ], [repos, projects, inst]);
+    ...bbRepos,
+  ], [repos, projects, bbRepos, inst]);
   const shown = useMemo(
     () => cands.filter((r) => (pestana === "all" || r.forja === pestana) && r.fullName.toLowerCase().includes(filter.toLowerCase())),
     [cands, pestana, filter],
   );
-  const conGitLab = gitlabs.length > 0;
+  // With another forja than GitHub connected, the list has tabs and each repository its forja's seal.
+  const otras: Forja[] = [...(gitlabs.length > 0 ? ["gitlab" as const] : []), ...(workspaces.length > 0 ? ["bitbucket" as const] : [])];
+  const conOtras = otras.length > 0;
 
   const zoneOf = (d?: string) => zones.find((z) => d?.endsWith("." + z)) ?? "";
   const setService = (i: number, patch: Partial<Service>) => setServices(services.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -208,21 +225,21 @@ export function NewApp() {
               {t(", then reload this page and connect it here. For the repositories of a GitHub organization, ask the platform's operators to give its account to this organization.")}
             </div>
           )}
-          {conGitLab && (
+          {conOtras && (
             <div className="tabs forja-pestanas" role="tablist" aria-label={t("Where the code lives")}>
-              {(["all", "github", "gitlab"] as Pestana[]).map((p) => (
+              {(["all", "github", ...otras] as Pestana[]).map((p) => (
                 <button key={p} role="tab" aria-selected={pestana === p} className={pestana === p ? "tab on" : "tab"} onClick={() => setPestana(p)}>
                   {p === "all" ? t("Every forja") : forjaName(p)}
                 </button>
               ))}
             </div>
           )}
-          {installs && installs.installations.length > 1 && pestana !== "gitlab" && (
+          {installs && installs.installations.length > 1 && (pestana === "all" || pestana === "github") && (
             <select aria-label={t("GitHub account")} value={inst} onChange={(e) => setInst(Number(e.target.value))}>
               {installs.installations.map((i) => <option key={i.id} value={i.id}>{i.account.login}</option>)}
             </select>
           )}
-          {installs && (installs.installations.length > 0 || conGitLab) && (
+          {installs && (installs.installations.length > 0 || conOtras) && (
             <label className="ld-buscar">
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5 21 21" /></svg>
               <input type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t("Filter repositories")} aria-label={t("Filter repositories")} />
@@ -232,9 +249,9 @@ export function NewApp() {
           {shown.map((r) => (
             <button key={r.key} className={`ld-item${repo?.key === r.key ? " on" : ""}${busy && repo?.key === r.key ? " corre" : ""}`} aria-current={repo?.key === r.key}
               disabled={busy} onClick={() => { setResult(undefined); pick(r); }}>
-              {conGitLab && <span className={`forja-sello ${r.forja}`} aria-label={forjaName(r.forja)}>{r.forja === "gitlab" ? "GL" : "GH"}</span>}
+              {conOtras && <span className={`forja-sello ${r.forja}`} aria-label={forjaName(r.forja)}>{forjaSello(r.forja)}</span>}
               <span style={{ minWidth: 0 }}>
-                <span className="ld-nombre">{r.forja === "gitlab" ? r.fullName.slice((r.host ?? "").length + 1) : r.name}</span>
+                <span className="ld-nombre">{r.forja !== "github" ? r.fullName.slice((r.host ?? "").length + 1) : r.name}</span>
                 <span className="ld-sub">{busy && repo?.key === r.key ? t("Inspecting…") : `${r.host ? r.host + " · " : ""}${r.private ? t("private") + " · " : ""}${t("pushed {when}", { when: timeAgo(r.pushedAt) })}`}</span>
               </span>
             </button>
@@ -274,6 +291,18 @@ export function NewApp() {
                 <div>
                   <strong>{t("What is different")}</strong>
                   <p className="small" style={{ margin: "4px 0 0" }}>{t("GitLab says «merge request», not «pull request»; rendimiento uses each one's word. Merging by itself, where the app allows it, uses GitLab's «merge when pipeline succeeds». rendimiento adds the project's webhook for you.")}</p>
+                </div>
+              </div>
+            )}
+            {repo?.forja === "bitbucket" && (
+              <div className="forja-nota">
+                <div>
+                  <strong>{t("The same as with GitHub")}</strong>
+                  <p className="small" style={{ margin: "4px 0 0" }}>{t("Each push runs its steps; the result shows as a build status on the commit and its pull request; agents open pull requests.")}</p>
+                </div>
+                <div>
+                  <strong>{t("What is different")}</strong>
+                  <p className="small" style={{ margin: "4px 0 0" }}>{t("Bitbucket has no state for «a person must merge it»: rendimiento shows it as in progress, with a description that says so. Merging checks first that the pull request's head is still the commit tested. rendimiento adds the repository's webhook for you.")}</p>
                 </div>
               </div>
             )}
@@ -405,7 +434,8 @@ export function NewApp() {
             {result.pr ? (
               <>
                 <p style={{ margin: 0 }}>{t("We opened")} <a href={result.pr.html_url} target="_blank" rel="noreferrer">{pullLabel(result.app, result.pr.number)}</a> {t("with the build config. Its build runs right away;")} <strong>{t("merge it to deploy")}</strong>.</p>
-                <p className="muted small" style={{ margin: 0 }}>{result.app.forja === "gitlab" ? t("After that, every push to {branch} builds and deploys automatically. Other branches build and show their status on GitLab, but do not deploy.", { branch: result.app.defaultBranch }) : t("After that, every push to {branch} builds and deploys automatically. Other branches build and show their status on GitHub, but do not deploy.", { branch: result.app.defaultBranch })}</p>
+                <p className="muted small" style={{ margin: 0 }}>{result.app.forja === "gitlab" ? t("After that, every push to {branch} builds and deploys automatically. Other branches build and show their status on GitLab, but do not deploy.", { branch: result.app.defaultBranch })
+                  : result.app.forja === "bitbucket" ? t("After that, every push to {branch} builds and deploys automatically. Other branches build and show their status on Bitbucket, but do not deploy.", { branch: result.app.defaultBranch }) : t("After that, every push to {branch} builds and deploys automatically. Other branches build and show their status on GitHub, but do not deploy.", { branch: result.app.defaultBranch })}</p>
               </>
             ) : (
               <p style={{ margin: 0 }}>{t("The first build is running now.")}</p>

@@ -56,4 +56,4 @@ Con un GitLab conectado, la página de bienvenida ofrece **Iniciar sesión con G
 
 ## Todavía no {#not-yet}
 
-Esto sigue funcionando solo con GitHub y, por ahora, se salta las aplicaciones de GitLab: [Renovate](renovate.md), los [arreglos declarados](fixes.md), el agente de código, y que rendimiento junte un conflicto por sí mismo (la API de GitLab escribe confirmaciones con un solo padre). Una conexión con GitLab la usa la organización de la plataforma. Bitbucket viene después.
+Esto sigue funcionando solo con GitHub y, por ahora, se salta las aplicaciones de GitLab: [Renovate](renovate.md), los [arreglos declarados](fixes.md), el agente de código, y que rendimiento junte un conflicto por sí mismo (la API de GitLab escribe confirmaciones con un solo padre). Una conexión con GitLab la usa la organización de la plataforma. Para Bitbucket, vea [Conectar Bitbucket](bitbucket.md).

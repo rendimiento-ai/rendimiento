@@ -33,6 +33,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/agentes"
 	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
 	"github.com/rendimiento-ai/rendimiento/internal/analytics"
+	"github.com/rendimiento-ai/rendimiento/internal/bitbucket"
 	"github.com/rendimiento-ai/rendimiento/internal/catalog"
 	"github.com/rendimiento-ai/rendimiento/internal/destino"
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
@@ -68,7 +69,10 @@ type Server struct {
 	GitHub   *gh.Holder
 	// GitLab is GitLab's forja, for every GitLab connected on the
 	// Environment page (nil: GitLab cannot be connected here).
-	GitLab      *gitlab.Forja
+	GitLab *gitlab.Forja
+	// Bitbucket is Bitbucket Cloud's forja, for every workspace connected
+	// on the Environment page (nil: Bitbucket cannot be connected here).
+	Bitbucket   *bitbucket.Forja
 	Credentials CredentialStore
 	DNS         dns.Provider
 	Log         *slog.Logger
@@ -202,6 +206,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST "+gitlab.WebhookPath, s.gitlabWebhook)
 	mux.HandleFunc("GET "+gitlab.CallbackPath, s.gitlabCallback)
 	mux.HandleFunc("GET /api/auth/gitlab/{id}", s.gitlabLogin)
+	mux.HandleFunc("POST "+bitbucket.WebhookPath, s.bitbucketWebhook)
+	mux.HandleFunc("GET "+bitbucket.CallbackPath, s.bitbucketCallback)
+	mux.HandleFunc("GET /api/auth/bitbucket/{id}", s.bitbucketLogin)
 	if !s.StatsInternalOnly {
 		mux.HandleFunc("GET /api/public/stats", s.publicStats)
 	}
@@ -255,6 +262,7 @@ func (s *Server) Handler() http.Handler {
 	// The person's accounts on other forjas, linked to them (internal/api/forjas.go).
 	auth(store.MemberGuest, "GET /api/me/identities", s.myIdentities)
 	auth(store.MemberGuest, "POST /api/me/identities/gitlab/{id}", s.linkGitLab)
+	auth(store.MemberGuest, "POST /api/me/identities/bitbucket/{id}", s.linkBitbucket)
 	auth(store.MemberGuest, "DELETE /api/me/identities", s.unlinkIdentity)
 	// Where the apps' code lives: GitHub and the GitLabs connected here.
 	plat(store.MemberGuest, "GET /api/forjas", s.listForjas)
@@ -262,6 +270,10 @@ func (s *Server) Handler() http.Handler {
 	plat(store.MemberAdmin, "POST /api/forjas/gitlab/{id}/authorize", s.reauthorizeGitLab)
 	plat(store.MemberAdmin, "DELETE /api/forjas/gitlab/{id}", s.deleteGitLab)
 	auth(store.MemberAdmin, "GET /api/forjas/gitlab/{id}/projects", s.gitlabProjects)
+	plat(store.MemberAdmin, "POST /api/forjas/bitbucket", s.connectBitbucket)
+	plat(store.MemberAdmin, "POST /api/forjas/bitbucket/{id}/authorize", s.reauthorizeBitbucket)
+	plat(store.MemberAdmin, "DELETE /api/forjas/bitbucket/{id}", s.deleteBitbucket)
+	auth(store.MemberAdmin, "GET /api/forjas/bitbucket/{id}/repos", s.bitbucketRepos)
 	// The home page as each person lays it out, and the default (internal/api/inicio.go).
 	auth(store.MemberGuest, "GET /api/inicio", s.verInicio)
 	auth(store.MemberGuest, "PUT /api/inicio", s.putInicio)
@@ -804,12 +816,20 @@ func (s *Server) setupStatus(w http.ResponseWriter, _ *http.Request) {
 	if s.BookURL != "" || s.BookURLEs != "" {
 		out["book"] = map[string]string{"en": s.BookURL, "es": s.BookURLEs}
 	}
-	// The GitLabs one can sign in with, besides GitHub.
+	// The GitLabs and Bitbucket workspaces one can sign in with, besides
+	// GitHub.
 	signIn := []map[string]any{}
 	if s.GitLab != nil {
 		if list, err := s.Store.GitLabConnections(context.Background()); err == nil {
 			for _, c := range list {
 				signIn = append(signIn, map[string]any{"forja": gitlab.Name, "id": c.ID, "host": gitlab.Host(c.BaseURL)})
+			}
+		}
+	}
+	if s.Bitbucket != nil {
+		if list, err := s.Store.BitbucketConnections(context.Background()); err == nil {
+			for _, c := range list {
+				signIn = append(signIn, map[string]any{"forja": bitbucket.Name, "id": c.ID, "host": c.Workspace})
 			}
 		}
 	}
@@ -1458,6 +1478,8 @@ func (s *Server) repoAllowed(w http.ResponseWriter, r *http.Request, login, forj
 		return s.installationAllowed(w, r, login, installation, repo) != nil
 	case gitlab.Name:
 		return s.gitlabRepoAllowed(w, r, login, installation, repo)
+	case bitbucket.Name:
+		return s.bitbucketRepoAllowed(w, r, login, installation, repo)
 	}
 	httpError(w, http.StatusBadRequest, i18n.M("rendimiento does not know the forja %s", forjaName))
 	return false
@@ -1484,6 +1506,14 @@ func (s *Server) createApp(w http.ResponseWriter, r *http.Request, login string)
 		// that cannot come.
 		if err := s.GitLab.EnsureHook(r.Context(), req.Installation, req.Repo); err != nil {
 			httpError(w, http.StatusBadGateway, i18n.M("GitLab did not add the project's webhook: %s", gitlabSays(err)))
+			return
+		}
+	}
+	if req.Forja == bitbucket.Name {
+		// The same for Bitbucket: the repository's webhook, signed with
+		// the workspace's secret.
+		if err := s.Bitbucket.EnsureHook(r.Context(), req.Installation, req.Repo); err != nil {
+			httpError(w, http.StatusBadGateway, i18n.M("Bitbucket did not add the repository's webhook: %s", bitbucketSays(err)))
 			return
 		}
 	}

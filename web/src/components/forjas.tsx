@@ -1,7 +1,7 @@
-// «Where your code lives», on the Environment page (Ruta 102): GitHub, through its App, and the GitLabs connected here
-// (gitlab.com or one's own). Bitbucket comes next; its card says so.
+// «Where your code lives», on the Environment page (Ruta 102): GitHub, through its App, the GitLabs connected here
+// (gitlab.com or one's own), and Bitbucket Cloud workspaces.
 import { useState, type FormEvent } from "react";
-import { forjasApi, session, type GitLabConnection } from "../api";
+import { forjasApi, session, type BitbucketConnection, type GitLabConnection } from "../api";
 import { ErrorBox, usePoll } from "./ui";
 import { t, tn } from "../i18n";
 import { useConexion } from "../conexion";
@@ -44,18 +44,12 @@ export function Forjas() {
         {data.gitlab.map((g) => <GitLabTarjeta key={g.id} g={g} onChange={reload} />)}
         <ConectarGitLab callback={data.callback} first={data.gitlab.length === 0} />
 
-        <article className="forja-tarjeta apagada" aria-disabled="true">
-          <div className="forja-cabeza">
-            <span className="forja-sello bitbucket" aria-hidden="true">BB</span>
-            <strong>Bitbucket</strong>
-            <span className="badge">{t("Coming soon")}</span>
-          </div>
-          <p className="small muted" style={{ margin: 0 }}>{t("Bitbucket Cloud, by workspace, with an OAuth consumer of the workspace. It comes next.")}</p>
-        </article>
+        {(data.bitbucket ?? []).map((b) => <BitbucketTarjeta key={`bitbucket-${b.id}`} b={b} onChange={reload} />)}
+        <ConectarBitbucket callback={data.bitbucketCallback} first={false} />
       </div>
       <div className="forja-quien">
         <strong>{t("Who signs in")}</strong>
-        <p className="small" style={{ margin: "4px 0 0" }}>{t("People sign in with any of the connected forjas. When the same person has an account on GitHub and on GitLab, they link both from their account menu and are one person in rendimiento (their roles and their Ruta).")}</p>
+        <p className="small" style={{ margin: "4px 0 0" }}>{t("People sign in with any of the connected forjas. When the same person has accounts on several (GitHub, GitLab, Bitbucket), they link them from their account menu and are one person in rendimiento (their roles and their Ruta).")}</p>
       </div>
     </section>
   );
@@ -160,6 +154,110 @@ function ConectarGitLab({ callback, first }: { callback: string; first: boolean 
       </label>
       <ErrorBox error={err} />
       <div><button className="primary" type="submit" {...apagado(conexion, busy || !appId || !secret)}>{busy ? t("Connecting…") : t("Connect GitLab")}</button></div>
+    </form>
+  );
+}
+
+/** A Bitbucket workspace connected here: who rendimiento acts as, and its apps. */
+function BitbucketTarjeta({ b, onChange }: { b: BitbucketConnection; onChange: () => void }) {
+  const conexion = useConexion();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>();
+  const authorize = () => {
+    setBusy(true); setErr(undefined);
+    forjasApi.authorizeBitbucket(b.id).then((r) => { location.href = r.authorizeUrl; }, (e) => { setBusy(false); setErr(e); });
+  };
+  const remove = () => {
+    if (!confirm(t("Forget the Bitbucket workspace {workspace}? Its webhooks stop being heard.", { workspace: b.workspace }))) return;
+    setBusy(true); setErr(undefined);
+    forjasApi.removeBitbucket(b.id).then(onChange, (e) => { setBusy(false); setErr(e); });
+  };
+  return (
+    <article className="forja-tarjeta">
+      <div className="forja-cabeza">
+        <span className="forja-sello bitbucket" aria-hidden="true">BB</span>
+        <strong>Bitbucket</strong>
+        {b.authorized ? <span className="badge ok">{t("Connected")}</span> : <span className="badge warn">{t("Waiting for authorization")}</span>}
+      </div>
+      <p className="small mono" style={{ margin: 0 }}>bitbucket.org/{b.workspace}</p>
+      <p className="small" style={{ margin: 0 }}>
+        {b.authorized ? t("rendimiento acts as @{user} there.", { user: b.username }) : t("Someone must authorize the OAuth consumer on Bitbucket before rendimiento can read the workspace's repositories.")}
+      </p>
+      <div className="forja-datos small">
+        <span>{tn(b.apps, "{n} app", "{n} apps")}</span>
+        <span className="muted">{t("Push notices signed (HMAC)")}</span>
+      </div>
+      <ErrorBox error={err} />
+      {session.operator && (
+        <div className="row">
+          <button className={b.authorized ? "" : "primary"} {...apagado(conexion, busy)} onClick={authorize}>{b.authorized ? t("Authorize again") : t("Authorize on Bitbucket")}</button>
+          {b.apps === 0 && <button {...apagado(conexion, busy)} onClick={remove}>{t("Remove")}</button>}
+        </div>
+      )}
+    </article>
+  );
+}
+
+/** Connecting a Bitbucket Cloud workspace: its name and an OAuth consumer of the workspace; then Bitbucket asks you to authorize it. */
+function ConectarBitbucket({ callback, first }: { callback: string; first: boolean }) {
+  const conexion = useConexion();
+  const [open, setOpen] = useState(first);
+  const [workspace, setWorkspace] = useState("");
+  const [key, setKey] = useState("");
+  const [secret, setSecret] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>();
+  if (!session.operator) return null;
+  const connect = (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setErr(undefined);
+    forjasApi.connectBitbucket(workspace, key, secret).then((r) => { location.href = r.authorizeUrl; }, (e) => { setBusy(false); setErr(e); });
+  };
+  if (!open) {
+    return (
+      <article className="forja-tarjeta">
+        <div className="forja-cabeza">
+          <span className="forja-sello bitbucket" aria-hidden="true">BB</span>
+          <strong>Bitbucket</strong>
+        </div>
+        <p className="small" style={{ margin: 0 }}>{t("Bitbucket Cloud, by workspace, with an OAuth consumer of the workspace.")}</p>
+        <div><button onClick={() => setOpen(true)}>{t("Connect Bitbucket")}</button></div>
+      </article>
+    );
+  }
+  return (
+    <form className="forja-tarjeta" onSubmit={connect}>
+      <div className="forja-cabeza">
+        <span className="forja-sello bitbucket" aria-hidden="true">BB</span>
+        <strong>Bitbucket</strong>
+      </div>
+      <p className="small" style={{ margin: 0 }}>{t("Bitbucket Cloud, by workspace. It uses an OAuth consumer of the workspace; rendimiento creates the push notices for you.")}</p>
+      <label className="field">
+        <span>{t("Workspace")}</span>
+        <input value={workspace} onChange={(e) => setWorkspace(e.target.value)} placeholder="my-team" autoComplete="off" required />
+        <span className="small muted">{t("The name in its address: bitbucket.org/my-team")}</span>
+      </label>
+      <details className="small">
+        <summary>{t("How to create the OAuth consumer")}</summary>
+        <ol className="forja-pasos">
+          <li>{t("On Bitbucket, open the workspace's Settings → OAuth consumers → Add consumer.")}</li>
+          <li>{t("Callback URL:")} <code>{callback}</code></li>
+          <li>{t("Leave «This is a private consumer» checked.")}</li>
+          <li>{t("Permissions: Account (read), Repositories (write), Pull requests (write) and Webhooks (read and write).")}</li>
+          <li>{t("Save it, and copy its key and its secret here.")}</li>
+        </ol>
+      </details>
+      <label className="field">
+        <span>{t("Key")}</span>
+        <input value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" required />
+      </label>
+      <label className="field">
+        <span>{t("Secret")}</span>
+        <input type="password" value={secret} onChange={(e) => setSecret(e.target.value)} autoComplete="new-password" required />
+        <span className="small muted">{t("It is kept with the platform's other secrets, never shown again.")}</span>
+      </label>
+      <ErrorBox error={err} />
+      <div><button className="primary" type="submit" {...apagado(conexion, busy || !workspace || !key || !secret)}>{busy ? t("Connecting…") : t("Connect Bitbucket")}</button></div>
     </form>
   );
 }

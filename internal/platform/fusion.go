@@ -295,11 +295,15 @@ func branchLink(link string) (repo, branch string, ok bool) {
 }
 
 // inForjaWords says a merge's message in the words of the app's forja: on
-// GitLab, merge request !7 where GitHub says pull request #7 (the Spanish
-// catalog has both).
+// GitLab, merge request !7 where GitHub says pull request #7; on Bitbucket,
+// the same pull request #7 but Bitbucket's name (the Spanish catalog has
+// them all).
 func inForjaWords(app *store.App, msg string) string {
-	if app.ForjaOf() != "gitlab" {
-		return msg
+	switch app.ForjaOf() {
+	case "gitlab":
+		return strings.NewReplacer("pull request #", "merge request !", "the pull request", "the merge request", "GitHub", "GitLab").Replace(msg)
+	case "bitbucket":
+		return strings.ReplaceAll(msg, "GitHub", "Bitbucket")
 	}
-	return strings.NewReplacer("pull request #", "merge request !", "the pull request", "the merge request", "GitHub", "GitLab").Replace(msg)
+	return msg
 }
