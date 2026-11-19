@@ -51,7 +51,9 @@ func (s Spec) DryChecks() []Task {
 	return out
 }
 
-// DryPlan is what a branch's run does en seco.
+// DryPlan is what a branch's run does en seco. It is not kept in an
+// object, so it needs no deep copy.
+// +kubebuilder:object:generate=false
 type DryPlan struct {
 	// Checks are the dry checks to run (all of them, so after: holds),
 	// when Changed names at least one.
