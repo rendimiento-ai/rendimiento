@@ -79,7 +79,7 @@ type ghSource struct {
 }
 
 func (g *ghSource) PullRequests(ctx context.Context) ([]caminos.PullRequest, error) {
-	prs, err := g.p.GitHub.RecentPullRequests(ctx, g.inst, g.repo)
+	prs, err := g.p.Forja.RecentPullRequests(ctx, g.inst, g.repo)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (g *ghSource) FirstParent(ctx context.Context, sha string) (string, error) 
 		return p, nil
 	}
 	c.mu.Unlock()
-	parent, err := g.p.GitHub.FirstParent(ctx, g.inst, g.repo, sha)
+	parent, err := g.p.Forja.FirstParent(ctx, g.inst, g.repo, sha)
 	if err != nil {
 		return "", err
 	}
@@ -126,7 +126,7 @@ func (g *ghSource) MergeBase(ctx context.Context, base, head string) (caminos.Fo
 		}
 		c.mu.Unlock()
 	}
-	sha, at, err := g.p.GitHub.MergeBase(ctx, g.inst, g.repo, base, head)
+	sha, at, err := g.p.Forja.MergeBase(ctx, g.inst, g.repo, base, head)
 	if err != nil {
 		return caminos.Fork{}, err
 	}

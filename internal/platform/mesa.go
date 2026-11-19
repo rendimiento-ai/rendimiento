@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	. "github.com/rendimiento-ai/rendimiento/internal/i18n" //nolint:revive // M marks messages for people
 
 	"github.com/rendimiento-ai/rendimiento/internal/mesa"
@@ -68,10 +69,10 @@ const mesaChecks = 30
 // it stays in it, so that answer is kept for good; GitHub is asked again
 // about the others after branchPullsTTL.
 func (p *Platform) heads(ctx context.Context, a *store.App, history []store.HistoryRun) mesa.Heads {
-	if p.GitHub == nil {
+	if p.Forja == nil {
 		return mesa.Heads{}
 	}
-	list, err := p.GitHub.Branches(ctx, a.InstallationID, a.Repo)
+	list, err := p.Forja.Branches(ctx, a.InstallationID, a.Repo)
 	if err != nil || len(list) >= 100 { // more than one page: some branches would look gone
 		return mesa.Heads{}
 	}
@@ -99,7 +100,7 @@ func (p *Platform) heads(ctx context.Context, a *store.App, history []store.Hist
 			continue
 		}
 		asked++
-		base, _, err := p.GitHub.MergeBase(ctx, a.InstallationID, a.Repo, a.DefaultBranch, sha)
+		base, _, err := p.Forja.MergeBase(ctx, a.InstallationID, a.Repo, a.DefaultBranch, sha)
 		if err != nil {
 			continue
 		}
@@ -144,16 +145,16 @@ func (p *Platform) CloseSpare(ctx context.Context, a *store.App, branch, who str
 		if l.Group != mesa.GroupSpare {
 			break
 		}
-		if p.GitHub == nil {
+		if p.Forja == nil {
 			return &NotApprovable{Why: M("GitHub is not connected")}
 		}
 		if l.Pull != 0 && l.PullOpen {
-			if err := p.GitHub.ClosePull(ctx, a.InstallationID, a.Repo, l.Pull); err != nil {
-				return &NotApprovable{Why: M("GitHub did not close the pull request: %s", githubSays(err))}
+			if err := p.Forja.ClosePull(ctx, a.InstallationID, a.Repo, l.Pull); err != nil {
+				return &NotApprovable{Why: M("GitHub did not close the pull request: %s", forja.Says(err))}
 			}
 		}
-		if err := p.GitHub.DeleteBranch(ctx, a.InstallationID, a.Repo, branch); err != nil {
-			return &NotApprovable{Why: M("GitHub did not delete the branch: %s", githubSays(err))}
+		if err := p.Forja.DeleteBranch(ctx, a.InstallationID, a.Repo, branch); err != nil {
+			return &NotApprovable{Why: M("GitHub did not delete the branch: %s", forja.Says(err))}
 		}
 		p.branchPullsCache.mu.Lock()
 		delete(p.branchPullsCache.byApp, a.ID) // the board asks GitHub again

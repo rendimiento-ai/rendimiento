@@ -179,7 +179,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 		return fmt.Errorf("STEP_TIMEOUT must be a duration of at least 1m, got %q", os.Getenv("STEP_TIMEOUT"))
 	}
 	p := &platform.Platform{
-		Store: st, GitHub: holder, Generator: generate.Templates{}, Hub: events.NewHub(), Log: log,
+		Store: st, Forja: holder, Generator: generate.Templates{}, Hub: events.NewHub(), Log: log,
 		Config: platform.Config{Registry: registry, BaseURL: baseURL, Zone: os.Getenv("DNS_ZONE"), Railpack: os.Getenv("RAILPACK_IMAGE") != ""},
 	}
 	// One computer has no network boundary, but the organizations' quota

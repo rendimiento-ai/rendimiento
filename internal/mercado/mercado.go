@@ -104,7 +104,7 @@ func (m *Mercado) Abrir(ctx context.Context, login string, req Abrir) (*store.Ap
 
 // Leer reads a page from its repository's default branch.
 func (m *Mercado) Leer(ctx context.Context, app *store.App) (*Pagina, error) {
-	raw, err := m.Platform.GitHub.FileAt(ctx, app.InstallationID, app.Repo, Archivo, app.DefaultBranch)
+	raw, err := m.Platform.Forja.FileAt(ctx, app.InstallationID, app.Repo, Archivo, app.DefaultBranch)
 	if err != nil {
 		return nil, err
 	}

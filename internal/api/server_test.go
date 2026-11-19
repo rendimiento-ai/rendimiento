@@ -96,7 +96,7 @@ func newEnv(t *testing.T, withApp bool) *testEnv {
 		holder.Set(app)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	p := &platform.Platform{Store: st, Kube: kube, GitHub: holder, Hub: events.NewHub(), Log: log}
+	p := &platform.Platform{Store: st, Kube: kube, Forja: holder, Hub: events.NewHub(), Log: log}
 	s := &Server{
 		Platform: p, Store: st, Kube: kube, GitHub: holder, Credentials: &memCreds{}, DNS: dns.Noop{}, Log: log,
 		BaseURL: "https://rendimiento.example", AllowedUsers: []string{"p0dxD"}, SetupToken: "setup-123", AppName: "rendimiento-test",

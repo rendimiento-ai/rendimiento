@@ -38,6 +38,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
 	"github.com/rendimiento-ai/rendimiento/internal/environment"
 	"github.com/rendimiento-ai/rendimiento/internal/events"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
 	"github.com/rendimiento-ai/rendimiento/internal/logarchive"
@@ -652,14 +653,18 @@ func (s *Server) requireRole(platform bool, min string, h func(http.ResponseWrit
 	})
 }
 
+// forja is where the apps' code lives: GitHub, through its App (step 2 of
+// Ruta 102 picks it per app).
+func (s *Server) forja() forja.Forja { return s.GitHub }
+
 // secureCookies: cookies are HTTPS-only when the platform is served on HTTPS.
 func (s *Server) secureCookies() bool { return strings.HasPrefix(s.BaseURL, "https://") }
 
 // login starts "Sign in with GitHub": it sets a random state in a cookie and
 // sends the browser to GitHub, which comes back to callback with a code.
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
-	app, err := s.GitHub.Get()
-	if err != nil {
+	f := s.forja()
+	if f.Ready() != nil {
 		http.Redirect(w, r, "/setup", http.StatusFound)
 		return
 	}
@@ -672,7 +677,12 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	state := randomToken()
 	http.SetCookie(w, &http.Cookie{Name: "oauth_state", Value: state, Path: "/api/auth", MaxAge: 600, HttpOnly: true, Secure: s.secureCookies(), SameSite: http.SameSiteLaxMode})
-	http.Redirect(w, r, app.AuthorizeURL(state, s.BaseURL+"/api/auth/callback"), http.StatusFound)
+	to, err := f.AuthorizeURL(state, s.BaseURL+"/api/auth/callback")
+	if err != nil {
+		http.Redirect(w, r, "/setup", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, to, http.StatusFound)
 }
 
 // loginElsewhere is BaseURL's login address when r came in on another
@@ -697,8 +707,8 @@ func (s *Server) loginElsewhere(r *http.Request) string {
 // GitHub login, refuses logins not in ALLOWED_USERS, and opens a session of
 // 7 days.
 func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
-	app, err := s.GitHub.Get()
-	if err != nil {
+	f := s.forja()
+	if err := f.Ready(); err != nil {
 		httpError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
@@ -713,7 +723,7 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	login, err := app.Login(r.Context(), r.URL.Query().Get("code"))
+	login, err := f.SignIn(r.Context(), r.URL.Query().Get("code"))
 	if err != nil {
 		s.Log.Warn("login failed", "err", err)
 		httpError(w, http.StatusBadGateway, "GitHub login failed")
@@ -860,8 +870,8 @@ const GitHubAppTopic = "github/app"
 // belongs to, and every other event, or a push from an account not in
 // GITHUB_ACCOUNTS, is acknowledged and ignored.
 func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
-	app, err := s.GitHub.Get()
-	if err != nil {
+	f := s.forja()
+	if err := f.Ready(); err != nil {
 		httpError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
@@ -870,83 +880,39 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 		httpError(w, http.StatusBadRequest, "read body")
 		return
 	}
-	if !gh.VerifyWebhook(app.Credentials().WebhookSecret, body, r.Header.Get("X-Hub-Signature-256")) {
+	ev, err := f.ParseWebhook(r.Header, body)
+	switch {
+	case errors.Is(err, forja.ErrBadSignature):
 		httpError(w, http.StatusUnauthorized, "bad signature")
 		return
-	}
-	var payload struct {
-		Action      string `json:"action"` // pull_request: opened, closed...
-		Number      int    `json:"number"`
-		PullRequest *struct {
-			Merged   bool       `json:"merged"`
-			MergedAt *time.Time `json:"merged_at"`
-			Head     struct {
-				Ref  string `json:"ref"`
-				SHA  string `json:"sha"`
-				Repo *struct {
-					FullName string `json:"full_name"`
-				} `json:"repo"`
-			} `json:"head"`
-		} `json:"pull_request"`
-		Ref        string `json:"ref"`
-		After      string `json:"after"`
-		Deleted    bool   `json:"deleted"`
-		HeadCommit *struct {
-			Message string `json:"message"`
-		} `json:"head_commit"`
-		Commits []struct {
-			Message string `json:"message"`
-		} `json:"commits"`
-		Installation struct {
-			ID int64 `json:"id"`
-		} `json:"installation"`
-		Repository struct {
-			FullName string `json:"full_name"`
-		} `json:"repository"`
-	}
-	if err := json.Unmarshal(body, &payload); err != nil {
+	case errors.Is(err, forja.ErrBadPayload):
 		httpError(w, http.StatusBadRequest, "invalid JSON")
 		return
+	case err != nil:
+		httpError(w, http.StatusServiceUnavailable, err.Error())
+		return
 	}
-	event := r.Header.Get("X-GitHub-Event")
-	var push *platform.PushEvent
-	switch event {
-	case "push":
-		if branch, ok := strings.CutPrefix(payload.Ref, "refs/heads/"); ok {
-			push = &platform.PushEvent{Installation: payload.Installation.ID, Repo: payload.Repository.FullName, Branch: branch, SHA: payload.After, Deleted: payload.Deleted,
-				SkipCI: payload.HeadCommit != nil && platform.SaysSkipCI(payload.HeadCommit.Message)}
-			for _, c := range payload.Commits {
-				push.Messages = append(push.Messages, c.Message)
-			}
-			if len(push.Messages) == 0 && payload.HeadCommit != nil {
-				push.Messages = []string{payload.HeadCommit.Message}
-			}
-		}
-	}
+	event, push := ev.Kind, ev.Push
 	// Pull requests need no run of their own: the branch push already ran
 	// and its check run shows on the PR. PRs from forks are never built,
 	// since their code would run with our clone token. A closed one takes
 	// its preview copy with it.
-	if event == "pull_request" && payload.Number > 0 && app.Allows(strings.Split(payload.Repository.FullName, "/")[0]) {
-		switch payload.Action {
+	if c := ev.Change; c != nil && f.Allows(strings.Split(c.Repo, "/")[0]) {
+		switch c.Action {
 		case "closed":
-			s.Platform.ClosePreview(r.Context(), payload.Repository.FullName, payload.Number)
+			s.Platform.ClosePreview(r.Context(), c.Repo, c.Number)
 			// A merge, by a person or by rendimiento: the libreta keeps it.
-			if pr := payload.PullRequest; pr != nil && pr.Merged && (pr.Head.Repo == nil || strings.EqualFold(pr.Head.Repo.FullName, payload.Repository.FullName)) {
+			if c.Merged && (c.HeadRepo == "" || strings.EqualFold(c.HeadRepo, c.Repo)) {
 				at := time.Now()
-				if pr.MergedAt != nil {
-					at = *pr.MergedAt
+				if c.MergedAt != nil {
+					at = *c.MergedAt
 				}
-				s.Platform.PullMerged(r.Context(), payload.Repository.FullName, pr.Head.Ref, pr.Head.SHA, at)
+				s.Platform.PullMerged(r.Context(), c.Repo, c.HeadRef, c.HeadSHA, at)
 			}
 		case "opened", "reopened":
 			// A branch that already passed gets its copy now, not on its next push.
-			if pr := payload.PullRequest; pr != nil {
-				head := ""
-				if pr.Head.Repo != nil {
-					head = pr.Head.Repo.FullName
-				}
-				go s.Platform.OpenedPreview(context.WithoutCancel(r.Context()), payload.Repository.FullName, payload.Number, pr.Head.Ref, head)
+			if c.HeadRef != "" {
+				go s.Platform.OpenedPreview(context.WithoutCancel(r.Context()), c.Repo, c.Number, c.HeadRef, c.HeadRepo)
 			}
 		}
 	}
@@ -956,7 +922,7 @@ func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
 	}
 	// An installation on an account rendimiento does not use (a public App
 	// can be installed by anyone): acknowledged, never acted on.
-	if owner, _, _ := strings.Cut(push.Repo, "/"); !app.Allows(owner) {
+	if owner, _, _ := strings.Cut(push.Repo, "/"); !f.Allows(owner) {
 		s.Log.Info("webhook from an account not in GITHUB_ACCOUNTS: ignored", "repo", push.Repo)
 		w.WriteHeader(http.StatusAccepted)
 		return

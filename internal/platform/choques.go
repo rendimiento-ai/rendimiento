@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -19,19 +19,19 @@ import (
 // files, for whoever resolves it.
 func (p *Platform) resolveAddOnly(ctx context.Context, app *store.App, run *store.Run, branch string) (sha string, joined, conflicts []string, err error) {
 	inst, repo := app.InstallationID, app.Repo
-	main, err := p.GitHub.BranchSHA(ctx, inst, repo, app.DefaultBranch)
+	main, err := p.Forja.BranchSHA(ctx, inst, repo, app.DefaultBranch)
 	if err != nil {
 		return "", nil, nil, err
 	}
-	base, _, err := p.GitHub.MergeBase(ctx, inst, repo, main, run.SHA)
+	base, _, err := p.Forja.MergeBase(ctx, inst, repo, main, run.SHA)
 	if err != nil || base == "" {
 		return "", nil, nil, fmt.Errorf("no merge base of %s and %s: %v", app.DefaultBranch, branch, err)
 	}
-	ours, ok1, err := p.GitHub.ChangedFiles(ctx, inst, repo, base, run.SHA)
+	ours, ok1, err := p.Forja.ChangedFiles(ctx, inst, repo, base, run.SHA)
 	if err != nil {
 		return "", nil, nil, err
 	}
-	theirs, ok2, err := p.GitHub.ChangedFiles(ctx, inst, repo, base, main)
+	theirs, ok2, err := p.Forja.ChangedFiles(ctx, inst, repo, base, main)
 	if err != nil {
 		return "", nil, nil, err
 	}
@@ -43,8 +43,8 @@ func (p *Platform) resolveAddOnly(ctx context.Context, app *store.App, run *stor
 		mine[f] = true
 	}
 	read := func(path, ref string) ([]byte, bool, error) {
-		b, err := p.GitHub.FileAt(ctx, inst, repo, path, ref)
-		if gh.IsNotFound(err) {
+		b, err := p.Forja.FileAt(ctx, inst, repo, path, ref)
+		if forja.IsNotFound(err) {
 			return nil, false, nil
 		}
 		return b, err == nil, err
@@ -96,7 +96,7 @@ func (p *Platform) resolveAddOnly(ctx context.Context, app *store.App, run *stor
 	sort.Strings(joined)
 	msg := fmt.Sprintf("Merge %s into %s: both sides only added lines\n\nrendimiento joined both sides, %s's lines first, in:\n- %s\n",
 		app.DefaultBranch, branch, app.DefaultBranch, strings.Join(joined, "\n- "))
-	sha, err = p.GitHub.CommitMerge(ctx, inst, repo, branch, run.SHA, main, msg, files, remove)
+	sha, err = p.Forja.CommitMerge(ctx, inst, repo, branch, run.SHA, main, msg, files, remove)
 	return sha, joined, nil, err
 }
 

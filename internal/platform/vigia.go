@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 )
 
 // Vigia asks GitHub for new commits where GitHub cannot send its webhooks
@@ -17,7 +17,7 @@ type Vigia struct {
 	P     *Platform
 	Every time.Duration // default 1m
 	// Branches lists a repo's branches (the GitHub App's, faked in tests).
-	Branches func(ctx context.Context, installation int64, repo string) ([]gh.Branch, error)
+	Branches func(ctx context.Context, installation int64, repo string) ([]forja.Branch, error)
 
 	seen  map[string]string // "repo branch" → head
 	repos map[string]bool   // repos looked at before

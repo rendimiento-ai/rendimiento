@@ -8,7 +8,7 @@ import (
 	"testing/fstest"
 	"time"
 
-	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -81,7 +81,7 @@ func TestEnSeco(t *testing.T) {
 			fake.changed = map[string][]string{}
 		}
 		fake.changed["main..."+sha] = changed
-		pr := gh.PullInfo{Number: number, State: "open", Mergeable: &yes, MergeableState: "clean"}
+		pr := forja.Change{Number: number, State: "open", Mergeable: &yes, MergeableState: "clean"}
 		pr.Head.Ref, pr.Head.SHA, pr.Base.Ref = branch, sha, "main"
 		fake.pulls = append(fake.pulls, pr)
 		fake.mu.Unlock()
@@ -95,7 +95,7 @@ func TestEnSeco(t *testing.T) {
 		}
 		return r
 	}
-	check := func(r *store.Run) gh.CheckRun {
+	check := func(r *store.Run) forja.Check {
 		t.Helper()
 		if r.CheckRun == nil {
 			t.Fatalf("run %d has no check", r.ID)

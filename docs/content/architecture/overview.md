@@ -108,11 +108,12 @@ flowchart TB
     crd[api/v1alpha1] --> spec[internal/spec]
 ```
 
-- **At the bottom**, `internal/spec` (the `rendimiento.yaml` types) and small leaf packages (`dns`, `detect`, `events`, `github`) depend on nothing of ours.
+- **At the bottom**, `internal/spec` (the `rendimiento.yaml` types) and small leaf packages (`dns`, `detect`, `events`, `forja`) depend on nothing of ours; `github` depends only on `forja`.
 - **`api/v1alpha1`** defines the custom resources (`App`, `Addon`), reusing the spec types so an `App` carries exactly what `rendimiento.yaml` says.
 - **`render`** is pure: spec plus images in, Kubernetes objects out. No I/O, which makes it easy to test with golden files.
 - **`controller`** and **`pipeline`** do the I/O against Kubernetes.
-- **`platform`** ties CI, the store and GitHub together.
+- **`platform`** ties CI, the store and the forja together.
+- **`forja`** is where an app's code lives, and what rendimiento does there: learn of each push (a webhook, verified and read), clone with a short-lived token, say whether a commit passed (a check, also «a person must merge it»), open and merge changes, and sign people in. The platform, the API's webhook and login, and the coding agent speak to it; `github` implements it (the `Holder`), and GitLab and Bitbucket are planned beside it. Connecting a forja stays in its own package, since each one does it its own way: GitHub's App manifest, its installations and Renovate's token are GitHub's.
 - **`destino`** is where releases run. The platform asks it to create an app, apply a release, run its deploy tasks, report the rollout and remove the app, and for the app's page, what runs for it, its secrets, a restart, and what deleting or disconnecting it would do; the platform does not know how. Kubernetes is the first destination (it writes the `App` object, which the controller deploys); `Local` runs them on one computer, as containers of its engine behind a proxy at `<app>.localhost` (see [On one computer](../environment/deploy.md#on-one-computer)); a server over SSH and the clouds are planned.
 - **`api`** is the outermost layer.
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	. "github.com/rendimiento-ai/rendimiento/internal/i18n" //nolint:revive // M marks messages for people
 )
 
@@ -17,7 +18,7 @@ import (
 // finds the branch there. A link it cannot open a pull request for is
 // left as it was.
 func (p *Platform) PullsForDelivery(ctx context.Context, orgID, encargo int64, title, result string, links []string) []string {
-	if p.GitHub == nil {
+	if p.Forja == nil {
 		return links
 	}
 	out := make([]string, 0, len(links)+1)
@@ -39,9 +40,9 @@ func (p *Platform) PullsForDelivery(ctx context.Context, orgID, encargo int64, t
 			}
 			body := M("Encargo %d, delivered in rendimiento: %s\n\n%s\n\nOpened by rendimiento when the encargo was delivered, so its checks and its preview copy can be seen before merging.",
 				encargo, title, result)
-			number, err := p.GitHub.CreatePull(ctx, a.InstallationID, a.Repo, a.DefaultBranch, branch, title, body)
+			number, err := p.Forja.CreatePull(ctx, a.InstallationID, a.Repo, a.DefaultBranch, branch, title, body)
 			if err != nil {
-				p.Log.Warn("encargo delivered: opening its pull request", "encargo", encargo, "repo", repo, "branch", branch, "err", githubSays(err))
+				p.Log.Warn("encargo delivered: opening its pull request", "encargo", encargo, "repo", repo, "branch", branch, "err", forja.Says(err))
 				continue
 			}
 			out = append(out, fmt.Sprintf("https://github.com/%s/pull/%d", a.Repo, number))

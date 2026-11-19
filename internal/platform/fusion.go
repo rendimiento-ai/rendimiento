@@ -2,12 +2,11 @@ package platform
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strings"
 	"time"
 
-	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	. "github.com/rendimiento-ai/rendimiento/internal/i18n" //nolint:revive // M marks messages for people
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -63,7 +62,7 @@ func (p *Platform) MergeReady(ctx context.Context, app *store.App) {
 	if !app.AutoMerge {
 		return
 	}
-	pulls, err := p.GitHub.OpenPulls(ctx, app.InstallationID, app.Repo)
+	pulls, err := p.Forja.OpenPulls(ctx, app.InstallationID, app.Repo)
 	if err != nil {
 		p.Log.Warn("merge: list pull requests", "app", app.Name, "err", err)
 		return
@@ -96,7 +95,7 @@ func (p *Platform) MergeReady(ctx context.Context, app *store.App) {
 // Dependabot's). Those tools merge the updates their rules allow by
 // themselves; one they left open waits for a person, so an open one is
 // never taken as the yes.
-func depsPull(pr gh.PullInfo, app *store.App) bool {
+func depsPull(pr forja.Change, app *store.App) bool {
 	labels := make([]string, 0, len(pr.Labels))
 	for _, l := range pr.Labels {
 		labels = append(labels, l.Name)
@@ -127,7 +126,7 @@ func (p *Platform) othersPassed(ctx context.Context, app *store.App, branch, sha
 // mergePull asks GitHub whether the pull request can be merged, merges it
 // when it can, and writes the outcome on the run.
 func (p *Platform) mergePull(ctx context.Context, app *store.App, run *store.Run, number int) {
-	pr, err := p.GitHub.Pull(ctx, app.InstallationID, app.Repo, number)
+	pr, err := p.Forja.Pull(ctx, app.InstallationID, app.Repo, number)
 	if err != nil {
 		p.Log.Warn("merge: read pull request", "app", app.Name, "pull", number, "err", err)
 		return
@@ -158,16 +157,15 @@ func (p *Platform) mergePull(ctx context.Context, app *store.App, run *store.Run
 	case pr.MergeableState == "blocked":
 		state, msg = store.MergeBlocked, M("pull request #%d waits for what GitHub asks of it (a review, a check): not merged", number)
 	default:
-		if err := p.GitHub.MergePull(ctx, app.InstallationID, app.Repo, number, run.SHA); err != nil {
-			var api *gh.APIError
-			if errors.As(err, &api) && api.Status == 409 {
+		if err := p.Forja.MergePull(ctx, app.InstallationID, app.Repo, number, run.SHA); err != nil {
+			if errors.Is(err, forja.ErrConflict) {
 				return // the branch moved while merging
 			}
-			state, msg = store.MergeBlocked, M("pull request #%d not merged: %s", number, githubSays(err))
+			state, msg = store.MergeBlocked, M("pull request #%d not merged: %s", number, forja.Says(err))
 		} else {
 			p.noteMerged(ctx, app, pr.Head.Ref, run.SHA, time.Now())
 			// The branch did its work.
-			if err := p.GitHub.DeleteBranch(ctx, app.InstallationID, app.Repo, pr.Head.Ref); err != nil {
+			if err := p.Forja.DeleteBranch(ctx, app.InstallationID, app.Repo, pr.Head.Ref); err != nil {
 				p.Log.Warn("merge: delete the branch", "app", app.Name, "branch", pr.Head.Ref, "err", err)
 			}
 		}
@@ -214,15 +212,15 @@ func (p *Platform) ApproveMerge(ctx context.Context, runID int64, who string) (*
 	if last, err := p.Store.LastRunOf(ctx, app.ID, run.Branch); err == nil && last.SHA != run.SHA {
 		return nil, &NotApprovable{Why: M("the branch has a newer commit: approve its run")}
 	}
-	title, err := p.GitHub.CommitSubject(ctx, app.InstallationID, app.Repo, run.SHA)
+	title, err := p.Forja.CommitSubject(ctx, app.InstallationID, app.Repo, run.SHA)
 	if err != nil || title == "" {
 		title = run.Branch
 	}
 	// What the change says of itself, when it follows the custom.
-	body, _ := p.GitHub.FileAt(ctx, app.InstallationID, app.Repo, "cambios/"+run.Branch+".md", run.SHA)
-	number, err := p.GitHub.CreatePull(ctx, app.InstallationID, app.Repo, app.DefaultBranch, run.Branch, title, string(body))
+	body, _ := p.Forja.FileAt(ctx, app.InstallationID, app.Repo, "cambios/"+run.Branch+".md", run.SHA)
+	number, err := p.Forja.CreatePull(ctx, app.InstallationID, app.Repo, app.DefaultBranch, run.Branch, title, string(body))
 	if err != nil {
-		says := githubSays(err)
+		says := forja.Says(err)
 		if strings.Contains(says, "No commits between") {
 			// Another branch built on this one brought its commits in.
 			return nil, &NotApprovable{Why: M("the branch is already in %s: there is nothing left to merge", app.DefaultBranch)}
@@ -293,35 +291,4 @@ func branchLink(link string) (repo, branch string, ok bool) {
 		}
 	}
 	return "", "", false
-}
-
-// githubSays is the sentence GitHub gave for refusing, without the rest of
-// its answer.
-func githubSays(err error) string {
-	var api *gh.APIError
-	if !errors.As(err, &api) {
-		return err.Error()
-	}
-	var body struct {
-		Message string `json:"message"`
-		// Errors say what a "Validation Failed" was about.
-		Errors []struct {
-			Message string `json:"message"`
-			Code    string `json:"code"`
-			Field   string `json:"field"`
-		} `json:"errors"`
-	}
-	if json.Unmarshal([]byte(api.Body), &body) == nil && body.Message != "" {
-		says := strings.TrimSuffix(body.Message, ".")
-		for _, e := range body.Errors {
-			switch {
-			case e.Message != "":
-				says += ": " + strings.TrimSuffix(e.Message, ".")
-			case e.Field != "":
-				says += ": " + e.Field + " " + e.Code
-			}
-		}
-		return says
-	}
-	return err.Error()
 }

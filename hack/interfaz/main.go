@@ -127,7 +127,7 @@ func run(addr, ui, estado string, log *slog.Logger, central *registrocentral.Rec
 
 	base := "http://" + addr
 	p := &platform.Platform{
-		Store: st, GitHub: holder, Generator: generate.Templates{}, Hub: events.NewHub(), Log: log,
+		Store: st, Forja: holder, Generator: generate.Templates{}, Hub: events.NewHub(), Log: log,
 		Config: platform.Config{Registry: "localhost:5000", BaseURL: base},
 	}
 	// Live settings, as every real process has: the pages that read them

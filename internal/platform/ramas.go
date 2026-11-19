@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -99,7 +99,7 @@ type branchPull struct {
 
 type branchPullsEntry struct {
 	at    time.Time
-	prs   []gh.PullInfo         // as GitHub answered, the most recently updated first
+	prs   []forja.Change        // as GitHub answered, the most recently updated first
 	pulls map[string]branchPull // by head branch
 }
 
@@ -145,10 +145,10 @@ func (p *Platform) recentPulls(ctx context.Context, a *store.App) (branchPullsEn
 		return e, true
 	}
 	c.mu.Unlock()
-	if p.GitHub == nil {
+	if p.Forja == nil {
 		return branchPullsEntry{}, false
 	}
-	prs, err := p.GitHub.RecentPullRequests(ctx, a.InstallationID, a.Repo)
+	prs, err := p.Forja.RecentPullRequests(ctx, a.InstallationID, a.Repo)
 	if err != nil {
 		p.Log.Warn("branch kinds: pull requests", "app", a.Name, "err", err)
 		return branchPullsEntry{}, false

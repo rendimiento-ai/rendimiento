@@ -24,7 +24,7 @@ func TestResolveAddOnly(t *testing.T) {
 		base + "..." + ours: {"es.ts", "mkdocs.yml"},
 		base + "..." + main: {"es.ts", "main.go", "mkdocs.yml", "gone.md"},
 	}}
-	p := &Platform{GitHub: f, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	p := &Platform{Forja: f, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	app := &store.App{Name: "choques", Repo: "o/choques", DefaultBranch: "main"}
 	run := &store.Run{SHA: ours, Branch: "previews"}
 
