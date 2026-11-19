@@ -56,7 +56,7 @@ const Members = perezosa(() => import("./pages/Members").then((m) => m.Members))
  * The app's frame: setup until the GitHub App exists, the welcome page until you sign in, then the menu and pages.
  */
 function Shell() {
-  const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; buzon?: boolean; sistema?: Sistema; configured?: boolean; book?: BookLinks; activity?: boolean; signIn?: SignIn[]; loading: boolean; sinRespuesta?: boolean }>({ loading: true });
+  const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; buzon?: boolean; sistema?: Sistema; configured?: boolean; book?: BookLinks; activity?: boolean; signIn?: SignIn[]; github?: boolean; loading: boolean; sinRespuesta?: boolean }>({ loading: true });
   const telefono = useTelefono();
   const [altura, setAltura] = useState<Altura>(0);
   useUso(!!state.login);
@@ -84,7 +84,7 @@ function Shell() {
         // GitHub brings the person back here once they chose the repositories (the GitHub App's setup URL, with
         // setup_action): signing in is what follows, so it starts without asking.
         if (new URLSearchParams(location.search).has("setup_action")) return location.replace("/api/auth/login");
-        setState({ configured: true, book: setup.book, activity: setup.activity, signIn: setup.signIn, loading: false });
+        setState({ configured: true, book: setup.book, activity: setup.activity, signIn: setup.signIn, github: setup.github, loading: false });
       }
     })();
   }, []);
@@ -103,7 +103,7 @@ function Shell() {
   // The public form to write to the team, signed in or not.
   if (location.pathname === "/comentarios") return <ComentarioPublico />;
 
-  if (!state.login) return <Bienvenida book={state.book ?? {}} activity={!!state.activity} signIn={state.signIn ?? []} />;
+  if (!state.login) return <Bienvenida book={state.book ?? {}} activity={!!state.activity} signIn={state.signIn ?? []} github={state.github} />;
 
   // The pages and the account: in the top bar on a wide screen; on a phone,
   // in the sheet that peeks from the bottom (components/navegacion).

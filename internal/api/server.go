@@ -801,11 +801,15 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 // ---- one-click GitHub App setup (manifest flow) ----
 
 // setupStatus tells the UI, before anyone signs in, whether the GitHub App
-// exists yet (and where to install it), whether the welcome page shows
-// what is happening, and where the book is.
+// exists yet (and where to install it), which forjas one can sign in with,
+// whether the welcome page shows what is happening, and where the book is.
 func (s *Server) setupStatus(w http.ResponseWriter, _ *http.Request) {
 	app, err := s.GitHub.Get()
-	out := map[string]any{"configured": err == nil, "activity": s.PublicActivity}
+	// github: whether "Sign in with GitHub" leads anywhere (the GitHub App
+	// is set up). Today it is the same as configured; the welcome page
+	// reads this one, so that it hides the button when GitHub is not
+	// connected and the other forjas are.
+	out := map[string]any{"configured": err == nil, "github": s.forja().Ready() == nil, "activity": s.PublicActivity}
 	if err != nil {
 		// How to read the setup token where this platform runs.
 		out["tokenCommand"] = s.SetupTokenCommand

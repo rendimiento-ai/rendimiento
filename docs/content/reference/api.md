@@ -35,7 +35,7 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | GET | `/api/auth/login` | redirects to GitHub OAuth |
 | GET | `/api/auth/callback` | OAuth callback; creates the session |
 | POST | `/api/auth/logout` | ends the session |
-| GET | `/api/setup/status` | whether the GitHub App is configured |
+| GET | `/api/setup/status` | whether the GitHub App is configured (`configured`, and `github`: whether *Sign in with GitHub* leads anywhere), and the GitLabs and Bitbucket workspaces one can sign in with (`signIn`) |
 | GET | `/api/setup/github` | starts the App manifest flow (needs `?token=SETUP_TOKEN`) |
 | POST | `/mcp` | the MCP endpoint for agents ([la Ruta](../guide/ruta.md)); needs an agent key as a bearer token, not a session |
 | GET | `/api/setup/github/callback` | GitHub returns the new App's credentials; they are saved in a Secret |

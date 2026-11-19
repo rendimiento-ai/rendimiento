@@ -195,6 +195,29 @@ func TestWebhookSignature(t *testing.T) {
 	}
 }
 
+// The welcome page learns from the setup status whether "Sign in with
+// GitHub" leads anywhere: only once the GitHub App is set up.
+func TestSetupStatusSaysWhetherGitHubIsConnected(t *testing.T) {
+	for _, configured := range []bool{false, true} {
+		e := newEnv(t, configured)
+		r, body := e.do(t, "GET", "/api/setup/status", "", nil, nil)
+		var st struct {
+			Configured bool  `json:"configured"`
+			GitHub     *bool `json:"github"`
+			SignIn     []any `json:"signIn"`
+		}
+		if r.StatusCode != 200 || json.Unmarshal([]byte(body), &st) != nil {
+			t.Fatalf("status: %d %s", r.StatusCode, body)
+		}
+		if st.GitHub == nil || *st.GitHub != configured || st.Configured != configured {
+			t.Fatalf("with the App set up %v, github should be %v: %s", configured, configured, body)
+		}
+		if st.SignIn == nil || len(st.SignIn) != 0 {
+			t.Fatalf("no other forja is connected: %s", body)
+		}
+	}
+}
+
 func TestSetupRequiresToken(t *testing.T) {
 	e := newEnv(t, false)
 	if r, body := e.do(t, "GET", "/api/setup/status", "", nil, nil); r.StatusCode != 200 || !strings.Contains(body, `"configured":false`) {

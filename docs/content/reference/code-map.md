@@ -599,7 +599,7 @@ Package api serves the REST + SSE API, GitHub webhooks, login, one-click GitHub 
 | `(*Server) loginElsewhere` | method | loginElsewhere is BaseURL's login address when r came in on another host (an old or extra domain of the platform), or "". |
 | `(*Server) callback` | method | callback finishes the GitHub sign-in: it checks the state against the cookie (so nobody can make you sign in as them), trades the code for the GitHub login, refuses logins not in ALLOWED_USERS, and opens a session of 7 days. |
 | `(*Server) logout` | method | logout deletes the session and its cookie. |
-| `(*Server) setupStatus` | method | setupStatus tells the UI, before anyone signs in, whether the GitHub App exists yet (and where to install it), whether the welcome page shows what is happening, and where the book is. |
+| `(*Server) setupStatus` | method | setupStatus tells the UI, before anyone signs in, whether the GitHub App exists yet (and where to install it), which forjas one can sign in with, whether the welcome page shows what is happening, and where the book is. |
 | `(*Server) checkSetupToken` | method | checkSetupToken guards the one-time GitHub App setup: it is refused once the App exists, and needs the token from the rendimiento-setup secret (in the URL the first time, then in a cookie). |
 | `(*Server) setupStart` | method | setupStart is the page that posts the App's manifest (name, permissions, webhook URL) to GitHub, which creates the App and sends you back to setupCallback. |
 | `(*Server) setupCallback` | method | setupCallback receives the new App from GitHub (its ID, private key and secrets, traded for the code), stores it in the rendimiento-github secret, starts using it without a restart, and sends you on to install it. |
@@ -682,6 +682,7 @@ Package api serves the REST + SSE API, GitHub webhooks, login, one-click GitHub 
 |---|---|---|
 | `TestAuthBoundaries` | func |  |
 | `TestWebhookSignature` | func |  |
+| `TestSetupStatusSaysWhetherGitHubIsConnected` | func | The welcome page learns from the setup status whether "Sign in with GitHub" leads anywhere: only once the GitHub App is set up. |
 | `TestSetupRequiresToken` | func |  |
 | `TestSecretsAndDelete` | func |  |
 | `TestUniverse` | func |  |

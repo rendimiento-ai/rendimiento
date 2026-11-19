@@ -1,0 +1,1 @@
+- **Bienvenida:** the welcome page says it deploys repositories from GitHub, GitLab or Bitbucket, and shows «Sign in with GitHub» only when the GitHub App is set up (`/api/setup/status` says so in its new `github` field); with no forja connected it still offers GitHub, which leads to the first-run setup.
