@@ -12,6 +12,8 @@ Las personas entran a rendimiento con GitHub, y solo pasan los **miembros**. Cad
 
 En **Miembros** (su nombre, lo primero en el menú de su cuenta a la derecha de la barra de arriba), las personas aparecen a la izquierda por función; al elegir una se ven su función y, renglón por renglón, **lo que puede hacer**. Un administrador toca **Agregar a alguien**, escribe el **usuario de GitHub** de la persona y elige su función. Desde ese momento puede entrar, en la misma dirección. Cambiar una función o quitar a alguien cuenta desde su siguiente clic; a quien se quita se le cierra la sesión de inmediato. Una organización siempre conserva al menos un administrador.
 
+A quien entra con una cuenta de [GitLab](gitlab.md#signing-in-with-gitlab) que no está ligada a nadie se le agrega por su `usuario@host` (como `ana@gitlab.com`); quien tiene las dos liga su cuenta de GitLab desde **Sus cuentas**, y sigue siendo un solo miembro.
+
 ## Quién entra a una aplicación {#who-enters-an-app}
 
 La función de una persona vale en todas las aplicaciones de la organización, salvo que la aplicación tenga su propia lista. Un administrador de la organización la maneja en la pestaña **Configuración** de la aplicación, en **Quién entra**:
