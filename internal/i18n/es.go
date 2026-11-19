@@ -708,4 +708,5 @@ var catalog = map[string]string{
 	"could not open branch %s: %s": "no se pudo abrir la rama %s: %s",
 	"rendimiento.yaml writes fixes: on one line; add the fix by hand": "rendimiento.yaml escribe fixes: en una sola línea; agregue el arreglo a mano",
 	"rendimiento.yaml writes fixes: in a way rendimiento cannot add to; add the fix by hand": "rendimiento.yaml escribe fixes: de una forma en la que rendimiento no puede agregar; agregue el arreglo a mano",
+	"why it was set aside must be up to 1,000 characters, with no secrets": "el porqué de dejarla de lado debe tener hasta 1,000 caracteres, sin secretos",
 }

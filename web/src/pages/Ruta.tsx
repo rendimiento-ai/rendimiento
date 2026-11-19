@@ -2,7 +2,7 @@
 // in any one agent's session. Agents read and write it over MCP (/mcp) with a
 // key made on the Keys tab; lo vivido (what people lived) only people write.
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api, timeAgo, type AgentKey, type AgentRole, type CreatedAgentKey, type RutaEntry, type RutaInput, type RutaKind } from "../api";
 import { Encargos } from "../components/encargos";
 import { Comentarios, porTrabajo } from "../components/comentarios";
@@ -146,7 +146,9 @@ const kindColor: Record<RutaKind, string> = {
 function Entries() {
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
-  const [open, setOpen] = useState<number>();
+  // ?entrada=N opens that entry (an app's libreta links to its requests so).
+  const [params] = useSearchParams();
+  const [open, setOpen] = useState<number | undefined>(() => Number(params.get("entrada")) || undefined);
   const { data, error, reload } = usePoll(() => api.ruta({ q }), [q], 30000);
   const list = (data ?? []).filter((e) => e.kind !== "vivido");
   const shown = list.find((e) => e.id === open);
@@ -208,6 +210,12 @@ function Pagina({ e, onBack, onChange }: { e: RutaEntry; onBack: () => void; onC
           <h2 className="mano pagina-titulo">{e.title}</h2>
           {e.body && <TextoConFormato text={e.body} className="renglon-texto ruta-body" />}
           <div className="renglon-texto"><Tags tags={e.tags} /> <Author e={e} /></div>
+          {e.app && (
+            <p className="renglon-texto small">
+              {t("About {app}:", { app: e.app })} <Link to={`/apps/${e.app}/libreta`}>{t("see it in its libreta")}</Link>
+              {e.discarded && <> · {t("set aside: {why}", { why: e.discarded })}</>}
+            </p>
+          )}
           <div className="row">
             <button onClick={() => setEditing(true)}>{t("Edit")}</button>
             <button onClick={() => confirm(t("Archive “{title}”? It disappears from the list but is kept.", { title: e.title })) && api.archiveRuta(e.id).then(() => { onChange(); onBack(); }, (x) => alert(x.message))}>{t("Archive")}</button>

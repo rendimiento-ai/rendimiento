@@ -98,6 +98,10 @@ type RutaEntry struct {
 	UpdatedAt  time.Time  `json:"updatedAt"`
 	ArchivedAt *time.Time `json:"archivedAt,omitempty"`
 	OrgID      int64      `json:"orgId"`
+	// App is the app the entry is about ("" for none): its libreta shows it.
+	// Discarded is why it was set aside ("" while it stands).
+	App       string `json:"app,omitempty"`
+	Discarded string `json:"discarded,omitempty"`
 }
 
 // AgentAction is one tool call made through the MCP endpoint.
@@ -284,12 +288,14 @@ func (s *Store) ListCargos(ctx context.Context, orgID int64, limit int) ([]Cargo
 
 // ---- entries ----
 
-const rutaCols = `id, kind, title, body, tags, done, author, by_agent, cargo_id, created_at, updated_at, archived_at, org_id`
+const rutaCols = `id, kind, title, body, tags, done, author, by_agent, cargo_id, created_at, updated_at, archived_at, org_id,
+	COALESCE(app, ''), COALESCE(discarded, '')`
 
 // scanRuta reads a Ruta entry row.
 func scanRuta(row pgx.Row) (RutaEntry, error) {
 	var e RutaEntry
-	err := row.Scan(&e.ID, &e.Kind, &e.Title, &e.Body, &e.Tags, &e.Done, &e.Author, &e.ByAgent, &e.CargoID, &e.CreatedAt, &e.UpdatedAt, &e.ArchivedAt, &e.OrgID)
+	err := row.Scan(&e.ID, &e.Kind, &e.Title, &e.Body, &e.Tags, &e.Done, &e.Author, &e.ByAgent, &e.CargoID, &e.CreatedAt, &e.UpdatedAt, &e.ArchivedAt, &e.OrgID,
+		&e.App, &e.Discarded)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return e, ErrNotFound
 	}
@@ -305,9 +311,9 @@ func (s *Store) AddRuta(ctx context.Context, e RutaEntry) (RutaEntry, error) {
 		e.Tags = []string{}
 	}
 	return scanRuta(s.pool.QueryRow(ctx, `
-		INSERT INTO ruta_entries (kind, title, body, tags, done, author, by_agent, cargo_id, org_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING `+rutaCols,
-		e.Kind, e.Title, e.Body, e.Tags, e.Done, e.Author, e.ByAgent, e.CargoID, orgOr(e.OrgID)))
+		INSERT INTO ruta_entries (kind, title, body, tags, done, author, by_agent, cargo_id, org_id, app, discarded)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), NULLIF($11, '')) RETURNING `+rutaCols,
+		e.Kind, e.Title, e.Body, e.Tags, e.Done, e.Author, e.ByAgent, e.CargoID, orgOr(e.OrgID), e.App, e.Discarded))
 }
 
 // orgOr is an organization, or the default one when unset.
@@ -323,8 +329,8 @@ func (s *Store) Ruta(ctx context.Context, id int64) (RutaEntry, error) {
 	return scanRuta(s.pool.QueryRow(ctx, `SELECT `+rutaCols+` FROM ruta_entries WHERE id = $1`, id))
 }
 
-// UpdateRuta replaces an entry's title, body, tags and done, keeping the
-// previous version in ruta_history.
+// UpdateRuta replaces an entry's title, body, tags, done, app and why it
+// was discarded, keeping the previous version in ruta_history.
 func (s *Store) UpdateRuta(ctx context.Context, e RutaEntry, changedBy string) (RutaEntry, error) {
 	if e.Tags == nil {
 		e.Tags = []string{}
@@ -344,8 +350,8 @@ func (s *Store) UpdateRuta(ctx context.Context, e RutaEntry, changedBy string) (
 		return e, ErrNotFound
 	}
 	out, err := scanRuta(tx.QueryRow(ctx, `
-		UPDATE ruta_entries SET title = $2, body = $3, tags = $4, done = $5, updated_at = now()
-		WHERE id = $1 RETURNING `+rutaCols, e.ID, e.Title, e.Body, e.Tags, e.Done))
+		UPDATE ruta_entries SET title = $2, body = $3, tags = $4, done = $5, app = NULLIF($6, ''), discarded = NULLIF($7, ''), updated_at = now()
+		WHERE id = $1 RETURNING `+rutaCols, e.ID, e.Title, e.Body, e.Tags, e.Done, e.App, e.Discarded))
 	if err != nil {
 		return out, err
 	}

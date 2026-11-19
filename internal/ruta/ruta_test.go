@@ -24,6 +24,7 @@ type memory struct {
 	entries  []store.RutaEntry
 	actions  []store.AgentAction
 	bitacora []store.Bitacora
+	ramas    map[int64][]string // entry → its branches
 }
 
 func (m *memory) AgentKeyByHash(_ context.Context, h string) (store.AgentKey, error) {
@@ -140,6 +141,16 @@ func (m *memory) AnotarBitacora(_ context.Context, b store.Bitacora) (store.Bita
 	defer m.mu.Unlock()
 	m.bitacora = append(m.bitacora, b)
 	return b, nil
+}
+
+func (m *memory) LinkRutaBranch(_ context.Context, id int64, branch, _ string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.ramas == nil {
+		m.ramas = map[int64][]string{}
+	}
+	m.ramas[id] = append(m.ramas[id], branch)
+	return nil
 }
 
 type bearer struct{ token string }

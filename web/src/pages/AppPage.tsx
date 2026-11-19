@@ -7,6 +7,7 @@ import { ErrorBox, PhaseBadge, ResourceTree, RunBadge, Switch, usePoll } from ".
 import { fmtPct, ReliabilityTab } from "../components/reliability";
 import { VisitsTab } from "../components/visits";
 import { CaminosTab } from "../components/caminos-tab";
+import { LibretaTab } from "../components/libreta";
 import { tecnicoPrimero, Vistazo } from "../components/vistazo";
 import { MesaTab } from "../components/mesa";
 import { LoUltimo, Rama, VerifyBadge, verifyBadge } from "../components/lo-ultimo";
@@ -27,6 +28,7 @@ const tabs = [
   { id: "overview", label: "Overview", icon: "M4 5h16v14H4zM4 10h16M10 10v9" },
   { id: "runs", label: "Runs", icon: "M5 4l14 8-14 8z" },
   { id: "caminos", label: "Roads", icon: "M6 3v12a3 3 0 0 0 3 3h9M6 9h6a3 3 0 0 1 3 3v6" },
+  { id: "libreta", label: "Notebook", icon: "M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6zM6 3v18M10 8h6M10 12h6M10 16h3M4 7h4M4 12h4M4 17h4" },
   { id: "releases", label: "Releases", icon: "M12 3l8 4v10l-8 4-8-4V7zM12 12l8-5M12 12v9M12 12L4 7" },
   { id: "reliability", label: "Reliability", icon: "M3 12h4l3-8 4 16 3-8h4" },
   { id: "visits", label: "Visits", icon: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" },
@@ -34,7 +36,7 @@ const tabs = [
 ];
 
 /**
- * An app's page, in tabs: the glance, the work board, overview, runs, roads (its branches as caminos), releases, reliability, visits and settings. It refreshes as runs and releases happen.
+ * An app's page, in tabs: the glance, the work board, overview, runs, roads (its branches as caminos), its libreta (what was asked for it and whether it is done), releases, reliability, visits and settings. It refreshes as runs and releases happen.
  */
 export function AppPage() {
   const { name = "", tab: asked = "" } = useParams();
@@ -103,6 +105,7 @@ export function AppPage() {
       {tab === "overview" && <Overview name={name} app={app} />}
       {tab === "runs" && <Runs name={name} repo={app.repo} />}
       {tab === "caminos" && <CaminosTab name={name} />}
+      {tab === "libreta" && <LibretaTab app={app} />}
       {tab === "releases" && <Releases name={name} current={app.status.release} />}
       {tab === "reliability" && <ReliabilityTab app={app} />}
       {tab === "visits" && <VisitsTab app={app} />}

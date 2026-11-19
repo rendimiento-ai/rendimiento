@@ -139,6 +139,24 @@ var branchLink = regexp.MustCompile(`github\.com/[^/]+/[^/]+/(?:pull/new|tree)/(
 // pullLink finds a pull request's number in a link.
 var pullLink = regexp.MustCompile(`github\.com/[^/]+/[^/]+/pull/(\d+)`)
 
+// LinkBranch is the branch a link names on GitHub ("pull/new/<branch>" or
+// "tree/<branch>"), or "".
+func LinkBranch(link string) string {
+	if m := branchLink.FindStringSubmatch(link); m != nil {
+		return m[1]
+	}
+	return ""
+}
+
+// LinkPull is the number of the pull request a link names, or 0.
+func LinkPull(link string) int {
+	if m := pullLink.FindStringSubmatch(link); m != nil {
+		n, _ := strconv.Atoi(m[1])
+		return n
+	}
+	return 0
+}
+
 type line struct {
 	branch   string
 	pull     *Pull // the open one, or else the latest
@@ -188,16 +206,13 @@ func Build(defaultBranch string, pulls []Pull, github bool, heads Heads, runs []
 	for _, e := range encargos {
 		b := ""
 		for _, link := range e.Links {
-			if m := branchLink.FindStringSubmatch(link); m != nil {
-				b = m[1]
+			if lb := LinkBranch(link); lb != "" {
+				b = lb
 				break
 			}
-			if m := pullLink.FindStringSubmatch(link); m != nil {
-				n, _ := strconv.Atoi(m[1])
-				if p := byNumber[n]; p != nil {
-					b = p.Branch
-					break
-				}
+			if p := byNumber[LinkPull(link)]; p != nil {
+				b = p.Branch
+				break
 			}
 		}
 		if r := runByID[e.RunID]; b == "" && r != nil {

@@ -1,0 +1,4 @@
+- **Libreta:** each app has a new **Libreta** tab, beside Roads: what was asked for the app (its Ruta to-dos and decisions, its encargos, Renovate's pull requests) and whether it is done. The states are computed, never set by hand: asked, in progress, ready to merge, integrated, shipped, plus waiting and discarded with its reason; **Note a request** writes a to-do in the Ruta with the app set.
+- **Ruta:** an entry can be about an app (`app`), name the branches it is worked on (`rama`) and be set aside with its reason (`descartado`), from `ruta_anotar` and `ruta_actualizar` or the API; an entry about an app a person may not see is hidden from them. `?entrada=N` on the Ruta page opens that entry.
+- **Agents:** `app_estado` brings the app's libreta (open, done this week, discarded this week).
+- **Database:** migration `0057_libreta.sql` adds the nullable `ruta_entries.app` and `ruta_entries.discarded` and the `ruta_ramas` table (only adds).

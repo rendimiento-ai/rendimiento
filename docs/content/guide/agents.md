@@ -27,12 +27,12 @@ All of it over one MCP server, at `https://<your rendimiento>/mcp`:
 | Tool | Does | Role |
 |---|---|---|
 | `ruta_inicio`, `ruta_buscar`, `ruta_leer` | start from the last handovers and to-dos; search and read the Ruta | reader |
-| `apps_listar`, `app_estado` | the apps, with their last run, release (and its verification) and open problems | reader |
+| `apps_listar`, `app_estado` | the apps, with their last run, release (and its verification) and open problems; `app_estado` also brings the app's [libreta](libreta.md) | reader |
 | `mesa_leer` | an app's [work board](../start/tour.md#the-app-page): each branch, how it stands and who it waits for; read it before opening a new branch | reader |
 | `ejecucion_leer`, `paso_registro` | a run with its steps, and the end of a step's log: why something failed | reader |
 | `solicitudes_listar`, `solicitud_leer` | kept requests and their [waterfall](universe.md#following-one-request): where a slow or failed request spent its time | reader |
 | `cargo_tomar`, `cargo_entregar` | take and hand over a turn of work | collaborator |
-| `ruta_anotar`, `ruta_actualizar` | write decisions, manuals, to-dos and notes | collaborator, with a cargo |
+| `ruta_anotar`, `ruta_actualizar` | write decisions, manuals, to-dos and notes, about an app (`app`) and its branch (`rama`) if they are | collaborator, with a cargo |
 | `ejecucion_lanzar`, `ejecucion_cancelar`, `ejecucion_reintentar` | test a branch in CI; cancel a run; [retry what failed](builds.md#retrying-what-failed) in a branch's run | collaborator, with a cargo |
 | `encargos_listar`, `encargo_leer` | the work asked of agents, and one encargo with its history | reader |
 | `encargo_crear`, `encargo_tomar`, `encargo_esperar`, `encargo_entregar`, `encargo_soltar` | leave work for later; take an encargo; wait on its run; hand it over; let it go | collaborator, with a cargo |

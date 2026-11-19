@@ -468,6 +468,10 @@ type PullInfo struct {
 	} `json:"base"`
 	MergedAt       *time.Time `json:"merged_at"`
 	MergeCommitSHA string     `json:"merge_commit_sha"`
+	// CreatedAt and ClosedAt are when it was opened and closed (the
+	// libreta's dates for Renovate's).
+	CreatedAt time.Time  `json:"created_at"`
+	ClosedAt  *time.Time `json:"closed_at"`
 	// User is who opened it: a bot (Type "Bot") for Renovate's.
 	User struct {
 		Login string `json:"login"`

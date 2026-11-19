@@ -42,8 +42,8 @@ var toolsEN = map[string]string{
 	"ruta_buscar":     "Searches the Ruta's entries by text and kind (decision, manual, pendiente, nota, vivido). Returns summaries; use ruta_leer for the whole content.",
 	"ruta_leer":       "Reads a whole Ruta entry by its number.",
 	"cargo_tomar":     "Takes a cargo (a turn of work) with its purpose. Needed to write. Returns the last handovers, so you know where whoever came before left off.",
-	"ruta_anotar":     "Records a new entry: a decision (with its reason), a manual, a to-do (pendiente) or a note. Never include secrets. Needs an open cargo.",
-	"ruta_actualizar": "Changes an entry (title, body, tags, or marks a to-do as done). The previous version is kept. Lo vivido can't be changed from here. Needs an open cargo.",
+	"ruta_anotar":     "Records a new entry: a decision (with its reason), a manual, a to-do (pendiente) or a note. With app, the entry is about that app and shows in its libreta; with rama, the branch it is worked on, whose runs, merge and release give its state. Never include secrets. Needs an open cargo.",
+	"ruta_actualizar": "Changes an entry (title, body, tags, its app, or marks a to-do as done), links one more branch to it (rama), or sets it aside with the reason (descartado). The previous version is kept. Lo vivido can't be changed from here. Needs an open cargo.",
 	"cargo_entregar":  "Hands your cargo over before you leave: what you did and what is left, for whoever comes next.",
 
 	"mercado_puestos": "Lists the Mercado's stalls (pages without code, for people who don't program): name, kind, owner and address.",
@@ -52,7 +52,7 @@ var toolsEN = map[string]string{
 	"mercado_abrir":   "Opens a new stall: creates its public repository and publishes the page at its address. Needs an open cargo and that the person asked for it (pedido_por_la_persona). Photos are added later from the UI.",
 
 	"apps_listar":        "The apps the platform deploys, with their last run and their release in production.",
-	"app_estado":         "An app's state: its services, its last runs and releases (with their verification), and its open problems.",
+	"app_estado":         "An app's state: its services, its last runs and releases (with their verification), its open problems and its libreta (what was asked for it and whether it is done: what is open, and what was done or set aside this week).",
 	"mesa_leer":          "An app's work board: each branch with its pull request, its last run and its encargos, and who it waits for (usted: a person; trabajando: working; sobra: can be closed; hoy: merged today). Read it before opening a new branch: if there is one for the same thing already, keep to it.",
 	"ejecucion_leer":     "A CI run with its steps and each one's state. To see why a step failed, use paso_registro.",
 	"paso_registro":      "The end of a run step's log (200 lines unless you ask for more).",
@@ -133,6 +133,11 @@ var camposEN = map[string]string{
 	"el número del cargo":                                               "the cargo's number",
 	"el número del comentario de la persona que responde":               "the number of the person's comment you answer",
 	"qué hizo con lo que pidió la persona, o por qué no; ella lo ve en la campana": "what you did about what the person asked, or why not; they see it in the bell",
+	"la aplicación de la que trata, si es de una: la entrada sale en su libreta":    "the app it is about, if it is about one: the entry shows in its libreta",
+	"la rama en que se trabaja, si ya hay una: su estado sale de sus ejecuciones, su integración y su versión": "the branch it is worked on, if there is one: its state comes from its runs, its merge and its release",
+	"la aplicación de la que trata; vacío para ninguna":                                                     "the app it is about; empty for none",
+	"una rama más en que se trabaja (las anteriores siguen ligadas)":                                         "one more branch it is worked on (the earlier ones stay linked)",
+	"por qué se deja de lado (sale como descartado en la libreta); vacío para retomarla":                     "why it is set aside (it shows as discarded in the libreta); empty to take it up again",
 }
 
 // schemaFor is the input schema the MCP SDK would infer for In (nil when

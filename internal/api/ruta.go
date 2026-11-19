@@ -20,6 +20,10 @@ type RutaInput struct {
 	Body  string   `json:"body"`
 	Tags  []string `json:"tags"`
 	Done  bool     `json:"done"`
+	// App is the app the entry is about ("" for none) and Discarded why it
+	// was set aside; left out, they stay as they are.
+	App       *string `json:"app,omitempty"`
+	Discarded *string `json:"discarded,omitempty"`
 }
 
 // check tidies an entry from the Ruta page (trimmed title, lowercase tags)
@@ -44,8 +48,24 @@ func (in *RutaInput) check() string {
 		return "at most 10 tags"
 	case ruta.LooksSecret(in.Title + "\n" + in.Body + "\n" + strings.Join(in.Tags, " ")):
 		return "this looks like it contains a secret (a password, token or key); the Ruta keeps no secrets"
+	case in.Discarded != nil && (len([]rune(*in.Discarded)) > 1000 || ruta.LooksSecret(*in.Discarded)):
+		return "why it was set aside must be up to 1,000 characters, with no secrets"
 	}
 	return ""
+}
+
+// rutaApp checks the app an entry from the Ruta page is to be about: ""
+// for none, else one of the organization's apps the person enters.
+func (s *Server) rutaApp(r *http.Request, name string) (string, bool) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "", true
+	}
+	a, err := s.Store.GetApp(r.Context(), name)
+	if err != nil || accessOf(r).Role(a) == "" {
+		return "", false
+	}
+	return a.Name, true
 }
 
 // listRuta is the Ruta page's list: entries by kind and text.
@@ -80,7 +100,19 @@ func (s *Server) addRuta(w http.ResponseWriter, r *http.Request, login string) {
 		httpError(w, http.StatusBadRequest, msg)
 		return
 	}
-	e, err := s.Store.AddRuta(r.Context(), store.RutaEntry{Kind: in.Kind, Title: in.Title, Body: in.Body, Tags: in.Tags, Done: in.Done, Author: login, OrgID: orgOf(r)})
+	e := store.RutaEntry{Kind: in.Kind, Title: in.Title, Body: in.Body, Tags: in.Tags, Done: in.Done, Author: login, OrgID: orgOf(r)}
+	if in.App != nil {
+		app, ok := s.rutaApp(r, *in.App)
+		if !ok {
+			httpError(w, http.StatusBadRequest, "no such app")
+			return
+		}
+		e.App = app
+	}
+	if in.Discarded != nil {
+		e.Discarded = strings.TrimSpace(*in.Discarded)
+	}
+	e, err := s.Store.AddRuta(r.Context(), e)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -125,6 +157,17 @@ func (s *Server) updateRuta(w http.ResponseWriter, r *http.Request, login string
 		return
 	}
 	e.Title, e.Body, e.Tags, e.Done = in.Title, in.Body, in.Tags, in.Done
+	if in.App != nil {
+		app, ok := s.rutaApp(r, *in.App)
+		if !ok {
+			httpError(w, http.StatusBadRequest, "no such app")
+			return
+		}
+		e.App = app
+	}
+	if in.Discarded != nil {
+		e.Discarded = strings.TrimSpace(*in.Discarded)
+	}
 	e, err = s.Store.UpdateRuta(r.Context(), e, login)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
