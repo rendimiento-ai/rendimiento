@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { addonsApi, api, appSecretNames, duration, isLibrary, session, subscribe, timeAgo, universeApi, type App, type AppAccess, type AutoEncargo, type BranchKind, type MemberRole, type ReleaseTask, type ReleaseTest } from "../api";
+import { addonsApi, api, appSecretNames, duration, isLibrary, session, subscribe, timeAgo, universeApi, type App, type AppAccess, type AutoEncargo, type BranchKind, type Forja, type MemberRole, type ReleaseTask, type ReleaseTest } from "../api";
 import { memberRoleLabel } from "./Members";
 import { autoEncargoName } from "./IA";
 import { ErrorBox, PhaseBadge, ResourceTree, RunBadge, Switch, usePoll } from "../components/ui";
@@ -11,6 +11,7 @@ import { LibretaTab } from "../components/libreta";
 import { tecnicoPrimero, Vistazo } from "../components/vistazo";
 import { MesaTab } from "../components/mesa";
 import { LoUltimo, Rama, VerifyBadge, verifyBadge } from "../components/lo-ultimo";
+import { forjaOf, repoURL } from "../forja";
 import { anotar } from "../uso";
 import { AppProblems } from "./Problems";
 import { Falla, NoExiste } from "../components/falla";
@@ -73,7 +74,7 @@ export function AppPage() {
           <h1 data-listo="">{app.name}</h1>
           <div className="row small muted">
             <PhaseBadge status={app.status} library={lib} />
-            <a href={`https://github.com/${app.repo}`} target="_blank" rel="noreferrer">{app.repo}</a>
+            <a href={repoURL(app)} target="_blank" rel="noreferrer">{app.repo}</a>
             {app.status.release ? <span>· {t("release #{n}", { n: app.status.release })}</span> : null}
           </div>
         </div>
@@ -103,7 +104,7 @@ export function AppPage() {
       {tab === "" && <Vistazo app={app} onBuilt={reload} />}
       {tab === "mesa" && <MesaTab app={app} />}
       {tab === "overview" && <Overview name={name} app={app} />}
-      {tab === "runs" && <Runs name={name} repo={app.repo} />}
+      {tab === "runs" && <Runs name={name} repo={app.repo} forja={app.forja} />}
       {tab === "caminos" && <CaminosTab name={name} />}
       {tab === "libreta" && <LibretaTab app={app} />}
       {tab === "releases" && <Releases name={name} current={app.status.release} />}
@@ -135,7 +136,7 @@ function Datos({ app }: { app: App }) {
       <div className="dato dato-clic" onClick={() => nav(`${base}/runs`)}>
         <Link to={`${base}/runs`}><span>{t("Latest run")}</span></Link>
         <b style={{ color: runTone }}>{run ? <RunBadge status={run.status} /> : "—"}</b>
-        <small>{run ? <><Rama repo={app.repo} branch={run.branch} /> · {timeAgo(run.createdAt)}</> : t("No runs yet")}</small>
+        <small>{run ? <><Rama repo={app.repo} forja={app.forja} branch={run.branch} /> · {timeAgo(run.createdAt)}</> : t("No runs yet")}</small>
       </div>
       <Link className="dato" to={`${base}/releases`}>
         <span>{t("Live")}</span>
@@ -366,7 +367,7 @@ const kindNames: Partial<Record<BranchKind, string>> = { fix: "fix", feature: "f
  * The Runs tab: the last runs, with their commit, branch, state and time, filtered by the kind of their branch (the
  * default branch, with a pull request, fixes, features, releases...). The filter is kept in the address.
  */
-function Runs({ name, repo }: { name: string; repo: string }) {
+function Runs({ name, repo, forja }: { name: string; repo: string; forja?: Forja }) {
   const { data: runs, error } = usePoll(() => api.runs(name), [name], 5000);
   const { data: kinds } = usePoll(() => api.branchKinds(name), [name], 60000);
   const [params, setParams] = useSearchParams();
@@ -415,10 +416,10 @@ function Runs({ name, repo }: { name: string; repo: string }) {
                     <td><RunBadge status={r.status} /></td>
                     <td className="mono">{r.sha.slice(0, 7)}</td>
                     <td>
-                      <Rama repo={repo} branch={r.branch} />
+                      <Rama repo={repo} forja={forja} branch={r.branch} />
                       {r.deploy && <span className="badge" style={{ marginLeft: 6 }}>{t("deploys")}</span>}
                       {kind && filter !== k?.kind && <span className="chip" style={{ marginLeft: 6 }}>{t(kind)}</span>}
-                      {!!k?.pull && <span className="chip" style={{ marginLeft: 6 }} title={k.open ? t("Its pull request is open") : t("Its last pull request")}>#{k.pull}</span>}
+                      {!!k?.pull && <span className="chip" style={{ marginLeft: 6 }} title={forjaOf({ forja }) === "gitlab" ? (k.open ? t("Its merge request is open") : t("Its last merge request")) : (k.open ? t("Its pull request is open") : t("Its last pull request"))}>{forjaOf({ forja }) === "gitlab" ? "!" : "#"}{k.pull}</span>}
                     </td>
                     <td className="small muted hide-sm">{r.message}</td>
                     <td className="small">{duration(r.startedAt, r.finishedAt)}</td>

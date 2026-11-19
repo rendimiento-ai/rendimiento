@@ -9,6 +9,7 @@ import { apagado } from "../components/conexion-aviso";
 import { PlatformVersion, Publicada } from "./Version";
 import { BanderaSVG, useBandera } from "../banderas";
 import { EsqCosa } from "../components/esqueleto";
+import { Forjas } from "../components/forjas";
 
 const tone: Record<EnvStatus, string> = { ok: "ok", warning: "warn", missing: "bad", error: "bad" };
 const label: Record<EnvStatus, string> = { ok: "OK", warning: "Attention", missing: "Missing", error: "Error" }; // translated where shown
@@ -60,6 +61,7 @@ function EnEstaComputadora() {
         <p className="sub" style={{ marginBottom: 0 }}>{t("This computer, where your apps live: its version and its settings.")}</p>
       </div>
       <div style={{ marginTop: 16 }}><Publicada /></div>
+      {session.operator && <Forjas />}
       <section className="card stack ajustes">
         <div>
           <h2 style={{ margin: 0 }}>{t("Platform settings")}</h2>
@@ -138,6 +140,7 @@ function Pueblo() {
       </div>
       <PlatformVersion />
       <Publicada />
+      {session.operator && <Forjas />}
 
       <div className="calle" role="group" aria-label={t("Nodes")}>
         <div className="calle-picado" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <i key={i} style={{ background: picado[i % picado.length], ["--d" as string]: `${i * -330}ms` }} />)}</div>

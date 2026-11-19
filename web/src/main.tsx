@@ -1,7 +1,7 @@
 import { StrictMode, Suspense, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes } from "react-router-dom";
-import { api, ApiError, session, type MemberRole, type Org } from "./api";
+import { api, ApiError, session, type Forja, type MemberRole, type Org } from "./api";
 import { MenuCuenta, OrgSwitch, memberRoleLabel } from "./components/cuenta";
 import { Buscador, type PaginaBuscable } from "./components/buscador";
 import { t } from "./i18n";
@@ -48,13 +48,15 @@ const SenalesPage = perezosa(() => import("./pages/SenalesPage").then((m) => m.S
 const IA = perezosa(() => import("./pages/IA").then((m) => m.IA));
 const Buzon = perezosa(() => import("./pages/Buzon").then((m) => m.Buzon));
 const AlEquipo = perezosa(() => import("./pages/AlEquipo").then((m) => m.AlEquipo));
+type SignIn = { forja: Forja; id: number; host: string };
+const Cuentas = perezosa(() => import("./pages/Cuentas").then((m) => m.Cuentas));
 const Members = perezosa(() => import("./pages/Members").then((m) => m.Members));
 
 /**
  * The app's frame: setup until the GitHub App exists, the welcome page until you sign in, then the menu and pages.
  */
 function Shell() {
-  const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; buzon?: boolean; sistema?: Sistema; configured?: boolean; book?: BookLinks; activity?: boolean; loading: boolean; sinRespuesta?: boolean }>({ loading: true });
+  const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; buzon?: boolean; sistema?: Sistema; configured?: boolean; book?: BookLinks; activity?: boolean; signIn?: SignIn[]; loading: boolean; sinRespuesta?: boolean }>({ loading: true });
   const telefono = useTelefono();
   const [altura, setAltura] = useState<Altura>(0);
   useUso(!!state.login);
@@ -82,7 +84,7 @@ function Shell() {
         // GitHub brings the person back here once they chose the repositories (the GitHub App's setup URL, with
         // setup_action): signing in is what follows, so it starts without asking.
         if (new URLSearchParams(location.search).has("setup_action")) return location.replace("/api/auth/login");
-        setState({ configured: true, book: setup.book, activity: setup.activity, loading: false });
+        setState({ configured: true, book: setup.book, activity: setup.activity, signIn: setup.signIn, loading: false });
       }
     })();
   }, []);
@@ -101,7 +103,7 @@ function Shell() {
   // The public form to write to the team, signed in or not.
   if (location.pathname === "/comentarios") return <ComentarioPublico />;
 
-  if (!state.login) return <Bienvenida book={state.book ?? {}} activity={!!state.activity} />;
+  if (!state.login) return <Bienvenida book={state.book ?? {}} activity={!!state.activity} signIn={state.signIn ?? []} />;
 
   // The pages and the account: in the top bar on a wide screen; on a phone,
   // in the sheet that peeks from the bottom (components/navegacion).
@@ -207,6 +209,7 @@ function Shell() {
           <Route path="/ia" element={<IA />} />
           <Route path="/buzon" element={<Buzon />} />
           <Route path="/escribir" element={<AlEquipo />} />
+          <Route path="/cuentas" element={<Cuentas />} />
           <Route path="/members" element={<Members me={state.login ?? ""} role={state.role ?? "guest"} org={state.org} />} />
           <Route path="/addons/:name" element={<Addons />} />
           <Route path="/services/:ns/:name" element={<Services />} />

@@ -111,7 +111,7 @@ function Ilustracion({ n }: { n: number }) {
  * The welcome page, before signing in: "rendir" as a dictionary entry whose senses take turns with a drawing each, how
  * rendimiento works, la Ruta, what else it does on hanging signs, what is happening now on a bando, and the book.
  */
-export function Bienvenida({ book, activity }: { book: BookLinks; activity: boolean }) {
+export function Bienvenida({ book, activity, signIn = [] }: { book: BookLinks; activity: boolean; signIn?: { id: number; host: string }[] }) {
   const libro = (lang === "es" ? book.es : book.en) || book.en || book.es;
   // The senses take turns every few seconds, until one is chosen by hand.
   const [sentido, setSentido] = useState(1);
@@ -186,6 +186,7 @@ export function Bienvenida({ book, activity }: { book: BookLinks; activity: bool
             </p>
             <div className="bienv-acciones">
               <a className="btn primary big" href="/api/auth/login">{t("Sign in with GitHub")}</a>
+              {signIn.map((g) => <a key={g.id} className="btn big" href={`/api/auth/gitlab/${g.id}`}>{t("Sign in with GitLab ({host})", { host: g.host })}</a>)}
               {libro && <a className="btn big" href={libro}>{t("Read the book")}</a>}
             </div>
           </div>

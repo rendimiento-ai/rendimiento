@@ -8,6 +8,7 @@ import { useConexion } from "../conexion";
 import { apagado } from "../components/conexion-aviso";
 import { TextoConFormato } from "../components/texto";
 import { Rama } from "../components/lo-ultimo";
+import { forjaOf } from "../forja";
 import { Pasos } from "../components/pasos";
 import { EsqCosa } from "../components/esqueleto";
 import { anotar } from "../uso";
@@ -124,7 +125,7 @@ export function RunPage() {
         )}
       </div>
       <p className="sub">
-        <span className="mono">{run.sha.slice(0, 7)}</span> {t("on")} <strong>{app ? <Rama repo={app.repo} branch={run.branch} className="" /> : run.branch}</strong> · {t(run.event)}
+        <span className="mono">{run.sha.slice(0, 7)}</span> {t("on")} <strong>{app ? <Rama repo={app.repo} forja={app.forja} branch={run.branch} className="" /> : run.branch}</strong> · {t(run.event)}
         {run.deploy ? ` · ${t("deploys on success")}` : ` · ${t("build only")}`} · {timeAgo(run.createdAt)}
         {run.startedAt && ` · ${duration(run.startedAt, run.finishedAt)}`}
         {run.message && ` · ${run.message}`}
@@ -378,7 +379,12 @@ function Approve({ run, app, onApproved }: { run: Run; app: App; onApproved: (r:
         api.approveMerge(run.id).then((r) => { setBusy(false); onApproved({ ...run, ...r, steps: run.steps }); }, (e) => { setBusy(false); alert(e.message); });
       }}>{run.status === "succeeded" && run.dry?.failed ? t("Merge anyway") : t("Merge this branch")}</button>
       <span className="small muted">
-        {run.status === "succeeded" && run.dry?.failed
+        {forjaOf(app) === "gitlab" ? (run.status === "succeeded" && run.dry?.failed
+          ? t("A check did not pass en seco. Your yes merges it anyway: rendimiento opens the merge request into {branch} if there is none, merges it, and notes in the Ruta that it was merged despite that.", { branch: app.defaultBranch })
+          : run.status === "succeeded"
+          ? t("Your yes to this commit: rendimiento opens the merge request into {branch} if there is none, merges it and deletes the branch.", { branch: app.defaultBranch })
+          : t("Your yes to this commit: rendimiento opens the merge request into {branch} if there is none, and merges it when this run passes.", { branch: app.defaultBranch }))
+          : run.status === "succeeded" && run.dry?.failed
           ? t("A check did not pass en seco. Your yes merges it anyway: rendimiento opens the pull request into {branch} if there is none, merges it, and notes in the Ruta that it was merged despite that.", { branch: app.defaultBranch })
           : run.status === "succeeded"
           ? t("Your yes to this commit: rendimiento opens the pull request into {branch} if there is none, merges it and deletes the branch.", { branch: app.defaultBranch })

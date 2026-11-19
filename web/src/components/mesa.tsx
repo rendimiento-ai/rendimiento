@@ -5,6 +5,7 @@ import { ErrorBox, usePoll } from "./ui";
 import { t, tn } from "../i18n";
 import { VolverAlVistazo } from "./vistazo";
 import { Rama } from "./lo-ultimo";
+import { forjaOf, newPullURL, pullURL, repoURL } from "../forja";
 
 const grupos: { id: MesaGroup; title: string; hint: string }[] = [
   { id: "you", title: "Your turn", hint: "merge, review, or look at what failed" },
@@ -83,13 +84,13 @@ function Pedir({ app, onAsked }: { app: App; onAsked: () => void }) {
 }
 
 function Fila({ app, l, onClosed }: { app: App; l: MesaLine; onClosed: () => void }) {
-  const repo = `https://github.com/${app.repo}`;
+  const repo = repoURL(app);
   const encargos = l.encargos ?? [];
   return (
     <div className="mesa-fila">
       <div className="mesa-que">
-        <b className="mono">{l.branch ? <Rama repo={app.repo} branch={l.branch} className="" /> : encargos[0]?.title}</b>
-        {l.pull ? <> · <a href={`${repo}/pull/${l.pull}`} target="_blank" rel="noreferrer">#{l.pull}</a></> : null}
+        <b className="mono">{l.branch ? <Rama repo={app.repo} forja={app.forja} branch={l.branch} className="" /> : encargos[0]?.title}</b>
+        {l.pull ? <> · <a href={pullURL(app, l.pull)} target="_blank" rel="noreferrer">{forjaOf(app) === "gitlab" ? "!" : "#"}{l.pull}</a></> : null}
         {l.pullTitle && <div className="small muted">{l.pullTitle}</div>}
       </div>
       <div className="mesa-como small">
@@ -110,16 +111,16 @@ export function porque(l: MesaLine, app: App): string {
   const at = l.at && !l.at.startsWith("0001") ? timeAgo(l.at) : "";
   switch (l.why) {
     case "passed": return t("passed: it can be merged");
-    case "blocked": return t("passed, but GitHub will not merge it (a review or a required check)");
+    case "blocked": return forjaOf(app) === "gitlab" ? t("passed, but GitLab will not merge it (an approval or a required pipeline)") : t("passed, but GitHub will not merge it (a review or a required check)");
     case "conflict": return t("it conflicts with {branch}", { branch: app.defaultBranch });
     case "failed": return l.failed?.length ? t("failed in {steps}", { steps: l.failed.join(", ") }) : t("its run failed");
     case "cancelled": return t("its run was cancelled");
-    case "untested": return t("an open pull request with no run here");
+    case "untested": return forjaOf(app) === "gitlab" ? t("an open merge request with no run here") : t("an open pull request with no run here");
     case "review": return t("an agent delivered it: it waits for your review");
     case "running": return l.runStatus === "queued" ? t("run {n} is waiting its turn", { n: l.run ?? 0 }) : t("run {n} is running", { n: l.run ?? 0 });
     case "taken": return l.agent ? t("{agent} has it", { agent: l.agent }) : t("an agent has it");
     case "copy": return t("the same commit as #{n}: it repeats it", { n: l.copyOf ?? 0 });
-    case "stale": return t("failed {ago}, with no pull request", { ago: at });
+    case "stale": return forjaOf(app) === "gitlab" ? t("failed {ago}, with no merge request", { ago: at }) : t("failed {ago}, with no pull request", { ago: at });
     case "merged": return l.release ? t("merged {ago} · release #{n}", { ago: at, n: l.release }) : t("merged {ago}", { ago: at });
     default: return l.why;
   }
@@ -131,16 +132,16 @@ function accion(l: MesaLine, app: App, repo: string) {
   switch (l.why) {
     case "passed":
     case "blocked":
-      if (l.pull) return <a className="btn small" href={`${repo}/pull/${l.pull}`} target="_blank" rel="noreferrer">{t("Merge")}</a>;
-      return <a className="btn small" href={`${repo}/pull/new/${l.branch}`} target="_blank" rel="noreferrer">{t("Open the pull request")}</a>;
+      if (l.pull) return <a className="btn small" href={pullURL(app, l.pull)} target="_blank" rel="noreferrer">{t("Merge")}</a>;
+      return <a className="btn small" href={newPullURL(app, l.branch ?? "")} target="_blank" rel="noreferrer">{forjaOf(app) === "gitlab" ? t("Open the merge request") : t("Open the pull request")}</a>;
     case "review":
       return <Link className="btn small" to={`/ruta?tab=encargos${l.encargos?.length ? `#encargo-${l.encargos[0].id}` : ""}`}>{t("Review")}</Link>;
     case "copy":
-      return <a className="btn small" href={`${repo}/pull/${l.pull}`} target="_blank" rel="noreferrer">{t("Close it on GitHub")}</a>;
+      return <a className="btn small" href={pullURL(app, l.pull ?? 0)} target="_blank" rel="noreferrer">{forjaOf(app) === "gitlab" ? t("Close it on GitLab") : t("Close it on GitHub")}</a>;
     case "stale":
-      return <a className="btn small" href={`${repo}/branches`} target="_blank" rel="noreferrer">{t("See the branches")}</a>;
+      return <a className="btn small" href={forjaOf(app) === "gitlab" ? `${repo}/-/branches` : `${repo}/branches`} target="_blank" rel="noreferrer">{t("See the branches")}</a>;
     case "untested":
-      return <a className="btn small" href={`${repo}/pull/${l.pull}`} target="_blank" rel="noreferrer">{t("See it")}</a>;
+      return <a className="btn small" href={pullURL(app, l.pull ?? 0)} target="_blank" rel="noreferrer">{t("See it")}</a>;
     case "taken":
       if (!run) return <Link className="btn small" to="/ruta?tab=encargos">{t("See it")}</Link>;
       return <Link className="btn small" to={run}>{t("See it")}</Link>;
@@ -156,7 +157,8 @@ function accion(l: MesaLine, app: App, repo: string) {
 function Cerrar({ app, l, onClosed }: { app: App; l: MesaLine; onClosed: () => void }) {
   const [busy, setBusy] = useState(false);
   const close = () => {
-    const what = l.pull ? t("Close pull request #{n} without merging it, and delete the branch {branch}?", { n: l.pull, branch: l.branch ?? "" })
+    const what = l.pull ? (forjaOf(app) === "gitlab" ? t("Close merge request !{n} without merging it, and delete the branch {branch}?", { n: l.pull, branch: l.branch ?? "" })
+      : t("Close pull request #{n} without merging it, and delete the branch {branch}?", { n: l.pull, branch: l.branch ?? "" }))
       : t("Delete the branch {branch}?", { branch: l.branch ?? "" });
     if (!confirm(what)) return;
     setBusy(true);

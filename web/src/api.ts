@@ -298,6 +298,8 @@ export interface App {
   mergeAny: boolean; // any open pull request, not only the runs a person approved in rendimiento
   repo: string;
   installationId: number;
+  /** Where its code lives: GitHub, or a GitLab (whose repo starts with its address, git.example.com/group/project). */
+  forja?: Forja;
   defaultBranch: string;
   spec: Spec;
   createdAt: string;
@@ -1347,7 +1349,9 @@ export const api = {
   createDemoLink: (note: string, days: number) => request<DemoLink>("POST", "/api/demo-links", { note, days }),
   deleteDemoLink: (id: number) => request<void>("DELETE", `/api/demo-links/${id}`),
   logout: () => request<void>("POST", "/api/auth/logout"),
-  setupStatus: () => request<{ configured: boolean; appSlug?: string; installURL?: string; book?: { en?: string; es?: string }; activity?: boolean; tokenCommand?: string }>("GET", "/api/setup/status"),
+  setupStatus: () => request<{ configured: boolean; appSlug?: string; installURL?: string; book?: { en?: string; es?: string }; activity?: boolean; tokenCommand?: string;
+    /** The GitLabs one can sign in with, besides GitHub. */
+    signIn?: { forja: Forja; id: number; host: string }[] }>("GET", "/api/setup/status"),
   publicActivity: () => request<PublicActivity>("GET", "/api/public/activity"),
   /** The accounts this organization creates apps from, and those its administrator could connect (the App on their own GitHub account). */
   installations: () => request<{ installations: Installation[]; connectable: Installation[]; installURL: string }>("GET", "/api/installations"),
@@ -1360,9 +1364,10 @@ export const api = {
   repos: (installation: number) => request<Repo[]>("GET", `/api/installations/${installation}/repos`),
   zones: () => request<string[]>("GET", "/api/zones"),
   migration: (name: string) => request<{ migration: Proposal["migration"] | null }>("GET", `/api/namespaces/${encodeURIComponent(name)}/migration`),
-  propose: (installation: number, repo: string, branch: string) =>
-    request<Proposal>("POST", "/api/propose", { installation, repo, branch }),
+  propose: (installation: number, repo: string, branch: string, forja: Forja = "github") =>
+    request<Proposal>("POST", "/api/propose", { forja, installation, repo, branch }),
   createApp: (req: {
+    forja?: Forja;
     installation: number;
     repo: string;
     defaultBranch: string;
@@ -1671,6 +1676,68 @@ export interface EnvReport {
   problems: EnvProblem[] | null;
   ddns?: { enabled: boolean; ip?: string; checkedAt?: string; changedAt?: string; error?: string };
 }
+
+// ---- where the apps' code lives (internal/api/forjas.go) ----
+
+/** A forja (a forge) rendimiento works with. Bitbucket comes next. */
+export type Forja = "github" | "gitlab";
+
+/** A GitLab connected on the Environment page (store.GitLabConnection). */
+export interface GitLabConnection {
+  id: number;
+  baseUrl: string;
+  host: string;
+  applicationId: string;
+  /** The GitLab account rendimiento acts as; empty until someone authorized it. */
+  username: string;
+  authorized: boolean;
+  apps: number;
+  addedBy: string;
+  createdAt: string;
+}
+
+/** The Environment page's «Where your code lives» (api.forjaView). */
+export interface ForjasView {
+  github: { configured: boolean; slug?: string; htmlUrl?: string; apps: number };
+  gitlab: GitLabConnection[];
+  /** The redirect URI a GitLab OAuth application needs, and where GitLab delivers webhooks. */
+  callback: string;
+  webhook: string;
+}
+
+/** A GitLab project the wizard can make an app of (gitlab.Project). */
+export interface GitLabProject {
+  id: number;
+  path: string;
+  repo: string;
+  defaultBranch: string;
+  webUrl: string;
+  private: boolean;
+  lastActivityAt: string;
+}
+
+/** An account on another forja that is the same person (store.Identity). */
+export interface Identity {
+  login: string;
+  forja: Forja;
+  baseUrl: string;
+  externalId: string;
+  username: string;
+  createdAt: string;
+}
+
+export const forjasApi = {
+  list: () => request<ForjasView>("GET", "/api/forjas"),
+  connectGitLab: (baseUrl: string, applicationId: string, applicationSecret: string) =>
+    request<{ connection: GitLabConnection; authorizeUrl: string }>("POST", "/api/forjas/gitlab", { baseUrl, applicationId, applicationSecret }),
+  authorizeGitLab: (id: number) => request<{ authorizeUrl: string }>("POST", `/api/forjas/gitlab/${id}/authorize`),
+  removeGitLab: (id: number) => request<void>("DELETE", `/api/forjas/gitlab/${id}`),
+  projects: (id: number) => request<GitLabProject[]>("GET", `/api/forjas/gitlab/${id}/projects`),
+  identities: () => request<{ login: string; identities: Identity[]; gitlab: { id: number; host: string }[] }>("GET", "/api/me/identities"),
+  link: (id: number) => request<{ authorizeUrl: string }>("POST", `/api/me/identities/gitlab/${id}`),
+  unlink: (i: Identity) =>
+    request<void>("DELETE", `/api/me/identities?${new URLSearchParams({ forja: i.forja, baseUrl: i.baseUrl, externalId: i.externalId })}`),
+};
 
 export const envApi = {
   report: (refresh = false) => request<EnvReport>("GET", `/api/environment${refresh ? "?refresh=1" : ""}`),
