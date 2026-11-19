@@ -40,7 +40,7 @@ func (p *Platform) PullsForDelivery(ctx context.Context, orgID, encargo int64, t
 			}
 			body := M("Encargo %d, delivered in rendimiento: %s\n\n%s\n\nOpened by rendimiento when the encargo was delivered, so its checks and its preview copy can be seen before merging.",
 				encargo, title, result)
-			number, err := p.Forja.CreatePull(ctx, a.InstallationID, a.Repo, a.DefaultBranch, branch, title, body)
+			number, err := p.repos(a).CreatePull(ctx, a.InstallationID, a.Repo, a.DefaultBranch, branch, title, body)
 			if err != nil {
 				p.Log.Warn("encargo delivered: opening its pull request", "encargo", encargo, "repo", repo, "branch", branch, "err", forja.Says(err))
 				continue

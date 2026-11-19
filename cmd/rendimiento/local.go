@@ -24,8 +24,10 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/destino"
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
 	"github.com/rendimiento-ai/rendimiento/internal/events"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"github.com/rendimiento-ai/rendimiento/internal/generate"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/gitlab"
 	"github.com/rendimiento-ai/rendimiento/internal/i18n"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
 	"github.com/rendimiento-ai/rendimiento/internal/motor"
@@ -161,6 +163,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	creds, aiKeys := secretos.Credenciales{Caja: caja}, secretos.LlavesIA{Caja: caja}
 	holder := &gh.Holder{Accounts: splitList(os.Getenv("GITHUB_ACCOUNTS"))}
 	baseURL := strings.TrimRight(env("BASE_URL", "http://localhost:8080"), "/")
+	gitlabForja := &gitlab.Forja{Connections: api.GitLabStore{Store: st}, Keys: secretos.GitLab{Caja: caja}, BaseURL: baseURL}
 	if c, err := creds.Load(ctx); err != nil {
 		return fmt.Errorf("load GitHub credentials: %w", err)
 	} else if c != nil {
@@ -179,7 +182,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 		return fmt.Errorf("STEP_TIMEOUT must be a duration of at least 1m, got %q", os.Getenv("STEP_TIMEOUT"))
 	}
 	p := &platform.Platform{
-		Store: st, Forja: holder, Generator: generate.Templates{}, Hub: events.NewHub(), Log: log,
+		Store: st, Forja: holder, Forjas: map[string]forja.Repos{gitlab.Name: gitlabForja}, Generator: generate.Templates{}, Hub: events.NewHub(), Log: log,
 		Config: platform.Config{Registry: registry, BaseURL: baseURL, Zone: os.Getenv("DNS_ZONE"), Railpack: os.Getenv("RAILPACK_IMAGE") != ""},
 	}
 	// One computer has no network boundary, but the organizations' quota
@@ -216,7 +219,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	}
 
 	srv := &api.Server{
-		Platform: p, Store: st, GitHub: holder, Credentials: creds, DNS: dns.Noop{}, Log: log,
+		Platform: p, Store: st, GitHub: holder, GitLab: gitlabForja, Credentials: creds, DNS: dns.Noop{}, Log: log,
 		BaseURL: baseURL, AllowedUsers: users, SetupToken: setupToken, SetupTokenCommand: "cat " + filepath.Join(dir, "ficha-configuracion"),
 		AppName: env("GITHUB_APP_NAME", "rendimiento"), UI: web.Dist(), Settings: settings,
 	}

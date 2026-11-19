@@ -128,6 +128,9 @@ func (s *Service) Run(ctx context.Context, req Request) (Result, error) {
 	if req.Branch == "" || req.Branch == app.DefaultBranch {
 		return Result{}, ErrDefaultBranch
 	}
+	if app.ForjaOf() != store.ForjaGitHub {
+		return Result{}, fmt.Errorf("declared fixes run on GitHub apps only yet: %s is on %s", app.Name, app.ForjaOf())
+	}
 	fixes, err := s.Declared(ctx, app)
 	if err != nil {
 		return Result{}, err

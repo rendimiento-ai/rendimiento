@@ -148,7 +148,7 @@ func (p *Platform) recentPulls(ctx context.Context, a *store.App) (branchPullsEn
 	if p.Forja == nil {
 		return branchPullsEntry{}, false
 	}
-	prs, err := p.Forja.RecentPullRequests(ctx, a.InstallationID, a.Repo)
+	prs, err := p.repos(a).RecentPullRequests(ctx, a.InstallationID, a.Repo)
 	if err != nil {
 		p.Log.Warn("branch kinds: pull requests", "app", a.Name, "err", err)
 		return branchPullsEntry{}, false

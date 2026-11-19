@@ -83,12 +83,15 @@ func (h *Holder) CreateCheck(ctx context.Context, installation int64, repo strin
 	return c.CreateCheckRun(ctx, repo, cr)
 }
 
-// UpdateCheck updates a check run.
+// UpdateCheck updates a check run. The run is the id's: the name, commit
+// and link a check carries for other forjas (GitLab writes a status by
+// them) are not sent again.
 func (h *Holder) UpdateCheck(ctx context.Context, installation int64, repo string, id int64, cr CheckRun) error {
 	c, err := h.client(installation)
 	if err != nil {
 		return err
 	}
+	cr.Name, cr.HeadSHA, cr.DetailsURL = "", "", ""
 	return c.UpdateCheckRun(ctx, repo, id, cr)
 }
 

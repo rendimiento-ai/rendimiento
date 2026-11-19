@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"sync"
 	"time"
 
@@ -59,7 +60,7 @@ func (p *Platform) Caminos(ctx context.Context, a *store.App) (*caminos.History,
 		list[i] = caminos.Run{ID: r.ID, SHA: r.SHA, Branch: r.Branch, Status: r.Status, Message: r.Message,
 			Failed: r.Failed, Release: r.Release, At: r.CreatedAt, End: r.FinishedAt}
 	}
-	src := &ghSource{p: p, inst: a.InstallationID, repo: a.Repo}
+	src := &ghSource{p: p, f: p.repos(a), inst: a.InstallationID, repo: a.Repo}
 	h := caminos.Build(ctx, src, a.DefaultBranch, list, from, now)
 
 	c.mu.Lock()
@@ -74,12 +75,13 @@ func (p *Platform) Caminos(ctx context.Context, a *store.App) (*caminos.History,
 // ghSource answers caminos.Build from GitHub, remembering what cannot change.
 type ghSource struct {
 	p    *Platform
+	f    forja.Repos // the app's forja
 	inst int64
 	repo string
 }
 
 func (g *ghSource) PullRequests(ctx context.Context) ([]caminos.PullRequest, error) {
-	prs, err := g.p.Forja.RecentPullRequests(ctx, g.inst, g.repo)
+	prs, err := g.f.RecentPullRequests(ctx, g.inst, g.repo)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +102,7 @@ func (g *ghSource) FirstParent(ctx context.Context, sha string) (string, error) 
 		return p, nil
 	}
 	c.mu.Unlock()
-	parent, err := g.p.Forja.FirstParent(ctx, g.inst, g.repo, sha)
+	parent, err := g.f.FirstParent(ctx, g.inst, g.repo, sha)
 	if err != nil {
 		return "", err
 	}
@@ -126,7 +128,7 @@ func (g *ghSource) MergeBase(ctx context.Context, base, head string) (caminos.Fo
 		}
 		c.mu.Unlock()
 	}
-	sha, at, err := g.p.Forja.MergeBase(ctx, g.inst, g.repo, base, head)
+	sha, at, err := g.f.MergeBase(ctx, g.inst, g.repo, base, head)
 	if err != nil {
 		return caminos.Fork{}, err
 	}

@@ -217,6 +217,10 @@ func (s *Server) addFix(w http.ResponseWriter, r *http.Request, _ string) {
 		httpError(w, http.StatusConflict, i18n.M("this run's failure has no fix to declare"))
 		return
 	}
+	if app.ForjaOf() != store.ForjaGitHub {
+		httpError(w, http.StatusConflict, i18n.M("fixes are declared on GitHub apps only yet"))
+		return
+	}
 	ctx := r.Context()
 	raw, err := s.GitHub.FileAt(ctx, app.InstallationID, app.Repo, spec.FileName, app.DefaultBranch)
 	if err != nil {

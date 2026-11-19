@@ -34,8 +34,8 @@ import (
 
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
 	"github.com/rendimiento-ai/rendimiento/internal/controller"
-	"github.com/rendimiento-ai/rendimiento/internal/dns"
 	"github.com/rendimiento-ai/rendimiento/internal/destino"
+	"github.com/rendimiento-ai/rendimiento/internal/dns"
 	"github.com/rendimiento-ai/rendimiento/internal/events"
 	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"github.com/rendimiento-ai/rendimiento/internal/generate"
@@ -196,7 +196,9 @@ func (f *fakeGitHub) Branches(context.Context, int64, string) ([]forja.Branch, e
 func (f *fakeGitHub) MergeBase(context.Context, int64, string, string, string) (string, time.Time, error) {
 	return f.base, time.Time{}, nil
 }
-func (f *fakeGitHub) FirstParent(context.Context, int64, string, string) (string, error) { return "", nil }
+func (f *fakeGitHub) FirstParent(context.Context, int64, string, string) (string, error) {
+	return "", nil
+}
 func (f *fakeGitHub) CommitMerge(_ context.Context, _ int64, _, _, _, _, _ string, files map[string][]byte, remove []string) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -371,7 +373,7 @@ func TestOnboardPushDeployRollback(t *testing.T) {
 	sha3 := strings.Repeat("c", 40)
 
 	// 1. Wizard: detect and propose.
-	prop, err := p.Propose(ctx, 7, "p0dxD/hello", "main")
+	prop, err := p.Propose(ctx, "github", 7, "p0dxD/hello", "main")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -542,7 +544,7 @@ func TestProposeRepoWithoutCode(t *testing.T) {
 		"rendimiento.yaml": {Data: []byte("services:\n  - name: ollama\n    image: ollama/ollama:0.40.6\n    port: 11434\n")},
 		"README.md":        {Data: []byte("# ai\n")},
 	}
-	prop, err := p.Propose(context.Background(), 7, "p0dxD/ai", "image-only")
+	prop, err := p.Propose(context.Background(), "github", 7, "p0dxD/ai", "image-only")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -572,7 +574,7 @@ func TestProposeDetectsExistingDeployment(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	prop, err := p.Propose(ctx, 7, "p0dxD/secplus", "main")
+	prop, err := p.Propose(ctx, "github", 7, "p0dxD/secplus", "main")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -581,7 +583,7 @@ func TestProposeDetectsExistingDeployment(t *testing.T) {
 		t.Fatalf("migration = %+v", m)
 	}
 	// A new repo has no namespace yet.
-	if prop, _ := p.Propose(ctx, 7, "p0dxD/brand-new", "main"); prop.Migration != nil {
+	if prop, _ := p.Propose(ctx, "github", 7, "p0dxD/brand-new", "main"); prop.Migration != nil {
 		t.Fatalf("unexpected migration %+v", prop.Migration)
 	}
 
@@ -901,7 +903,7 @@ func TestDisconnectAndSuggestedName(t *testing.T) {
 	}
 	// It now looks like any unmanaged app: the wizard offers to migrate it
 	// back, found by its host even though the repo is named differently.
-	prop, err := p.Propose(ctx, 7, "p0dxD/storefront-repo", "main")
+	prop, err := p.Propose(ctx, "github", 7, "p0dxD/storefront-repo", "main")
 	if err != nil {
 		t.Fatal(err)
 	}

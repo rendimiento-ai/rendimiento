@@ -277,7 +277,7 @@ func (s *Server) putAppMember(w http.ResponseWriter, r *http.Request, login stri
 	if !readJSON(w, r, &in) {
 		return
 	}
-	if !githubLogin.MatchString(who) {
+	if !memberLogin(who) {
 		httpError(w, http.StatusBadRequest, "that is not a GitHub username")
 		return
 	}

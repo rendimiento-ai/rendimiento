@@ -45,8 +45,10 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
 	"github.com/rendimiento-ai/rendimiento/internal/environment"
 	"github.com/rendimiento-ai/rendimiento/internal/events"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"github.com/rendimiento-ai/rendimiento/internal/generate"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/gitlab"
 	"github.com/rendimiento-ai/rendimiento/internal/i18n"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
 	"github.com/rendimiento-ai/rendimiento/internal/libreta"
@@ -324,6 +326,9 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	// are Kubernetes Secrets, or, with SECRETS_KEY_FILE, sealed in Postgres
 	// by the key in that file (internal/secretos).
 	var creds api.CredentialStore = &api.SecretCredentials{Client: kube, Namespace: ns, Name: env("GITHUB_SECRET", "rendimiento-github")}
+	// The GitLabs connected on the Environment page keep their secrets
+	// beside the GitHub App's.
+	var gitlabKeys gitlab.Keys = api.GitLabSecrets{Client: kube, Namespace: ns}
 	var aiKeys interface {
 		ia.Keys
 		api.IAKeys
@@ -338,7 +343,9 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 			return fmt.Errorf("SECRETS_KEY_FILE: %w", err)
 		}
 		creds, aiKeys = secretos.Credenciales{Caja: caja}, secretos.LlavesIA{Caja: caja}
+		gitlabKeys = secretos.GitLab{Caja: caja}
 	}
+	gitlabForja := &gitlab.Forja{Connections: api.GitLabStore{Store: st}, Keys: gitlabKeys, BaseURL: baseURL}
 	if c, err := creds.Load(ctx); err != nil {
 		return fmt.Errorf("load GitHub credentials: %w", err)
 	} else if c != nil {
@@ -385,7 +392,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 		return fmt.Errorf("STEP_TIMEOUT must be a duration of at least 1m, got %q", os.Getenv("STEP_TIMEOUT"))
 	}
 	p := &platform.Platform{
-		Store: st, Kube: kube, Forja: holder, Generator: generate.Templates{}, Hub: events.NewHub(), Log: log,
+		Store: st, Kube: kube, Forja: holder, Forjas: map[string]forja.Repos{gitlab.Name: gitlabForja}, Generator: generate.Templates{}, Hub: events.NewHub(), Log: log,
 		Config: platform.Config{Registry: env("REGISTRY", "registry.example.lan:5000"), BaseURL: baseURL, Zone: os.Getenv("DNS_ZONE"), Railpack: os.Getenv("RAILPACK_IMAGE") != ""},
 	}
 	p.LiveQuota = liveQuota(settings)
@@ -458,7 +465,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 
 	srv := &api.Server{
 		BookURL: os.Getenv("BOOK_URL"), BookURLEs: os.Getenv("BOOK_URL_ES"),
-		Platform: p, Store: st, Kube: kube, GitHub: holder, Credentials: creds, DNS: dnsProvider, Log: log,
+		Platform: p, Store: st, Kube: kube, GitHub: holder, GitLab: gitlabForja, Credentials: creds, DNS: dnsProvider, Log: log,
 		BaseURL: baseURL, AllowedUsers: users, SetupToken: os.Getenv("SETUP_TOKEN"), Capacity: capacity, Settings: settings,
 		AppName: env("GITHUB_APP_NAME", "rendimiento"), UI: web.Dist(),
 		Catalog:  &catalog.Builder{Kube: kube},

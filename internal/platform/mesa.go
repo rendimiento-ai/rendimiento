@@ -72,7 +72,7 @@ func (p *Platform) heads(ctx context.Context, a *store.App, history []store.Hist
 	if p.Forja == nil {
 		return mesa.Heads{}
 	}
-	list, err := p.Forja.Branches(ctx, a.InstallationID, a.Repo)
+	list, err := p.repos(a).Branches(ctx, a.InstallationID, a.Repo)
 	if err != nil || len(list) >= 100 { // more than one page: some branches would look gone
 		return mesa.Heads{}
 	}
@@ -100,7 +100,7 @@ func (p *Platform) heads(ctx context.Context, a *store.App, history []store.Hist
 			continue
 		}
 		asked++
-		base, _, err := p.Forja.MergeBase(ctx, a.InstallationID, a.Repo, a.DefaultBranch, sha)
+		base, _, err := p.repos(a).MergeBase(ctx, a.InstallationID, a.Repo, a.DefaultBranch, sha)
 		if err != nil {
 			continue
 		}
@@ -149,11 +149,11 @@ func (p *Platform) CloseSpare(ctx context.Context, a *store.App, branch, who str
 			return &NotApprovable{Why: M("GitHub is not connected")}
 		}
 		if l.Pull != 0 && l.PullOpen {
-			if err := p.Forja.ClosePull(ctx, a.InstallationID, a.Repo, l.Pull); err != nil {
+			if err := p.repos(a).ClosePull(ctx, a.InstallationID, a.Repo, l.Pull); err != nil {
 				return &NotApprovable{Why: M("GitHub did not close the pull request: %s", forja.Says(err))}
 			}
 		}
-		if err := p.Forja.DeleteBranch(ctx, a.InstallationID, a.Repo, branch); err != nil {
+		if err := p.repos(a).DeleteBranch(ctx, a.InstallationID, a.Repo, branch); err != nil {
 			return &NotApprovable{Why: M("GitHub did not delete the branch: %s", forja.Says(err))}
 		}
 		p.branchPullsCache.mu.Lock()

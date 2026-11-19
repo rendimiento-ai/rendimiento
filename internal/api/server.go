@@ -40,6 +40,8 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/events"
 	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/gitlab"
+	"github.com/rendimiento-ai/rendimiento/internal/i18n"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
 	"github.com/rendimiento-ai/rendimiento/internal/logarchive"
 	"github.com/rendimiento-ai/rendimiento/internal/mercado"
@@ -60,10 +62,13 @@ type CredentialStore interface {
 
 // Server holds everything the HTTP API needs; Handler returns its routes.
 type Server struct {
-	Platform    *platform.Platform
-	Store       *store.Store
-	Kube        client.Client
-	GitHub      *gh.Holder
+	Platform *platform.Platform
+	Store    *store.Store
+	Kube     client.Client
+	GitHub   *gh.Holder
+	// GitLab is GitLab's forja, for every GitLab connected on the
+	// Environment page (nil: GitLab cannot be connected here).
+	GitLab      *gitlab.Forja
 	Credentials CredentialStore
 	DNS         dns.Provider
 	Log         *slog.Logger
@@ -194,6 +199,9 @@ func (s *Server) Handler() http.Handler {
 
 	// Public endpoints.
 	mux.HandleFunc("POST /api/webhooks/github", s.webhook)
+	mux.HandleFunc("POST "+gitlab.WebhookPath, s.gitlabWebhook)
+	mux.HandleFunc("GET "+gitlab.CallbackPath, s.gitlabCallback)
+	mux.HandleFunc("GET /api/auth/gitlab/{id}", s.gitlabLogin)
 	if !s.StatsInternalOnly {
 		mux.HandleFunc("GET /api/public/stats", s.publicStats)
 	}
@@ -244,6 +252,16 @@ func (s *Server) Handler() http.Handler {
 		mux.Handle(pattern, s.requireRole(false, role, h))
 	}
 	auth(store.MemberGuest, "GET /api/me", s.me)
+	// The person's accounts on other forjas, linked to them (internal/api/forjas.go).
+	auth(store.MemberGuest, "GET /api/me/identities", s.myIdentities)
+	auth(store.MemberGuest, "POST /api/me/identities/gitlab/{id}", s.linkGitLab)
+	auth(store.MemberGuest, "DELETE /api/me/identities", s.unlinkIdentity)
+	// Where the apps' code lives: GitHub and the GitLabs connected here.
+	plat(store.MemberGuest, "GET /api/forjas", s.listForjas)
+	plat(store.MemberAdmin, "POST /api/forjas/gitlab", s.connectGitLab)
+	plat(store.MemberAdmin, "POST /api/forjas/gitlab/{id}/authorize", s.reauthorizeGitLab)
+	plat(store.MemberAdmin, "DELETE /api/forjas/gitlab/{id}", s.deleteGitLab)
+	auth(store.MemberAdmin, "GET /api/forjas/gitlab/{id}/projects", s.gitlabProjects)
 	// The home page as each person lays it out, and the default (internal/api/inicio.go).
 	auth(store.MemberGuest, "GET /api/inicio", s.verInicio)
 	auth(store.MemberGuest, "PUT /api/inicio", s.putInicio)
@@ -729,6 +747,12 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		httpError(w, http.StatusBadGateway, "GitHub login failed")
 		return
 	}
+	s.openSession(w, r, login)
+}
+
+// openSession signs login in, once a forja said who they are: it refuses
+// logins that are no one's member, and opens a session of 7 days.
+func (s *Server) openSession(w http.ResponseWriter, r *http.Request, login string) {
 	if ok, err := s.Store.IsMemberAnywhere(r.Context(), login); err != nil || !ok {
 		s.Log.Warn("login refused", "login", login)
 		httpError(w, http.StatusForbidden, fmt.Sprintf("%s is not a member here; ask an administrator to add you", login))
@@ -780,6 +804,16 @@ func (s *Server) setupStatus(w http.ResponseWriter, _ *http.Request) {
 	if s.BookURL != "" || s.BookURLEs != "" {
 		out["book"] = map[string]string{"en": s.BookURL, "es": s.BookURLEs}
 	}
+	// The GitLabs one can sign in with, besides GitHub.
+	signIn := []map[string]any{}
+	if s.GitLab != nil {
+		if list, err := s.Store.GitLabConnections(context.Background()); err == nil {
+			for _, c := range list {
+				signIn = append(signIn, map[string]any{"forja": gitlab.Name, "id": c.ID, "host": gitlab.Host(c.BaseURL)})
+			}
+		}
+	}
+	out["signIn"] = signIn
 	if err == nil {
 		c := app.Credentials()
 		out["appSlug"], out["installURL"] = c.Slug, c.HTMLURL+"/installations/new"
@@ -869,8 +903,20 @@ const GitHubAppTopic = "github/app"
 // webhook secret); a push to a branch queues the runs of the app that repo
 // belongs to, and every other event, or a push from an account not in
 // GITHUB_ACCOUNTS, is acknowledged and ignored.
-func (s *Server) webhook(w http.ResponseWriter, r *http.Request) {
-	f := s.forja()
+func (s *Server) webhook(w http.ResponseWriter, r *http.Request) { s.webhookFrom(w, r, s.forja()) }
+
+// gitlabWebhook receives the GitLabs' events: a delivery whose
+// X-Gitlab-Token is no connection's is refused.
+func (s *Server) gitlabWebhook(w http.ResponseWriter, r *http.Request) {
+	if s.GitLab == nil {
+		httpError(w, http.StatusServiceUnavailable, gitlab.ErrNotConnected.Error())
+		return
+	}
+	s.webhookFrom(w, r, s.GitLab)
+}
+
+// webhookFrom reads a forja's delivery and acts on it.
+func (s *Server) webhookFrom(w http.ResponseWriter, r *http.Request, f forja.Forja) {
 	if err := f.Ready(); err != nil {
 		httpError(w, http.StatusServiceUnavailable, err.Error())
 		return
@@ -1041,6 +1087,7 @@ func (s *Server) zones(w http.ResponseWriter, r *http.Request, _ string) {
 // the wizard's form starts from it.
 func (s *Server) propose(w http.ResponseWriter, r *http.Request, login string) {
 	var req struct {
+		Forja        string `json:"forja"`
 		Installation int64  `json:"installation"`
 		Repo         string `json:"repo"`
 		Branch       string `json:"branch"`
@@ -1048,10 +1095,10 @@ func (s *Server) propose(w http.ResponseWriter, r *http.Request, login string) {
 	if !readJSON(w, r, &req) {
 		return
 	}
-	if s.installationAllowed(w, r, login, req.Installation, req.Repo) == nil {
+	if !s.repoAllowed(w, r, login, req.Forja, req.Installation, req.Repo) {
 		return
 	}
-	prop, err := s.Platform.Propose(r.Context(), req.Installation, req.Repo, req.Branch)
+	prop, err := s.Platform.Propose(r.Context(), req.Forja, req.Installation, req.Repo, req.Branch)
 	if err != nil {
 		httpError(w, http.StatusUnprocessableEntity, err.Error())
 		return
@@ -1403,6 +1450,19 @@ func (s *Server) listApps(w http.ResponseWriter, r *http.Request, _ string) {
 	writeJSON(w, out)
 }
 
+// repoAllowed checks the repository of a proposal or a new app on its
+// forja; false means the answer was written.
+func (s *Server) repoAllowed(w http.ResponseWriter, r *http.Request, login, forjaName string, installation int64, repo string) bool {
+	switch forjaName {
+	case "", store.ForjaGitHub:
+		return s.installationAllowed(w, r, login, installation, repo) != nil
+	case gitlab.Name:
+		return s.gitlabRepoAllowed(w, r, login, installation, repo)
+	}
+	httpError(w, http.StatusBadRequest, i18n.M("rendimiento does not know the forja %s", forjaName))
+	return false
+}
+
 // createApp onboards a repository from the wizard: it registers the app
 // and opens the pull request that adds rendimiento.yaml or, when the
 // repository already has one (existing), queues its first build.
@@ -1414,10 +1474,19 @@ func (s *Server) createApp(w http.ResponseWriter, r *http.Request, login string)
 	if !readJSON(w, r, &req) {
 		return
 	}
-	if s.installationAllowed(w, r, login, req.Installation, req.Repo) == nil {
+	if !s.repoAllowed(w, r, login, req.Forja, req.Installation, req.Repo) {
 		return
 	}
 	req.OnboardRequest.OrgID = orgOf(r)
+	if req.Forja == gitlab.Name {
+		// GitLab tells rendimiento of each push through the project's
+		// webhook: made before the app, so an app never waits for pushes
+		// that cannot come.
+		if err := s.GitLab.EnsureHook(r.Context(), req.Installation, req.Repo); err != nil {
+			httpError(w, http.StatusBadGateway, i18n.M("GitLab did not add the project's webhook: %s", gitlabSays(err)))
+			return
+		}
+	}
 	res, err := s.Platform.Onboard(r.Context(), req.OnboardRequest, req.Existing)
 	if err != nil {
 		httpError(w, http.StatusUnprocessableEntity, err.Error())

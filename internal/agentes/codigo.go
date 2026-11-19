@@ -253,6 +253,10 @@ func (j *job) work(ctx context.Context) error {
 	if err != nil || app.OrgID != j.e.OrgID {
 		return fmt.Errorf("no app %q", j.e.App)
 	}
+	if app.ForjaOf() != store.ForjaGitHub {
+		// It writes through GitHub's API; on GitLab, a person's agent does it.
+		return fmt.Errorf("the coding agent works on GitHub apps only yet: %s is on %s", app.Name, app.ForjaOf())
+	}
 	j.app = app
 	// An encargo about a run that failed on another branch is about that
 	// branch's code: the error lives there, not on the default branch.
