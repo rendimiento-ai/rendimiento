@@ -100,7 +100,7 @@ func (s *Server) closeInstall(w http.ResponseWriter) {
 // administrator and a forja to sign in with. When the database does not
 // answer it says yes, so the setup page's doors stay closed.
 func (s *Server) installed(ctx context.Context) bool {
-	i, err := s.Store.Instalacion(ctx)
+	i, err := s.Store.EstadoInstalacion(ctx)
 	if err != nil {
 		s.Log.Warn("installation state", "err", err)
 		return true

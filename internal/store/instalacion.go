@@ -12,10 +12,10 @@ import (
 // page's doors close. "Installed" is kept in platform_settings (the key
 // "instalada"), so no table changes; a platform installed before the key
 // existed counts as installed when it has an administrator and a forja
-// authorized (see Instalacion).
+// authorized (see EstadoInstalacion).
 
-// Instalacion is what the setup page needs to know about the platform.
-type Instalacion struct {
+// EstadoInstalacion is what the setup page needs to know about the platform.
+type EstadoInstalacion struct {
 	// Marcada: the setup page finished here (someone proved the setup
 	// token and became the first administrator).
 	Marcada bool
@@ -26,9 +26,9 @@ type Instalacion struct {
 	ForjaAutorizada bool
 }
 
-// Instalacion reads the platform's installation state.
-func (s *Store) Instalacion(ctx context.Context) (Instalacion, error) {
-	var i Instalacion
+// EstadoInstalacion reads the platform's installation state.
+func (s *Store) EstadoInstalacion(ctx context.Context) (EstadoInstalacion, error) {
+	var i EstadoInstalacion
 	err := s.pool.QueryRow(ctx, `SELECT
 		EXISTS (SELECT 1 FROM platform_settings WHERE key = 'instalada'),
 		EXISTS (SELECT 1 FROM org_members WHERE org_id = $1 AND role = 'admin'),
