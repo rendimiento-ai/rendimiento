@@ -48,6 +48,7 @@ func (c *Checker) checks(s *snapshot) []checkFunc {
 		c.checkNotifications,
 		c.checkLogArchive,
 		c.checkAnalytics,
+		c.checkAI,
 		c.checkGitHub,
 		c.checkDatabase,
 	}
@@ -495,12 +496,28 @@ func (c *Checker) checkBuildIsolation(ctx context.Context) Check {
 	return ch
 }
 
-// checkDNS: the DNS provider that creates app records works.
+// TokenWarning is how long before its token expires the DNS check warns.
+const TokenWarning = 30 * 24 * time.Hour
+
+// checkDNS: the DNS provider that creates app records works, and its token
+// does not expire within TokenWarning.
 func (c *Checker) checkDNS(ctx context.Context) Check {
 	ch := Check{ID: "dns", Name: M("DNS provider"), Category: CatIntegrations}
 	d := c.DNS.Describe(ctx)
 	ch.Summary = d.Name + ": " + d.Detail
+	left := time.Duration(-1)
+	if d.ExpiresAt != nil {
+		left = time.Until(*d.ExpiresAt)
+		ch.Details = append(ch.Details, M("the token expires on %s", d.ExpiresAt.UTC().Format("2006-01-02")))
+	}
 	switch {
+	case d.Healthy && d.ExpiresAt != nil && left < TokenWarning:
+		days := int(left.Hours() / 24)
+		ch.Status, ch.Summary = Warning, M("the %s token expires in %d days, on %s", d.Name, days, d.ExpiresAt.UTC().Format("2006-01-02"))
+		if days < 1 {
+			ch.Summary = M("the %s token expires today", d.Name)
+		}
+		ch.Fix = M("Make a new token and change it under Keys and settings on the Environment page: it is tested before it is saved.")
 	case d.Healthy:
 		ch.Status = OK
 	case d.ID == "manual":
@@ -508,8 +525,23 @@ func (c *Checker) checkDNS(ctx context.Context) Check {
 		ch.Fix = M("Create the rendimiento-dns secret with CLOUDFLARE_API_TOKEN and DNS_TARGET, then restart the platform.")
 	default:
 		ch.Status = Error
-		ch.Fix = M("Replace the token in the rendimiento-dns secret (Zone:Read + DNS:Edit) and restart the platform.")
+		ch.Fix = M("Change the token under Keys and settings on the Environment page (Zone:Read + DNS:Edit): it is tested before it is saved, with no restart.")
 	}
+	return ch
+}
+
+// checkAI: the platform's AI (its key, or a local model) is set up; it is
+// optional, so being off is not a warning.
+func (c *Checker) checkAI(ctx context.Context) Check {
+	ch := Check{ID: "ai", Name: M("Platform AI"), Category: CatIntegrations, Status: OK}
+	on, summary := false, ""
+	if c.Config.AI != nil {
+		on, summary = c.Config.AI(ctx)
+	}
+	if !on {
+		ch.Off, summary = true, M("off (optional): set AI_PLATFORM_KEY, or connect a local model on the AI page")
+	}
+	ch.Summary = summary
 	return ch
 }
 
@@ -538,7 +570,7 @@ func (c *Checker) checkAnalytics(ctx context.Context) Check {
 	ch := Check{ID: "analytics", Name: M("Visitor numbers (Umami)"), Category: CatIntegrations}
 	if c.Config.Analytics == nil {
 		// Optional: being off is not a warning.
-		ch.Status, ch.Summary = OK, M("off (optional): to show visitors in each app, set UMAMI_URL in the rendimiento ConfigMap and UMAMI_USERNAME/UMAMI_PASSWORD (a view-only Umami user) in the rendimiento-umami secret")
+		ch.Off, ch.Status, ch.Summary = true, OK, M("off (optional): to show visitors in each app, set UMAMI_URL in the rendimiento ConfigMap and UMAMI_USERNAME/UMAMI_PASSWORD (a view-only Umami user) in the rendimiento-umami secret")
 		return ch
 	}
 	ok, summary := c.Config.Analytics(ctx)
@@ -652,6 +684,7 @@ func (c *Checker) providers(ctx context.Context, s *snapshot, checks []Check) []
 		},
 		{
 			Slot: "dns", Title: "DNS", Active: dnsDesc.ID, Name: dnsDesc.Name, Status: status["dns"], Detail: dnsDesc.Detail,
+			Zones: len(dnsDesc.Zones), ExpiresAt: dnsDesc.ExpiresAt,
 			Options: []Option{
 				{ID: "cloudflare", Name: "Cloudflare", Available: true},
 				{ID: "manual", Name: M("Manual"), Available: true},

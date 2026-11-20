@@ -1,45 +1,39 @@
-import { useState } from "react";
-import { envApi, session, timeAgo, type BoundaryCheck, type Capacity, type EnvCheck, type EnvNode, type EnvProvider, type EnvReport, type EnvStatus, type LiveSetting, type SettingsView } from "../api";
+import { useState, type ReactNode } from "react";
+import { api, envApi, session, timeAgo, type BoundaryCheck, type Capacity, type EnvCheck, type EnvNode, type EnvProblem, type EnvProvider, type EnvReport, type EnvStatus, type LiveSetting, type SettingsView } from "../api";
 import { Link } from "react-router-dom";
 import { ErrorBox, usePoll } from "../components/ui";
 import { outsideWhy } from "../components/barda";
 import { lang, locale, t, tn } from "../i18n";
 import { useConexion } from "../conexion";
 import { apagado } from "../components/conexion-aviso";
-import { PlatformVersion, Publicada } from "./Version";
-import { BanderaSVG, useBandera } from "../banderas";
+import { BotonActualizar, PlatformVersion, Publicada, useActualizar } from "./Version";
 import { EsqCosa } from "../components/esqueleto";
 import { Forjas } from "../components/forjas";
 
 const tone: Record<EnvStatus, string> = { ok: "ok", warning: "warn", missing: "bad", error: "bad" };
 const label: Record<EnvStatus, string> = { ok: "OK", warning: "Attention", missing: "Missing", error: "Error" }; // translated where shown
 const categories = ["Cluster", "Networking", "TLS", "Build", "Integrations"];
+const rank: Record<EnvStatus, number> = { ok: 0, warning: 1, missing: 2, error: 3 };
 
 /** A check's status as a colored label: OK, Attention, Missing or Error. */
 export function StatusBadge({ status }: { status: EnvStatus }) {
   return <span className={`badge ${tone[status]}`}>{t(label[status])}</span>;
 }
 
-// Each provider's sign opens the same requirement's details and its fix.
-const slotCheck: Record<string, string> = { cluster: "kubernetes", dns: "dns", source: "github", registry: "registry" };
-// Requirements that also hang a sign in the square, beside the providers.
-const signChecks = ["notifications", "storage", "database"];
-const picado = ["var(--grana)", "var(--cempasuchil)", "var(--anil)", "var(--rosa)", "var(--nopal)", "var(--maiz)"];
-
-/** A sign over the square: a provider, or a requirement worth reaching at once. */
-interface Letrero {
-  key: string;
-  slot: string;
-  name: string;
-  status: EnvStatus;
-  detail: string;
-  provider?: EnvProvider;
-  check?: EnvCheck;
+/** The worse of some statuses (ok when there are none). */
+function peor(...s: (EnvStatus | undefined)[]): EnvStatus {
+  return s.reduce<EnvStatus>((a, b) => (b && rank[b] > rank[a] ? b : a), "ok");
 }
 
-/** The Environment page: the town of a cluster, or, on one computer, its version and where its settings are. */
+/** Days from now until an instant (negative: it is past). */
+const diasHasta = (when: string) => Math.floor((new Date(when).getTime() - Date.now()) / 86400000);
+
+/** A key expires within the 30 days the page warns about (llaves.Aviso). */
+const venceProximo = (when?: string) => !!when && diasHasta(when) < 30;
+
+/** The Environment page: where the apps live and what the platform connects to, or, on one computer, its version and where its settings are. */
 export function Environment() {
-  return session.cluster ? <Pueblo /> : <EnEstaComputadora />;
+  return session.cluster ? <Entorno /> : <EnEstaComputadora />;
 }
 
 /** The book's Settings page, at the part about one computer, in the reader's language. */
@@ -83,14 +77,27 @@ function EnEstaComputadora() {
   );
 }
 
+const picado = ["var(--rosa)", "var(--cempasuchil)", "var(--maiz)", "var(--nopal)", "#1F8A8A", "var(--anil)", "#7B2F8E"];
+
+/** The papel picado hung over the page; it sways a little, and stands still when movement is off. */
+export function PapelPicado({ n = 12 }: { n?: number }) {
+  return (
+    <div className="entorno-picado" aria-hidden="true">
+      {Array.from({ length: n }, (_, i) => <i key={i} style={{ background: picado[i % picado.length], ["--d" as string]: `${(i * -0.37) % 2}s`, ["--s" as string]: `${3 + ((i * 7) % 9) / 10}s` }} />)}
+    </div>
+  );
+}
+
 /**
- * The Environment page of a cluster, as a Cotija town: the bando with the platform's version, the nodes as houses on a cobbled street
- * (the control plane is the presidencia municipal), the providers as hanging signs that open their ventanilla, the cluster's problems
- * pinned to a cork board, and what the town needs.
+ * The Environment page of a cluster: how it goes, what needs the person, the nodes as small houses, and the services the
+ * platform connects to. What the old page had stays reachable: each node's details, the capacity, the dynamic DNS, the test
+ * email, every check, and the live settings for administrators (folded).
  */
-function Pueblo() {
+function Entorno() {
   const [refreshing, setRefreshing] = useState(false);
   const { data: r, error, setData } = usePoll(() => envApi.report(), [], 30000);
+  const { data: apps } = usePoll(() => api.apps().catch(() => undefined), [], 60000);
+  const version = useActualizar();
   const [sel, setSel] = useState<string>();
   const [abierto, setAbierto] = useState<string>();
 
@@ -107,109 +114,64 @@ function Pueblo() {
   if (!r) return <EsqCosa acciones cuerpo="calle" />;
   const problems = r.problems ?? [];
   const nodo = r.nodes.find((n) => n.name === sel);
-  const letreros: Letrero[] = [
-    ...r.providers.map((p) => {
-      const check = r.checks.find((c) => c.id === slotCheck[p.slot]);
-      return { key: p.slot, slot: p.title, name: p.name, status: p.status, detail: p.detail, provider: p, check };
-    }),
-    ...signChecks.map((id) => r.checks.find((c) => c.id === id)).filter((c): c is EnvCheck => !!c)
-      .map((c) => ({ key: c.id, slot: t(c.category), name: c.name, status: c.status, detail: c.summary, check: c })),
-  ];
-  const ventanilla = letreros.find((l) => l.key === abierto);
-  const avisos = r.checks.filter((c) => c.status !== "ok");
+  const malos = r.checks.filter((c) => c.status !== "ok");
+  const caidos = malos.filter((c) => c.status === "error" || (c.status === "missing" && c.required)).length + r.nodes.filter((n) => !n.ready).length;
+  const avisos = malos.length - malos.filter((c) => c.status === "error" || (c.status === "missing" && c.required)).length + problems.length;
+  const vst = version.data?.status;
+  const novedad = !!vst?.available || !!vst?.manifests?.changed?.length;
 
   return (
-    <>
-      <div className="row between">
+    <div className="entorno">
+      <PapelPicado />
+      <div className="entorno-cabeza">
         <div>
           <h1 data-listo="">{t("Environment")}</h1>
-          <p className="sub" style={{ marginBottom: 0 }}>{t("The town where your apps live: its houses, its services and its notices.")}</p>
+          <p className="sub" style={{ margin: 0 }}>{t("Where your apps live, what rendimiento connects to, and what it needs from you.")}</p>
         </div>
-        <div className="row small muted">
-          {t("checked {when}", { when: timeAgo(r.generatedAt) })}
-          <button onClick={refresh} disabled={refreshing}>{refreshing ? t("Checking…") : t("Re-check")}</button>
+        <div className="row small muted entorno-acciones">
+          <span>{t("checked {when}", { when: timeAgo(r.generatedAt) })}</span>
+          <button className="pildora" onClick={refresh} disabled={refreshing}>{refreshing ? t("Checking…") : t("Check again")}</button>
+          <BotonActualizar />
         </div>
       </div>
 
-      <div className={`card env-hero ${tone[r.overall]}`} style={{ marginTop: 16 }}>
-        <StatusBadge status={r.overall} />
-        <strong>{r.summary}</strong>
-        <span className="muted small">
-          {r.cluster.name} {r.cluster.version} · {t("{ready}/{n} nodes", { ready: r.cluster.nodesReady, n: r.cluster.nodes })} · {tn(r.cluster.pods, "{n} pod", "{n} pods")} · {tn(r.cluster.namespaces, "{n} namespace", "{n} namespaces")}
-        </span>
-      </div>
-      <PlatformVersion />
-      <Publicada />
-      {session.operator && <Forjas />}
+      <section className="entorno-resumen" aria-label={t("Summary")}>
+        <ComoVa overall={r.overall} caidos={caidos} avisos={avisos} summary={r.summary} />
+        <Cifra color="var(--cempasuchil)" titulo={t("Nodes")} valor={t("{ready} of {n}", { ready: r.cluster.nodesReady, n: r.cluster.nodes })}
+          pie={`${r.cluster.name} ${r.cluster.version} · ${tn(r.cluster.pods, "{n} pod", "{n} pods")}`} />
+        <Cifra color="var(--nopal)" titulo={t("Apps")}
+          valor={apps ? tn(apps.filter((a) => a.status?.phase === "Healthy").length, "{n} online", "{n} online") : "—"}
+          pie={apps ? `${tn(apps.length, "{n} app", "{n} apps")} · ${tn((r.cluster.certificates ?? 0) - (r.cluster.certificatesBad ?? 0), "{n} valid certificate", "{n} valid certificates")}` : ""} />
+        <Cifra color="var(--anil)" titulo={t("Platform")}
+          valor={vst?.current ? t("release #{n}", { n: vst.current.release }) : vst?.running ? vst.running.slice(0, 12) : "rendimiento"}
+          pie={vst ? (vst.available ? t("A newer one is ready") : t("Up to date")) : ""} />
+      </section>
 
-      <div className="calle" role="group" aria-label={t("Nodes")}>
-        <div className="calle-picado" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <i key={i} style={{ background: picado[i % picado.length], ["--d" as string]: `${i * -330}ms` }} />)}</div>
-        <div className="empedrado" aria-hidden="true" />
-        {r.nodes.map((n, i) => (
-          <Casa key={n.name} n={n} i={i} on={sel === n.name} onPick={() => setSel(sel === n.name ? undefined : n.name)} />
-        ))}
-      </div>
-      <p className="small muted calle-leyenda">{t("Lit windows are the processor; the red skirting rises with memory. A note on the door says the node is missing something. The presidencia municipal is the node in charge.")}</p>
-      {nodo && <div className="calle-nodo"><NodeCard n={nodo} /></div>}
-      <Capacidad nodes={r.nodes} />
-      {session.operator && <Ajustes />}
+      <Necesita checks={malos} problems={problems} onAbrir={setAbierto} />
 
-      <div className="letreros">
-        {letreros.map((l, i) => (
-          <button key={l.key} className="letrero" aria-expanded={abierto === l.key} onClick={() => setAbierto(abierto === l.key ? undefined : l.key)}>
-            <span className="cuerdas" aria-hidden="true" />
-            <span className={`tabla${abierto === l.key ? " on" : ""}`} style={{ ["--d" as string]: `${i * -700}ms` }}>
-              <small>{l.slot}</small>
-              <strong>{l.name}</strong>
-              <span className={`letrero-est ${tone[l.status]}`}>{t(label[l.status])}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-      {ventanilla && (
-        <div className="ventanilla" key={ventanilla.key}>
-          <div className="row between" style={{ alignItems: "baseline" }}>
-            <h3>{ventanilla.slot}: {ventanilla.name}</h3>
-            <StatusBadge status={ventanilla.status} />
-          </div>
-          <p style={{ margin: 0 }}>{ventanilla.detail}</p>
-          {ventanilla.provider && ventanilla.provider.options.length > 0 && (
-            <label className="field" style={{ maxWidth: 360 }}>
-              <span>{t("Provider")}</span>
-              <select value={ventanilla.provider.options.find((o) => o.id === ventanilla.provider!.active) ? ventanilla.provider.active : ventanilla.provider.options[0]?.id} disabled>
-                {ventanilla.provider.options.map((o) => <option key={o.id} value={o.id}>{o.name}{o.available ? "" : ` (${t("coming soon")})`}</option>)}
-              </select>
-              <span className="small muted">{t("Switching providers is coming; today the provider is set by the platform's configuration.")}</span>
-            </label>
-          )}
-          {ventanilla.key === "dns" && r.ddns && <DynamicDNS ddns={r.ddns} onSynced={refresh} />}
-          {ventanilla.key === "notifications" && ventanilla.status === "ok" && <div className="row"><TestEmail /></div>}
-          {ventanilla.check && <CheckRow c={ventanilla.check} />}
+      <section className="stack-sm" aria-labelledby="entorno-nodos">
+        <h2 id="entorno-nodos" className="entorno-h2">{t("The nodes")}</h2>
+        <div className="casitas">
+          {r.nodes.map((n, i) => <Casita key={n.name} n={n} i={i} on={sel === n.name} onPick={() => setSel(sel === n.name ? undefined : n.name)} />)}
         </div>
-      )}
+        <p className="small muted" style={{ margin: 0 }}>{t("Lit windows are the processor; the pink skirting rises with memory. A note floats over a node that is missing something; the one with the clock tower is in charge. Press one to see it.")}</p>
+        {nodo && <div className="calle-nodo"><NodeCard n={nodo} /></div>}
+      </section>
 
-      <div className="plaza">
-        <section className="plaza-avisos">
-          <h2>{t("Notices in the square")} {problems.length + avisos.length > 0 && <span className="badge warn">{problems.length + avisos.length}</span>}</h2>
-          <div className="tablero">
-            {problems.length + avisos.length === 0 && <div className="nota" style={{ ["--r" as string]: "-1deg", ["--t" as string]: "var(--ok)" }}>{t("No failing pods or certificates.")}</div>}
-            {avisos.map((c, i) => (
-              <button key={c.id} className="nota" style={{ ["--r" as string]: `${(i % 3) - 1}deg`, ["--t" as string]: c.status === "warning" ? "var(--warn)" : "var(--bad)" }}
-                onClick={() => setAbierto(letreros.some((l) => l.check?.id === c.id) ? letreros.find((l) => l.check?.id === c.id)!.key : abierto)}>
-                <strong style={{ color: c.status === "warning" ? "var(--warn)" : "var(--bad)" }}>{c.name}</strong>
-                <span>{c.summary}</span>
-              </button>
-            ))}
-            {problems.map((p, i) => (
-              <div key={p.kind + p.namespace + p.name} className="nota" style={{ ["--r" as string]: `${((i + avisos.length) % 3) - 1}deg`, ["--t" as string]: "var(--bad)" }}>
-                <strong style={{ color: "var(--bad)" }}>{p.kind} <span className="mono">{p.namespace}/{p.name}</span></strong>
-                <span>{p.reason}{p.since ? ` · ${timeAgo(p.since)}` : ""}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-        <section className="card plaza-necesita">
-          <h2>{t("What the town needs")}</h2>
+      <Conexiones r={r} abierto={abierto} onAbrir={setAbierto} onSynced={refresh} />
+
+      <details className="entorno-plegable" open={novedad || undefined}>
+        <summary>{t("The platform's version")}</summary>
+        <PlatformVersion />
+        <Publicada />
+      </details>
+      <details className="entorno-plegable">
+        <summary>{t("Capacity")}</summary>
+        <Capacidad nodes={r.nodes} />
+      </details>
+      <details className="entorno-plegable">
+        <summary>{t("Every check")} <span className="small muted">· {r.summary}</span></summary>
+        <div className="card" style={{ padding: 0, marginTop: 12 }}>
           {categories.map((cat) => {
             const items = r.checks.filter((c) => c.category === cat);
             if (items.length === 0) return null;
@@ -220,107 +182,326 @@ function Pueblo() {
               </div>
             );
           })}
-        </section>
-      </div>
-    </>
+        </div>
+      </details>
+      {session.operator && (
+        <details className="entorno-plegable">
+          <summary>{t("Live settings")}</summary>
+          <Ajustes />
+        </details>
+      )}
+    </div>
   );
 }
 
-const LIT = "#F2C14E";
-const OFF = "#5A6E7A";
+/** «How it goes»: the sun turns slowly; its face and the words follow the overall status. */
+function ComoVa({ overall, caidos, avisos, summary }: { overall: EnvStatus; caidos: number; avisos: number; summary: string }) {
+  const titulo = caidos > 0 ? t("Something is down") : overall !== "ok" || avisos > 0 ? t("Running, with notices") : t("Everything running");
+  const boca = caidos > 0 ? "M27 39q5 -4 10 0" : avisos > 0 ? "M27 37h10" : "M27 37q5 4 10 0";
+  return (
+    <div className={`como-va ${caidos > 0 ? "bad" : avisos > 0 ? "warn" : "ok"}`} title={summary}>
+      <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true" className="sol">
+        <circle cx="32" cy="32" r="30" fill="#F2C14E" />
+        <g className="sol-rayos"><path d="M32 6v8M32 50v8M6 32h8M50 32h8M13.6 13.6l5.7 5.7M44.7 44.7l5.7 5.7M13.6 50.4l5.7-5.7M44.7 19.3l5.7-5.7" stroke="#E8890C" strokeWidth="4" strokeLinecap="round" /></g>
+        <circle cx="32" cy="32" r="13" fill="#FFFDF8" />
+        <path d="M26 31a2 2 0 0 0 4 0M34 31a2 2 0 0 0 4 0" stroke="#8E1B2C" strokeWidth="2.2" fill="none" strokeLinecap="round" />
+        <path d={boca} stroke="#8E1B2C" strokeWidth="2.2" fill="none" strokeLinecap="round" />
+      </svg>
+      <span className="como-va-texto">
+        <span className="como-va-titulo">{t("How it goes")}</span>
+        <strong>{titulo}</strong>
+        <span className="chips">
+          <span className={`chip ${caidos ? "bad" : ""}`}>{tn(caidos, "{n} is down", "{n} are down")}</span>
+          <span className={`chip ${avisos ? "warn" : ""}`}>{tn(avisos, "{n} notice", "{n} notices")}</span>
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/** One number of the summary, with a colored top. */
+function Cifra({ color, titulo, valor, pie }: { color: string; titulo: string; valor: string; pie: string }) {
+  return (
+    <div className="cifra" style={{ ["--c" as string]: color }}>
+      <span className="cifra-titulo">{titulo}</span>
+      <strong>{valor}</strong>
+      <span className="small">{pie}</span>
+    </div>
+  );
+}
+
+export type Dibujo = "codigo" | "nube" | "candado" | "sobre" | "casa" | "cajas" | "respaldo" | "chispa" | "nodo" | "disco" | "red" | "base" | "archivo" | "grafica" | "escudo" | "engrane" | "reloj";
+
+/** An illustration of a service or a requirement: a white drawing on a colored square. */
+export function Icono({ d, color, size = 44, redondo }: { d: Dibujo; color: string; size?: number; redondo?: boolean }) {
+  const w = "#FFFDF8";
+  const trazos: Record<Dibujo, ReactNode> = {
+    codigo: <><circle cx="15" cy="13" r="4" fill="none" stroke="#F2C14E" strokeWidth="2.5" /><circle cx="15" cy="31" r="4" fill="none" stroke="#F2C14E" strokeWidth="2.5" /><circle cx="30" cy="20" r="4" fill="none" stroke="#F2C14E" strokeWidth="2.5" /><path d="M15 17v10M30 24c0 5-8 3-12 6" stroke="#F2C14E" strokeWidth="2.5" fill="none" /></>,
+    nube: <path d="M11 29a6 6 0 0 1 1.5-11.8A8 8 0 0 1 28 14a6 6 0 0 1 5 11V29z" fill={w} />,
+    candado: <><rect x="13" y="20" width="18" height="14" rx="3" fill={w} /><path d="M16 20v-4a6 6 0 0 1 12 0v4" stroke={w} strokeWidth="3" fill="none" /></>,
+    sobre: <><rect x="10" y="14" width="24" height="17" rx="3" fill={w} /><path d="M11 16l11 8 11-8" stroke={color} strokeWidth="2.5" fill="none" /></>,
+    casa: <path d="M12 32h20M16 32V18h12v14M14 18l8-6 8 6" stroke={w} strokeWidth="2.5" fill="none" strokeLinejoin="round" />,
+    cajas: <><rect x="11" y="12" width="22" height="8" rx="2" fill={w} /><rect x="11" y="24" width="22" height="8" rx="2" fill={w} /><circle cx="15" cy="16" r="1.5" fill={color} /><circle cx="15" cy="28" r="1.5" fill={color} /></>,
+    respaldo: <><rect x="11" y="13" width="22" height="7" rx="2" fill={w} /><path d="M13 20v11h18V20M19 25h6" stroke={w} strokeWidth="2.5" fill="none" /></>,
+    chispa: <path d="M22 10l3 9 9 3-9 3-3 9-3-9-9-3 9-3z" fill="#F2C14E" />,
+    nodo: <><rect x="11" y="11" width="22" height="22" rx="4" fill="none" stroke={w} strokeWidth="2.5" /><rect x="17" y="17" width="10" height="10" rx="2" fill={w} /><path d="M16 8v3M22 8v3M28 8v3M16 33v3M22 33v3M28 33v3" stroke={w} strokeWidth="2" /></>,
+    disco: <><ellipse cx="22" cy="14" rx="10" ry="4" fill={w} /><path d="M12 14v16c0 2.2 4.5 4 10 4s10-1.8 10-4V14" fill="none" stroke={w} strokeWidth="2.5" /><path d="M12 22c0 2.2 4.5 4 10 4s10-1.8 10-4" fill="none" stroke={w} strokeWidth="2" /></>,
+    red: <><circle cx="22" cy="22" r="11" fill="none" stroke={w} strokeWidth="2.5" /><path d="M11 22h22M22 11c-5 6-5 16 0 22M22 11c5 6 5 16 0 22" stroke={w} strokeWidth="2" fill="none" /></>,
+    base: <><ellipse cx="22" cy="13" rx="9" ry="3.5" fill={w} /><path d="M13 13v17c0 2 4 3.5 9 3.5s9-1.5 9-3.5V13" fill={w} opacity=".85" /></>,
+    archivo: <><path d="M14 10h11l6 6v18H14z" fill={w} /><path d="M17 21h10M17 25h10M17 29h7" stroke={color} strokeWidth="2" /></>,
+    grafica: <path d="M12 32h21M15 30v-8M21 30V14M27 30v-11" stroke={w} strokeWidth="3.5" strokeLinecap="round" />,
+    escudo: <path d="M22 10l10 4v7c0 7-4.5 11-10 13-5.5-2-10-6-10-13v-7z" fill={w} />,
+    engrane: <><circle cx="22" cy="22" r="6" fill="none" stroke={w} strokeWidth="3" /><path d="M22 9v5M22 30v5M9 22h5M30 22h5M13 13l3.5 3.5M27.5 27.5L31 31M13 31l3.5-3.5M27.5 16.5L31 13" stroke={w} strokeWidth="3" strokeLinecap="round" /></>,
+    reloj: <><circle cx="22" cy="22" r="11" fill={w} /><path d="M22 15v7l5 3" stroke={color} strokeWidth="2.5" fill="none" strokeLinecap="round" /></>,
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 44 44" aria-hidden="true" className="icono">
+      {redondo ? <circle cx="22" cy="22" r="22" fill={color} /> : <rect width="44" height="44" rx="12" fill={color} />}
+      {trazos[d]}
+    </svg>
+  );
+}
+
+/** How each check is drawn: its illustration and color. */
+const dibujoDe: Record<string, [Dibujo, string]> = {
+  kubernetes: ["nodo", "var(--anil)"], "platform-services": ["engrane", "var(--teja)"], nodes: ["nodo", "var(--cempasuchil)"],
+  metrics: ["grafica", "#1F8A8A"], ingress: ["red", "var(--anil)"], "cert-manager": ["candado", "var(--nopal)"],
+  "cluster-issuer": ["candado", "var(--nopal)"], certificates: ["candado", "var(--nopal)"], storage: ["disco", "#7B2F8E"],
+  backups: ["respaldo", "#1F8A8A"], buildkit: ["casa", "var(--teja)"], registry: ["cajas", "var(--anil)"],
+  "build-namespace": ["casa", "var(--teja)"], "build-isolation": ["escudo", "var(--grana)"], dns: ["nube", "var(--cempasuchil)"],
+  notifications: ["sobre", "var(--rosa)"], "log-archive": ["archivo", "#6B5444"], analytics: ["grafica", "var(--rosa)"],
+  ai: ["chispa", "#7B2F8E"], github: ["codigo", "#2B1B12"], database: ["base", "var(--anil)"],
+};
 
 /**
- * A node as a house of Cotija: lit windows for how busy its processor is, a red skirting that rises with its memory,
- * and a note on the door when something is wrong. The control plane is the presidencia municipal, with its clock tower.
+ * «What needs you»: one illustrated card per requirement that is not well and per unhealthy workload or certificate, each
+ * with what to do about it. Nothing to do is said too.
  */
-function Casa({ n, i, on, onPick }: { n: EnvNode; i: number; on: boolean; onPick: () => void }) {
-  const cpu = n.cpuUsed !== undefined ? n.cpuUsed / n.cpuCores : 0;
-  const mem = n.memUsed !== undefined ? n.memUsed / n.memBytes : 0;
-  const lit = Math.round(cpu * 4);
-  const aviso = !n.ready || (n.pressure?.length ?? 0) > 0 || !!n.unschedulable || mem >= 0.85;
-  const guard = mem >= 0.85 ? "var(--rosa)" : "var(--grana)";
-  const presidencia = (n.roles ?? []).some((r) => r === "control-plane" || r === "master");
-  const bandera = useBandera();
-  const d = `${i * 140}ms`;
-  const pct = (x: number) => `${Math.round(x * 100)}%`;
-  const label = t("{name}: processor {cpu}, memory {mem}", { name: n.name, cpu: pct(cpu), mem: pct(mem) });
-  let dibujo;
-  if (presidencia) {
-    // Four balconies upstairs, lit with the processor; portales below, the door in the middle.
-    const balcones = [22, 54, 98, 130];
-    const arcos = [16, 44, 100, 128];
-    const gH = Math.round(14 + mem * 40);
-    dibujo = (
-      <svg width="170" height="210" viewBox="0 0 170 210" aria-hidden="true">
-        <rect x="10" y="84" width="150" height="116" fill="#FBF7EF" stroke="#C9B79F" strokeWidth="2" />
-        <rect x="6" y="78" width="158" height="8" fill="#B5532A" stroke="#8A3C1E" strokeWidth="1.5" />
-        <rect x="10" y="136" width="150" height="4" fill="#E0CDB0" />
-        <rect x="66" y="34" width="38" height="46" fill="#F4E9D8" stroke="#C9B79F" strokeWidth="2" />
-        <path d="M62 36 L85 18 L108 36 Z" fill="#B5532A" stroke="#8A3C1E" strokeWidth="2" />
-        <circle cx="85" cy="56" r="11" fill="#FFFDF8" stroke="#7A3E0B" strokeWidth="2" /><path d="M85 56 V49 M85 56 L90 58" stroke="#2B1B12" strokeWidth="2" strokeLinecap="round" />
-        <path d="M85 18 V2" stroke="#4A2A10" strokeWidth="1.6" />
-        <g className="banderita"><BanderaSVG code={bandera} x={86} y={3} w={18} h={12} /></g>
-        {balcones.map((x, j) => (
-          <g key={j}>
-            <rect className={j < lit ? "luz" : undefined} x={x} y="94" width="18" height="26" rx="2" fill={j < lit ? LIT : OFF} stroke="#7A3E0B" strokeWidth="2" />
-            <path d={`M${x - 4} 122 h26 M${x - 4} 130 h26 M${x - 4} 122 v8 M${x + 22} 122 v8 M${x + 9} 122 v8`} stroke="#2B1B12" strokeWidth="1.6" />
-          </g>
-        ))}
-        {arcos.map((x, j) => <path key={j} d={`M${x} 200 V164 Q${x + 13} 148 ${x + 26} 164 V200`} fill="#E8D6B8" stroke="#C9B79F" strokeWidth="2" />)}
-        <rect className="guard" x="10" y={200 - gH} width="150" height={gH} fill={guard} style={{ ["--d" as string]: d }} />
-        <path d="M72 200 V162 Q85 146 98 162 V200 Z" fill="#7A3E0B" stroke="#4A2A10" strokeWidth="2" /><path d="M85 154 V200" stroke="#4A2A10" strokeWidth="1.5" />
-        {aviso && <Aviso x={78} y={168} />}
-      </svg>
-    );
-  } else {
-    const ancha = i % 3 === 2;
-    const w = ancha ? 170 : 140, wi = w - 20, mid = w / 2;
-    const cols = ancha ? [24, 74, 124] : [24, 96];
-    const vent = [...cols.map((x) => ({ x, y: 66 })), { x: cols[0], y: 116 }, ...(ancha ? [{ x: cols[2], y: 116 }] : [])].slice(0, 4);
-    let tejas = "";
-    for (let x = 14; x < w - 8; x += 9) tejas += `M${x} ${52 - Math.max(0, 28 - (Math.abs(x - mid) * 28) / mid) + 3} V50 `;
-    const gH = Math.round(10 + mem * 50);
-    const dx = ancha ? mid - 14 : w - 58, dr = dx + 28;
-    dibujo = (
-      <svg width={w} height="170" viewBox={`0 0 ${w} 170`} aria-hidden="true">
-        <path d={`M4 52 L${mid} 24 L${w - 4} 52 Z`} fill="#B5532A" stroke="#8A3C1E" strokeWidth="2" />
-        <path d={tejas} stroke="#8A3C1E" strokeWidth="1.4" fill="none" />
-        <rect x="4" y="50" width={w - 8} height="7" fill="#8A3C1E" />
-        <rect x="10" y="57" width={wi} height="105" fill="#FBF7EF" stroke="#D8C8B0" strokeWidth="2" />
-        <rect className="guard" x="10" y={162 - gH} width={wi} height={gH} fill={guard} style={{ ["--d" as string]: d }} />
-        {vent.map((v, j) => (
-          <g key={j}>
-            <rect className={j < lit ? "luz" : undefined} x={v.x} y={v.y} width="20" height="24" rx="2" fill={j < lit ? LIT : OFF} stroke="#7A3E0B" strokeWidth="2.4" />
-            <path d={`M${v.x} ${v.y + 12} h20 M${v.x + 10} ${v.y} v24`} stroke="#7A3E0B" strokeWidth="1.2" />
-            <path d={`M${v.x - 4} ${v.y + 26} h28 M${v.x - 4} ${v.y + 34} h28 M${v.x - 4} ${v.y + 26} v8 M${v.x + 24} ${v.y + 26} v8 M${v.x + 10} ${v.y + 26} v8`} stroke="#2B1B12" strokeWidth="1.6" />
-            <circle cx={v.x + 3} cy={v.y + 24} r="3.4" fill="#D6246E" /><circle cx={v.x + 10} cy={v.y + 24} r="3.4" fill="#E8890C" /><circle cx={v.x + 17} cy={v.y + 24} r="3" fill="#3E7B3A" />
-          </g>
-        ))}
-        <path d={`M${dx} 162 V132 Q${dx + 14} 118 ${dr} 132 V162 Z`} fill="#7A3E0B" stroke="#4A2A10" strokeWidth="2" />
-        <circle cx={dx + 22} cy="148" r="1.8" fill="#E9B824" />
-        <path className="farol" d={`M${dr + 6} 122 h8 v10 h-8 z`} fill="#F2C14E" stroke="#2B1B12" strokeWidth="1.5" />
-        {aviso && <Aviso x={dx + 7} y={128} />}
-      </svg>
-    );
-  }
+function Necesita({ checks, problems, onAbrir }: { checks: EnvCheck[]; problems: EnvProblem[]; onAbrir: (id: string) => void }) {
+  const [todos, setTodos] = useState(false);
+  const orden = [...checks].sort((a, b) => rank[b.status] - rank[a.status]);
+  const tope = 8;
+  const items = orden.length + problems.length;
+  const lista: ReactNode[] = [
+    ...orden.map((c) => <TarjetaCheck key={c.id} c={c} onAbrir={onAbrir} />),
+    ...problems.map((p) => <TarjetaProblema key={p.kind + p.namespace + p.name} p={p} />),
+  ];
   return (
-    <button className={`casa${on ? " on" : ""}`} style={{ ["--d" as string]: d }} onClick={onPick} aria-pressed={on} aria-label={label}>
-      {dibujo}
-      <span className="rot">{n.name}</span>
-      <span className="small">{presidencia ? t("in charge") : (n.roles?.length ? n.roles.join(", ") : t("worker"))}</span>
+    <section className="stack-sm" aria-labelledby="entorno-necesita">
+      <h2 id="entorno-necesita" className="entorno-h2">{t("What needs you")}</h2>
+      {items === 0 ? (
+        <div className="necesita nada">
+          <Icono d="chispa" color="var(--nopal)" size={54} redondo />
+          <span><strong>{t("Nothing for now")}</strong><span className="small">{t("Every requirement is in place and no workload or certificate is failing.")}</span></span>
+        </div>
+      ) : (
+        <div className="necesitas">{todos ? lista : lista.slice(0, tope)}</div>
+      )}
+      {items > tope && <button className="link small" onClick={() => setTodos(!todos)}>{todos ? t("Show fewer") : tn(items - tope, "Show {n} more", "Show {n} more")}</button>}
+    </section>
+  );
+}
+
+/** A requirement that is not well: what it says, and its action (change its key, open its service, or see how to fix it). */
+function TarjetaCheck({ c, onAbrir }: { c: EnvCheck; onAbrir: (id: string) => void }) {
+  const [ver, setVer] = useState(false);
+  const [d, color] = dibujoDe[c.id] ?? ["engrane", "var(--teja)"];
+  const grave = c.status === "error" || (c.status === "missing" && c.required);
+  const conexion = conexionDe[c.id];
+  let accion: ReactNode;
+  if (c.id === "dns" && session.operator) accion = <Link className="btn primary pildora" to="/environment/llaves?llave=cloudflare">{t("Change the token")}</Link>;
+  else if (conexion) accion = <a className="btn pildora" href={`#conexion-${conexion}`} onClick={() => onAbrir(conexion)}>{t("See")}</a>;
+  else accion = <button className="pildora" aria-expanded={ver} onClick={() => setVer(!ver)}>{ver ? t("Hide") : t("See")}</button>;
+  return (
+    <div className={`necesita ${grave ? "bad" : "warn"}`}>
+      <div className="necesita-fila">
+        <span className={grave ? undefined : "flota"}><Icono d={d} color={color} size={54} redondo /></span>
+        <span className="necesita-texto"><strong>{c.name}</strong><span className="small">{c.summary}</span></span>
+        {accion}
+      </div>
+      {ver && (
+        <div className="env-more">
+          {c.details?.map((x) => <div key={x} className="small">• {x}</div>)}
+          {c.fix && <pre className="file" style={{ whiteSpace: "pre-wrap" }}>{c.fix}</pre>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** An unhealthy workload or certificate in the cluster, and how to look at it. */
+function TarjetaProblema({ p }: { p: EnvProblem }) {
+  const [ver, setVer] = useState(false);
+  const cert = p.kind.toLowerCase().includes("certificate");
+  return (
+    <div className="necesita warn">
+      <div className="necesita-fila">
+        <Icono d={cert ? "candado" : "cajas"} color={cert ? "var(--nopal)" : "var(--grana)"} size={54} redondo />
+        <span className="necesita-texto"><strong>{p.kind} <span className="mono">{p.namespace}/{p.name}</span></strong><span className="small">{p.reason}{p.since ? ` · ${timeAgo(p.since)}` : ""}</span></span>
+        <button className="pildora" aria-expanded={ver} onClick={() => setVer(!ver)}>{ver ? t("Hide") : t("See")}</button>
+      </div>
+      {ver && <pre className="file" style={{ whiteSpace: "pre-wrap" }}>kubectl -n {p.namespace} describe {p.kind.toLowerCase()} {p.name}</pre>}
+    </div>
+  );
+}
+
+const TECHOS = ["#B5532A", "#1F8A8A", "#7B2F8E", "#23408E", "#3E7B3A"];
+const LUZ = "#F2C14E";
+const APAGADA = "#5A6E7A";
+
+/**
+ * A node as a small house: lit windows for how busy its processor is, a pink skirting that rises with its memory, and a note
+ * floating over it when something is wrong. The node in charge has a clock tower. Pressed, it shows the node's details.
+ */
+function Casita({ n, i, on, onPick }: { n: EnvNode; i: number; on: boolean; onPick: () => void }) {
+  const cpu = n.cpuUsed !== undefined && n.cpuCores ? Math.min(1, n.cpuUsed / n.cpuCores) : 0;
+  const mem = n.memUsed !== undefined && n.memBytes ? Math.min(1, n.memUsed / n.memBytes) : 0;
+  const mando = (n.roles ?? []).some((r) => r === "control-plane" || r === "master");
+  const nota = !n.ready ? t("down") : n.pressure?.length ? t("pressure") : n.unschedulable ? t("cordoned") : mem >= 0.85 ? t("full") : "";
+  const ancho = mando ? 128 : [96, 108, 108][i % 3];
+  const x0 = 110 - ancho / 2;
+  const top = mando ? 40 : 36;
+  const ventanas = mando ? [58, 82, 122, 146] : [x0 + 12, x0 + ancho - 28];
+  const lit = Math.round(cpu * ventanas.length);
+  const zocalo = Math.round(mem * (86 - top));
+  const pct = (x: number) => `${Math.round(x * 100)}%`;
+  const etiqueta = t("{name}: processor {cpu}, memory {mem}", { name: n.name, cpu: pct(cpu), mem: pct(mem) }) + (nota ? ` · ${nota}` : "");
+  return (
+    <button className={`casita${on ? " on" : ""}${nota ? " aviso" : ""}`} style={{ ["--d" as string]: `${i * 120}ms` }} onClick={onPick} aria-pressed={on} aria-label={etiqueta}>
+      <svg width="100%" height="96" viewBox="0 0 220 96" aria-hidden="true">
+        <rect className="suelo" x="0" y="86" width="220" height="10" />
+        <path d={`M${x0 - 6} ${top} L110 ${top - 22} L${x0 + ancho + 6} ${top} Z`} fill={TECHOS[i % TECHOS.length]} />
+        <rect x={x0} y={top} width={ancho} height={86 - top} fill="#FBF7EF" stroke="#C9B79F" strokeWidth="2" />
+        {mando && (
+          <g>
+            <rect x="100" y="0" width="20" height="18" fill="#F4E9D8" stroke="#C9B79F" strokeWidth="2" />
+            <circle cx="110" cy="9" r="5" fill="#FFFDF8" stroke="#7A3E0B" strokeWidth="1.5" />
+            <path d="M110 9V6M110 9l2 1" stroke="#2B1B12" strokeWidth="1.2" />
+          </g>
+        )}
+        <rect className="zocalo" x={x0} y={86 - zocalo} width={ancho} height={zocalo} fill={mem >= 0.85 ? "#D6246E" : "#E86A9A"} opacity={mem >= 0.85 ? 0.55 : 0.35} />
+        {ventanas.map((x, j) => (
+          <rect key={j} className={j < lit ? "luz" : undefined} x={x} y={top + 10} width="16" height="18" rx="2" fill={j < lit ? LUZ : APAGADA} style={{ ["--d" as string]: `${j * -0.8}s` }} />
+        ))}
+        <path d="M102 86 V70 Q110 62 118 70 V86 Z" fill="#7A3E0B" />
+        {nota && (
+          <g className="nota-flota">
+            <rect x="150" y="2" width="62" height="24" rx="6" fill="#FFFDF8" stroke="#E8890C" strokeWidth="2" />
+            <text x="181" y="19" textAnchor="middle" fontSize="12" fontWeight="800" fill="#8A5300">{nota}</text>
+          </g>
+        )}
+      </svg>
+      <span className="casita-nombre"><strong>{n.name}</strong><span className="small muted">{mando ? t("in charge") : (n.roles?.length ? n.roles.join(", ") : t("worker"))}</span></span>
+      <Barra label={t("Processor")} v={n.cpuUsed !== undefined ? cpu : undefined} color="var(--cempasuchil)" />
+      <Barra label={t("Memory")} v={n.memUsed !== undefined ? mem : undefined} color={mem >= 0.85 ? "var(--rosa)" : "var(--grana)"} />
     </button>
   );
 }
 
-/** The note pinned to a door: something is wrong in that house. */
-function Aviso({ x, y }: { x: number; y: number }) {
+/** A thin bar with its label and percent; "—" without live usage. */
+function Barra({ label: l, v, color }: { label: string; v?: number; color: string }) {
+  const p = v === undefined ? 0 : Math.round(v * 100);
   return (
-    <g className="aviso-puerta">
-      <rect x={x} y={y} width="13" height="16" fill="#FFFDF8" stroke="#B3261E" strokeWidth="1.6" />
-      <path d={`M${x + 6.5} ${y + 3} v6 M${x + 6.5} ${y + 12} v1.5`} stroke="#B3261E" strokeWidth="2" strokeLinecap="round" />
-    </g>
+    <span className="barra">
+      <span className="barra-nombre">{l}</span>
+      <span className="barra-fondo" role="meter" aria-valuenow={p} aria-valuemin={0} aria-valuemax={100} aria-label={l}><span style={{ width: `${p}%`, background: color }} /></span>
+      <span className="barra-pct">{v === undefined ? "—" : `${p}%`}</span>
+    </span>
   );
 }
+
+/** The connection whose card opens for each check (the «See» of what needs you). */
+const conexionDe: Record<string, string> = {
+  github: "codigo", dns: "dns", "cert-manager": "certificados", "cluster-issuer": "certificados", certificates: "certificados",
+  notifications: "correo", buildkit: "construccion", registry: "imagenes", backups: "respaldos", ai: "ia",
+};
+
+interface Conexion {
+  id: string;
+  titulo: string;
+  sub: string;
+  status: EnvStatus;
+  estado: string;
+  off?: boolean;
+  dibujo: Dibujo;
+  color: string;
+  checks: EnvCheck[];
+  provider?: EnvProvider;
+}
+
+/**
+ * «What it connects to»: a card per service the platform talks to (where the code lives, DNS, certificates, email, the
+ * builder, the image registry, backups, AI), each with a dot that breathes with its status. Pressed, it opens its window:
+ * what it says, its checks, and what can be done there (the dynamic DNS, a test email, the forjas, changing its key).
+ */
+function Conexiones({ r, abierto, onAbrir, onSynced }: { r: EnvReport; abierto?: string; onAbrir: (id?: string) => void; onSynced: () => void }) {
+  const ch = (id: string) => r.checks.find((c) => c.id === id);
+  const prov = (slot: string) => r.providers.find((p) => p.slot === slot);
+  const una = (...ids: string[]) => ids.map(ch).filter((c): c is EnvCheck => !!c);
+  const estado = (s: EnvStatus, okText: string) => (s === "ok" ? okText : t(label[s]));
+  const dnsP = prov("dns");
+  const dnsS = peor(dnsP?.status, ch("dns")?.status);
+  const certs = una("cert-manager", "cluster-issuer", "certificates");
+  const certS = peor(...certs.map((c) => c.status));
+  const fuente = prov("source");
+  const ia = ch("ai");
+  const lista: Conexion[] = [
+    { id: "codigo", titulo: t("Code"), sub: fuente?.name ?? "—", status: peor(fuente?.status, ch("github")?.status), estado: estado(peor(fuente?.status, ch("github")?.status), t("Connected")), dibujo: "codigo", color: "#2B1B12", checks: una("github"), provider: fuente },
+    {
+      id: "dns", titulo: "DNS", sub: dnsP ? (dnsP.zones ? `${dnsP.name} · ${tn(dnsP.zones, "{n} zone", "{n} zones")}` : dnsP.name) : "—",
+      status: venceProximo(dnsP?.expiresAt) && dnsS === "ok" ? "warning" : dnsS,
+      estado: dnsP?.expiresAt && venceProximo(dnsP.expiresAt) ? t("Expires in {n} days", { n: Math.max(0, diasHasta(dnsP.expiresAt)) }) : dnsP?.active === "manual" ? t("By hand") : estado(dnsS, t("Works")),
+      dibujo: "nube", color: "var(--cempasuchil)", checks: una("dns"), provider: dnsP,
+    },
+    { id: "certificados", titulo: t("Certificates"), sub: tn(r.cluster.certificates ?? 0, "{n} certificate", "{n} certificates"), status: certS, estado: certS === "ok" ? t("All valid") : tn(r.cluster.certificatesBad ?? 0, "{n} needs attention", "{n} need attention"), dibujo: "candado", color: "var(--nopal)", checks: certs },
+    { id: "correo", titulo: t("Email"), sub: "Resend", status: ch("notifications")?.status ?? "ok", estado: estado(ch("notifications")?.status ?? "ok", t("Works")), dibujo: "sobre", color: "var(--rosa)", checks: una("notifications") },
+    { id: "construccion", titulo: t("Building"), sub: "BuildKit", status: ch("buildkit")?.status ?? "ok", estado: estado(ch("buildkit")?.status ?? "ok", t("Ready to build")), dibujo: "casa", color: "var(--teja)", checks: una("buildkit", "build-namespace", "build-isolation") },
+    { id: "imagenes", titulo: t("Images"), sub: prov("registry")?.name ?? "—", status: ch("registry")?.status ?? "ok", estado: estado(ch("registry")?.status ?? "ok", t("Answers")), dibujo: "cajas", color: "var(--anil)", checks: una("registry") },
+    { id: "respaldos", titulo: t("Backups"), sub: "Longhorn", status: ch("backups")?.status ?? "ok", estado: estado(ch("backups")?.status ?? "ok", t("Up to date")), dibujo: "respaldo", color: "#1F8A8A", checks: una("backups", "storage") },
+    { id: "ia", titulo: t("AI"), sub: t("Diagnosis and agents"), status: ia?.status ?? "ok", off: !ia || ia.off, estado: !ia || ia.off ? t("Not set up") : estado(ia.status, t("Answers")), dibujo: "chispa", color: "#7B2F8E", checks: una("ai") },
+  ];
+  const v = lista.find((c) => c.id === abierto);
+  return (
+    <section className="stack-sm" aria-labelledby="entorno-conexiones">
+      <div className="row between" style={{ alignItems: "baseline" }}>
+        <h2 id="entorno-conexiones" className="entorno-h2">{t("What it connects to")}</h2>
+        {session.operator && <Link to="/environment/llaves" style={{ fontWeight: 800 }}>{t("Keys and settings")} →</Link>}
+      </div>
+      <div className="conexiones">
+        {lista.map((c, i) => (
+          <button key={c.id} id={`conexion-${c.id}`} className={`conexion ${c.off ? "off" : tone[c.status]}${abierto === c.id ? " on" : ""}`} aria-expanded={abierto === c.id}
+            onClick={() => onAbrir(abierto === c.id ? undefined : c.id)}>
+            <Icono d={c.dibujo} color={c.color} />
+            <span className="conexion-texto">
+              <strong>{c.titulo}</strong>
+              <span className="small">{c.sub}</span>
+              <span className="conexion-estado"><i className="punto" style={{ ["--d" as string]: `${i * -0.4}s` }} />{c.estado}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+      {v && (
+        <div className="ventanilla" key={v.id}>
+          <div className="row between" style={{ alignItems: "baseline" }}>
+            <h3>{v.titulo}: {v.sub}</h3>
+            <StatusBadge status={v.status} />
+          </div>
+          {v.provider && <p style={{ margin: 0 }}>{v.provider.detail}</p>}
+          {v.id === "dns" && r.ddns && <DynamicDNS ddns={r.ddns} onSynced={onSynced} />}
+          {v.id === "codigo" && session.operator && <Forjas />}
+          {v.checks.map((c) => <CheckRow key={c.id} c={c} />)}
+          {session.operator && (v.id === "dns" || v.id === "correo" || v.id === "ia") && (
+            <div className="row">
+              <Link className="btn pildora" to={`/environment/llaves?llave=${v.id === "dns" ? "cloudflare" : v.id}`}>{t("Change its key")}</Link>
+              {v.id === "ia" && <Link to="/ia">{t("The AI page")}</Link>}
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 
 /** Dynamic DNS: the public IP the records follow, when it last changed, and a button to check it now. */
 function DynamicDNS({ ddns, onSynced }: { ddns: NonNullable<EnvReport["ddns"]>; onSynced: () => void }) {

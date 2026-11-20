@@ -147,6 +147,64 @@ subjects:
     name: rendimiento
     namespace: rendimiento-system
 ---
+# Keys and settings (the Environment page): a key that passed its test is
+# written to the platform's own Secrets, and a new Cloudflare token also to
+# the Secret the ClusterIssuer's DNS-01 solver reads. Only those Secrets.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rendimiento-llaves
+  namespace: rendimiento-system
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [rendimiento-dns, rendimiento-notify, rendimiento-ia]
+    verbs: [get, update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rendimiento-llaves
+  namespace: rendimiento-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rendimiento-llaves
+subjects:
+  - kind: ServiceAccount
+    name: rendimiento
+    namespace: rendimiento-system
+---
+# cert-manager's Secret with the Cloudflare token, by name: the example of
+# cert-manager's documentation. If your ClusterIssuer's
+# spec.acme.solvers[].dns01.cloudflare.apiTokenSecretRef names another,
+# patch resourceNames in your overlay. Remove both objects if your cluster
+# has no cert-manager namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rendimiento-llaves
+  namespace: cert-manager
+rules:
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [cloudflare-api-token-secret]
+    verbs: [get, update, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rendimiento-llaves
+  namespace: cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rendimiento-llaves
+subjects:
+  - kind: ServiceAccount
+    name: rendimiento
+    namespace: rendimiento-system
+---
 # Add-ons install cluster software (Helm charts such as Longhorn: CRDs,
 # ClusterRoles, DaemonSets), which needs cluster-admin, as ArgoCD has had.
 # No pod runs as this account: the platform impersonates it only while

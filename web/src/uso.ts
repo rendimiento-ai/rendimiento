@@ -13,7 +13,7 @@ import { session } from "./api";
 /** The interface's route patterns (main.tsx's routes). The server accepts these only; add a page here and in internal/api/uso.go. */
 export const RUTAS = [
   "/", "/new", "/mercado", "/mercado/nuevo", "/mercado/:app",
-  "/environment", "/universe", "/universe/requests/:id", "/services",
+  "/environment", "/environment/llaves", "/universe", "/universe/requests/:id", "/services",
   "/addons", "/problems", "/ruta", "/bitacora", "/senales", "/registro",
   "/ia", "/buzon", "/escribir", "/cuentas", "/members", "/instalacion", "/addons/:name",
   "/services/:ns/:name", "/apps/:name", "/apps/:name/:tab",

@@ -14,6 +14,7 @@ data:
   REGISTRY_INSECURE: {{ .Values.registry.insecure | quote }}
   BUILDKIT_ADDR: {{ include "rendimiento.buildkit" . | quote }}
   LEADER_ELECTION: "true"
+  CERT_MANAGER_NAMESPACE: {{ .Values.certManagerSecret.namespace | default "cert-manager" | quote }}
   SERVICES: rendimiento,rendimiento-control,rendimiento-worker,rendimiento-traces,rendimiento-agents
   {{- with .Values.storageClass }}
   STORAGE_CLASS: {{ . | quote }}

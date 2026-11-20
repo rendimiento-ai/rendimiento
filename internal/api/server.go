@@ -44,6 +44,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/gitlab"
 	"github.com/rendimiento-ai/rendimiento/internal/i18n"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
+	"github.com/rendimiento-ai/rendimiento/internal/llaves"
 	"github.com/rendimiento-ai/rendimiento/internal/logarchive"
 	"github.com/rendimiento-ai/rendimiento/internal/mercado"
 	"github.com/rendimiento-ai/rendimiento/internal/notify"
@@ -130,6 +131,10 @@ type Server struct {
 	// Settings are the platform's live settings (the boundary between
 	// organizations and its quota), as this process follows them.
 	Settings *ajustes.Holder
+	// Llaves changes the keys the platform talks to other services with
+	// (Cloudflare, email, AI), tested first, with no restart (nil: they do
+	// not change here, as on one computer).
+	Llaves   *llaves.Cambiador
 	Catalog  *catalog.Builder
 	Renovate *renovate.Runner
 	Addons   *addon.Syncer
@@ -330,6 +335,10 @@ func (s *Server) Handler() http.Handler {
 	plat(store.MemberAdmin, "GET /api/environment/settings/boundary-check", s.boundaryCheck)
 	plat(store.MemberAdmin, "PUT /api/environment/settings/{key}", s.putSetting)
 	plat(store.MemberAdmin, "DELETE /api/environment/settings/{key}", s.deleteSetting)
+	// Keys and settings: the keys are tested before they are saved, and
+	// never shown (internal/api/llaves.go).
+	plat(store.MemberAdmin, "GET /api/llaves", s.getLlaves)
+	plat(store.MemberAdmin, "POST /api/llaves/{llave}", s.postLlave)
 	plat(store.MemberGuest, "GET /api/platform/version", s.platformVersion)
 	plat(store.MemberAdmin, "GET /api/platform/published", s.platformPublished)
 	plat(store.MemberAdmin, "POST /api/platform/install", s.platformInstall)

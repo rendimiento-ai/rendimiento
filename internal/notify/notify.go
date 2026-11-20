@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rendimiento-ai/rendimiento/internal/i18n"
@@ -376,6 +377,68 @@ type Resend struct {
 	// URL overrides the API endpoint (tests).
 	URL  string
 	HTTP *http.Client
+	// newKey is a key changed while the platform runs (SetKey); it wins
+	// over APIKey.
+	newKey atomic.Pointer[string]
+}
+
+// SetKey makes the sender use another API key from now on, without a
+// restart (a key changed on the Environment page).
+func (r *Resend) SetKey(key string) { r.newKey.Store(&key) }
+
+func (r *Resend) key() string {
+	if k := r.newKey.Load(); k != nil {
+		return *k
+	}
+	return r.APIKey
+}
+
+// CheckResendKey asks Resend, with key, for its domains (GET /domains),
+// which sends nothing: a full-access key lists them, and a key that may
+// only send is refused as restricted, which proves it is valid too. It
+// returns the domains (none for a sending-only key) and whether the key
+// may only send.
+func CheckResendKey(ctx context.Context, hc *http.Client, base, key string) (domains []string, sendingOnly bool, err error) {
+	if base == "" {
+		base = "https://api.resend.com"
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(base, "/")+"/domains", nil)
+	if err != nil {
+		return nil, false, err
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+	req.Header.Set("User-Agent", "rendimiento/1 (+https://github.com/rendimiento-ai/rendimiento)")
+	if hc == nil {
+		hc = &http.Client{Timeout: 20 * time.Second}
+	}
+	resp, err := hc.Do(req)
+	if err != nil {
+		return nil, false, err
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	var body struct {
+		Name    string `json:"name"`
+		Message string `json:"message"`
+		Data    []struct {
+			Name   string `json:"name"`
+			Status string `json:"status"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal(raw, &body)
+	switch {
+	case resp.StatusCode == http.StatusOK:
+		for _, d := range body.Data {
+			domains = append(domains, d.Name)
+		}
+		return domains, false, nil
+	case body.Name == "restricted_api_key":
+		return nil, true, nil
+	case body.Message != "":
+		return nil, false, fmt.Errorf("resend: HTTP %d: %s", resp.StatusCode, body.Message)
+	default:
+		return nil, false, fmt.Errorf("resend: HTTP %d", resp.StatusCode)
+	}
 }
 
 // Send posts one email to Resend.
@@ -389,7 +452,7 @@ func (r *Resend) Send(ctx context.Context, to []string, subject, html, text stri
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+r.APIKey)
+	req.Header.Set("Authorization", "Bearer "+r.key())
 	req.Header.Set("Content-Type", "application/json")
 	// Resend sits behind Cloudflare, whose bot rules block some default
 	// client user agents; name ourselves.

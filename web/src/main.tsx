@@ -35,6 +35,7 @@ const NewApp = perezosa(() => import("./pages/NewApp").then((m) => m.NewApp));
 const AppPage = perezosa(() => import("./pages/AppPage").then((m) => m.AppPage));
 const RunPage = perezosa(() => import("./pages/RunPage").then((m) => m.RunPage));
 const Environment = perezosa(() => import("./pages/Environment").then((m) => m.Environment));
+const Llaves = perezosa(() => import("./pages/Llaves").then((m) => m.Llaves));
 const Services = perezosa(() => import("./pages/Services").then((m) => m.Services));
 const Universe = perezosa(() => import("./pages/Universe").then((m) => m.Universe));
 const RequestPage = perezosa(() => import("./pages/Request").then((m) => m.RequestPage));
@@ -196,6 +197,7 @@ function Shell() {
           <Route path="/mercado/nuevo" element={<PuestoEditor />} />
           <Route path="/mercado/:app" element={<PuestoEditor />} />
           <Route path="/environment" element={<Environment />} />
+          <Route path="/environment/llaves" element={<Llaves />} />
           <Route path="/universe" element={<Universe />} />
           <Route path="/universe/requests/:id" element={<RequestPage />} />
           <Route path="/services" element={<Services />} />
