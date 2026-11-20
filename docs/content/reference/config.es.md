@@ -29,7 +29,7 @@ Arrancado a mano o en un contenedor, rendimiento no lee ningún archivo: sus aju
 | `PARALLEL_RUNS` | `3` | `2` | cuántas ejecuciones van a la vez; `MAX_PARALLEL_STEPS` sigue limitando los pasos de todas. La [Capacidad](../environment/deploy.md#capacity) de la página Entorno la reemplaza |
 | `RUNS_PER_APP` | `2` | `1` | cuántas de ellas pueden ser de una misma aplicación: sus despliegues siguen yendo de uno en uno, en orden, y también las ejecuciones de cada rama, pero una rama no espera a otra rama ni a un despliegue |
 | `PAGES_ORG` | *(vacío: el Mercado está apagado)* | `example-paginas` | la organización de GitHub donde el [Mercado](../guide/mercado.md) crea el repositorio de cada página (ahí la aplicación necesita el permiso de administración) |
-| `ALLOWED_USERS` | *(vacío)* | `su-cuenta-de-github` | los primeros administradores (cuentas de GitHub separadas por comas o espacios), que se agregan solo mientras no haya [miembros](../guide/members.md); después, las personas se manejan en la página Miembros |
+| `ALLOWED_USERS` | *(vacío)* | `ana,luis@gitlab.com` | más primeros administradores (separados por comas o espacios, con los nombres de [Miembros](../guide/members.md#adding-someone): `ana` en GitHub, `ana@gitlab.com`, `ana@bitbucket.org`), que se agregan solo mientras no haya miembros; después, las personas se manejan en la página Miembros. Opcional: quien instala desde la [página de instalación](../environment/deploy.md#installing) se vuelve uno |
 | `SETUP_TOKEN` | — | del Secret `rendimiento-setup` | protege `/api/setup/github` hasta que exista la aplicación de GitHub |
 | `NAMESPACE` | `rendimiento-system` | | donde viven la plataforma y sus Secrets |
 | `LISTEN` | `:8080` | | la dirección HTTP (API, interfaz, avisos web) |

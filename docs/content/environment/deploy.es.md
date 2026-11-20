@@ -102,7 +102,7 @@ La cuenta de servicio propia de la plataforma (`rendimiento`) puede:
 | Secret (espacio de nombres `rendimiento-system`) | Llaves | Se usa para |
 |---|---|---|
 | `rendimiento-db` | `password` | La contraseña de Postgres (el Deployment arma `DATABASE_URL` con ella) |
-| `rendimiento-setup` | `token` | El token de un solo uso que protege la página de configuración de la aplicación de GitHub |
+| `rendimiento-setup` | `token` | La ficha de un solo uso que protege la [página de instalación](#installing): escoger la forja y al primer administrador |
 | `rendimiento-dns` (opcional) | `CLOUDFLARE_API_TOKEN`, `DNS_TARGET` | La automatización de DNS. `DNS_TARGET=auto` sigue la IP pública de la red doméstica. |
 | `rendimiento-github` | lo crea el flujo de configuración | El ID, la llave privada, el secreto de avisos web y el cliente OAuth de la aplicación de GitHub |
 
@@ -113,6 +113,19 @@ kubectl -n rendimiento-system create secret generic rendimiento-setup --from-lit
 read -rs CF && kubectl -n rendimiento-system create secret generic rendimiento-dns \
   --from-literal=CLOUDFLARE_API_TOKEN="$CF" --from-literal=DNS_TARGET=auto; unset CF
 ```
+
+## Instalar: la página de instalación {#installing}
+
+Una plataforma nueva abre en su página de instalación, en tres pasos:
+
+1. **La ficha de instalación** (el secreto `rendimiento-setup`; en una computadora, el archivo que la página nombra). Es la llave: sin ella nadie puede escoger forja ni nombrarse administrador. Una ficha buena abre una *sesión de instalación* en ese navegador, por una hora: una cookie firmada con la ficha (la ficha misma nunca viaja en ella).
+2. **Dónde vive su código**: GitHub, GitLab o Bitbucket. Escoja una para empezar; las otras se conectan después en la página Entorno.
+    - **GitHub**: la aplicación se crea con un clic, desde su manifiesto ([abajo](#the-github-app)).
+    - **GitLab** (gitlab.com o el suyo propio): una aplicación OAuth de su grupo. La página pide la dirección (`https://gitlab.com` de forma predeterminada), el ID de la aplicación y su secreto, y muestra la URI de redirección que se copia en GitLab, `<baseURL>/api/forjas/gitlab/callback`, con los alcances `api` y `read_user` ([Conectar GitLab](../guide/gitlab.md#creating-the-oauth-application)).
+    - **Bitbucket** (Bitbucket Cloud): un consumidor OAuth de su espacio de trabajo. La página pide el espacio de trabajo, la clave y el secreto, y muestra la URL de retorno, `<baseURL>/api/forjas/bitbucket/callback` ([Conectar Bitbucket](../guide/bitbucket.md#creating-the-oauth-consumer)).
+3. **Quién administra**. Quien autorizó la forja en el paso 2 vuelve con la sesión iniciada, como **primer administrador**, aunque `ALLOWED_USERS` no lo nombre: comprobó la ficha de instalación. Con GitHub, inicia sesión con él en cuanto la aplicación está instalada. Agrega a los demás administradores ahora (la forja y el usuario: `ana`, `ana@gitlab.com`, `ana@bitbucket.org`) o después en [Miembros](../guide/members.md#the-first-administrators), y toca **Terminar y entrar**.
+
+La respuesta de OAuth queda atada a la sesión de instalación: el estado de la forja vuelve al navegador que empezó, con la sesión de ese navegador, o nadie se vuelve administrador. En cuanto la plataforma está instalada (la página de instalación terminó, o ya hay un administrador y una forja), todas las puertas de la página de instalación responden *no existe*, aun con la ficha. Después, un administrador conecta GitHub desde la página Entorno, sin ficha: su tarjeta dice **Conectar GitHub**, como las otras.
 
 ## La aplicación de GitHub {#the-github-app}
 
@@ -133,7 +146,7 @@ sequenceDiagram
     G->>You: de regreso a rendimiento (la Setup URL de la aplicación)
 ```
 
-El manifiesto pide estos permisos de repositorio: **Contents** de lectura y escritura (leer el código, enviar las ramas de incorporación), **Pull requests** de lectura y escritura (abrir las solicitudes de incorporación), **Checks** de lectura y escritura (reportar el estado de la integración continua), **Metadata** de lectura, **Issues** de lectura y escritura y **Commit statuses** de lectura (estos dos para el complemento de Renovate). Se suscribe a los eventos de **envío** (*push*). El inicio de sesión en el panel usa el OAuth de la misma aplicación, y solo los [miembros](../guide/members.md) reciben una sesión (`ALLOWED_USERS` nombra a los primeros administradores).
+El manifiesto pide estos permisos de repositorio: **Contents** de lectura y escritura (leer el código, enviar las ramas de incorporación), **Pull requests** de lectura y escritura (abrir las solicitudes de incorporación), **Checks** de lectura y escritura (reportar el estado de la integración continua), **Metadata** de lectura, **Issues** de lectura y escritura y **Commit statuses** de lectura (estos dos para el complemento de Renovate). Se suscribe a los eventos de **envío** (*push*). Iniciar sesión con GitHub usa el OAuth de la misma aplicación, y solo los [miembros](../guide/members.md) reciben una sesión (la página de instalación crea al primer administrador; `ALLOWED_USERS` puede nombrar a más).
 
 !!! tip "Cambiar después los permisos de la aplicación"
     Cámbielos en `https://github.com/settings/apps/<app-name>/permissions` y luego **acepte** los permisos nuevos en la instalación (`https://github.com/settings/installations` → Configure). Mientras no se acepten, las instalaciones conservan los anteriores; la página Complementos avisa cuando a Renovate le falta lo que necesita.
@@ -183,7 +196,6 @@ Cada cambio que llega a `main`, y cada etiqueta `v1.2.3`, también se publica pa
 helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento \
   -n rendimiento-system --create-namespace \
   --set baseURL=https://rendimiento.example.com \
-  --set firstAdmins=your-github-login \
   --set registry.host=registry.example.com
 ```
 
@@ -192,11 +204,12 @@ Desde una copia de este repositorio, `./chart/rendimiento` instala la imagen de 
 ```bash
 helm install rendimiento ./chart/rendimiento -n rendimiento-system --create-namespace \
   --set baseURL=https://rendimiento.example.com \
-  --set firstAdmins=su-usuario-de-github \
   --set registry.host=registry.example.com
 ```
 
-Trae los cinco servicios, Postgres, un BuildKit sin privilegios de root, el espacio de nombres de las construcciones con su NetworkPolicy, los permisos (RBAC) y los CRD, y crea la contraseña de la base de datos y la ficha de configuración inicial (se conservan entre actualizaciones). Luego abra `baseURL`: la página de configuración crea la aplicación de GitHub, y `helm` muestra cómo leer la ficha.
+`--set firstAdmins=ana,luis@gitlab.com` nombra a más administradores desde el principio (los nombres de [Miembros](../guide/members.md#adding-someone)); es opcional, porque quien instala desde la página de instalación se vuelve uno.
+
+Trae los cinco servicios, Postgres, un BuildKit sin privilegios de root, el espacio de nombres de las construcciones con su NetworkPolicy, los permisos (RBAC) y los CRD, y crea la contraseña de la base de datos y la ficha de configuración inicial (se conservan entre actualizaciones). Luego abra `baseURL` y siga la [página de instalación](#installing) (GitHub, GitLab o Bitbucket); `helm` muestra cómo leer la ficha.
 
 Lo que el clúster todavía necesita:
 

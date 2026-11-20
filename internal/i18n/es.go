@@ -765,4 +765,14 @@ var catalog = map[string]string{
 	"the merge request was closed": "se cerró el merge request",
 	"This merge request's copy. It is deleted when the merge request is closed, or after %d days without a push.": "La copia de este merge request. Se borra cuando el merge request se cierra, o después de %d días sin un envío.",
 	"**Preview of !%d:** %s\n\nIt shows commit `%s` (run [#%d](%s/apps/%s/runs/%d)). It is deleted when this merge request is closed or merged, or on %s if nothing is pushed before.": "**Vista previa de !%d:** %s\n\nMuestra el commit `%s` (ejecución [#%d](%s/apps/%s/runs/%d)). Se borra cuando este merge request se cierre o se integre, o el %s si antes no se envía nada.",
+	// Installing without GitHub (internal/api/instalar.go).
+	"rendimiento is already set up here":                     "rendimiento ya está instalado aquí",
+	"that is not the setup token":                            "esa no es la ficha de instalación",
+	"the setup session expired: paste the setup token again": "la sesión de instalación venció: pegue otra vez la ficha de instalación",
+	"%s administers here and signs in only with this forja: link another account to them (Your accounts) or take away their role first": "%s administra aquí y solo entra con esta forja: ligue otra cuenta a esa persona (Sus cuentas) o quítele antes el papel de administración",
+	"%s is not a username: write ana for GitHub, ana@gitlab.com (or your GitLab's address) for GitLab, ana@bitbucket.org for Bitbucket": "%s no es un nombre de usuario: escriba ana para GitHub, ana@gitlab.com (o la dirección de su GitLab) para GitLab, ana@bitbucket.org para Bitbucket",
+	"Where the code lives":                         "Dónde vive el código",
+	"%s; GitHub is not connected":                  "%s; GitHub no está conectado",
+	"no forja connected; no repos can be deployed": "ninguna forja conectada; no se puede desplegar ningún repositorio",
+	"Connect GitHub, GitLab or Bitbucket under «Where your code lives» on %s/environment.": "Conecte GitHub, GitLab o Bitbucket en «Dónde vive su código», en %s/environment.",
 }

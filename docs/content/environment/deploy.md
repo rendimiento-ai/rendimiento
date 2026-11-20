@@ -102,7 +102,7 @@ The platform's own service account (`rendimiento`) can:
 | Secret (namespace `rendimiento-system`) | Keys | Used for |
 |---|---|---|
 | `rendimiento-db` | `password` | Postgres password (the Deployment builds `DATABASE_URL` from it) |
-| `rendimiento-setup` | `token` | One-time token that protects the GitHub App setup page |
+| `rendimiento-setup` | `token` | One-time token that protects the [setup page](#installing): picking the forja and the first administrator |
 | `rendimiento-dns` (optional) | `CLOUDFLARE_API_TOKEN`, `DNS_TARGET` | DNS automation. `DNS_TARGET=auto` follows the home network's public IP. |
 | `rendimiento-github` | created by the setup flow | The GitHub App's ID, private key, webhook secret and OAuth client |
 
@@ -113,6 +113,19 @@ kubectl -n rendimiento-system create secret generic rendimiento-setup --from-lit
 read -rs CF && kubectl -n rendimiento-system create secret generic rendimiento-dns \
   --from-literal=CLOUDFLARE_API_TOKEN="$CF" --from-literal=DNS_TARGET=auto; unset CF
 ```
+
+## Installing: the setup page {#installing}
+
+A new platform opens on its setup page, in three steps:
+
+1. **The setup token** (the `rendimiento-setup` secret; on a computer, the file the page names). It is the key: without it nobody can pick a forja or become an administrator. A good token opens an *install session* in that browser, for an hour: a cookie signed with the token (the token itself never travels in it).
+2. **Where your code lives**: GitHub, GitLab or Bitbucket. Pick one to start; the others connect later on the Environment page.
+    - **GitHub**: the App is created with one click, from its manifest ([below](#the-github-app)).
+    - **GitLab** (gitlab.com or your own): an OAuth application of your group. The page asks for the address (`https://gitlab.com` by default), the application ID and its secret, and shows the redirect URI to copy into GitLab, `<baseURL>/api/forjas/gitlab/callback`, with the scopes `api` and `read_user` ([Connecting GitLab](../guide/gitlab.md#creating-the-oauth-application)).
+    - **Bitbucket** (Bitbucket Cloud): an OAuth consumer of your workspace. The page asks for the workspace, the key and the secret, and shows the callback URL, `<baseURL>/api/forjas/bitbucket/callback` ([Connecting Bitbucket](../guide/bitbucket.md#creating-the-oauth-consumer)).
+3. **Who administers**. Whoever authorized the forja in step 2 comes back signed in, as the **first administrator**, even if `ALLOWED_USERS` does not name them: they proved the setup token. With GitHub, they sign in with it once the App is installed. They add the other administrators now (the forja and the username: `ana`, `ana@gitlab.com`, `ana@bitbucket.org`) or later on [Members](../guide/members.md#the-first-administrators), and press **Finish and go in**.
+
+The OAuth answer is bound to the install session: the forja's state comes back to the browser that started, with that browser's session, or nobody becomes an administrator. Once the platform is installed (the setup page finished, or an administrator and a forja exist), every door of the setup page answers *not found*, even with the token. An administrator connects GitHub afterwards from the Environment page, with no token: its card says **Connect GitHub**, as the others do.
 
 ## The GitHub App
 
@@ -133,7 +146,7 @@ sequenceDiagram
     G->>You: back to rendimiento (the App's Setup URL)
 ```
 
-The manifest asks for these repository permissions: **Contents** read & write (read code, push onboarding branches), **Pull requests** read & write (open onboarding PRs), **Checks** read & write (report CI status), **Metadata** read, **Issues** read & write and **Commit statuses** read (both for the Renovate add-on). It subscribes to **push** events. Login to the dashboard uses the same App's OAuth, and only [members](../guide/members.md) get a session (`ALLOWED_USERS` names the first administrators).
+The manifest asks for these repository permissions: **Contents** read & write (read code, push onboarding branches), **Pull requests** read & write (open onboarding PRs), **Checks** read & write (report CI status), **Metadata** read, **Issues** read & write and **Commit statuses** read (both for the Renovate add-on). It subscribes to **push** events. Signing in with GitHub uses the same App's OAuth, and only [members](../guide/members.md) get a session (the setup page makes the first administrator; `ALLOWED_USERS` can name more).
 
 !!! tip "Changing the App's permissions later"
     Change them at `https://github.com/settings/apps/<app-name>/permissions`, then **accept** the new permissions on the installation (`https://github.com/settings/installations` → Configure). Until accepted, installations keep the old ones; the Add-ons page warns when Renovate lacks what it needs.
@@ -183,7 +196,6 @@ Every change that reaches `main`, and every `v1.2.3` tag, is also published for 
 helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento \
   -n rendimiento-system --create-namespace \
   --set baseURL=https://rendimiento.example.com \
-  --set firstAdmins=your-github-login \
   --set registry.host=registry.example.com
 ```
 
@@ -192,11 +204,12 @@ From a clone of this repository, `./chart/rendimiento` installs the image of `ma
 ```bash
 helm install rendimiento ./chart/rendimiento -n rendimiento-system --create-namespace \
   --set baseURL=https://rendimiento.example.com \
-  --set firstAdmins=your-github-login \
   --set registry.host=registry.example.com
 ```
 
-It brings the five services, Postgres, a rootless BuildKit daemon, the build namespace with its NetworkPolicy, the RBAC and the CRDs, and it makes the database password and the setup token (kept across upgrades). Then open `baseURL`: the setup page makes the GitHub App, and `helm` prints how to read the setup token.
+`--set firstAdmins=ana,luis@gitlab.com` names more administrators from the start (the names of [Members](../guide/members.md#adding-someone)); it is optional, since whoever installs from the setup page becomes one.
+
+It brings the five services, Postgres, a rootless BuildKit daemon, the build namespace with its NetworkPolicy, the RBAC and the CRDs, and it makes the database password and the setup token (kept across upgrades). Then open `baseURL` and follow the [setup page](#installing) (GitHub, GitLab or Bitbucket); `helm` prints how to read the setup token.
 
 What the cluster still needs:
 

@@ -6,7 +6,7 @@ import { MenuCuenta, OrgSwitch, memberRoleLabel } from "./components/cuenta";
 import { Buscador, type PaginaBuscable } from "./components/buscador";
 import { t } from "./i18n";
 import { Dashboard } from "./pages/Dashboard";
-import { Setup } from "./pages/Setup";
+import { PrimerosAdmins, Setup } from "./pages/Setup";
 import { ProblemsNavLink } from "./components/enlace-problemas";
 import { useUso } from "./uso";
 import { EnvironmentNavLink } from "./pages/Version";
@@ -53,7 +53,8 @@ const Cuentas = perezosa(() => import("./pages/Cuentas").then((m) => m.Cuentas))
 const Members = perezosa(() => import("./pages/Members").then((m) => m.Members));
 
 /**
- * The app's frame: setup until the GitHub App exists, the welcome page until you sign in, then the menu and pages.
+ * The app's frame: the setup page until the platform is installed (a forja and its first administrator), the welcome page
+ * until you sign in, then the menu and pages.
  */
 function Shell() {
   const [state, setState] = useState<{ login?: string; role?: MemberRole; org?: Org; operator?: boolean; demo?: boolean; cluster?: boolean; buzon?: boolean; sistema?: Sistema; configured?: boolean; book?: BookLinks; activity?: boolean; signIn?: SignIn[]; github?: boolean; loading: boolean; sinRespuesta?: boolean }>({ loading: true });
@@ -217,6 +218,7 @@ function Shell() {
           <Route path="/apps/:name/:tab" element={<AppPage />} />
           <Route path="/apps/:name/runs/:id" element={<RunPage />} />
           <Route path="/setup" element={<Navigate to="/" />} />
+          <Route path="/instalacion" element={<PrimerosAdmins me={state.login ?? ""} />} />
           <Route path="*" element={<NoExiste />} />
         </Routes>
         </Suspense>

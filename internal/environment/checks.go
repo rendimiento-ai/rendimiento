@@ -569,14 +569,24 @@ func (c *Checker) checkNotifications(context.Context) Check {
 	return ch
 }
 
-// checkGitHub: the GitHub App is set up, and on which accounts it is
-// installed.
+// checkGitHub: where the code lives. The GitHub App is set up, and on
+// which accounts it is installed; without it, a GitLab or a Bitbucket
+// workspace is enough (the check keeps its id, "github", for the
+// Environment page's source slot).
 func (c *Checker) checkGitHub(ctx context.Context) Check {
 	ch := Check{ID: "github", Name: M("GitHub App"), Category: CatIntegrations, Required: true}
 	app, err := c.GitHub.Get()
 	if err != nil {
-		ch.Status, ch.Summary = Missing, M("not connected; no repos can be deployed")
-		ch.Fix = M("Open %s/setup and create the GitHub App.", c.Config.PlatformURL)
+		if others := c.otherForjas(ctx); len(others) > 0 {
+			names := make([]string, len(others))
+			for i, f := range others {
+				names[i] = f.Name
+			}
+			ch.Name, ch.Status, ch.Summary = M("Where the code lives"), OK, M("%s; GitHub is not connected", strings.Join(names, ", "))
+			return ch
+		}
+		ch.Name, ch.Status, ch.Summary = M("Where the code lives"), Missing, M("no forja connected; no repos can be deployed")
+		ch.Fix = M("Connect GitHub, GitLab or Bitbucket under «Where your code lives» on %s/environment.", c.Config.PlatformURL)
 		return ch
 	}
 	inst, err := app.Installations(ctx)
@@ -617,9 +627,15 @@ func (c *Checker) providers(ctx context.Context, s *snapshot, checks []Check) []
 		status[ch.ID], summary[ch.ID] = ch.Status, ch.Summary
 	}
 	dnsDesc := c.DNS.Describe(ctx)
-	ghName, ghDetail := M("Not connected"), summary["github"]
+	ghActive, ghName, ghDetail := "github", M("Not connected"), summary["github"]
 	if app, err := c.GitHub.Get(); err == nil {
 		ghName = M("GitHub App %s", app.Credentials().Slug)
+	} else if others := c.otherForjas(ctx); len(others) > 0 {
+		names := make([]string, len(others))
+		for i, f := range others {
+			names[i] = f.Name
+		}
+		ghActive, ghName = others[0].ID, strings.Join(names, ", ")
 	}
 	clusterStatus := status["kubernetes"]
 	if status["nodes"] != OK {
@@ -643,12 +659,21 @@ func (c *Checker) providers(ctx context.Context, s *snapshot, checks []Check) []
 			},
 		},
 		{
-			Slot: "source", Title: M("Source"), Active: "github", Name: ghName, Status: status["github"], Detail: ghDetail,
-			Options: []Option{{ID: "github", Name: "GitHub", Available: true}, {ID: "gitlab", Name: "GitLab"}, {ID: "bitbucket", Name: "Bitbucket"}},
+			Slot: "source", Title: M("Source"), Active: ghActive, Name: ghName, Status: status["github"], Detail: ghDetail,
+			Options: []Option{{ID: "github", Name: "GitHub", Available: true}, {ID: "gitlab", Name: "GitLab", Available: true}, {ID: "bitbucket", Name: "Bitbucket", Available: true}},
 		},
 		{
 			Slot: "registry", Title: M("Registry"), Active: "registry", Name: c.Config.Registry, Status: status["registry"], Detail: summary["registry"],
 			Options: []Option{{ID: "registry", Name: M("Self-hosted registry"), Available: true}, {ID: "ecr", Name: "Amazon ECR"}, {ID: "gar", Name: "Google Artifact Registry"}, {ID: "ghcr", Name: "GitHub Container Registry"}},
 		},
 	}
+}
+
+// otherForjas are the GitLabs and Bitbucket workspaces connected (none
+// when Forjas is not set).
+func (c *Checker) otherForjas(ctx context.Context) []Forja {
+	if c.Forjas == nil {
+		return nil
+	}
+	return c.Forjas(ctx)
 }

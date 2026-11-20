@@ -29,7 +29,7 @@ Started by hand or in a container, rendimiento reads no file: its settings are t
 | `PARALLEL_RUNS` | `3` | `2` | how many runs go at once; `MAX_PARALLEL_STEPS` still bounds the steps of all of them. The Environment page's [Capacity](../environment/deploy.md#capacity) overrides it |
 | `RUNS_PER_APP` | `2` | `1` | how many of them may be of one app: its deploys still go one at a time, in order, and so do the runs of each branch, but a branch need not wait for another branch or for a deploy |
 | `PAGES_ORG` | *(empty: the Mercado is off)* | `example-paginas` | the GitHub organization where the [Mercado](../guide/mercado.md) creates each page's repository (the App needs Administration there) |
-| `ALLOWED_USERS` | *(empty)* | `your-github-login` | the first administrators (comma- or space-separated GitHub logins), added only while there are no [members](../guide/members.md) yet; then people are managed on the Members page |
+| `ALLOWED_USERS` | *(empty)* | `ana,luis@gitlab.com` | more first administrators (comma- or space-separated, by the names of [Members](../guide/members.md#adding-someone): `ana` on GitHub, `ana@gitlab.com`, `ana@bitbucket.org`), added only while there are no members yet; then people are managed on the Members page. Optional: whoever installs from the [setup page](../environment/deploy.md#installing) becomes one |
 | `SETUP_TOKEN` | — | from Secret `rendimiento-setup` | protects `/api/setup/github` until the GitHub App exists |
 | `NAMESPACE` | `rendimiento-system` | | where the platform and its Secrets live |
 | `LISTEN` | `:8080` | | HTTP address (API, UI, webhooks) |

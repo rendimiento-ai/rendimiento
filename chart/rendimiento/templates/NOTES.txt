@@ -1,11 +1,15 @@
 rendimiento is starting in {{ .Release.Namespace }}.
 
-1. Open {{ .Values.baseURL }} and follow the setup page: it makes the
-   GitHub App. It asks for the setup token:
+1. Open {{ .Values.baseURL }} and follow the setup page. It asks for the
+   setup token:
 
      kubectl -n {{ .Release.Namespace }} get secret rendimiento-setup -o jsonpath='{.data.token}' | base64 -d
 
-2. Sign in with GitHub as {{ .Values.firstAdmins }}, and onboard your first app.
+2. Pick where your code lives (GitHub, GitLab or Bitbucket) and authorize
+   it: you come back signed in as the first administrator
+{{- if .Values.firstAdmins }}, beside {{ .Values.firstAdmins }}{{ end }}.
+
+3. Add the other administrators, and onboard your first app.
 
 Builds push to {{ .Values.registry.host }}; your nodes must pull from it at
 that same name, without credentials.

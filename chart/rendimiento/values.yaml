@@ -2,10 +2,10 @@
 # (the CRDs, the ClusterRoles) are cluster-wide and keep fixed names.
 #
 #   helm install rendimiento ./chart/rendimiento -n rendimiento-system --create-namespace \
-#     --set baseURL=https://rendimiento.example.com --set firstAdmins=your-github-login \
-#     --set registry.host=registry.example.com
+#     --set baseURL=https://rendimiento.example.com --set registry.host=registry.example.com
 #
-# Then open baseURL and follow the setup page (it makes the GitHub App).
+# Then open baseURL and follow the setup page: the setup token, where your
+# code lives (GitHub, GitLab or Bitbucket), and who administers it.
 
 image:
   repository: ghcr.io/rendimiento-ai/rendimiento
@@ -14,8 +14,11 @@ image:
 
 # The address people and GitHub reach rendimiento at (the UI, webhooks).
 baseURL: https://rendimiento.example.com
-# GitHub logins of the first administrators, comma-separated; afterwards
-# people are managed on the Members page.
+# The first administrators, comma-separated, by the name they sign in
+# with: ana (GitHub), ana@gitlab.com (or your GitLab's host),
+# ana@bitbucket.org. Optional: whoever installs from the setup page, with
+# the setup token, becomes one too. It only counts while there are no
+# members; afterwards people are managed on the Members page.
 firstAdmins: ""
 githubAppName: rendimiento
 

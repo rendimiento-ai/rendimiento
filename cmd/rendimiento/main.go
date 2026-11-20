@@ -160,7 +160,12 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	if ms, err := st.Members(ctx, store.DefaultOrg); err != nil {
 		return fmt.Errorf("members: %w", err)
 	} else if len(ms) == 0 {
-		return errors.New("nobody can sign in: set ALLOWED_USERS to the GitHub logins of the first administrators")
+		// The setup page makes the first administrator: whoever proves the
+		// setup token and authorizes the forja (internal/api/instalar.go).
+		if os.Getenv("SETUP_TOKEN") == "" {
+			return errors.New("nobody can sign in: set ALLOWED_USERS to the first administrators (ana on GitHub, ana@gitlab.com, ana@bitbucket.org), or SETUP_TOKEN to install from the setup page")
+		}
+		log.Info("no administrators yet: whoever installs from the setup page, with the setup token, becomes the first")
 	}
 
 	// --8<-- [end:startup]
@@ -476,7 +481,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 		Renovate: renovateRunner,
 		Addons:   addonSyncer,
 		Environment: &environment.Checker{
-			Kube: kube, Discovery: clientset.Discovery(), DNS: dnsProvider, GitHub: holder, DB: st,
+			Kube: kube, Discovery: clientset.Discovery(), DNS: dnsProvider, GitHub: holder, DB: st, Forjas: api.ForjasConectadas(st),
 			Config: environment.Config{
 				IngressClass: renderOpts.IngressClass, ClusterIssuer: renderOpts.ClusterIssuer, StorageClass: renderOpts.StorageClass,
 				BuildkitAddr: executor.BuildkitAddr, BuildkitPool: executor.BuildkitPool, Registry: p.Config.Registry, RegistryInsecure: executor.InsecureRegistry,

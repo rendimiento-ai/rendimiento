@@ -6,7 +6,7 @@ metadata:
     {{- include "rendimiento.labels" . | nindent 4 }}
 data:
   BASE_URL: {{ .Values.baseURL | quote }}
-  ALLOWED_USERS: {{ required "firstAdmins is required: your GitHub login" .Values.firstAdmins | quote }}
+  ALLOWED_USERS: {{ .Values.firstAdmins | default "" | quote }}
   GITHUB_APP_NAME: {{ .Values.githubAppName | quote }}
   NAMESPACE: {{ .Release.Namespace | quote }}
   BUILD_NAMESPACE: {{ .Values.buildNamespace | quote }}

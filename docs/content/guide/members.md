@@ -1,6 +1,6 @@
 # Members and roles
 
-People sign in to rendimiento with GitHub, and only **members** get in. Each member has a **role** that says what they may do; every route of the API checks it, so the UI and the API agree.
+People sign in to rendimiento with GitHub, GitLab or Bitbucket (whichever are connected), and only **members** get in. Each member has a **role** that says what they may do; every route of the API checks it, so the UI and the API agree.
 
 | Role | May |
 |---|---|
@@ -10,9 +10,21 @@ People sign in to rendimiento with GitHub, and only **members** get in. Each mem
 
 ## Adding someone {#adding-someone}
 
-On **Members** (your name, first in the account's menu at the right of the top bar), people are listed by role on the left; choosing one shows their role and, line by line, **what they can do**. An administrator presses **Add someone**, writes the person's **GitHub username** and picks their role. They can sign in from then on, at the same address. Changing a role or removing someone takes effect on their next click; a removed person is signed out at once. An organization always keeps at least one administrator.
+On **Members** (your name, first in the account's menu at the right of the top bar), people are listed by role on the left; choosing one shows their role and, line by line, **what they can do**. An administrator presses **Add someone**, picks the forja the person's account is on (only the forjas connected on the Environment page show), writes their **username** there and picks their role; the form says the name they will come in as, and with which button (*Entrará como marta@gitlab.com, con «Iniciar sesión con GitLab»*). They can sign in from then on, at the same address. Changing a role or removing someone takes effect on their next click; a removed person is signed out at once. An organization always keeps at least one administrator.
 
-Someone who signs in with a [GitLab](gitlab.md#signing-in-with-gitlab) account linked to no one is added by its `username@host` (such as `ana@gitlab.com`); a person who has both links their GitLab account from **Your accounts** instead, and stays one member. The same goes for [Bitbucket](bitbucket.md#signing-in-with-bitbucket), as `nickname@bitbucket.org`.
+Each forja names its people its own way, and Members, the setup page and `ALLOWED_USERS` take the same names:
+
+| Forja | Name |
+|---|---|
+| GitHub | `ana` |
+| [GitLab](gitlab.md#signing-in-with-gitlab) | `ana@gitlab.com`, or `ana@git.example.com` for your own GitLab |
+| [Bitbucket](bitbucket.md#signing-in-with-bitbucket) | `ana@bitbucket.org` |
+
+A person with accounts on several forjas is added once, by one of them, and links the others themselves from **Your accounts**: they stay one member, with their roles and their Ruta.
+
+## Disconnecting a forja {#disconnecting-a-forja}
+
+Before an administrator removes a GitLab or a Bitbucket workspace on the Environment page, rendimiento says, by name, who could no longer sign in: the members whose only account is on that forja. It **never removes the last forja an administrator signs in with**: the page and the API (`409`) refuse, and name the administrator. Link another account to them (**Your accounts**) or take their role away first.
 
 ## Who enters an app {#who-enters-an-app}
 
@@ -29,7 +41,9 @@ An [agent key](agents.md) acts for the organization, not for a person, so people
 
 ## The first administrators {#the-first-administrators}
 
-A new platform has no members, so the `ALLOWED_USERS` setting names the first administrators. They are added once, while there are no members; after that, people are managed on the Members page and the setting no longer counts.
+Whoever installs the platform from its [setup page](../environment/deploy.md#installing) becomes its first administrator: they proved the setup token, and they come back from the forja they authorized signed in, even if no setting names them. On the third step they add the other administrators (by forja and username), or later on Members.
+
+The `ALLOWED_USERS` setting can name them too, with the same names (`ALLOWED_USERS=ana@gitlab.com,luis@gitlab.com`). They are added once, while there are no members; after that, people are managed on the Members page and the setting no longer counts.
 
 ## Organizations {#organizations}
 

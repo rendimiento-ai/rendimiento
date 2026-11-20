@@ -162,33 +162,42 @@ func (s *Server) connectBitbucket(w http.ResponseWriter, r *http.Request, login 
 	if !s.bitbucketReady(w) {
 		return
 	}
+	if c := s.keepBitbucket(w, r, login); c != nil {
+		writeJSONStatus(w, http.StatusCreated, map[string]any{"connection": c, "authorizeUrl": s.sendToBitbucket(w, c, "connect")})
+	}
+}
+
+// keepBitbucket reads a workspace and its OAuth consumer from the request
+// and keeps them, the secret in the connection's Secret; by is who
+// connected it. nil means the answer was written.
+func (s *Server) keepBitbucket(w http.ResponseWriter, r *http.Request, login string) *store.BitbucketConnection {
 	var req struct {
 		Workspace      string `json:"workspace"`
 		ConsumerKey    string `json:"consumerKey"`
 		ConsumerSecret string `json:"consumerSecret"`
 	}
 	if !readJSON(w, r, &req) {
-		return
+		return nil
 	}
 	ws, ok := bitbucket.NormalizeWorkspace(req.Workspace)
 	if !ok {
 		httpError(w, http.StatusBadRequest, i18n.M("%s is not a Bitbucket workspace like bitbucket.org/my-team", req.Workspace))
-		return
+		return nil
 	}
 	req.ConsumerKey, req.ConsumerSecret = strings.TrimSpace(req.ConsumerKey), strings.TrimSpace(req.ConsumerSecret)
 	if req.ConsumerKey == "" || len(req.ConsumerKey) > 200 || strings.ContainsAny(req.ConsumerKey, " \t\n") {
 		httpError(w, http.StatusBadRequest, i18n.M("the OAuth consumer's key is missing"))
-		return
+		return nil
 	}
 	c, err := s.Store.AddBitbucketConnection(r.Context(), ws, req.ConsumerKey, login)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
-		return
+		return nil
 	}
 	old, err := s.Bitbucket.Keys.Load(r.Context(), c.ID)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
-		return
+		return nil
 	}
 	sec := bitbucket.Secret{ConsumerSecret: req.ConsumerSecret, WebhookSecret: randomToken()}
 	if old != nil {
@@ -201,15 +210,15 @@ func (s *Server) connectBitbucket(w http.ResponseWriter, r *http.Request, login 
 	}
 	if sec.ConsumerSecret == "" {
 		httpError(w, http.StatusBadRequest, i18n.M("the OAuth consumer's secret is missing"))
-		return
+		return nil
 	}
 	if err := s.Bitbucket.Keys.Save(r.Context(), c.ID, &sec); err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
-		return
+		return nil
 	}
 	s.Bitbucket.Forget(c.ID)
 	s.Log.Info("Bitbucket connection kept", "id", c.ID, "workspace", ws, "by", login)
-	writeJSONStatus(w, http.StatusCreated, map[string]any{"connection": c, "authorizeUrl": s.sendToBitbucket(w, c, "connect")})
+	return c
 }
 
 // bitbucketConnection is the connection {id} of the URL; nil means the
@@ -259,6 +268,9 @@ func (s *Server) deleteBitbucket(w http.ResponseWriter, r *http.Request, login s
 			httpError(w, http.StatusConflict, i18n.M("%s still builds from this Bitbucket workspace: delete or disconnect its apps first", a.Name))
 			return
 		}
+	}
+	if !s.lastForjaOfAnAdmin(w, r, bitbucket.Name+"/"+strconv.FormatInt(c.ID, 10)) {
+		return
 	}
 	if err := s.Store.DeleteBitbucketConnection(r.Context(), c.ID); err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
@@ -337,6 +349,26 @@ func (s *Server) bitbucketCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.Log.Warn("Bitbucket sign-in failed", "workspace", c.Workspace, "err", err)
 		httpError(w, http.StatusBadGateway, i18n.M("Bitbucket did not accept the sign-in: %s", bitbucketSays(err)))
+		return
+	}
+	if nonce, ok := strings.CutPrefix(what, installWhat); ok {
+		// From the setup page: whoever authorized it is the first
+		// administrator, by the name they would sign in with.
+		login, err := s.Store.IdentityLogin(r.Context(), bitbucket.Name, bitbucket.IdentityBase, user.ID())
+		if err != nil {
+			httpError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if login == "" {
+			login = bitbucket.Login(user)
+		}
+		s.finishInstall(w, r, nonce, login, func(ctx context.Context) error {
+			if err := s.Bitbucket.Authorized(ctx, c.ID, tokens); err != nil {
+				return err
+			}
+			s.Log.Info("Bitbucket authorized from the setup page", "workspace", c.Workspace, "as", user.Name())
+			return s.Store.SetBitbucketUsername(ctx, c.ID, user.Name())
+		})
 		return
 	}
 	switch what {

@@ -228,6 +228,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/setup/status", s.setupStatus)
 	mux.HandleFunc("GET /api/setup/github", s.setupStart)
 	mux.HandleFunc("GET /api/setup/github/callback", s.setupCallback)
+	// Installing with GitLab or Bitbucket (internal/api/instalar.go).
+	mux.HandleFunc("POST /api/setup/token", s.setupToken)
+	mux.HandleFunc("POST /api/setup/gitlab", s.setupGitLab)
+	mux.HandleFunc("POST /api/setup/bitbucket", s.setupBitbucket)
 
 	// Everything else requires a session.
 	// Everything else requires a session, and each route says the least
@@ -269,10 +273,12 @@ func (s *Server) Handler() http.Handler {
 	plat(store.MemberAdmin, "POST /api/forjas/gitlab", s.connectGitLab)
 	plat(store.MemberAdmin, "POST /api/forjas/gitlab/{id}/authorize", s.reauthorizeGitLab)
 	plat(store.MemberAdmin, "DELETE /api/forjas/gitlab/{id}", s.deleteGitLab)
+	plat(store.MemberAdmin, "GET /api/forjas/gitlab/{id}/acceso", s.forjaAcceso(gitlab.Name))
 	auth(store.MemberAdmin, "GET /api/forjas/gitlab/{id}/projects", s.gitlabProjects)
 	plat(store.MemberAdmin, "POST /api/forjas/bitbucket", s.connectBitbucket)
 	plat(store.MemberAdmin, "POST /api/forjas/bitbucket/{id}/authorize", s.reauthorizeBitbucket)
 	plat(store.MemberAdmin, "DELETE /api/forjas/bitbucket/{id}", s.deleteBitbucket)
+	plat(store.MemberAdmin, "GET /api/forjas/bitbucket/{id}/acceso", s.forjaAcceso(bitbucket.Name))
 	auth(store.MemberAdmin, "GET /api/forjas/bitbucket/{id}/repos", s.bitbucketRepos)
 	// The home page as each person lays it out, and the default (internal/api/inicio.go).
 	auth(store.MemberGuest, "GET /api/inicio", s.verInicio)
@@ -759,12 +765,24 @@ func (s *Server) callback(w http.ResponseWriter, r *http.Request) {
 		httpError(w, http.StatusBadGateway, "GitHub login failed")
 		return
 	}
+	// Step 3 of the setup page with GitHub: the App exists, and whoever
+	// proved the setup token in this browser signs in as the first
+	// administrator.
+	if _, ok := s.installSession(r); ok && !s.installed(r.Context()) {
+		s.claimInstall(w, r, login)
+		return
+	}
 	s.openSession(w, r, login)
 }
 
 // openSession signs login in, once a forja said who they are: it refuses
 // logins that are no one's member, and opens a session of 7 days.
 func (s *Server) openSession(w http.ResponseWriter, r *http.Request, login string) {
+	s.openSessionTo(w, r, login, "/")
+}
+
+// openSessionTo is openSession, and then the browser goes to "to".
+func (s *Server) openSessionTo(w http.ResponseWriter, r *http.Request, login, to string) {
 	if ok, err := s.Store.IsMemberAnywhere(r.Context(), login); err != nil || !ok {
 		s.Log.Warn("login refused", "login", login)
 		httpError(w, http.StatusForbidden, fmt.Sprintf("%s is not a member here; ask an administrator to add you", login))
@@ -776,7 +794,7 @@ func (s *Server) openSession(w http.ResponseWriter, r *http.Request, login strin
 		return
 	}
 	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: token, Path: "/", MaxAge: 7 * 24 * 3600, HttpOnly: true, Secure: s.secureCookies(), SameSite: http.SameSiteLaxMode})
-	http.Redirect(w, r, "/", http.StatusFound)
+	http.Redirect(w, r, to, http.StatusFound)
 }
 
 // Session signs login in, as GitHub's login does: the cookie of a new
@@ -800,17 +818,20 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 
 // ---- one-click GitHub App setup (manifest flow) ----
 
-// setupStatus tells the UI, before anyone signs in, whether the GitHub App
-// exists yet (and where to install it), which forjas one can sign in with,
-// whether the welcome page shows what is happening, and where the book is.
-func (s *Server) setupStatus(w http.ResponseWriter, _ *http.Request) {
+// setupStatus tells the UI, before anyone signs in, whether the platform
+// is installed (else the setup page shows, with its state), whether the
+// GitHub App exists (and where to install it), which forjas one can sign
+// in with, whether the welcome page shows what is happening, and where the
+// book is.
+func (s *Server) setupStatus(w http.ResponseWriter, r *http.Request) {
 	app, err := s.GitHub.Get()
+	installed := s.installed(r.Context())
 	// github: whether "Sign in with GitHub" leads anywhere (the GitHub App
-	// is set up). Today it is the same as configured; the welcome page
-	// reads this one, so that it hides the button when GitHub is not
+	// is set up); the welcome page hides the button when GitHub is not
 	// connected and the other forjas are.
-	out := map[string]any{"configured": err == nil, "github": s.forja().Ready() == nil, "activity": s.PublicActivity}
-	if err != nil {
+	out := map[string]any{"configured": installed, "github": s.forja().Ready() == nil, "activity": s.PublicActivity}
+	if !installed {
+		out["install"] = s.installView(r)
 		// How to read the setup token where this platform runs.
 		out["tokenCommand"] = s.SetupTokenCommand
 		if s.SetupTokenCommand == "" {
@@ -846,18 +867,28 @@ func (s *Server) setupStatus(w http.ResponseWriter, _ *http.Request) {
 }
 
 // checkSetupToken guards the one-time GitHub App setup: it is refused once
-// the App exists, and needs the token from the rendimiento-setup secret (in
-// the URL the first time, then in a cookie).
+// the App exists. An administrator of the platform connects it from the
+// Environment page; before the platform is installed, it needs the token
+// from the rendimiento-setup secret (in the URL, compared in constant
+// time) or an install session (see instalar.go).
 func (s *Server) checkSetupToken(w http.ResponseWriter, r *http.Request) bool {
 	if _, err := s.GitHub.Get(); err == nil {
 		httpError(w, http.StatusConflict, "GitHub App is already configured")
 		return false
 	}
-	tok := r.URL.Query().Get("token")
-	if c, err := r.Cookie("setup_token"); tok == "" && err == nil {
-		tok = c.Value
+	if login, ok := s.sessionLogin(r); ok {
+		if role, err := s.Store.MemberRole(r.Context(), store.DefaultOrg, login); err == nil && role == store.MemberAdmin && !store.IsDemoLogin(login) {
+			return true
+		}
 	}
-	if s.SetupToken == "" || subtle.ConstantTimeCompare([]byte(tok), []byte(s.SetupToken)) != 1 {
+	if s.SetupToken == "" || s.installed(r.Context()) {
+		httpError(w, http.StatusNotFound, i18n.M("rendimiento is already set up here"))
+		return false
+	}
+	if _, ok := s.installSession(r); ok {
+		return true
+	}
+	if tok := r.URL.Query().Get("token"); subtle.ConstantTimeCompare([]byte(tok), []byte(s.SetupToken)) != 1 {
 		httpError(w, http.StatusForbidden, "invalid setup token (see the rendimiento-setup secret)")
 		return false
 	}
@@ -882,10 +913,16 @@ func (s *Server) setupStart(w http.ResponseWriter, r *http.Request) {
 	if !s.checkSetupToken(w, r) {
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: "setup_token", Value: s.SetupToken, Path: "/api/setup", MaxAge: 1800, HttpOnly: true, Secure: s.secureCookies(), SameSite: http.SameSiteLaxMode})
+	if _, ok := s.installSession(r); !ok && s.SetupToken != "" && !s.installed(r.Context()) {
+		s.openInstall(w) // GitHub comes back to setupCallback, and then to sign in (step 3)
+	}
+	// GitHub sends the state back with the code: only the browser that
+	// started may hand rendimiento an App (not someone else's code).
+	state := randomToken()[:32]
+	http.SetCookie(w, &http.Cookie{Name: setupStateCookie, Value: state, Path: "/api/setup", MaxAge: 1800, HttpOnly: true, Secure: s.secureCookies(), SameSite: http.SameSiteLaxMode})
 	manifest, _ := json.Marshal(gh.Manifest(s.AppName, s.BaseURL))
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = setupPage.Execute(w, map[string]string{"Name": s.AppName, "Manifest": string(manifest), "State": randomToken()[:16]})
+	_ = setupPage.Execute(w, map[string]string{"Name": s.AppName, "Manifest": string(manifest), "State": state})
 }
 
 // setupCallback receives the new App from GitHub (its ID, private key and
@@ -895,6 +932,11 @@ func (s *Server) setupCallback(w http.ResponseWriter, r *http.Request) {
 	if !s.checkSetupToken(w, r) {
 		return
 	}
+	if st, err := r.Cookie(setupStateCookie); err != nil || subtle.ConstantTimeCompare([]byte(st.Value), []byte(r.URL.Query().Get("state"))) != 1 {
+		httpError(w, http.StatusBadRequest, "setup state mismatch; start setup again")
+		return
+	}
+	http.SetCookie(w, &http.Cookie{Name: setupStateCookie, Value: "", Path: "/api/setup", MaxAge: -1})
 	creds, err := gh.ConvertManifest(r.Context(), s.GitHubAPI, r.URL.Query().Get("code"))
 	if err != nil {
 		s.Log.Error("manifest conversion", "err", err)
@@ -916,6 +958,10 @@ func (s *Server) setupCallback(w http.ResponseWriter, r *http.Request) {
 	// Next: install the app on the repos to deploy.
 	http.Redirect(w, r, creds.HTMLURL+"/installations/new", http.StatusFound)
 }
+
+// setupStateCookie keeps the GitHub App manifest's state until GitHub
+// comes back with it.
+const setupStateCookie = "setup_state"
 
 // GitHubAppTopic tells the platform's other processes that the GitHub App
 // was configured, so they load its credentials from the secret.
@@ -1057,7 +1103,9 @@ func (s *Server) installationAllowed(w http.ResponseWriter, r *http.Request, log
 func (s *Server) installations(w http.ResponseWriter, r *http.Request, login string) {
 	app, err := s.GitHub.Get()
 	if err != nil {
-		httpError(w, http.StatusServiceUnavailable, err.Error())
+		// No GitHub here: the code lives on a GitLab or Bitbucket, and the
+		// wizard offers those (github false), with nothing to complain of.
+		writeJSON(w, map[string]any{"installations": []any{}, "connectable": []any{}, "installURL": "", "github": false})
 		return
 	}
 	inst, err := s.usable(r, app, login)
@@ -1070,7 +1118,7 @@ func (s *Server) installations(w http.ResponseWriter, r *http.Request, login str
 		httpError(w, http.StatusBadGateway, err.Error())
 		return
 	}
-	writeJSON(w, map[string]any{"installations": inst, "connectable": connectable, "installURL": app.Credentials().HTMLURL + "/installations/new"})
+	writeJSON(w, map[string]any{"installations": inst, "connectable": connectable, "installURL": app.Credentials().HTMLURL + "/installations/new", "github": true})
 }
 
 // repos lists the repositories one installation can see, for the wizard.

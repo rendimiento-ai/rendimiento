@@ -209,33 +209,42 @@ func (s *Server) connectGitLab(w http.ResponseWriter, r *http.Request, login str
 	if !s.gitlabReady(w) {
 		return
 	}
+	if c := s.keepGitLab(w, r, login); c != nil {
+		writeJSONStatus(w, http.StatusCreated, map[string]any{"connection": c, "authorizeUrl": s.sendToGitLab(w, c, "connect", gitlab.ScopeConnect)})
+	}
+}
+
+// keepGitLab reads a GitLab's address and OAuth application from the
+// request and keeps them, the secret in the connection's Secret; by is who
+// connected it. nil means the answer was written.
+func (s *Server) keepGitLab(w http.ResponseWriter, r *http.Request, login string) *store.GitLabConnection {
 	var req struct {
 		BaseURL           string `json:"baseUrl"`
 		ApplicationID     string `json:"applicationId"`
 		ApplicationSecret string `json:"applicationSecret"`
 	}
 	if !readJSON(w, r, &req) {
-		return
+		return nil
 	}
 	base, err := gitlab.NormalizeURL(req.BaseURL)
 	if err != nil {
 		httpError(w, http.StatusBadRequest, i18n.M("%s is not a GitLab address like https://git.example.com", req.BaseURL))
-		return
+		return nil
 	}
 	req.ApplicationID, req.ApplicationSecret = strings.TrimSpace(req.ApplicationID), strings.TrimSpace(req.ApplicationSecret)
 	if req.ApplicationID == "" || len(req.ApplicationID) > 200 || strings.ContainsAny(req.ApplicationID, " \t\n") {
 		httpError(w, http.StatusBadRequest, i18n.M("the OAuth application's id is missing"))
-		return
+		return nil
 	}
 	c, err := s.Store.AddGitLabConnection(r.Context(), base, req.ApplicationID, login)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
-		return
+		return nil
 	}
 	old, err := s.GitLab.Keys.Load(r.Context(), c.ID)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
-		return
+		return nil
 	}
 	sec := gitlab.Secret{ApplicationSecret: req.ApplicationSecret, WebhookToken: randomToken()}
 	if old != nil {
@@ -248,15 +257,15 @@ func (s *Server) connectGitLab(w http.ResponseWriter, r *http.Request, login str
 	}
 	if sec.ApplicationSecret == "" {
 		httpError(w, http.StatusBadRequest, i18n.M("the OAuth application's secret is missing"))
-		return
+		return nil
 	}
 	if err := s.GitLab.Keys.Save(r.Context(), c.ID, &sec); err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
-		return
+		return nil
 	}
 	s.GitLab.Forget(c.ID)
 	s.Log.Info("GitLab connection kept", "id", c.ID, "base", base, "by", login)
-	writeJSONStatus(w, http.StatusCreated, map[string]any{"connection": c, "authorizeUrl": s.sendToGitLab(w, c, "connect", gitlab.ScopeConnect)})
+	return c
 }
 
 // gitlabConnection is the connection {id} of the URL; nil means the answer
@@ -308,6 +317,9 @@ func (s *Server) deleteGitLab(w http.ResponseWriter, r *http.Request, login stri
 			return
 		}
 	}
+	if !s.lastForjaOfAnAdmin(w, r, gitlab.Name+"/"+strconv.FormatInt(c.ID, 10)) {
+		return
+	}
 	if err := s.Store.DeleteGitLabConnection(r.Context(), c.ID); err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -346,7 +358,9 @@ func (s *Server) linkGitLab(w http.ResponseWriter, r *http.Request, login string
 }
 
 // myIdentities is GET /api/me/identities: the person's linked accounts,
-// and the GitLabs and Bitbucket workspaces they could link one of.
+// and the GitLabs and Bitbucket workspaces they could link one of (and
+// whether GitHub is connected: Members offers the forjas people sign in
+// with).
 func (s *Server) myIdentities(w http.ResponseWriter, r *http.Request, login string) {
 	ids, err := s.Store.Identities(r.Context(), login)
 	if err != nil {
@@ -375,7 +389,8 @@ func (s *Server) myIdentities(w http.ResponseWriter, r *http.Request, login stri
 	for _, c := range workspaces {
 		bb = append(bb, option{c.ID, c.Workspace})
 	}
-	writeJSON(w, map[string]any{"login": login, "identities": ids, "gitlab": opts, "bitbucket": bb})
+	_, gherr := s.GitHub.Get()
+	writeJSON(w, map[string]any{"login": login, "identities": ids, "github": gherr == nil, "gitlab": opts, "bitbucket": bb})
 }
 
 // unlinkIdentity is DELETE /api/me/identities: one of the person's own
@@ -434,6 +449,26 @@ func (s *Server) gitlabCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.Log.Warn("GitLab sign-in failed", "base", c.BaseURL, "err", err)
 		httpError(w, http.StatusBadGateway, i18n.M("GitLab did not accept the sign-in: %s", gitlabSays(err)))
+		return
+	}
+	if nonce, ok := strings.CutPrefix(what, installWhat); ok {
+		// From the setup page: whoever authorized it is the first
+		// administrator, by the name they would sign in with.
+		login, err := s.Store.IdentityLogin(r.Context(), gitlab.Name, c.BaseURL, strconv.FormatInt(user.ID, 10))
+		if err != nil {
+			httpError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if login == "" {
+			login = gitlab.Login(toGitLab(c), user.Username)
+		}
+		s.finishInstall(w, r, nonce, login, func(ctx context.Context) error {
+			if err := s.GitLab.Authorized(ctx, c.ID, tokens); err != nil {
+				return err
+			}
+			s.Log.Info("GitLab authorized from the setup page", "base", c.BaseURL, "as", user.Username)
+			return s.Store.SetGitLabUsername(ctx, c.ID, user.Username)
+		})
 		return
 	}
 	switch what {

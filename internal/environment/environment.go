@@ -186,6 +186,10 @@ type Config struct {
 	Services  []string
 }
 
+// Forja is a GitLab or a Bitbucket workspace connected: its kind ("gitlab",
+// "bitbucket") and how it is named (GitLab gitlab.com).
+type Forja struct{ ID, Name string }
+
 // Pinger is satisfied by the store.
 type Pinger interface {
 	Ping(ctx context.Context) error
@@ -206,6 +210,9 @@ type Checker struct {
 	// DDNS, when set, reads the dynamic DNS status from where it runs (the
 	// control service) instead of from DNS.
 	DDNS func(ctx context.Context) dns.DDNSStatus
+	// Forjas, when set, lists the GitLabs and Bitbucket workspaces
+	// connected: the code can live there instead of on GitHub.
+	Forjas func(ctx context.Context) []Forja
 
 	once    sync.Once
 	reports fresco.Cache[struct{}, *Report]

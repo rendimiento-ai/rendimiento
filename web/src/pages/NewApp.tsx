@@ -41,7 +41,7 @@ type Pestana = "all" | Forja;
 export function NewApp() {
   const conexion = useConexion();
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [installs, setInstalls] = useState<{ installations: Installation[]; connectable: Installation[]; installURL: string }>();
+  const [installs, setInstalls] = useState<{ installations: Installation[]; connectable: Installation[]; installURL: string; github?: boolean }>();
   const [inst, setInst] = useState<number>();
   const [repos, setRepos] = useState<Repo[]>();
   // The GitLabs connected (and authorized) on the Environment page, and their projects.
@@ -188,6 +188,8 @@ export function NewApp() {
   // With another forja than GitHub connected, the list has tabs and each repository its forja's seal.
   const otras: Forja[] = [...(gitlabs.length > 0 ? ["gitlab" as const] : []), ...(workspaces.length > 0 ? ["bitbucket" as const] : [])];
   const conOtras = otras.length > 0;
+  // No GitHub App here: the code lives on the other forjas, and nothing asks for GitHub.
+  const sinGitHub = installs?.github === false;
 
   const zoneOf = (d?: string) => zones.find((z) => d?.endsWith("." + z)) ?? "";
   const setService = (i: number, patch: Partial<Service>) => setServices(services.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -212,22 +214,28 @@ export function NewApp() {
               <button type="button" className="primary" disabled={busy} onClick={() => connect(i)}>{t("Connect {login}", { login: i.account.login })}</button>
             </div>
           ))}
-          {installs && installs.installations.length === 0 && installs.connectable.length === 0 && !session.appPrefix && (
+          {sinGitHub && !conOtras && (
+            <div className="alert info">
+              {t("No forja is connected yet.")}{" "}
+              <a href="/environment#forjas">{t("Connect GitHub, GitLab or Bitbucket in Environment")}</a>{t(", then reload this page.")}
+            </div>
+          )}
+          {installs && !sinGitHub && installs.installations.length === 0 && installs.connectable.length === 0 && !session.appPrefix && (
             <div className="alert info">
               {t("The GitHub App is not installed on any account yet.")}{" "}
               <a href={installs.installURL} target="_blank" rel="noreferrer">{t("Install it on your repos")}</a>{t(", then reload this page.")}
             </div>
           )}
-          {installs && installs.installations.length === 0 && installs.connectable.length === 0 && session.appPrefix && (
+          {installs && !sinGitHub && installs.installations.length === 0 && installs.connectable.length === 0 && session.appPrefix && (
             <div className="alert info sin-github">
               {t("This organization has no GitHub account to create apps from yet.")}{" "}
               <a href={installs.installURL} target="_blank" rel="noreferrer">{t("Install the GitHub App on your own GitHub account")}</a>
               {t(", then reload this page and connect it here. For the repositories of a GitHub organization, ask the platform's operators to give its account to this organization.")}
             </div>
           )}
-          {conOtras && (
+          {otras.length + (sinGitHub ? 0 : 1) > 1 && (
             <div className="tabs forja-pestanas" role="tablist" aria-label={t("Where the code lives")}>
-              {(["all", "github", ...otras] as Pestana[]).map((p) => (
+              {(["all", ...(sinGitHub ? [] : ["github"]), ...otras] as Pestana[]).map((p) => (
                 <button key={p} role="tab" aria-selected={pestana === p} className={pestana === p ? "tab on" : "tab"} onClick={() => setPestana(p)}>
                   {p === "all" ? t("Every forja") : forjaName(p)}
                 </button>
@@ -256,7 +264,7 @@ export function NewApp() {
               </span>
             </button>
           ))}
-          {installs && (
+          {installs && !sinGitHub && (
             <p className="small muted" style={{ margin: "8px 4px 0" }}>{t("Missing a repo?")} <a href={installs.installURL} target="_blank" rel="noreferrer">{t("Give the GitHub App access to it")}</a>.</p>
           )}
         </aside>
@@ -264,7 +272,7 @@ export function NewApp() {
         {step === 1 && (
           <main className="ld-detalle">
             <p className="muted" style={{ margin: 0 }}>{t("Pick a repo. rendimiento works out how to build it and where to run it.")}</p>
-            <p className="small muted" style={{ margin: "12px 0 0" }}>{t("Nothing of your own to deploy yet?")} <a href={EXAMPLE_URL} target="_blank" rel="noreferrer">{t("Copy the example to your GitHub account")}</a>{t(", give the GitHub App access to your copy, and reload this page.")}</p>
+            {!sinGitHub && <p className="small muted" style={{ margin: "12px 0 0" }}>{t("Nothing of your own to deploy yet?")} <a href={EXAMPLE_URL} target="_blank" rel="noreferrer">{t("Copy the example to your GitHub account")}</a>{t(", give the GitHub App access to your copy, and reload this page.")}</p>}
           </main>
         )}
 

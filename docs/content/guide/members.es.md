@@ -1,6 +1,6 @@
 # Miembros y funciones {#members-and-roles}
 
-Las personas entran a rendimiento con GitHub, y solo pasan los **miembros**. Cada miembro tiene una **función** que dice qué puede hacer; cada ruta de la API la comprueba, así que la interfaz y la API coinciden.
+Las personas entran a rendimiento con GitHub, GitLab o Bitbucket (las que estén conectadas), y solo pasan los **miembros**. Cada miembro tiene una **función** que dice qué puede hacer; cada ruta de la API la comprueba, así que la interfaz y la API coinciden.
 
 | Función | Puede |
 |---|---|
@@ -10,9 +10,21 @@ Las personas entran a rendimiento con GitHub, y solo pasan los **miembros**. Cad
 
 ## Agregar a alguien {#adding-someone}
 
-En **Miembros** (su nombre, lo primero en el menú de su cuenta a la derecha de la barra de arriba), las personas aparecen a la izquierda por función; al elegir una se ven su función y, renglón por renglón, **lo que puede hacer**. Un administrador toca **Agregar a alguien**, escribe el **usuario de GitHub** de la persona y elige su función. Desde ese momento puede entrar, en la misma dirección. Cambiar una función o quitar a alguien cuenta desde su siguiente clic; a quien se quita se le cierra la sesión de inmediato. Una organización siempre conserva al menos un administrador.
+En **Miembros** (su nombre, lo primero en el menú de su cuenta a la derecha de la barra de arriba), las personas aparecen a la izquierda por función; al elegir una se ven su función y, renglón por renglón, **lo que puede hacer**. Un administrador toca **Agregar a alguien**, escoge la forja donde está la cuenta de la persona (solo aparecen las forjas conectadas en la página Entorno), escribe su **usuario** ahí y elige su función; el formulario dice el nombre con el que entrará, y con qué botón (*Entrará como marta@gitlab.com, con «Iniciar sesión con GitLab»*). Desde ese momento puede entrar, en la misma dirección. Cambiar una función o quitar a alguien cuenta desde su siguiente clic; a quien se quita se le cierra la sesión de inmediato. Una organización siempre conserva al menos un administrador.
 
-A quien entra con una cuenta de [GitLab](gitlab.md#signing-in-with-gitlab) que no está ligada a nadie se le agrega por su `usuario@host` (como `ana@gitlab.com`); quien tiene las dos liga su cuenta de GitLab desde **Sus cuentas**, y sigue siendo un solo miembro. Lo mismo vale para [Bitbucket](bitbucket.md#signing-in-with-bitbucket), como `apodo@bitbucket.org`.
+Cada forja nombra a su gente a su manera, y Miembros, la página de instalación y `ALLOWED_USERS` aceptan los mismos nombres:
+
+| Forja | Nombre |
+|---|---|
+| GitHub | `ana` |
+| [GitLab](gitlab.md#signing-in-with-gitlab) | `ana@gitlab.com`, o `ana@git.example.com` para su propio GitLab |
+| [Bitbucket](bitbucket.md#signing-in-with-bitbucket) | `ana@bitbucket.org` |
+
+A una persona con cuentas en varias forjas se le agrega una vez, por una de ellas, y ella misma liga las demás desde **Sus cuentas**: sigue siendo un solo miembro, con sus funciones y su Ruta.
+
+## Desconectar una forja {#disconnecting-a-forja}
+
+Antes de que un administrador quite un GitLab o un espacio de trabajo de Bitbucket en la página Entorno, rendimiento dice, con sus nombres, quién ya no podría entrar: los miembros cuya única cuenta está en esa forja. **Nunca quita la última forja con la que entra un administrador**: la página y la API (`409`) se niegan, y nombran al administrador. Antes, líguele otra cuenta (**Sus cuentas**) o quítele la función.
 
 ## Quién entra a una aplicación {#who-enters-an-app}
 
@@ -29,7 +41,9 @@ Una [llave de agente](agents.md) actúa por la organización, no por una persona
 
 ## Los primeros administradores {#the-first-administrators}
 
-Una plataforma nueva no tiene miembros, así que el ajuste `ALLOWED_USERS` nombra a los primeros administradores. Se agregan una sola vez, mientras no hay miembros; después, las personas se manejan en la página Miembros y el ajuste ya no cuenta.
+Quien instala la plataforma desde su [página de instalación](../environment/deploy.md#installing) se vuelve su primer administrador: comprobó la ficha de instalación, y vuelve de la forja que autorizó con la sesión iniciada, aunque ningún ajuste lo nombre. En el tercer paso agrega a los demás administradores (por forja y usuario), o después en Miembros.
+
+El ajuste `ALLOWED_USERS` también puede nombrarlos, con los mismos nombres (`ALLOWED_USERS=ana@gitlab.com,luis@gitlab.com`). Se agregan una sola vez, mientras no hay miembros; después, las personas se manejan en la página Miembros y el ajuste ya no cuenta.
 
 ## Organizaciones {#organizations}
 

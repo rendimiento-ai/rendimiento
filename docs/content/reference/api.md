@@ -35,8 +35,11 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | GET | `/api/auth/login` | redirects to GitHub OAuth |
 | GET | `/api/auth/callback` | OAuth callback; creates the session |
 | POST | `/api/auth/logout` | ends the session |
-| GET | `/api/setup/status` | whether the GitHub App is configured (`configured`, and `github`: whether *Sign in with GitHub* leads anywhere), and the GitLabs and Bitbucket workspaces one can sign in with (`signIn`) |
-| GET | `/api/setup/github` | starts the App manifest flow (needs `?token=SETUP_TOKEN`) |
+| GET | `/api/setup/status` | whether the platform is installed (`configured`; else `install`, the [setup page](../environment/deploy.md#installing)'s state), whether *Sign in with GitHub* leads anywhere (`github`), and the GitLabs and Bitbucket workspaces one can sign in with (`signIn`) |
+| POST | `/api/setup/token` | `{token}`: install, step 1; the setup token, compared in constant time, opens an install session (a signed cookie). `404` once installed |
+| POST | `/api/setup/gitlab` | install, step 2 with a GitLab `{baseUrl, applicationId, applicationSecret}`; needs the install session; answers where to authorize it |
+| POST | `/api/setup/bitbucket` | install, step 2 with a Bitbucket workspace `{workspace, consumerKey, consumerSecret}`; needs the install session |
+| GET | `/api/setup/github` | starts the App manifest flow (the install session, `?token=SETUP_TOKEN`, or a platform administrator's session) |
 | POST | `/mcp` | the MCP endpoint for agents ([la Ruta](../guide/ruta.md)); needs an agent key as a bearer token, not a session |
 | GET | `/api/setup/github/callback` | GitHub returns the new App's credentials; they are saved in a Secret |
 
@@ -57,11 +60,13 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | GET | `/api/forjas` | where the apps' code lives: GitHub, the connected GitLabs and Bitbucket workspaces (operators) |
 | POST | `/api/forjas/gitlab` | connect a GitLab `{baseUrl, applicationId, applicationSecret}`; answers where to authorize it |
 | POST | `/api/forjas/gitlab/{id}/authorize` | authorize a GitLab connection again |
-| DELETE | `/api/forjas/gitlab/{id}` | forget a GitLab connection no app uses |
+| DELETE | `/api/forjas/gitlab/{id}` | forget a GitLab connection no app uses; `409` when it is the last forja an administrator signs in with |
+| GET | `/api/forjas/gitlab/{id}/acceso` | who would lose access without it (`members`, and `admins` among them) |
 | GET | `/api/forjas/gitlab/{id}/projects` | the projects of a GitLab connection, for New app |
 | POST | `/api/forjas/bitbucket` | connect a Bitbucket workspace `{workspace, consumerKey, consumerSecret}`; answers where to authorize it |
 | POST | `/api/forjas/bitbucket/{id}/authorize` | authorize a Bitbucket connection again |
-| DELETE | `/api/forjas/bitbucket/{id}` | forget a Bitbucket connection no app uses |
+| DELETE | `/api/forjas/bitbucket/{id}` | forget a Bitbucket connection no app uses; `409` when it is the last forja an administrator signs in with |
+| GET | `/api/forjas/bitbucket/{id}/acceso` | who would lose access without it (`members`, and `admins` among them) |
 | GET | `/api/forjas/bitbucket/{id}/repos` | the repositories of a Bitbucket workspace, for New app |
 | GET | `/api/me/identities` | your accounts on other forjas, linked to you |
 | POST | `/api/me/identities/gitlab/{id}` | link your account on a GitLab; answers where to authorize it |
