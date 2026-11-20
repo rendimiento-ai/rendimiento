@@ -2,7 +2,9 @@
 // apps it is switched on for up to date by running Renovate on a schedule.
 // Each run is a pod in the isolated build namespace, authenticated with a
 // fresh one-hour GitHub App installation token, so there is no personal
-// access token to expire or leak. Renovate's branches are built and checked
+// access token to expire or leak; a GitLab or Bitbucket app's repositories
+// get a pod of their connection's, with its OAuth token (refreshed first
+// when it would not last the run). Renovate's branches are built and checked
 // by rendimiento like any other branch, and patch/minor updates auto-merge
 // once those checks pass (per the configured rules).
 package renovate
@@ -27,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/rendimiento-ai/rendimiento/internal/events"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -133,7 +136,10 @@ type Runner struct {
 	ExcludeNodes []string
 	Store        *store.Store
 	GitHub       *gh.Holder
-	Log          *slog.Logger
+	// Forjas are the other forjas' connections, by name (gitlab,
+	// bitbucket): their apps' repositories run through them.
+	Forjas map[string]Connection
+	Log    *slog.Logger
 	// Timeout bounds a run; installation tokens expire after an hour.
 	Timeout time.Duration
 	// Remote, in a process that does not run Renovate (ROLE=api), sends
@@ -213,7 +219,17 @@ func (r *Runner) tick(ctx context.Context, now time.Time) error {
 	return err
 }
 
+// Connection is a forja other than GitHub, for Renovate: what a run on its
+// connection installation's repositories needs, with a token that lasts
+// at least last.
+type Connection interface {
+	Renovate(ctx context.Context, installation int64, repos []string, last time.Duration) (*forja.Renovate, error)
+}
+
+// target is one pod of a run: an account's repositories on GitHub (forja
+// ""), or a connection's on another forja.
 type target struct {
+	forja        string
 	installation int64
 	repos        []string
 }
@@ -228,9 +244,6 @@ func (r *Runner) Repos(ctx context.Context, s Settings) ([]string, error) {
 	seen := map[string]bool{}
 	var out []string
 	for _, a := range apps {
-		if a.ForjaOf() != store.ForjaGitHub {
-			continue // Renovate runs through the GitHub App: GitLab and Bitbucket apps are not covered yet
-		}
 		if !seen[strings.ToLower(a.Repo)] {
 			seen[strings.ToLower(a.Repo)] = true
 			out = append(out, a.Repo)
@@ -301,8 +314,66 @@ func (r *Runner) Start(ctx context.Context, trigger string) (*store.AddonRun, er
 	return run, nil
 }
 
-// targets groups repositories by the GitHub App installation that can reach them.
+// targets groups repositories by what reaches them: the GitHub App
+// installation of their account, or their app's connection on GitLab or
+// Bitbucket.
 func (r *Runner) targets(ctx context.Context, repos []string) ([]target, error) {
+	others, err := r.otherTargets(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var onGitHub []string
+	for _, repo := range repos {
+		if forja.Of(repo) == forja.GitHub {
+			onGitHub = append(onGitHub, repo)
+		}
+	}
+	if len(onGitHub) == 0 {
+		return others, nil
+	}
+	gitHub, err := r.gitHubTargets(ctx, onGitHub)
+	if err != nil {
+		return nil, err
+	}
+	return append(gitHub, others...), nil
+}
+
+// otherTargets groups the apps on GitLab and Bitbucket with Renovate on by
+// their connection.
+func (r *Runner) otherTargets(ctx context.Context) ([]target, error) {
+	if r.Store == nil {
+		return nil, nil
+	}
+	apps, err := r.Store.AppsWithAddon(ctx, Name)
+	if err != nil {
+		return nil, err
+	}
+	var out []target
+	at := map[string]int{}
+	seen := map[string]bool{}
+	for _, a := range apps {
+		name := a.ForjaOf()
+		if name == store.ForjaGitHub || seen[strings.ToLower(a.Repo)] {
+			continue
+		}
+		seen[strings.ToLower(a.Repo)] = true
+		key := fmt.Sprintf("%s/%d", name, a.InstallationID)
+		i, ok := at[key]
+		if !ok {
+			i = len(out)
+			at[key] = i
+			out = append(out, target{forja: name, installation: a.InstallationID})
+		}
+		out[i].repos = append(out[i].repos, a.Repo)
+	}
+	for i := range out {
+		sort.Strings(out[i].repos)
+	}
+	return out, nil
+}
+
+// gitHubTargets groups repositories by the GitHub App installation that can reach them.
+func (r *Runner) gitHubTargets(ctx context.Context, repos []string) ([]target, error) {
 	app, err := r.GitHub.Get()
 	if err != nil {
 		return nil, err
@@ -350,7 +421,11 @@ func (r *Runner) execute(ctx context.Context, run *store.AddonRun, s Settings, t
 	var notes []string
 	status := "succeeded"
 	for _, t := range targets {
-		res, log, note, err := r.runPod(ctx, run.ID, t, s, timeout)
+		run1 := r.runPod
+		if t.forja != "" {
+			run1 = r.runForjaPod
+		}
+		res, log, note, err := run1(ctx, run.ID, t, s, timeout)
 		logs.WriteString(log)
 		for repo, v := range res {
 			b, _ := json.Marshal(v)
@@ -523,8 +598,6 @@ func (r *Runner) runPod(ctx context.Context, runID int64, t target, s Settings, 
 	if err != nil {
 		return nil, "", "", fmt.Errorf("bot identity: %w", err)
 	}
-	var note string
-	extraEnv := []corev1.EnvVar{}
 	perms, err := app.InstallationPermissions(ctx, t.installation)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("read the GitHub App's permissions: %w", err)
@@ -532,35 +605,94 @@ func (r *Runner) runPod(ctx context.Context, runID int64, t target, s Settings, 
 	if missing := MissingPermissions(perms); len(missing) > 0 {
 		return nil, "", "", fmt.Errorf("the GitHub App needs more permissions: %s", strings.Join(missing, ", "))
 	}
-	extraEnv = append(extraEnv, statusChecksEnv(perms)...)
+	extraEnv := append(gitHubEnv(bot), statusChecksEnv(perms)...)
 	reposJSON, _ := json.Marshal(t.repos)
 	name := fmt.Sprintf("renovate-%d-%d", runID, t.installation)
+	res, log, err := r.podRun(ctx, name, token, s, string(reposJSON), t.repos, extraEnv, timeout)
+	return res, log, "", err
+}
+
+// runForjaPod runs Renovate for a GitLab or Bitbucket connection's
+// repositories, with its token; what it did is read back in rendimiento's
+// names of the repositories.
+func (r *Runner) runForjaPod(ctx context.Context, runID int64, t target, s Settings, timeout time.Duration) (map[string]*RepoResult, string, string, error) {
+	c := r.Forjas[t.forja]
+	if c == nil {
+		return nil, "", "", fmt.Errorf("%s is not connected to rendimiento: %s", t.forja, strings.Join(t.repos, ", "))
+	}
+	acc, err := c.Renovate(ctx, t.installation, t.repos, timeout)
+	if err != nil {
+		return nil, "", "", fmt.Errorf("%s: %w", t.forja, err)
+	}
+	names := make([]string, 0, len(acc.Repos))
+	for n := range acc.Repos {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	reposJSON, _ := json.Marshal(names)
+	name := fmt.Sprintf("renovate-%d-%s-%d", runID, t.forja, t.installation)
+	res, log, err := r.podRun(ctx, name, acc.Token, s, string(reposJSON), names, forjaEnv(acc), timeout)
+	out := make(map[string]*RepoResult, len(res))
+	for n, v := range res {
+		if repo, ok := acc.Repos[n]; ok {
+			n = repo
+		}
+		out[n] = v
+	}
+	return out, log, "", err
+}
+
+// podRun runs one Renovate pod with token and the platform's env, waits
+// for it, and reads what it did.
+func (r *Runner) podRun(ctx context.Context, name, token string, s Settings, reposJSON string, repos []string, extraEnv []corev1.EnvVar, timeout time.Duration) (map[string]*RepoResult, string, error) {
 	labels := map[string]string{"app.kubernetes.io/managed-by": "rendimiento", "rendimiento.ai/addon": Name}
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: r.Namespace, Labels: labels},
 		StringData: map[string]string{"token": token, "config.js": s.Config},
 	}
 	if _, err := r.Kube.CoreV1().Secrets(r.Namespace).Create(ctx, secret, metav1.CreateOptions{}); err != nil {
-		return nil, "", note, fmt.Errorf("create secret: %w", err)
+		return nil, "", fmt.Errorf("create secret: %w", err)
 	}
 	defer func() {
 		bg := context.Background()
 		_ = r.Kube.CoreV1().Pods(r.Namespace).Delete(bg, name, metav1.DeleteOptions{})
 		_ = r.Kube.CoreV1().Secrets(r.Namespace).Delete(bg, name, metav1.DeleteOptions{})
 	}()
-	pod := r.pod(name, labels, s, string(reposJSON), bot, extraEnv, timeout)
+	pod := r.pod(name, labels, s, reposJSON, extraEnv, timeout)
 	if _, err := r.Kube.CoreV1().Pods(r.Namespace).Create(ctx, pod, metav1.CreateOptions{}); err != nil {
-		return nil, "", note, fmt.Errorf("create pod: %w", err)
+		return nil, "", fmt.Errorf("create pod: %w", err)
 	}
 	final, err := r.wait(ctx, name)
-	log, results := r.collect(name, t.repos)
+	log, results := r.collect(name, repos)
 	if err != nil {
-		return results, log, note, err
+		return results, log, err
 	}
 	if final.Status.Phase != corev1.PodSucceeded {
-		return results, log, note, fmt.Errorf("renovate exited with an error (see the log)")
+		return results, log, fmt.Errorf("renovate exited with an error (see the log)")
 	}
-	return results, log, note, nil
+	return results, log, nil
+}
+
+// gitHubEnv is Renovate on GitHub, as the App's bot.
+func gitHubEnv(bot *gh.BotIdentity) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{Name: "RENOVATE_PLATFORM", Value: "github"},
+		{Name: "RENOVATE_USERNAME", Value: bot.Login},
+		{Name: "RENOVATE_GIT_AUTHOR", Value: bot.Login + " <" + bot.Email + ">"},
+		// Commit through the API: commits show as verified and need no git credentials.
+		{Name: "RENOVATE_PLATFORM_COMMIT", Value: "enabled"},
+	}
+}
+
+// forjaEnv is Renovate on GitLab or Bitbucket: the platform and its API's
+// address. It commits with git, as the account the connection was
+// authorized by, and opens merge requests (pull requests) that rendimiento
+// builds and checks like any other.
+func forjaEnv(acc *forja.Renovate) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{Name: "RENOVATE_PLATFORM", Value: acc.Platform},
+		{Name: "RENOVATE_ENDPOINT", Value: acc.Endpoint},
+	}
 }
 
 // statusChecksOff switches off the commit statuses Renovate sets itself
@@ -584,19 +716,14 @@ func statusChecksEnv(perms map[string]string) []corev1.EnvVar {
 
 // pod is the Renovate pod: its configuration and token from a secret of
 // the same name, the repositories to look at, and a deadline.
-func (r *Runner) pod(name string, labels map[string]string, s Settings, repos string, bot *gh.BotIdentity, extraEnv []corev1.EnvVar, timeout time.Duration) *corev1.Pod {
+func (r *Runner) pod(name string, labels map[string]string, s Settings, repos string, extraEnv []corev1.EnvVar, timeout time.Duration) *corev1.Pod {
 	deadline := int64(timeout.Seconds())
 	env := append([]corev1.EnvVar{
 		{Name: "RENOVATE_CONFIG_FILE", Value: "/config/config.js"},
 		{Name: "RENOVATE_TOKEN", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
 			LocalObjectReference: corev1.LocalObjectReference{Name: name}, Key: "token"}}},
-		{Name: "RENOVATE_PLATFORM", Value: "github"},
 		{Name: "RENOVATE_AUTODISCOVER", Value: "false"},
 		{Name: "RENOVATE_REPOSITORIES", Value: repos},
-		{Name: "RENOVATE_USERNAME", Value: bot.Login},
-		{Name: "RENOVATE_GIT_AUTHOR", Value: bot.Login + " <" + bot.Email + ">"},
-		// Commit through the API: commits show as verified and need no git credentials.
-		{Name: "RENOVATE_PLATFORM_COMMIT", Value: "enabled"},
 		{Name: "LOG_LEVEL", Value: firstNonEmpty(s.LogLevel, "info")},
 		{Name: "LOG_FORMAT", Value: "json"},
 	}, extraEnv...)

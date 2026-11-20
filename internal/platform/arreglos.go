@@ -32,7 +32,9 @@ func (p *Platform) isRenovateBranch(ctx context.Context, app *store.App, branch 
 		if pr.Head.Repo.FullName != "" && !strings.EqualFold(pr.Head.Repo.FullName, app.Repo) {
 			return false
 		}
-		return pr.User.Type == "Bot"
+		// On GitLab and Bitbucket, rendimiento's Renovate opens them as the
+		// account the connection was authorized by, not as a bot.
+		return pr.User.Type == "Bot" || app.ForjaOf() != store.ForjaGitHub
 	}
 	return true // Renovate's branch before its pull request (prCreation: not-pending)
 }

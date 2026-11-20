@@ -963,6 +963,7 @@ func (s *Server) webhookFrom(w http.ResponseWriter, r *http.Request, f forja.For
 		return
 	}
 	event, push := ev.Kind, ev.Push
+	more := ev.More
 	// Pull requests need no run of their own: the branch push already ran
 	// and its check run shows on the PR. PRs from forks are never built,
 	// since their code would run with our clone token. A closed one takes
@@ -1000,14 +1001,20 @@ func (s *Server) webhookFrom(w http.ResponseWriter, r *http.Request, f forja.For
 	if s.Addons != nil && strings.EqualFold(push.Repo, s.Addons.Repo) {
 		s.Addons.Trigger() // add-on definitions (or their manifests) may have changed
 	}
-	runs, err := s.Platform.HandlePush(r.Context(), *push)
-	if err != nil {
-		s.Log.Error("webhook", "event", event, "err", err)
-		httpError(w, http.StatusInternalServerError, "could not queue run")
-		return
+	// A push of several branches (Bitbucket sends them in one delivery)
+	// runs each.
+	queued := 0
+	for _, p := range append([]*forja.Push{push}, more...) {
+		runs, err := s.Platform.HandlePush(r.Context(), *p)
+		if err != nil {
+			s.Log.Error("webhook", "event", event, "err", err)
+			httpError(w, http.StatusInternalServerError, "could not queue run")
+			return
+		}
+		s.Log.Info("webhook", "event", event, "repo", p.Repo, "branch", p.Branch, "runs", len(runs))
+		queued += len(runs)
 	}
-	s.Log.Info("webhook", "event", event, "repo", push.Repo, "branch", push.Branch, "runs", len(runs))
-	writeJSON(w, map[string]int{"queued": len(runs)})
+	writeJSON(w, map[string]int{"queued": queued})
 }
 
 // ---- GitHub browsing for the wizard ----

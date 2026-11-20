@@ -33,6 +33,10 @@ La primera petición de Renovate para cada repositorio lee sus incidencias (el p
 
 Con solo lectura de los estados de confirmación, rendimiento le indica a Renovate que no ponga los suyos (`renovate/artifacts`, `renovate/stability-days`, `renovate/merge-confidence`, `renovate/config-validation`): ponerlos falla, y entonces Renovate abandona todo el repositorio como `repository-changed`. Lo que decide una integración son las comprobaciones de rendimiento. Una instalación con **Commit statuses: lectura y escritura** conserva los estados de Renovate.
 
+## GitLab y Bitbucket {#gitlab-and-bitbucket}
+
+También se cubren las aplicaciones de [GitLab](gitlab.md) o de [Bitbucket](bitbucket.md) que tengan el interruptor encendido: cada conexión tiene su propio pod, con `platform` en `gitlab` (y la API de ese GitLab como `endpoint`) o en `bitbucket`, y la ficha OAuth de la conexión, que se renueva antes si no alcanzaría para toda la ejecución. Renovate confirma con git y abre solicitudes de fusión (solicitudes de incorporación en Bitbucket) como la cuenta que autorizó la conexión; rendimiento las construye y las comprueba como cualquier otra rama, y les aplica igual los [arreglos declarados](fixes.md) de la aplicación. Los **otros repositorios** de los ajustes son de GitHub.
+
 ## Archivos de bloqueo {#lockfiles}
 
 Cuando Renovate cambia una dependencia también regenera el archivo de bloqueo que la acompaña (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `go.sum`…): la imagen de Renovate instala dentro del pod la herramienta adecuada (node y npm, Python y Poetry…) cuando la necesita y la ejecuta ahí. Para eso el pod no necesita más de lo que el espacio de nombres de construcción ya permite: internet (los registros de paquetes y las descargas de las herramientas) y un `/tmp` en el que se pueda escribir.

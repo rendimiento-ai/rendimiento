@@ -103,7 +103,7 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 	before, _ := copias.Get(ctx, app.Name, number)
 	commentID := before.CommentID
 	if p.Forja != nil {
-		body := previewComment(number, url, run, p.Config.BaseURL, app.Name, time.Now().AddDate(0, 0, sp.Previews.KeepDays()))
+		body := inForjaWords(app, previewComment(number, url, run, p.Config.BaseURL, app.Name, time.Now().AddDate(0, 0, sp.Previews.KeepDays())))
 		if id, err := p.repos(app).Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err == nil {
 			commentID = id
 		} else {
@@ -119,7 +119,7 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 		_, err := p.repos(app).CreateCheck(ctx, app.InstallationID, app.Repo, forja.Check{
 			Name: "preview: " + app.Name, HeadSHA: run.SHA, Status: "completed", Conclusion: "success", DetailsURL: url,
 			Output: forja.CheckOutput(M("Live at %s", url),
-				M("This pull request's copy. It is deleted when the pull request is closed, or after %d days without a push.", sp.Previews.KeepDays())),
+				inForjaWords(app, M("This pull request's copy. It is deleted when the pull request is closed, or after %d days without a push.", sp.Previews.KeepDays()))),
 		})
 		if err != nil {
 			log.Warn("preview: its check", "err", err)
@@ -226,7 +226,7 @@ func (p *Platform) deletePreview(ctx context.Context, c copia, why string) error
 	if err != nil {
 		return nil
 	}
-	body := M("**Preview of #%d:** deleted, %s.", c.Number, why)
+	body := inForjaWords(app, M("**Preview of #%d:** deleted, %s.", c.Number, why))
 	if _, err := p.repos(app).Comment(ctx, app.InstallationID, app.Repo, c.Number, c.CommentID, body); err != nil {
 		p.Log.Warn("preview: its comment", "copy", PreviewName(c.App, c.Number), "err", err)
 	}

@@ -53,6 +53,12 @@ func (b BitbucketStore) BitbucketConnections(ctx context.Context) ([]*bitbucket.
 	return out, nil
 }
 
+// LockToken holds the connection's token refresh for this process alone
+// (see store.LockToken).
+func (b BitbucketStore) LockToken(ctx context.Context, id int64) (func(), error) {
+	return b.Store.LockToken(ctx, bitbucket.Name, id)
+}
+
 func toBitbucket(c *store.BitbucketConnection) *bitbucket.Connection {
 	return &bitbucket.Connection{ID: c.ID, Workspace: c.Workspace, ConsumerKey: c.ConsumerKey, Username: c.Username}
 }

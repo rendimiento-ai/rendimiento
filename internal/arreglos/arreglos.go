@@ -31,7 +31,8 @@ type Executor interface {
 	Fix(ctx context.Context, src pipeline.Source, job pipeline.FixJob, w io.Writer) (pipeline.FixOutput, error)
 }
 
-// Repos is what a fix reads and writes on GitHub.
+// Repos is what a fix reads and writes on the app's forja (GitHub, GitLab
+// or Bitbucket: the platform's Repos sends each call to its own).
 type Repos interface {
 	FileAt(ctx context.Context, installation int64, repo, path, ref string) ([]byte, error)
 	BranchSHA(ctx context.Context, installation int64, repo, branch string) (string, error)
@@ -127,9 +128,6 @@ func (s *Service) Run(ctx context.Context, req Request) (Result, error) {
 	app := req.App
 	if req.Branch == "" || req.Branch == app.DefaultBranch {
 		return Result{}, ErrDefaultBranch
-	}
-	if app.ForjaOf() != store.ForjaGitHub {
-		return Result{}, fmt.Errorf("declared fixes run on GitHub apps only yet: %s is on %s", app.Name, app.ForjaOf())
 	}
 	fixes, err := s.Declared(ctx, app)
 	if err != nil {

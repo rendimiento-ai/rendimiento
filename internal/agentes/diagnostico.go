@@ -48,7 +48,8 @@ type Model interface {
 	CompleteVia(ctx context.Context, orgID int64, source, provider string, req ia.Request) (ia.Response, error)
 }
 
-// Changes lists the files that changed between two commits (GitHub).
+// Changes lists the files that changed between two commits, on the app's
+// forja (GitHub's compare, GitLab's compare, Bitbucket's diffstat).
 type Changes interface {
 	ChangedFiles(ctx context.Context, installation int64, repo, base, head string) ([]string, bool, error)
 }
@@ -326,7 +327,7 @@ func (d *Diagnostician) context(ctx context.Context, app *store.App, run *store.
 	if len(services) > 0 {
 		fmt.Fprintf(&b, "Services: %s\n", strings.Join(services, ", "))
 	}
-	if d.Changes != nil && app.InstallationID != 0 && app.ForjaOf() == store.ForjaGitHub {
+	if d.Changes != nil && app.InstallationID != 0 {
 		// A new branch has no good run of its own yet: compare it with the
 		// default branch's, where it started from.
 		from := run.Branch

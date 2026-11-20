@@ -739,7 +739,6 @@ var catalog = map[string]string{
 	"merge request !%d conflicted with %s only where both sides added lines: rendimiento joined them in %s (%s), and tests it now": "el merge request !%d chocaba con %s solo donde los dos lados agregaron líneas: rendimiento las juntó en %s (%s), y ahora lo prueba",
 	"merge request !%d conflicts with %s in %s: not merged": "el merge request !%d choca con %s en %s: no se integró",
 	"GitLab merges it when its pipeline succeeds": "GitLab lo integrará cuando pase su integración continua",
-	"fixes are declared on GitHub apps only yet": "los arreglos se declaran solo en aplicaciones de GitHub, por ahora",
 
 	// Forjas: Bitbucket Cloud (internal/api/bitbucket.go, Ruta 102).
 	"Bitbucket cannot be connected on this platform": "en esta plataforma no se puede conectar Bitbucket",
@@ -756,4 +755,14 @@ var catalog = map[string]string{
 	// The same, for Bitbucket apps (inForjaWords, internal/platform/fusion.go).
 	"pull request #%d waits for what Bitbucket asks of it (a review, a check): not merged": "la solicitud de incorporación n.º %d espera lo que Bitbucket le pide (una revisión, una comprobación): no se integró",
 	"Bitbucket did not open the pull request: %s": "Bitbucket no abrió la solicitud de incorporación: %s",
+	// The words of other forjas (inForjaWords), outside merging.
+	"GitLab did not close the merge request: %s": "GitLab no cerró el merge request: %s",
+	"GitLab did not delete the branch: %s": "GitLab no borró la rama: %s",
+	"Bitbucket did not close the pull request: %s": "Bitbucket no cerró la solicitud de incorporación: %s",
+	"Bitbucket did not delete the branch: %s": "Bitbucket no borró la rama: %s",
+	"**Preview of !%d:** deleted, %s.": "**Vista previa de !%d:** borrada, %s.",
+	"to make room for a newer merge request's copy": "para dejar lugar a la copia de un merge request más nuevo",
+	"the merge request was closed": "se cerró el merge request",
+	"This merge request's copy. It is deleted when the merge request is closed, or after %d days without a push.": "La copia de este merge request. Se borra cuando el merge request se cierra, o después de %d días sin un envío.",
+	"**Preview of !%d:** %s\n\nIt shows commit `%s` (run [#%d](%s/apps/%s/runs/%d)). It is deleted when this merge request is closed or merged, or on %s if nothing is pushed before.": "**Vista previa de !%d:** %s\n\nMuestra el commit `%s` (ejecución [#%d](%s/apps/%s/runs/%d)). Se borra cuando este merge request se cierre o se integre, o el %s si antes no se envía nada.",
 }

@@ -454,7 +454,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	// The apps' declared fixes run in the build namespace too, each in a pod
 	// of its own (the coding agent's run_fix, the run page's button, and
 	// Renovate's branches by themselves).
-	fixes := &arreglos.Service{Exec: executor, Repos: holder, Store: st, MaxTimeout: stepTimeout}
+	fixes := &arreglos.Service{Exec: executor, Repos: p.Repos(), Store: st, MaxTimeout: stepTimeout}
 	p.Fixes = fixes
 	// Runs of different apps go side by side (one per app, so an app's
 	// releases keep their order); MAX_PARALLEL_STEPS still bounds the load.
@@ -464,6 +464,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	renovateRunner := &renovate.Runner{
 		Kube: clientset, Namespace: executor.Namespace, ExcludeNodes: executor.ExcludeNodes,
 		Store: st, GitHub: holder, Log: log,
+		Forjas: map[string]renovate.Connection{gitlab.Name: gitlabForja, bitbucket.Name: bitbucketForja},
 	}
 
 	srv := &api.Server{
@@ -719,9 +720,9 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	// agent does the encargos it is sent, through the AI gateway, within each
 	// organization's caps. One process runs them at a time (a lock in Postgres).
 	if runs("agents") {
-		diag := &agentes.Diagnostician{Store: st, Model: srv.IA, Logs: srv.StepLogText, Changes: holder,
+		diag := &agentes.Diagnostician{Store: st, Model: srv.IA, Logs: srv.StepLogText, Changes: p.Repos(),
 			Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "agents")}
-		coder := &agentes.Coder{Store: st, Repos: holder, Model: srv.IA, Logs: srv.StepLogText, BaseURL: env("BASE_URL", "http://localhost:8080"),
+		coder := &agentes.Coder{Store: st, Repos: p.Repos(), Model: srv.IA, Logs: srv.StepLogText, BaseURL: env("BASE_URL", "http://localhost:8080"),
 			Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "agents")}
 		coder.AlEntregar = p.PullsForDelivery
 		coder.Fixes = fixes

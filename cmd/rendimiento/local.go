@@ -304,8 +304,8 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 		}
 		defer release()
 		lang := env("NOTIFY_LANG", "en")
-		diag := &agentes.Diagnostician{Store: st, Model: srv.IA, Logs: srv.StepLogText, Changes: holder, Lang: lang, Log: log.With("component", "agents")}
-		coder := &agentes.Coder{Store: st, Repos: holder, Model: srv.IA, Logs: srv.StepLogText, BaseURL: baseURL, Lang: lang, Log: log.With("component", "agents")}
+		diag := &agentes.Diagnostician{Store: st, Model: srv.IA, Logs: srv.StepLogText, Changes: p.Repos(), Lang: lang, Log: log.With("component", "agents")}
+		coder := &agentes.Coder{Store: st, Repos: p.Repos(), Model: srv.IA, Logs: srv.StepLogText, BaseURL: baseURL, Lang: lang, Log: log.With("component", "agents")}
 		coder.AlEntregar = p.PullsForDelivery
 		est := &agentes.Estimator{Store: st, Model: srv.IA, Lang: lang, Log: log.With("component", "agents")}
 		go est.Run(ctx)

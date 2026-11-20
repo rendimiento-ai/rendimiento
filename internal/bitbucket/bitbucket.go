@@ -74,6 +74,14 @@ type Connections interface {
 	BitbucketConnections(ctx context.Context) ([]*Connection, error)
 }
 
+// TokenLocker, when the Connections has it (the store's does, with a
+// Postgres advisory lock), holds a connection's token refresh for one
+// process at a time: the refresh token changes on each use, so two
+// refreshing at once would clash.
+type TokenLocker interface {
+	LockToken(ctx context.Context, id int64) (release func(), err error)
+}
+
 // ErrNotConnected is a Bitbucket app without its connection.
 var ErrNotConnected = errors.New("Bitbucket is not connected yet: connect it on the Environment page")
 

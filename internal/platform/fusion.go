@@ -273,35 +273,19 @@ func (p *Platform) ApproveLinks(ctx context.Context, links []string, who string)
 	}
 }
 
-// branchLink reads the repository and branch out of a GitHub link to a
-// branch: .../pull/new/<branch> or .../tree/<branch>.
-func branchLink(link string) (repo, branch string, ok bool) {
-	rest, found := strings.CutPrefix(strings.TrimSpace(link), "https://github.com/")
-	if !found {
-		return "", "", false
-	}
-	rest, _, _ = strings.Cut(rest, "?")
-	rest, _, _ = strings.Cut(rest, "#")
-	parts := strings.SplitN(rest, "/", 3)
-	if len(parts) < 3 {
-		return "", "", false
-	}
-	for _, prefix := range []string{"pull/new/", "tree/"} {
-		if b, found := strings.CutPrefix(parts[2], prefix); found && b != "" {
-			return parts[0] + "/" + parts[1], strings.TrimSuffix(b, "/"), true
-		}
-	}
-	return "", "", false
-}
+// branchLink reads the repository and branch out of a link to a branch on
+// any forja (see forja.BranchOfLink).
+func branchLink(link string) (repo, branch string, ok bool) { return forja.BranchOfLink(link) }
 
-// inForjaWords says a merge's message in the words of the app's forja: on
-// GitLab, merge request !7 where GitHub says pull request #7; on Bitbucket,
-// the same pull request #7 but Bitbucket's name (the Spanish catalog has
-// them all).
+// inForjaWords says a message about a change in the words of the app's
+// forja: on GitLab, merge request !7 where GitHub says pull request #7 (and
+// a preview of !7); on Bitbucket, the same pull request #7 but Bitbucket's
+// name (the Spanish catalog has them all).
 func inForjaWords(app *store.App, msg string) string {
 	switch app.ForjaOf() {
 	case "gitlab":
-		return strings.NewReplacer("pull request #", "merge request !", "the pull request", "the merge request", "GitHub", "GitLab").Replace(msg)
+		return strings.NewReplacer("pull request #", "merge request !", "the pull request", "the merge request", "GitHub", "GitLab",
+			"**Preview of #", "**Preview of !", "pull request", "merge request").Replace(msg)
 	case "bitbucket":
 		return strings.ReplaceAll(msg, "GitHub", "Bitbucket")
 	}

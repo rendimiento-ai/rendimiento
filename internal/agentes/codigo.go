@@ -56,7 +56,8 @@ type Fixes interface {
 	Run(ctx context.Context, req arreglos.Request) (arreglos.Result, error)
 }
 
-// Repos is the apps' repositories on GitHub, as the platform's GitHub App.
+// Repos is the apps' repositories on their forja (GitHub, GitLab or
+// Bitbucket: the platform's Repos sends each call to its own).
 type Repos interface {
 	Files(ctx context.Context, installation int64, repo, ref string, maxFile int) (map[string][]byte, error)
 	BranchSHA(ctx context.Context, installation int64, repo, branch string) (string, error)
@@ -72,7 +73,7 @@ type Repos interface {
 }
 
 // Coder is the platform's coding agent: it does encargos on a branch of the
-// app's repository, through GitHub, and tests them with the platform's own
+// app's repository, through its forja's API, and tests them with the platform's own
 // CI, the way a person's agent does; it never runs code itself, and never
 // touches the default branch. It stops at twice the encargo's estimate and
 // gives it to the person's own agent with what it did and what is left.
@@ -252,10 +253,6 @@ func (j *job) work(ctx context.Context) error {
 	app, err := c.Store.GetApp(ctx, j.e.App)
 	if err != nil || app.OrgID != j.e.OrgID {
 		return fmt.Errorf("no app %q", j.e.App)
-	}
-	if app.ForjaOf() != store.ForjaGitHub {
-		// It writes through GitHub's API; on GitLab, a person's agent does it.
-		return fmt.Errorf("the coding agent works on GitHub apps only yet: %s is on %s", app.Name, app.ForjaOf())
 	}
 	j.app = app
 	// An encargo about a run that failed on another branch is about that
@@ -1061,10 +1058,11 @@ func (j *job) deliver(ctx context.Context, summary string) (string, bool) {
 	}
 	result := strings.TrimSpace(summary) + "\n\n" + c.say("Gastó %s (estimado: %s).", "Spent %s (estimated: %s).", ia.Dollars(j.spent), ia.Dollars(j.budget/2))
 	// The pull request goes into the branch it was made from.
-	links := []string{fmt.Sprintf("https://github.com/%s/pull/new/%s", j.app.Repo, j.branch)}
+	into := ""
 	if j.from != j.app.DefaultBranch && !j.same {
-		links[0] = fmt.Sprintf("https://github.com/%s/compare/%s...%s?expand=1", j.app.Repo, j.from, j.branch)
+		into = j.from
 	}
+	links := []string{forja.NewPullURL(j.app.ForjaOf(), j.app.Repo, into, j.branch)}
 	if c.BaseURL != "" {
 		links = append(links, fmt.Sprintf("%s/apps/%s/runs/%d", strings.TrimRight(c.BaseURL, "/"), j.app.Name, j.lastRun.ID))
 	}
