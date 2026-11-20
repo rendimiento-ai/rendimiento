@@ -60,3 +60,36 @@ export function pullLabel(app: Pick<App, "forja">, n: number | string): string {
 export function pullWord(app: Pick<App, "forja">): string {
   return forjaOf(app) === "gitlab" ? t("merge request") : t("pull request");
 }
+
+/** A forja a person can sign in with here: GitHub, one GitLab (by its address) or Bitbucket (any of its workspaces). */
+export interface ForjaDeEntrada { forja: Forja; host: string; label: string }
+
+/**
+ * The forjas people sign in with here, from /api/me/identities: GitHub when its App is set up, each GitLab, and Bitbucket
+ * once (an account signs in through any workspace).
+ */
+export function forjasDeEntrada(ids: { github?: boolean; gitlab: { host: string }[]; bitbucket?: { host: string }[] }): ForjaDeEntrada[] {
+  const out: ForjaDeEntrada[] = [];
+  if (ids.github) out.push({ forja: "github", host: "github.com", label: "GitHub" });
+  for (const g of ids.gitlab) out.push({ forja: "gitlab", host: g.host.split("/")[0], label: `GitLab (${g.host})` });
+  const bb = ids.bitbucket ?? [];
+  if (bb.length > 0) out.push({ forja: "bitbucket", host: "bitbucket.org", label: `Bitbucket (${bb.map((b) => b.host).join(", ")})` });
+  return out;
+}
+
+/**
+ * The name a person signs in as, with an account on a forja no one linked to them: ana on GitHub, ana@gitlab.com (the
+ * GitLab's host), ana@bitbucket.org. Members and ALLOWED_USERS take the same names.
+ */
+export function loginEn(f: Pick<ForjaDeEntrada, "forja" | "host">, user: string): string {
+  const u = user.trim().replace(/^@/, "");
+  if (!u) return "";
+  return f.forja === "github" ? u : `${u}@${f.forja === "bitbucket" ? "bitbucket.org" : f.host.toLowerCase()}`;
+}
+
+/** The forja a member's own name signs in with (the server's claveDeLogin): no "@" is GitHub's. */
+export function forjaDeLogin(login: string): Forja {
+  const at = login.lastIndexOf("@");
+  if (at < 0) return "github";
+  return login.slice(at + 1).toLowerCase() === "bitbucket.org" ? "bitbucket" : "gitlab";
+}

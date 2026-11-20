@@ -37,7 +37,10 @@ export function Forjas() {
               {data.github.htmlUrl && <a className="small" href={data.github.htmlUrl} target="_blank" rel="noreferrer">{t("Manage on GitHub")}</a>}
             </>
           ) : (
-            <p className="small" style={{ margin: 0 }}>{t("Create the GitHub App from the setup page to connect it.")} <a href="/setup">{t("Set up GitHub")}</a></p>
+            <>
+              <p className="small" style={{ margin: 0 }}>{t("With a GitHub App, created with one click (its manifest); then you pick which repositories it sees.")}</p>
+              {session.operator && <div><a className="btn" href="/api/setup/github">{t("Connect GitHub")}</a></div>}
+            </>
           )}
         </article>
 
@@ -55,6 +58,11 @@ export function Forjas() {
   );
 }
 
+/** The warning's second line: who can no longer sign in once the forja goes (their only account is there). */
+function pierden(members: string[]): string {
+  return members.length === 0 ? "" : "\n\n" + t("They can no longer sign in, since their only account is there: {who}.", { who: members.join(", ") });
+}
+
 /** A GitLab connected here: its address, who rendimiento acts as, and its apps. */
 function GitLabTarjeta({ g, onChange }: { g: GitLabConnection; onChange: () => void }) {
   const conexion = useConexion();
@@ -65,9 +73,14 @@ function GitLabTarjeta({ g, onChange }: { g: GitLabConnection; onChange: () => v
     forjasApi.authorizeGitLab(g.id).then((r) => { location.href = r.authorizeUrl; }, (e) => { setBusy(false); setErr(e); });
   };
   const remove = () => {
-    if (!confirm(t("Forget the GitLab at {host}? Its webhooks stop being heard.", { host: g.host }))) return;
     setBusy(true); setErr(undefined);
-    forjasApi.removeGitLab(g.id).then(onChange, (e) => { setBusy(false); setErr(e); });
+    forjasApi.accesoGitLab(g.id).then((a) => {
+      setBusy(false);
+      if (a.admins.length > 0) return setErr(new Error(t("{who} administers here and signs in only with this GitLab. Link another account to them (Your accounts) or take away their role first.", { who: a.admins.join(", ") })));
+      if (!confirm(t("Forget the GitLab at {host}? Its webhooks stop being heard.", { host: g.host }) + pierden(a.members))) return;
+      setBusy(true);
+      forjasApi.removeGitLab(g.id).then(onChange, (e) => { setBusy(false); setErr(e); });
+    }, (e) => { setBusy(false); setErr(e); });
   };
   return (
     <article className="forja-tarjeta">
@@ -168,9 +181,14 @@ function BitbucketTarjeta({ b, onChange }: { b: BitbucketConnection; onChange: (
     forjasApi.authorizeBitbucket(b.id).then((r) => { location.href = r.authorizeUrl; }, (e) => { setBusy(false); setErr(e); });
   };
   const remove = () => {
-    if (!confirm(t("Forget the Bitbucket workspace {workspace}? Its webhooks stop being heard.", { workspace: b.workspace }))) return;
     setBusy(true); setErr(undefined);
-    forjasApi.removeBitbucket(b.id).then(onChange, (e) => { setBusy(false); setErr(e); });
+    forjasApi.accesoBitbucket(b.id).then((a) => {
+      setBusy(false);
+      if (a.admins.length > 0) return setErr(new Error(t("{who} administers here and signs in only with Bitbucket. Link another account to them (Your accounts) or take away their role first.", { who: a.admins.join(", ") })));
+      if (!confirm(t("Forget the Bitbucket workspace {workspace}? Its webhooks stop being heard.", { workspace: b.workspace }) + pierden(a.members))) return;
+      setBusy(true);
+      forjasApi.removeBitbucket(b.id).then(onChange, (e) => { setBusy(false); setErr(e); });
+    }, (e) => { setBusy(false); setErr(e); });
   };
   return (
     <article className="forja-tarjeta">

@@ -36,8 +36,11 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | GET | `/api/auth/login` | redirige al OAuth de GitHub |
 | GET | `/api/auth/callback` | la respuesta de OAuth; crea la sesión |
 | POST | `/api/auth/logout` | termina la sesión |
-| GET | `/api/setup/status` | si la aplicación de GitHub está configurada (`configured`, y `github`: si *Iniciar sesión con GitHub* lleva a algún lado), y los GitLab y espacios de trabajo de Bitbucket con los que se puede iniciar sesión (`signIn`) |
-| GET | `/api/setup/github` | inicia el flujo de manifiesto de la aplicación (necesita `?token=SETUP_TOKEN`) |
+| GET | `/api/setup/status` | si la plataforma está instalada (`configured`; si no, `install`, el estado de la [página de instalación](../environment/deploy.md#installing)), si *Iniciar sesión con GitHub* lleva a algún lado (`github`), y los GitLab y espacios de trabajo de Bitbucket con los que se puede iniciar sesión (`signIn`) |
+| POST | `/api/setup/token` | `{token}`: instalar, paso 1; la ficha de instalación, comparada en tiempo constante, abre una sesión de instalación (una cookie firmada). `404` una vez instalada |
+| POST | `/api/setup/gitlab` | instalar, paso 2 con un GitLab `{baseUrl, applicationId, applicationSecret}`; necesita la sesión de instalación; responde dónde autorizarlo |
+| POST | `/api/setup/bitbucket` | instalar, paso 2 con un espacio de trabajo de Bitbucket `{workspace, consumerKey, consumerSecret}`; necesita la sesión de instalación |
+| GET | `/api/setup/github` | inicia el flujo de manifiesto de la aplicación (la sesión de instalación, `?token=SETUP_TOKEN`, o la sesión de un administrador de la plataforma) |
 | POST | `/mcp` | la puerta MCP para agentes ([la Ruta](../guide/ruta.md)); necesita una llave de agente como token portador, no una sesión |
 | GET | `/api/setup/github/callback` | GitHub devuelve las credenciales de la aplicación nueva; se guardan en un Secret |
 
@@ -58,11 +61,13 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | GET | `/api/forjas` | dónde vive el código de las aplicaciones: GitHub, los GitLab y los espacios de trabajo de Bitbucket conectados (operadores) |
 | POST | `/api/forjas/gitlab` | conectar un GitLab `{baseUrl, applicationId, applicationSecret}`; contesta dónde autorizarlo |
 | POST | `/api/forjas/gitlab/{id}/authorize` | autorizar de nuevo una conexión con GitLab |
-| DELETE | `/api/forjas/gitlab/{id}` | olvidar una conexión con GitLab que ninguna aplicación usa |
+| DELETE | `/api/forjas/gitlab/{id}` | olvidar una conexión con GitLab que ninguna aplicación usa; `409` cuando es la última forja con la que entra un administrador |
+| GET | `/api/forjas/gitlab/{id}/acceso` | quién perdería el acceso sin ella (`members`, y entre ellos `admins`) |
 | GET | `/api/forjas/gitlab/{id}/projects` | los proyectos de una conexión con GitLab, para Nueva aplicación |
 | POST | `/api/forjas/bitbucket` | conectar un espacio de trabajo de Bitbucket `{workspace, consumerKey, consumerSecret}`; contesta dónde autorizarlo |
 | POST | `/api/forjas/bitbucket/{id}/authorize` | autorizar de nuevo una conexión con Bitbucket |
-| DELETE | `/api/forjas/bitbucket/{id}` | olvidar una conexión con Bitbucket que ninguna aplicación usa |
+| DELETE | `/api/forjas/bitbucket/{id}` | olvidar una conexión con Bitbucket que ninguna aplicación usa; `409` cuando es la última forja con la que entra un administrador |
+| GET | `/api/forjas/bitbucket/{id}/acceso` | quién perdería el acceso sin ella (`members`, y entre ellos `admins`) |
 | GET | `/api/forjas/bitbucket/{id}/repos` | los repositorios de un espacio de trabajo de Bitbucket, para Nueva aplicación |
 | GET | `/api/me/identities` | sus cuentas en otras forjas, ligadas a usted |
 | POST | `/api/me/identities/gitlab/{id}` | ligar su cuenta de un GitLab; contesta dónde autorizarla |

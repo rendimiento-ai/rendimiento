@@ -312,11 +312,10 @@ function EscenaTerminal({ command, listo, direccion }: { command: string; listo:
   );
 }
 
-// The chart of the latest release, with the three values a cluster has to say (the book's example ones).
+// The chart of the latest release, with the two values a cluster has to say (the book's example ones).
 const helm = `helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento \\
   -n rendimiento-system --create-namespace \\
   --set baseURL=https://rendimiento.example.com \\
-  --set firstAdmins=your-github-login \\
   --set registry.host=registry.example.com`;
 
 /**
@@ -340,7 +339,7 @@ function Instalar() {
       </button>
     </div>
   );
-  const github = { titulo: t("Connect GitHub"), texto: t("Choose the repositories rendimiento may see, and deploy the first one. GitLab and Bitbucket connect afterwards, on the Environment page.") };
+  const github = { titulo: t("Connect where your code lives"), texto: t("GitHub, GitLab or Bitbucket: with the setup token, the setup page connects it and makes you its first administrator. The others connect afterwards, on the Environment page.") };
   const pasos = {
     windows: [
       { titulo: t("Open it"), texto: t("An assistant turns WSL 2 on, downloads rendimiento (about 174 MB) and starts it.") },
@@ -353,7 +352,7 @@ function Instalar() {
       { titulo: t("It starts with the computer"), texto: t("A service of your own user, without root. One command removes it.") },
     ],
     kubernetes: [
-      { titulo: t("Run the command"), texto: t("With your address, your GitHub username and your image registry in place of the example ones.") },
+      { titulo: t("Run the command"), texto: t("With your address and your image registry in place of the example ones.") },
       github,
       { titulo: t("Each app gets its address"), texto: t("Under the same domain, with a certificate when the cluster has cert-manager.") },
     ],

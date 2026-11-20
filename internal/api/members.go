@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"regexp"
 
+	"github.com/rendimiento-ai/rendimiento/internal/i18n"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -12,13 +13,15 @@ import (
 // to 39 characters.
 var githubLogin = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9]|-[A-Za-z0-9]){0,38}$`)
 
-// gitlabLogin is a GitLab account no one linked to themselves, as it signs
-// in: its username at its GitLab's address (ana@gitlab.com; see
-// gitlab.Login).
+// gitlabLogin is a GitLab or Bitbucket account no one linked to
+// themselves, as it signs in: its username at its forja's address
+// (ana@gitlab.com, ana@git.example.com, ana@bitbucket.org; see
+// gitlab.Login and bitbucket.Login).
 var gitlabLogin = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.-]{0,254}@[a-z0-9](?:[a-z0-9.-]{0,252}[a-z0-9])?(?::[0-9]{1,5})?$`)
 
 // memberLogin is a name a person can be added by: their GitHub username,
-// or a GitLab account's user@host.
+// or a GitLab or Bitbucket account's user@host. ALLOWED_USERS takes the
+// same names.
 func memberLogin(who string) bool {
 	return githubLogin.MatchString(who) || gitlabLogin.MatchString(who)
 }
@@ -39,12 +42,13 @@ func (s *Server) listMembers(w http.ResponseWriter, r *http.Request, _ string) {
 	writeJSON(w, people)
 }
 
-// putMember adds a person by their GitHub login, or changes their role.
+// putMember adds a person by the name they sign in with (ana on GitHub,
+// ana@gitlab.com, ana@bitbucket.org), or changes their role.
 // They can sign in from then on.
 func (s *Server) putMember(w http.ResponseWriter, r *http.Request, login string) {
 	who := r.PathValue("login")
 	if !memberLogin(who) {
-		httpError(w, http.StatusBadRequest, "that is not a GitHub username")
+		httpError(w, http.StatusBadRequest, i18n.M("%s is not a username: write ana for GitHub, ana@gitlab.com (or your GitLab's address) for GitLab, ana@bitbucket.org for Bitbucket", who))
 		return
 	}
 	var in struct {

@@ -1353,7 +1353,16 @@ export const api = {
     /** The GitLabs and Bitbucket workspaces one can sign in with, besides GitHub (host is a workspace's slug for Bitbucket). */
     signIn?: { forja: Forja; id: number; host: string }[];
     /** Whether "Sign in with GitHub" leads anywhere: the GitHub App is set up. Older servers leave it out. */
-    github?: boolean }>("GET", "/api/setup/status"),
+    github?: boolean;
+    /** The setup page's state, while the platform is not installed (internal/api/instalar.go). */
+    install?: InstallState }>("GET", "/api/setup/status"),
+  /** Install, step 1: the setup token opens an install session in this browser. */
+  setupToken: (token: string) => request<void>("POST", "/api/setup/token", { token }),
+  /** Install, step 2: a GitLab or a Bitbucket workspace, with the install session instead of an administrator's. */
+  setupGitLab: (baseUrl: string, applicationId: string, applicationSecret: string) =>
+    request<{ authorizeUrl: string }>("POST", "/api/setup/gitlab", { baseUrl, applicationId, applicationSecret }),
+  setupBitbucket: (workspace: string, consumerKey: string, consumerSecret: string) =>
+    request<{ authorizeUrl: string }>("POST", "/api/setup/bitbucket", { workspace, consumerKey, consumerSecret }),
   publicActivity: () => request<PublicActivity>("GET", "/api/public/activity"),
   /** The accounts this organization creates apps from, and those its administrator could connect (the App on their own GitHub account). */
   installations: () => request<{ installations: Installation[]; connectable: Installation[]; installURL: string }>("GET", "/api/installations"),
@@ -1681,6 +1690,21 @@ export interface EnvReport {
 
 // ---- where the apps' code lives (internal/api/forjas.go) ----
 
+/** The setup page's state (api.installView): this browser's install session, what can be connected, and what is. */
+export interface InstallState {
+  session: boolean;
+  github: boolean;
+  canGitLab: boolean;
+  canBitbucket: boolean;
+  gitlabCallback: string;
+  bitbucketCallback: string;
+  gitlab: { id: number; host: string; authorized: boolean }[];
+  bitbucket: { id: number; host: string; authorized: boolean }[];
+}
+
+/** Who would lose access if a forja's connection went: everyone, and the administrators among them. */
+export interface ForjaAcceso { members: string[]; admins: string[] }
+
 /** A forja (a forge) rendimiento works with. */
 export type Forja = "github" | "gitlab" | "bitbucket";
 
@@ -1762,13 +1786,15 @@ export const forjasApi = {
     request<{ connection: GitLabConnection; authorizeUrl: string }>("POST", "/api/forjas/gitlab", { baseUrl, applicationId, applicationSecret }),
   authorizeGitLab: (id: number) => request<{ authorizeUrl: string }>("POST", `/api/forjas/gitlab/${id}/authorize`),
   removeGitLab: (id: number) => request<void>("DELETE", `/api/forjas/gitlab/${id}`),
+  accesoGitLab: (id: number) => request<ForjaAcceso>("GET", `/api/forjas/gitlab/${id}/acceso`),
   projects: (id: number) => request<GitLabProject[]>("GET", `/api/forjas/gitlab/${id}/projects`),
   connectBitbucket: (workspace: string, consumerKey: string, consumerSecret: string) =>
     request<{ connection: BitbucketConnection; authorizeUrl: string }>("POST", "/api/forjas/bitbucket", { workspace, consumerKey, consumerSecret }),
   authorizeBitbucket: (id: number) => request<{ authorizeUrl: string }>("POST", `/api/forjas/bitbucket/${id}/authorize`),
   removeBitbucket: (id: number) => request<void>("DELETE", `/api/forjas/bitbucket/${id}`),
+  accesoBitbucket: (id: number) => request<ForjaAcceso>("GET", `/api/forjas/bitbucket/${id}/acceso`),
   bitbucketRepos: (id: number) => request<BitbucketRepository[]>("GET", `/api/forjas/bitbucket/${id}/repos`),
-  identities: () => request<{ login: string; identities: Identity[]; gitlab: { id: number; host: string }[]; bitbucket?: { id: number; host: string }[] }>("GET", "/api/me/identities"),
+  identities: () => request<{ login: string; identities: Identity[]; github?: boolean; gitlab: { id: number; host: string }[]; bitbucket?: { id: number; host: string }[] }>("GET", "/api/me/identities"),
   link: (id: number, forja: "gitlab" | "bitbucket" = "gitlab") => request<{ authorizeUrl: string }>("POST", `/api/me/identities/${forja}/${id}`),
   unlink: (i: Identity) =>
     request<void>("DELETE", `/api/me/identities?${new URLSearchParams({ forja: i.forja, baseUrl: i.baseUrl, externalId: i.externalId })}`),

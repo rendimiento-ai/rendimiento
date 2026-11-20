@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Senales } from "../components/senales";
 import { Link, useSearchParams } from "react-router-dom";
-import { api, session, timeAgo, type MemberRole, type Org } from "../api";
+import { api, forjasApi, session, timeAgo, type MemberRole, type Org } from "../api";
+import { forjaName, forjasDeEntrada, loginEn, type ForjaDeEntrada } from "../forja";
 import { ErrorBox, usePoll } from "../components/ui";
 import { t } from "../i18n";
 import { memberRoleLabel } from "../components/cuenta";
@@ -36,7 +37,7 @@ function Inicial({ login, size = 34 }: { login: string; size?: number }) {
 
 /**
  * The people in the organization, by role, on the left; on the right the one chosen, with their role and what it
- * lets them do. An administrator adds someone by their GitHub username (they can sign in from then on), changes a
+ * lets them do. An administrator adds someone by their account on a connected forja (they can sign in from then on), changes a
  * role, or removes them; there is always at least one administrator.
  */
 export function Members({ me, role, org }: { me: string; role: MemberRole; org?: Org }) {
@@ -192,17 +193,36 @@ function DemoLinks({ org }: { org?: Org }) {
   );
 }
 
-/** The form to add someone by their GitHub username, with the role to give them. */
+/**
+ * The form to add someone: the forja their account is on (only those connected here), their username there, and the role
+ * to give them. It says the name they will come in as (ana, ana@gitlab.com, ana@bitbucket.org) and with which button.
+ */
 function AddMember({ onDone, onCancel }: { onDone: (login: string) => void; onCancel: () => void }) {
-  const [login, setLogin] = useState("");
+  const [forjas, setForjas] = useState<ForjaDeEntrada[]>();
+  const [elegida, setElegida] = useState(0);
+  const [user, setUser] = useState("");
   const [newRole, setNewRole] = useState<MemberRole>("guest");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>();
+  useEffect(() => { forjasApi.identities().then((ids) => setForjas(forjasDeEntrada(ids)), setErr); }, []);
+  const f = forjas?.[elegida];
+  const login = f ? loginEn(f, user) : "";
   return (
     <main className="ld-detalle">
       <h2 className="ld-titulo">{t("Add someone")}</h2>
-      <label className="field"><span>{t("GitHub username")}</span>
-        <input value={login} autoFocus onChange={(e) => setLogin(e.target.value.trim())} placeholder="octocat" />
+      <div className="stack" style={{ gap: 6 }}>
+        <span className="small">{t("Their account is on")}</span>
+        <div className="row" role="radiogroup" aria-label={t("Their account is on")} style={{ gap: 6, flexWrap: "wrap" }}>
+          {(forjas ?? []).map((x, i) => (
+            <button key={`${x.forja}-${x.host}`} type="button" role="radio" aria-checked={i === elegida} className={`chip-btn${i === elegida ? " on" : ""}`} onClick={() => setElegida(i)}>
+              {x.label}
+            </button>
+          ))}
+        </div>
+        <span className="small muted">{t("Only the forjas connected in Environment show.")}</span>
+      </div>
+      <label className="field"><span>{f ? t("{forja} username", { forja: forjaName(f.forja) }) : t("Username")}</span>
+        <input value={user} autoFocus onChange={(e) => setUser(e.target.value.trim())} placeholder="marta" />
       </label>
       <div className="roles-elegir" role="radiogroup" aria-label={t("Role")}>
         {(["guest", "collaborator", "admin"] as MemberRole[]).map((r) => (
@@ -212,6 +232,9 @@ function AddMember({ onDone, onCancel }: { onDone: (login: string) => void; onCa
           </button>
         ))}
       </div>
+      {f && login && (
+        <p className="small" style={{ margin: 0 }}>{t("They will come in as {login}, with «Sign in with {forja}».", { login, forja: forjaName(f.forja) })}</p>
+      )}
       <ErrorBox error={err} />
       <div className="row">
         <button className="primary" disabled={busy || !login} onClick={() => {
@@ -220,7 +243,7 @@ function AddMember({ onDone, onCancel }: { onDone: (login: string) => void; onCa
         }}>{t("Add")}</button>
         <button onClick={onCancel}>{t("Cancel")}</button>
       </div>
-      <p className="small muted" style={{ margin: 0 }}>{t("They sign in with GitHub at this same address.")}</p>
+      <p className="small muted" style={{ margin: 0 }}>{t("Someone with accounts on several forjas links the others themselves, in «Your accounts»: they stay one person, with their roles and their Ruta.")}</p>
     </main>
   );
 }

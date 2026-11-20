@@ -150,7 +150,8 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	if ms, err := st.Members(ctx, store.DefaultOrg); err != nil {
 		return fmt.Errorf("members: %w", err)
 	} else if len(ms) == 0 {
-		return errors.New("nobody can sign in: set ALLOWED_USERS to your GitHub login")
+		// The setup page makes the first administrator, with the setup token.
+		log.Info("no administrators yet: whoever installs from the setup page, with the setup token, becomes the first")
 	}
 
 	llave, err := secretos.LeerLlave(keyFile)
