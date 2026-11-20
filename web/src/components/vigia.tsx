@@ -10,6 +10,7 @@ import { lang, locale, t, tn } from "../i18n";
 import { useConexion } from "../conexion";
 import { apagado } from "./conexion-aviso";
 import { ErrorBox, Switch, usePoll } from "./ui";
+import { EsqRenglones, Esqueleto, Hueso } from "./esqueleto";
 
 /** The book's page on the lookout, in the reader's language. */
 const LIBRO = lang === "es" ? "https://aprende.rendimiento.ai/guide/vigia/" : "https://learn.rendimiento.ai/guide/vigia/";
@@ -84,6 +85,7 @@ export function Vigia() {
         <a href={LIBRO} target="_blank" rel="noreferrer">{t("How it works")}</a>
       </p>
       <ErrorBox error={error ?? errPedir} />
+      {!data && !error && <EsqRenglones n={2} />}
       {data && !r && <p className="small">{data.ajuste.encendido ? t("It has not reviewed yet: its first review comes this week, or ask for one now.") : t("It is off: turn it on on the AI page, or ask for a review now.")}</p>}
       {r && (
         <p className="small muted vigia-cuando">
@@ -113,7 +115,7 @@ export function VigiaIA() {
   const [tope, setTope] = useState<number>();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>();
-  if (!data) return <ErrorBox error={error} />;
+  if (!data) return error ? <ErrorBox error={error} /> : <Esqueleto><Hueso h={170} r={14} style={{ marginTop: 16 }} /></Esqueleto>;
   const a = data.ajuste;
   const valor = tope ?? a.topeMicros / 1e6;
   const guardar = (encendido: boolean, dolares: number) => {

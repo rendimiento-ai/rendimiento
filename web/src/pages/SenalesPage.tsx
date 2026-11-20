@@ -3,6 +3,7 @@ import { api, timeAgo, type Instalacion } from "../api";
 import { locale, t } from "../i18n";
 import { ErrorBox, usePoll } from "../components/ui";
 import { Senales } from "../components/senales";
+import { EsqBloques, EsqTabla } from "../components/esqueleto";
 
 /**
  * The señales de vida, for the operators: this installation's (whether they
@@ -18,6 +19,7 @@ export function SenalesPage() {
       <Senales />
       <section style={{ marginTop: 28 }}>
         <h2>{t("Sent from here")}</h2>
+        {!data && <EsqBloques alturas={[46, 46, 46]} />}
         {data && data.enviadas.length === 0 && <div className="card empty"><p>{t("None sent yet.")}</p></div>}
         <div className="stack">
           {data?.enviadas.map((e) => (
@@ -50,6 +52,7 @@ function Recibidas() {
     <section style={{ marginTop: 28 }}>
       <h2>{t("Received from every installation")}</h2>
       <ErrorBox error={err ?? error} />
+      {!data && !error && <EsqTabla columnas={8} />}
       {data && data.length === 0 && <div className="card empty"><p>{t("No installation has sent one yet.")}</p></div>}
       {data && data.length > 0 && (
         <div style={{ overflowX: "auto" }}>

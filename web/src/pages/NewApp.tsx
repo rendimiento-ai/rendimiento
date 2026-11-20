@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, catalogApi, EXAMPLE_URL, forjasApi, session, timeAgo, type BitbucketConnection, type CatalogEntry, type Forja, type GitLabConnection, type Installation, type Need, type Proposal, type Repo, type Service, type Size } from "../api";
 import { forjaName, forjaSello, pullLabel } from "../forja";
 import { ErrorBox } from "../components/ui";
+import { Esqueleto, Hueso } from "../components/esqueleto";
 import { t } from "../i18n";
 import { useConexion } from "../conexion";
 import { apagado } from "../components/conexion-aviso";
@@ -253,7 +254,10 @@ export function NewApp() {
               <input type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t("Filter repositories")} aria-label={t("Filter repositories")} />
             </label>
           )}
-          {inst && !repos && <p className="small muted" style={{ margin: "8px 4px" }}>{t("Loading repositories…")}</p>}
+          {/* The repositories on their way: rows the height of the real ones. */}
+          {(!installs || (!!inst && !repos)) && !error && (
+            <Esqueleto className="stack">{[78, 64, 84, 58, 72, 66].map((w) => <Hueso key={w} h={48} r={10} w={`${w + 12}%`} />)}</Esqueleto>
+          )}
           {shown.map((r) => (
             <button key={r.key} className={`ld-item${repo?.key === r.key ? " on" : ""}${busy && repo?.key === r.key ? " corre" : ""}`} aria-current={repo?.key === r.key}
               disabled={busy} onClick={() => { setResult(undefined); pick(r); }}>
@@ -484,13 +488,14 @@ function Needs({ needs, onChange }: { needs: Need[]; onChange: (n: Need[]) => vo
           <button type="button" className="small" onClick={() => onChange(needs.filter((x) => x !== n))}>{t("remove")}</button>
         </div>
       ))}
-      {picking && (
+      {picking && !catalog && <Esqueleto><Hueso h={38} r={10} /></Esqueleto>}
+      {picking && catalog && (
         <select value="" onChange={(e) => {
           const entry = catalog?.find((c) => c.id === e.target.value);
           if (entry) onChange([...needs, { service: entry.id, env: entry.env }]);
         }}>
-          <option value="">{catalog ? t("Pick a service from the Services tab…") : t("Loading services…")}</option>
-          {catalog?.filter((c) => !services.some((n) => n.service === c.id)).map((c) => (
+          <option value="">{t("Pick a service from the Services tab…")}</option>
+          {catalog.filter((c) => !services.some((n) => n.service === c.id)).map((c) => (
             <option key={c.id} value={c.id}>{c.title} ({c.id}) → {c.env}</option>
           ))}
         </select>

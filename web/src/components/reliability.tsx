@@ -9,6 +9,7 @@ import {
   type App, type CheckKind, type Reliability, type ReliabilityRange, type Service, type UptimeBucket, type UptimeSeries,
 } from "../api";
 import { ErrorBox, usePoll } from "./ui";
+import { EsqBloques } from "./esqueleto";
 import { locale, t, tn } from "../i18n";
 
 const ranges: { id: ReliabilityRange; label: string }[] = [
@@ -102,7 +103,7 @@ export function ReliabilityTab({ app }: { app: App }) {
         <span className="small muted">{t("Every service is checked once a minute: its health check inside the cluster, and its public URL through Cloudflare.")}</span>
       </div>
       <ErrorBox error={error} />
-      {!data && !error && <p className="muted">{t("Loading…")}</p>}
+      {!data && !error && <EsqBloques alturas={[190, 190]} />}
       {data && (
         <div className="stack">
           {data.series.length === 0 && (

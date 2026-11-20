@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, forjasApi, type Forja, type InstallState, type Member } from "../api";
 import { ErrorBox } from "../components/ui";
+import { EsqRenglones } from "../components/esqueleto";
 import { forjaDeLogin, forjaName, forjaSello, forjasDeEntrada, loginEn, type ForjaDeEntrada } from "../forja";
 import { t } from "../i18n";
 
@@ -51,7 +52,8 @@ export function Setup() {
       <div className="lista-detalle">
         <Pasos actual={actual} conectada={install?.github ? "GitHub" : undefined} />
         <section className="ld-detalle">
-          {actual === 0 && <PasoFicha command={status?.tokenCommand ?? ""} onDone={load} />}
+          {!status && err === undefined && <EsqRenglones n={6} />}
+          {(status || err !== undefined) && actual === 0 && <PasoFicha command={status?.tokenCommand ?? ""} onDone={load} />}
           {actual === 1 && install && <PasoForja install={install} />}
           {actual === 2 && (
             <div className="stack">
@@ -226,7 +228,7 @@ function ConBitbucket({ callback }: { callback: string }) {
  */
 export function PrimerosAdmins({ me }: { me: string }) {
   const navigate = useNavigate();
-  const [members, setMembers] = useState<Member[]>([]);
+  const [members, setMembers] = useState<Member[]>();
   const [forjas, setForjas] = useState<ForjaDeEntrada[]>([]);
   const [elegida, setElegida] = useState(0);
   const [user, setUser] = useState("");
@@ -236,7 +238,7 @@ export function PrimerosAdmins({ me }: { me: string }) {
     api.members().then(setMembers, setErr);
     forjasApi.identities().then((ids) => setForjas(forjasDeEntrada(ids)), setErr);
   }, []);
-  const admins = members.filter((m) => m.role === "admin");
+  const admins = (members ?? []).filter((m) => m.role === "admin");
   const f = forjas[elegida];
   const login = f ? loginEn(f, user) : "";
   const yo = (l: string) => l.toLowerCase() === me.toLowerCase();
@@ -253,6 +255,7 @@ export function PrimerosAdmins({ me }: { me: string }) {
         <section className="ld-detalle">
           <h3 className="ld-h3">{t("Who administers")}</h3>
           <p style={{ margin: 0 }}>{t("You come in first, with the account you just authorized. Add the other administrators now or later, in Members.")}</p>
+          {!members && !err && <EsqRenglones n={2} />}
           <ul className="setup-admins">
             {admins.map((m) => (
               <li key={m.login}>

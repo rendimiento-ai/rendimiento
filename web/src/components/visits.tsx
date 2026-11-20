@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, type App, type VisitMetric, type VisitRange, type VisitReport, type VisitSession, type VisitStats, type VisitStep, type Visits } from "../api";
 import { ErrorBox, usePoll } from "./ui";
+import { EsqBloques, Esqueleto, Hueso } from "./esqueleto";
 import { TrendNote, type Trend } from "./delivery";
 import { locale, t, tn } from "../i18n";
 
@@ -269,7 +270,7 @@ function Recorrido({ app: name, tz, site, v }: { app: string; tz: string; site: 
     api.visitActivity(name, site, v.id, from, to).then(setPasos, setError);
   }, [name, site, v.id, v.firstAt, v.lastAt]);
   if (error) return <div className="vis-recorrido"><ErrorBox error={error} /></div>;
-  if (!pasos) return <div className="vis-recorrido small muted">{t("Loading…")}</div>;
+  if (!pasos) return <Esqueleto><Hueso className="esq-renglon" w="72%" /></Esqueleto>;
   const llego = pasos.find((p) => p.referrer)?.referrer;
   return (
     <div className="vis-recorrido small">
@@ -310,7 +311,7 @@ export function VisitsTab({ app }: { app: App }) {
       </div>
       <p className="small muted" style={{ margin: "-4px 0 12px" }}>{t("Counted by Umami, without cookies; the numbers refresh every few minutes.")}</p>
       <ErrorBox error={error} />
-      {!data && !error && <p className="muted">{t("Loading…")}</p>}
+      {!data && !error && <EsqBloques alturas={[360]} />}
       {data && !data.configured && (
         <div className="card">
           <p style={{ marginTop: 0 }}>{t("Visitor numbers are off: rendimiento has no Umami account to read them with.")}</p>
@@ -344,9 +345,13 @@ export function VisitsTab({ app }: { app: App }) {
   );
 }
 
-/** The dashboard's visitors panel: the last 7 days, all apps Umami counts. */
-export function VisitsPanel() {
+/**
+ * The dashboard's visitors panel: the last 7 days, all apps Umami counts. With "esqueleto", its skeleton while it
+ * comes: for a page that already knows it will show (Numbers), not the home, where it may not.
+ */
+export function VisitsPanel({ esqueleto }: { esqueleto?: boolean }) {
   const { data } = usePoll(api.visitsSummary, [], 300000);
+  if (!data && esqueleto) return <EsqBloques alturas={[380]} />;
   if (!data || !data.configured || (data.apps.length === 0 && !data.platform)) return null;
   const c = data.current, p = data.previous, own = data.platform;
   const max = Math.max(...data.apps.map((a) => a.current.visitors), own?.current.visitors ?? 0, 1);

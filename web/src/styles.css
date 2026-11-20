@@ -2614,6 +2614,12 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 @media (max-width: 760px) { .esq-u-izq { width: calc(100% - 118px); } .esq-u-der { width: 86px; } }
 /* A few lines in a small panel: the Ruta's notebook, 32px a line. */
 .esq-renglones .esq-renglon { margin: 10px 0; }
+/* A table's rows (EsqTabla), the height of the real ones; and cards one under the other (EsqBloques). */
+.esq-tabla { overflow: hidden; }
+.esq-tabla-fila { display: grid; gap: 16px; align-items: center; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.esq-bloques { display: flex; flex-direction: column; gap: 12px; }
+/* A page in silhouette inside the Mercado's phone, while its preview is made. */
+.esq-pagina { height: 100%; display: flex; flex-direction: column; gap: 12px; padding: 18px 16px; }
 .cargando-fallo { min-height: 420px; padding-top: 24px; color: var(--muted); }
 .cargando-fallo p { margin: 0 0 14px; }
 

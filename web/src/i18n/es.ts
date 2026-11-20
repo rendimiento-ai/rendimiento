@@ -394,8 +394,6 @@ export const es: Record<string, string> = {
   "listed below": "se enumeran abajo",
   "live": "en vivo",
   "LoadBalancer: anyone on the home network can reach it": "Balanceador de carga: cualquiera en la red doméstica puede acceder",
-  "Loading repositories…": "Cargando repositorios…",
-  "Loading services…": "Cargando servicios…",
   "Loading…": "Cargando…",
   "Local network": "Red local",
   "local network": "red local",

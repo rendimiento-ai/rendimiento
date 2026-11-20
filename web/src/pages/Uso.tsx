@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, session, timeAgo, type PaginaUso, type UsoView } from "../api";
 import { lang, t, tn } from "../i18n";
 import { ErrorBox, Switch, usePoll } from "../components/ui";
+import { Esqueleto, Hueso } from "../components/esqueleto";
 import { DESCONOCIDA, type Accion } from "../uso";
 
 /** The book's page on the use, in the reader's language. */
@@ -114,6 +115,7 @@ export function UsoPage() {
       <p className="sub">{t("How people move through rendimiento's own pages, so clicks can be taken away where they cost the most. Only totals per day, kept here for 90 days: never who.")}{" "}
         <a href={LIBRO} target="_blank" rel="noreferrer">{t("More in the book")}</a></p>
       <ErrorBox error={err ?? error} />
+      {!data && !error && <Esqueleto><Hueso h={232} r={14} /></Esqueleto>}
       {data && (
         <section className="card stack uso-que" data-listo="">
           <div className="row between" style={{ flexWrap: "wrap", gap: 8 }}>
@@ -150,7 +152,12 @@ export function UsoPage() {
           <button key={d} aria-pressed={dias === d} onClick={() => setDias(d)}>{tn(d, "Last {n} days", "Last {n} days")}</button>
         ))}
       </div>
-      {!data && !error && <p className="muted">{t("Loading…")}</p>}
+      {!data && !error && (
+        <Esqueleto className="stack">
+          <Hueso h={104} r={14} />
+          <div className="uso-columnas">{Array.from({ length: 4 }, (_, i) => <Hueso key={i} h={300} r={14} />)}</div>
+        </Esqueleto>
+      )}
       {data && (
         <div className="stack">
           {c && (
