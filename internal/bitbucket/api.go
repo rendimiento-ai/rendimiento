@@ -290,6 +290,17 @@ func (f *Forja) token(ctx context.Context, c *Connection, force bool) (string, e
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	// Other processes refresh it too: one at a time, and each reads what
+	// is kept again once it holds the lock.
+	if l, ok := f.Connections.(TokenLocker); ok {
+		lctx, cancel := context.WithTimeout(ctx, time.Minute)
+		release, err := l.LockToken(lctx, c.ID)
+		cancel()
+		if err != nil {
+			return "", fmt.Errorf("wait to refresh the Bitbucket token: %w", err)
+		}
+		defer release()
+	}
 	if f.Keys == nil {
 		return "", ErrNotConnected
 	}

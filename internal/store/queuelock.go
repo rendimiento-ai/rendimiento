@@ -56,3 +56,25 @@ func (s *Store) lock(ctx context.Context, key int64, every time.Duration) (relea
 		}
 	}
 }
+
+// LockToken waits until this process may refresh a forja connection's
+// OAuth token (forja "gitlab" or "bitbucket", connection id): a Postgres
+// advisory lock on a connection of its own, so two processes never refresh
+// the same token at once (the forja replaces the refresh token on each
+// use, and the second refresh would fail with the old one). Whoever gets
+// it next reads the kept token again before refreshing. release lets it
+// go; it returns ctx's error if ctx ends first.
+func (s *Store) LockToken(ctx context.Context, forja string, id int64) (release func(), err error) {
+	conn, err := s.pool.Acquire(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock(hashtext('forja-token:' || $1), $2::int)`, forja, id); err != nil {
+		conn.Release()
+		return nil, err
+	}
+	return func() {
+		_, _ = conn.Exec(context.Background(), `SELECT pg_advisory_unlock(hashtext('forja-token:' || $1), $2::int)`, forja, id)
+		conn.Release()
+	}, nil
+}

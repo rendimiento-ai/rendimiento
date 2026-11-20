@@ -1298,3 +1298,11 @@ func TestFusionSinPruebas(t *testing.T) {
 		t.Fatalf("the check after the yes: %+v %+v", c, c.Output)
 	}
 }
+
+func (f *fakeGitHub) Files(_ context.Context, _ int64, _, ref string, maxFile int) (map[string][]byte, error) {
+	return forja.FilesOf(f.tree(ref), maxFile)
+}
+func (f *fakeGitHub) CreateBranch(context.Context, int64, string, string, string) error { return nil }
+func (f *fakeGitHub) CommitFiles(context.Context, int64, string, string, string, map[string][]byte, []string) (string, error) {
+	return "", nil
+}

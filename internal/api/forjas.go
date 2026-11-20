@@ -54,6 +54,12 @@ func (g GitLabStore) GitLabConnections(ctx context.Context) ([]*gitlab.Connectio
 	return out, nil
 }
 
+// LockToken holds the connection's token refresh for this process alone
+// (see store.LockToken).
+func (g GitLabStore) LockToken(ctx context.Context, id int64) (func(), error) {
+	return g.Store.LockToken(ctx, gitlab.Name, id)
+}
+
 func toGitLab(c *store.GitLabConnection) *gitlab.Connection {
 	return &gitlab.Connection{ID: c.ID, BaseURL: c.BaseURL, ApplicationID: c.ApplicationID, Username: c.Username}
 }

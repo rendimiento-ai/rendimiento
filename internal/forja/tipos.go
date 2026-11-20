@@ -82,6 +82,9 @@ type Event struct {
 	Kind string
 	// Push is set for a push to a branch.
 	Push *Push
+	// More are the other branches of the same push, when a forja sends
+	// several in one delivery (Bitbucket does).
+	More []*Push
 	// Change is set when a pull was opened, reopened or closed.
 	Change *ChangeEvent
 }
@@ -111,4 +114,16 @@ type ChangeEvent struct {
 	// HeadRef and HeadSHA are its branch and commit; HeadRepo is the
 	// repository the branch is in ("" when the forja did not say).
 	HeadRef, HeadSHA, HeadRepo string
+}
+
+// Renovate is what Renovate needs to work on a connection's repositories
+// of a forja other than GitHub: its platform's name for Renovate (gitlab,
+// bitbucket), the API's address, a token that lasts the run, and each
+// repository in Renovate's words (group/project) with its Repo in
+// rendimiento's (git.example.com/group/project).
+type Renovate struct {
+	Platform string
+	Endpoint string
+	Token    string
+	Repos    map[string]string
 }

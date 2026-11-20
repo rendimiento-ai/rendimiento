@@ -696,6 +696,76 @@ func (f *Forja) OpenPR(ctx context.Context, installation int64, repo, base, bran
 	return &forja.Opened{Number: m.ID, HTMLURL: m.Links.HTML.Href}, nil
 }
 
+// Files is repo's text files at ref, each up to maxFile bytes (read as
+// RepoFS reads them).
+func (f *Forja) Files(ctx context.Context, installation int64, repo, ref string, maxFile int) (map[string][]byte, error) {
+	tree, err := f.RepoFS(ctx, installation, repo, ref)
+	if err != nil {
+		return nil, err
+	}
+	return forja.FilesOf(tree, maxFile)
+}
+
+// CreateBranch makes branch start at sha. One that already exists and
+// holds sha is kept (a second try goes on from the first); one that does
+// not is made again at sha.
+func (f *Forja) CreateBranch(ctx context.Context, installation int64, repo, branch, sha string) error {
+	create := func() error {
+		return f.in(ctx, installation, repo, http.MethodPost, "/refs/branches", map[string]any{"name": branch, "target": map[string]string{"hash": sha}}, nil)
+	}
+	head, err := f.BranchSHA(ctx, installation, repo, branch)
+	if forja.IsNotFound(err) {
+		return create()
+	}
+	if err != nil {
+		return err
+	}
+	if strings.HasPrefix(head, sha) || strings.HasPrefix(sha, head) {
+		return nil
+	}
+	if base, _, err := f.MergeBase(ctx, installation, repo, sha, head); err == nil && base != "" && strings.HasPrefix(sha, base) {
+		return nil
+	}
+	if err := f.DeleteBranch(ctx, installation, repo, branch); err != nil {
+		return err
+	}
+	return create()
+}
+
+// CommitFiles commits files and removals on branch in one commit
+// (Bitbucket's /src, as a form: a path with no content is removed), and
+// returns the branch's new head.
+func (f *Forja) CommitFiles(ctx context.Context, installation int64, repo, branch, message string, files map[string][]byte, remove []string) (string, error) {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	_ = mw.WriteField("message", message)
+	_ = mw.WriteField("branch", branch)
+	names := make([]string, 0, len(files))
+	for p := range files {
+		names = append(names, p)
+	}
+	sort.Strings(names)
+	for _, p := range names {
+		w, err := mw.CreateFormFile(strings.TrimPrefix(p, "/"), path.Base(p))
+		if err != nil {
+			return "", err
+		}
+		_, _ = w.Write(files[p])
+	}
+	for _, p := range remove {
+		if _, ok := files[p]; !ok {
+			_ = mw.WriteField("files", strings.TrimPrefix(p, "/"))
+		}
+	}
+	if err := mw.Close(); err != nil {
+		return "", err
+	}
+	if err := f.in(ctx, installation, repo, http.MethodPost, "/src", form{contentType: mw.FormDataContentType(), data: buf.Bytes()}, nil); err != nil {
+		return "", err
+	}
+	return f.BranchSHA(ctx, installation, repo, branch)
+}
+
 // ErrNoMergeCommit: Bitbucket's API writes commits with one parent, so
 // rendimiento cannot join a conflict there itself yet.
 var ErrNoMergeCommit = errors.New("on Bitbucket, rendimiento cannot write a merge commit yet")

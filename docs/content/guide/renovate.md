@@ -33,6 +33,10 @@ Renovate's first request for each repository reads its issues (the Dependency Da
 
 With only read access to commit statuses, rendimiento tells Renovate not to set its own (`renovate/artifacts`, `renovate/stability-days`, `renovate/merge-confidence`, `renovate/config-validation`): setting one fails, and Renovate then abandons the whole repository as `repository-changed`. rendimiento's own checks are what gate a merge. An installation granted **Commit statuses: Read and write** keeps Renovate's statuses.
 
+## GitLab and Bitbucket {#gitlab-and-bitbucket}
+
+Apps on [GitLab](gitlab.md) or [Bitbucket](bitbucket.md) with the switch on are covered too: each connection gets a pod of its own, with `platform` set to `gitlab` (and the GitLab's API as `endpoint`) or `bitbucket`, and the connection's OAuth token, refreshed first when it would not last the run. Renovate commits with git and opens merge requests (pull requests on Bitbucket) as the account that authorized the connection; rendimiento builds and checks them like any other branch, and runs the app's [declared fixes](fixes.md) on them the same way. **Other repositories** in the settings are GitHub's.
+
 ## Lockfiles
 
 When Renovate changes a dependency it also regenerates the lockfile beside it (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `poetry.lock`, `go.sum`…): the Renovate image installs the right tool (node and npm, Python and Poetry…) inside the pod as it needs it and runs it there. For that the pod needs nothing more than the build namespace already allows: the internet (the package registries and the tools' downloads) and a writable `/tmp`.

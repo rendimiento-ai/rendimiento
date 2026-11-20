@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/rendimiento-ai/rendimiento/internal/arreglos"
+	"github.com/rendimiento-ai/rendimiento/internal/forja"
 	"github.com/rendimiento-ai/rendimiento/internal/i18n"
 	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
@@ -205,8 +206,8 @@ func (s *Server) runFix(w http.ResponseWriter, r *http.Request, login string) {
 }
 
 // addFix opens a branch from the default one that declares the recipe the
-// offer proposes in rendimiento.yaml; the person opens its pull request
-// and merges it.
+// offer proposes in rendimiento.yaml, on the app's forja; the person opens
+// its pull request (merge request on GitLab) and merges it.
 func (s *Server) addFix(w http.ResponseWriter, r *http.Request, _ string) {
 	run, app, ok := s.fixRunApp(w, r)
 	if !ok {
@@ -217,12 +218,9 @@ func (s *Server) addFix(w http.ResponseWriter, r *http.Request, _ string) {
 		httpError(w, http.StatusConflict, i18n.M("this run's failure has no fix to declare"))
 		return
 	}
-	if app.ForjaOf() != store.ForjaGitHub {
-		httpError(w, http.StatusConflict, i18n.M("fixes are declared on GitHub apps only yet"))
-		return
-	}
 	ctx := r.Context()
-	raw, err := s.GitHub.FileAt(ctx, app.InstallationID, app.Repo, spec.FileName, app.DefaultBranch)
+	repos := s.Platform.Repos()
+	raw, err := repos.FileAt(ctx, app.InstallationID, app.Repo, spec.FileName, app.DefaultBranch)
 	if err != nil {
 		httpError(w, http.StatusBadGateway, err.Error())
 		return
@@ -233,23 +231,23 @@ func (s *Server) addFix(w http.ResponseWriter, r *http.Request, _ string) {
 		return
 	}
 	branch := "fix/declare-" + o.Add.Name
-	base, err := s.GitHub.BranchSHA(ctx, app.InstallationID, app.Repo, app.DefaultBranch)
+	base, err := repos.BranchSHA(ctx, app.InstallationID, app.Repo, app.DefaultBranch)
 	if err != nil {
 		httpError(w, http.StatusBadGateway, err.Error())
 		return
 	}
-	if err := s.GitHub.CreateBranch(ctx, app.InstallationID, app.Repo, branch, base); err != nil {
+	if err := repos.CreateBranch(ctx, app.InstallationID, app.Repo, branch, base); err != nil {
 		httpError(w, http.StatusConflict, i18n.M("could not open branch %s: %s", branch, err.Error()))
 		return
 	}
 	msg := fmt.Sprintf("Declare the %s fix in rendimiento.yaml\n\nIt regenerates %s in %s (the %s recipe): run #%d failed because it no longer matched.\n",
 		o.Add.Name, o.Stale.File, o.Add.Path, o.Add.Recipe, run.ID)
-	if _, err := s.GitHub.CommitFiles(ctx, app.InstallationID, app.Repo, branch, msg, map[string][]byte{spec.FileName: text}, nil); err != nil {
+	if _, err := repos.CommitFiles(ctx, app.InstallationID, app.Repo, branch, msg, map[string][]byte{spec.FileName: text}, nil); err != nil {
 		httpError(w, http.StatusBadGateway, err.Error())
 		return
 	}
 	anotarDetalle(r, "arreglo_declarado", o.Add.Name)
-	writeJSON(w, map[string]string{"branch": branch, "link": "https://github.com/" + app.Repo + "/pull/new/" + branch})
+	writeJSON(w, map[string]string{"branch": branch, "link": forja.NewPullURL(app.ForjaOf(), app.Repo, "", branch)})
 }
 
 var (

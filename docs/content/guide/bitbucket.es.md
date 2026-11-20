@@ -56,6 +56,17 @@ En cuanto hay un espacio de trabajo conectado, la página de bienvenida ofrece *
 - Si la cuenta de Bitbucket está **ligada** a una persona, es esa persona, con sus permisos y su Ruta. Cada quien liga su propia cuenta desde **Sus cuentas**, en el menú de la cuenta: entra como siempre, presiona **Ligar mi cuenta de Bitbucket** y la autoriza en Bitbucket.
 - Una cuenta que no está ligada a nadie entra como `apodo@bitbucket.org` (por ejemplo `ana@bitbucket.org`), y solo si un administrador agregó ese nombre en [Miembros](members.md).
 
+## Renovate, arreglos y el agente de código {#renovate-fixes-and-the-coding-agent}
+
+Esto también funciona en las aplicaciones de Bitbucket, por medio de la conexión:
+
+- **[Renovate](renovate.md)** se ejecuta para ellas en un pod de su espacio de trabajo, con su ficha OAuth (que se renueva antes si no alcanzaría para toda la ejecución), y abre solicitudes de incorporación como la cuenta que autorizó la conexión. Sus ramas se construyen y se comprueban como cualquier otra.
+- **Los [arreglos declarados](fixes.md)** confirman en la rama por medio de la API de Bitbucket, y **declarar un arreglo** abre una rama cuya solicitud de incorporación usted abre desde el enlace que le da.
+- **El agente de código** trabaja en una rama del repositorio y entrega un enlace para abrir su solicitud de incorporación (rendimiento la abre cuando se entrega el encargo).
+- El diagnosticador enumera los **archivos que cambiaron** desde la última ejecución buena (el diffstat de Bitbucket).
+
+Un push de varias ramas a la vez ejecuta cada una. Una solicitud de incorporación integrada se anota en la libreta con su confirmación completa, aunque el webhook de Bitbucket solo dé 12 caracteres de ella.
+
 ## Todavía no {#not-yet}
 
-Esto sigue funcionando solo con GitHub y, por ahora, se salta las aplicaciones de Bitbucket: [Renovate](renovate.md), [los arreglos declarados](fixes.md), el agente de código, y que rendimiento junte un conflicto por sí mismo (la API de Bitbucket escribe confirmaciones con un solo padre). Un push de varias ramas a la vez se lee por su primera rama. Una conexión con Bitbucket la usa la organización de la plataforma. Bitbucket Data Center viene después.
+rendimiento no junta un conflicto por sí mismo en Bitbucket (la API de Bitbucket escribe confirmaciones con un solo padre): lo hace una persona. Una conexión con Bitbucket la usa la organización de la plataforma. Bitbucket Data Center viene después.

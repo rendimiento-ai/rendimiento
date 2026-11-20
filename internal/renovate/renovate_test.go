@@ -61,7 +61,7 @@ func TestSettings(t *testing.T) {
 
 func TestPod(t *testing.T) {
 	r := &Runner{Namespace: "rendimiento-builds", ExcludeNodes: []string{"gpu-node"}}
-	p := r.pod("renovate-1-2", nil, DefaultSettings(), `["o/a"]`, &gh.BotIdentity{Login: "app[bot]", Email: "1+app[bot]@users.noreply.github.com"}, nil, 55*time.Minute)
+	p := r.pod("renovate-1-2", nil, DefaultSettings(), `["o/a"]`, gitHubEnv(&gh.BotIdentity{Login: "app[bot]", Email: "1+app[bot]@users.noreply.github.com"}), 55*time.Minute)
 	env := map[string]string{}
 	for _, e := range p.Spec.Containers[0].Env {
 		env[e.Name] = e.Value

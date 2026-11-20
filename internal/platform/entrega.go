@@ -2,7 +2,6 @@ package platform
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/rendimiento-ai/rendimiento/internal/forja"
@@ -10,8 +9,9 @@ import (
 )
 
 // PullsForDelivery opens the pull request of each branch an encargo
-// delivers (a link github.com/<repo>/pull/new/<branch> or …/tree/<branch>
-// to a repository of the organization's apps), so the person sees it and
+// delivers (a link github.com/<repo>/pull/new/<branch> or …/tree/<branch>,
+// or its GitLab or Bitbucket kin (forja.BranchOfLink), to a repository of
+// the organization's apps), so the person sees it and
 // its preview copy before deciding, and "Merge this branch" merges that
 // same pull request. It returns the links with each pull request's
 // added before its branch's, which stays: accepting the encargo still
@@ -45,7 +45,7 @@ func (p *Platform) PullsForDelivery(ctx context.Context, orgID, encargo int64, t
 				p.Log.Warn("encargo delivered: opening its pull request", "encargo", encargo, "repo", repo, "branch", branch, "err", forja.Says(err))
 				continue
 			}
-			out = append(out, fmt.Sprintf("https://github.com/%s/pull/%d", a.Repo, number))
+			out = append(out, forja.PullURL(a.ForjaOf(), a.Repo, number))
 			opened = true
 			p.Log.Info("encargo delivered: pull request opened", "encargo", encargo, "repo", repo, "branch", branch, "pull", number)
 		}

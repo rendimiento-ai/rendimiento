@@ -54,6 +54,15 @@ Once a GitLab is connected, the welcome page offers **Sign in with GitLab** besi
 - If the GitLab account is **linked** to a person, it is that person, with their roles and their Ruta. Anyone links their own account from **Your accounts**, in the account's menu: they sign in as they always do, press **Link my account on…**, and authorize it on GitLab.
 - An account linked to no one comes in as `username@host` (for example `ana@gitlab.com`), and only when an administrator added that name on [Members](members.md). GitHub usernames have no `@`, so the two never mix.
 
+## Renovate, fixes and the coding agent {#renovate-fixes-and-the-coding-agent}
+
+These work on GitLab apps too, through the connection:
+
+- **[Renovate](renovate.md)** runs for them in a pod of their connection's, with its OAuth token (refreshed first when it would not last the run), and opens merge requests as the account that authorized the connection. Its branches are built and checked like any other.
+- **[Declared fixes](fixes.md)** commit on the branch through GitLab's API, and **declaring a fix** opens a branch whose merge request you open from the link it gives.
+- **The coding agent** works on a branch of the project and delivers a link to open its merge request (rendimiento opens it when the encargo is delivered).
+- The diagnostician lists the **files changed** since the last good run (GitLab's compare).
+
 ## Not yet {#not-yet}
 
-These still work through GitHub only, and skip GitLab apps for now: [Renovate](renovate.md), [declared fixes](fixes.md), the coding agent, and rendimiento joining a conflict by itself (GitLab's API writes commits with one parent). A GitLab connection is used by the platform's organization. For Bitbucket, see [Connecting Bitbucket](bitbucket.md).
+rendimiento does not join a conflict by itself on GitLab (GitLab's API writes commits with one parent): a person does. A GitLab connection is used by the platform's organization. For Bitbucket, see [Connecting Bitbucket](bitbucket.md).

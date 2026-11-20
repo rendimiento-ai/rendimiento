@@ -150,11 +150,11 @@ func (p *Platform) CloseSpare(ctx context.Context, a *store.App, branch, who str
 		}
 		if l.Pull != 0 && l.PullOpen {
 			if err := p.repos(a).ClosePull(ctx, a.InstallationID, a.Repo, l.Pull); err != nil {
-				return &NotApprovable{Why: M("GitHub did not close the pull request: %s", forja.Says(err))}
+				return &NotApprovable{Why: inForjaWords(a, M("GitHub did not close the pull request: %s", forja.Says(err)))}
 			}
 		}
 		if err := p.repos(a).DeleteBranch(ctx, a.InstallationID, a.Repo, branch); err != nil {
-			return &NotApprovable{Why: M("GitHub did not delete the branch: %s", forja.Says(err))}
+			return &NotApprovable{Why: inForjaWords(a, M("GitHub did not delete the branch: %s", forja.Says(err)))}
 		}
 		p.branchPullsCache.mu.Lock()
 		delete(p.branchPullsCache.byApp, a.ID) // the board asks GitHub again

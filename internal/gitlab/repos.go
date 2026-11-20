@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"sort"
 	"strings"
 	"testing/fstest"
 	"time"
@@ -528,6 +530,73 @@ func (f *Forja) OpenPR(ctx context.Context, installation int64, repo, base, bran
 		return nil, err
 	}
 	return &forja.Opened{Number: m.IID, HTMLURL: m.WebURL}, nil
+}
+
+// Files is repo's text files at ref, each up to maxFile bytes (read from
+// its archive, as RepoFS).
+func (f *Forja) Files(ctx context.Context, installation int64, repo, ref string, maxFile int) (map[string][]byte, error) {
+	tree, err := f.RepoFS(ctx, installation, repo, ref)
+	if err != nil {
+		return nil, err
+	}
+	return forja.FilesOf(tree, maxFile)
+}
+
+// CreateBranch makes branch start at sha. One that already exists and
+// holds sha is kept (a second try goes on from the first); one that does
+// not is made again at sha (GitLab moves a branch no other way).
+func (f *Forja) CreateBranch(ctx context.Context, installation int64, repo, branch, sha string) error {
+	create := func() error {
+		q := url.Values{"branch": {branch}, "ref": {sha}}
+		return f.in(ctx, installation, repo, http.MethodPost, "/repository/branches?"+q.Encode(), nil, nil)
+	}
+	head, err := f.BranchSHA(ctx, installation, repo, branch)
+	if forja.IsNotFound(err) {
+		return create()
+	}
+	if err != nil {
+		return err
+	}
+	if head == sha {
+		return nil
+	}
+	if base, _, err := f.MergeBase(ctx, installation, repo, sha, head); err == nil && base == sha {
+		return nil
+	}
+	if err := f.DeleteBranch(ctx, installation, repo, branch); err != nil {
+		return err
+	}
+	return create()
+}
+
+// CommitFiles commits files (any content, as base64) and removals on
+// branch in one commit, and returns its SHA.
+func (f *Forja) CommitFiles(ctx context.Context, installation int64, repo, branch, message string, files map[string][]byte, remove []string) (string, error) {
+	names := make([]string, 0, len(files))
+	for p := range files {
+		names = append(names, p)
+	}
+	sort.Strings(names)
+	actions := []map[string]any{}
+	for _, p := range names {
+		action := "create"
+		if _, err := f.FileAt(ctx, installation, repo, p, branch); err == nil {
+			action = "update"
+		} else if !forja.IsNotFound(err) {
+			return "", err
+		}
+		actions = append(actions, map[string]any{"action": action, "file_path": strings.TrimPrefix(p, "/"),
+			"encoding": "base64", "content": base64.StdEncoding.EncodeToString(files[p])})
+	}
+	for _, p := range remove {
+		if _, ok := files[p]; ok {
+			continue
+		}
+		actions = append(actions, map[string]any{"action": "delete", "file_path": strings.TrimPrefix(p, "/")})
+	}
+	var c glCommit
+	err := f.in(ctx, installation, repo, http.MethodPost, "/repository/commits", map[string]any{"branch": branch, "commit_message": message, "actions": actions}, &c)
+	return c.ID, err
 }
 
 // ErrNoMergeCommit: GitLab's API writes commits with one parent, so

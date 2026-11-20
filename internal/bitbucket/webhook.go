@@ -31,7 +31,33 @@ func (f *Forja) ParseWebhook(header http.Header, body []byte) (*forja.Event, err
 	if err != nil {
 		return nil, err
 	}
-	return parseWebhook(c, header.Get("X-Event-Key"), body)
+	ev, err := parseWebhook(c, header.Get("X-Event-Key"), body)
+	if err == nil && ev.Change != nil {
+		f.fullHead(c, ev.Change)
+	}
+	return ev, err
+}
+
+// fullHead writes the whole commit of a pull request's head: Bitbucket's
+// webhook cuts it to 12 characters, and the libreta notes a merge with the
+// whole one (as runs have it). When Bitbucket cannot say, the short one
+// stays.
+func (f *Forja) fullHead(c *Connection, ch *forja.ChangeEvent) {
+	if ch.HeadSHA == "" || len(ch.HeadSHA) == 40 || (ch.Action != "closed" && ch.Action != "opened") {
+		return
+	}
+	repo := ch.Repo
+	if ch.HeadRepo != "" {
+		repo = ch.HeadRepo
+	}
+	if !InWorkspace(c, repo) {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if cm, err := f.commit(ctx, c.ID, repo, ch.HeadSHA); err == nil && strings.HasPrefix(cm.Hash, ch.HeadSHA) {
+		ch.HeadSHA = cm.Hash
+	}
 }
 
 // deliveredBy is the connection whose webhook secret signed a delivery.
@@ -75,7 +101,8 @@ type bbRef struct {
 }
 
 // parseWebhook reads a delivery of connection c, already checked. A push
-// of several branches at once is read for its first branch.
+// of several branches at once is read for each: the first in Push, the
+// rest in More.
 func parseWebhook(c *Connection, kind string, body []byte) (*forja.Event, error) {
 	var payload struct {
 		Push *struct {
@@ -122,8 +149,11 @@ func parseWebhook(c *Connection, kind string, body []byte) (*forja.Event, error)
 			if len(p.Messages) == 0 && ch.New != nil && ch.New.Target.Message != "" {
 				p.Messages = []string{ch.New.Target.Message}
 			}
-			ev.Push = p
-			break
+			if ev.Push == nil {
+				ev.Push = p
+			} else {
+				ev.More = append(ev.More, p)
+			}
 		}
 	case strings.HasPrefix(kind, "pullrequest:") && payload.PullRequest != nil && payload.PullRequest.ID > 0:
 		pr := payload.PullRequest

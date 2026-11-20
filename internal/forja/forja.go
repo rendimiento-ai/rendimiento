@@ -16,12 +16,14 @@
 package forja
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io/fs"
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Forja is one forge rendimiento works with.
@@ -47,6 +49,9 @@ type Repos interface {
 	BranchSHA(ctx context.Context, installation int64, repo, branch string) (string, error)
 	Branches(ctx context.Context, installation int64, repo string) ([]Branch, error)
 	CommitSubject(ctx context.Context, installation int64, repo, sha string) (string, error)
+	// Files is repo's text files at ref, each up to maxFile bytes (the
+	// coding agent's snapshot of a branch).
+	Files(ctx context.Context, installation int64, repo, ref string, maxFile int) (map[string][]byte, error)
 	MergeBase(ctx context.Context, installation int64, repo, base, head string) (string, time.Time, error)
 	FirstParent(ctx context.Context, installation int64, repo, sha string) (string, error)
 
@@ -56,6 +61,12 @@ type Repos interface {
 	// Saying whether a commit passed.
 	CreateCheck(ctx context.Context, installation int64, repo string, c Check) (int64, error)
 	UpdateCheck(ctx context.Context, installation int64, repo string, id int64, c Check) error
+
+	// Writing on a branch: making it start at sha (one that exists and
+	// holds sha is kept), and one commit of files and removals on it (the
+	// declared fixes and the coding agent).
+	CreateBranch(ctx context.Context, installation int64, repo, branch, sha string) error
+	CommitFiles(ctx context.Context, installation int64, repo, branch, message string, files map[string][]byte, remove []string) (string, error)
 
 	// Opening and merging changes.
 	OpenPR(ctx context.Context, installation int64, repo, base, branch, title, body string, files map[string]string) (*Opened, error)
@@ -102,6 +113,29 @@ var (
 	// (merging a pull whose head changed).
 	ErrConflict = errors.New("conflict")
 )
+
+// FilesOf is a tree's text files, each up to maxFile bytes: what Files
+// gives, for a forja that reads a tree as an fs.FS (RepoFS).
+func FilesOf(tree fs.FS, maxFile int) (map[string][]byte, error) {
+	out := map[string][]byte{}
+	err := fs.WalkDir(tree, ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		if info, err := d.Info(); err != nil || info.Size() > int64(maxFile) {
+			return nil
+		}
+		b, err := fs.ReadFile(tree, p)
+		if err != nil {
+			return err
+		}
+		if utf8.Valid(b) && !bytes.ContainsRune(b, 0) {
+			out[p] = b
+		}
+		return nil
+	})
+	return out, err
+}
 
 // IsNotFound reports whether err says that something is not there.
 func IsNotFound(err error) bool { return errors.Is(err, ErrNotFound) }

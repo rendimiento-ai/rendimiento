@@ -54,6 +54,15 @@ Con un GitLab conectado, la página de bienvenida ofrece **Iniciar sesión con G
 - Si la cuenta de GitLab está **ligada** a una persona, entra esa persona, con sus funciones y su Ruta. Cada quien liga su propia cuenta desde **Sus cuentas**, en el menú de la cuenta: entra como siempre, presiona **Ligar mi cuenta de…** y la autoriza en GitLab.
 - Una cuenta que no está ligada a nadie entra como `usuario@host` (por ejemplo `ana@gitlab.com`), y solo si un administrador agregó ese nombre en [Miembros](members.md). Los usuarios de GitHub no llevan `@`, así que nunca se mezclan.
 
+## Renovate, arreglos y el agente de código {#renovate-fixes-and-the-coding-agent}
+
+Esto también funciona en las aplicaciones de GitLab, por medio de la conexión:
+
+- **[Renovate](renovate.md)** se ejecuta para ellas en un pod de su conexión, con su ficha OAuth (que se renueva antes si no alcanzaría para toda la ejecución), y abre solicitudes de fusión como la cuenta que autorizó la conexión. Sus ramas se construyen y se comprueban como cualquier otra.
+- **Los [arreglos declarados](fixes.md)** confirman en la rama por medio de la API de GitLab, y **declarar un arreglo** abre una rama cuya solicitud de fusión usted abre desde el enlace que le da.
+- **El agente de código** trabaja en una rama del proyecto y entrega un enlace para abrir su solicitud de fusión (rendimiento la abre cuando se entrega el encargo).
+- El diagnosticador enumera los **archivos que cambiaron** desde la última ejecución buena (la comparación de GitLab).
+
 ## Todavía no {#not-yet}
 
-Esto sigue funcionando solo con GitHub y, por ahora, se salta las aplicaciones de GitLab: [Renovate](renovate.md), los [arreglos declarados](fixes.md), el agente de código, y que rendimiento junte un conflicto por sí mismo (la API de GitLab escribe confirmaciones con un solo padre). Una conexión con GitLab la usa la organización de la plataforma. Para Bitbucket, vea [Conectar Bitbucket](bitbucket.md).
+rendimiento no junta un conflicto por sí mismo en GitLab (la API de GitLab escribe confirmaciones con un solo padre): lo hace una persona. Una conexión con GitLab la usa la organización de la plataforma. Para Bitbucket, vea [Conectar Bitbucket](bitbucket.md).
