@@ -93,7 +93,11 @@ done
 
 # The setup page's return from GitHub, and the sign-in's.
 ficha=$(cat "${XDG_CONFIG_HOME:-$HOME/.config}/rendimiento/ficha-configuracion")
-codigo=$(curl -sS -m 30 -o /dev/null -w '%{http_code}' -G --data-urlencode "token=$ficha" --data-urlencode code=prueba "$api/api/setup/github/callback")
+# The setup page first: it opens the install session and sets the state
+# GitHub hands back with the code, which the return checks.
+curl -sS -m 10 -o /dev/null -c "$tmp/instalar" -G --data-urlencode "token=$ficha" "$api/api/setup/github"
+estado=$(awk '$6 == "setup_state" { print $7 }' "$tmp/instalar")
+codigo=$(curl -sS -m 30 -o /dev/null -w '%{http_code}' -b "$tmp/instalar" -c "$tmp/instalar" -G --data-urlencode "state=$estado" --data-urlencode code=prueba "$api/api/setup/github/callback")
 [ "$codigo" = 302 ] || falla "the setup did not take the GitHub App (HTTP $codigo)
 $(detalle)"
 curl -sS -m 10 -o /dev/null -c "$tmp/galletas" "$api/api/auth/login"
