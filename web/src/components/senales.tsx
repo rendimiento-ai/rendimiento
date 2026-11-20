@@ -18,8 +18,8 @@ export function Senales() {
   const { data, error, setData } = usePoll(api.senales, [], 60000);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>();
-  // On its way: its title, the lines under it and the card with the next señal, in silhouette.
-  if (!data) return error ? null : (
+  // Failed: why. On its way: its title, the lines under it and the card with the next señal, in silhouette.
+  if (!data) return error ? <ErrorBox error={error} /> : (
     <Esqueleto>
       <div style={{ marginTop: 28 }}>
         <Hueso className="esq-titulo" w="36%" />
