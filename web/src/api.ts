@@ -1351,7 +1351,9 @@ export const api = {
   logout: () => request<void>("POST", "/api/auth/logout"),
   setupStatus: () => request<{ configured: boolean; appSlug?: string; installURL?: string; book?: { en?: string; es?: string }; activity?: boolean; tokenCommand?: string;
     /** The GitLabs and Bitbucket workspaces one can sign in with, besides GitHub (host is a workspace's slug for Bitbucket). */
-    signIn?: { forja: Forja; id: number; host: string }[] }>("GET", "/api/setup/status"),
+    signIn?: { forja: Forja; id: number; host: string }[];
+    /** Whether "Sign in with GitHub" leads anywhere: the GitHub App is set up. Older servers leave it out. */
+    github?: boolean }>("GET", "/api/setup/status"),
   publicActivity: () => request<PublicActivity>("GET", "/api/public/activity"),
   /** The accounts this organization creates apps from, and those its administrator could connect (the App on their own GitHub account). */
   installations: () => request<{ installations: Installation[]; connectable: Installation[]; installURL: string }>("GET", "/api/installations"),

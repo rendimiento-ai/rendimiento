@@ -5,7 +5,7 @@ hide:
 
 # The rendimiento book
 
-**rendimiento** is a deployment platform for a Kubernetes cluster. You connect a GitHub repository, it works out how to build it, and every push becomes a tested image and a running, updated application with a public HTTPS address. What used to take Jenkins, ArgoCD, hand-written manifests, DNS records and a dozen manual steps per app is now one button.
+**rendimiento** is a deployment platform for a Kubernetes cluster. You connect a GitHub, GitLab or Bitbucket repository, it works out how to build it, and every push becomes a tested image and a running, updated application with a public HTTPS address. What used to take Jenkins, ArgoCD, hand-written manifests, DNS records and a dozen manual steps per app is now one button.
 
 It runs on a small home lab, but it is built like a product: one Go binary, a React UI, a Postgres database and Kubernetes custom resources, with tests, a clear architecture and room to grow.
 

@@ -5,7 +5,7 @@ hide:
 
 # El libro de rendimiento
 
-**rendimiento** es una plataforma de despliegue para un clúster de Kubernetes. Usted conecta un repositorio de GitHub, rendimiento descubre cómo construirlo, y cada envío se convierte en una imagen probada y en una aplicación en ejecución, actualizada, con una dirección HTTPS pública. Lo que antes requería Jenkins, ArgoCD, manifiestos escritos a mano, registros DNS y una docena de pasos manuales por aplicación ahora es un solo botón.
+**rendimiento** es una plataforma de despliegue para un clúster de Kubernetes. Usted conecta un repositorio de GitHub, GitLab o Bitbucket, rendimiento descubre cómo construirlo, y cada envío se convierte en una imagen probada y en una aplicación en ejecución, actualizada, con una dirección HTTPS pública. Lo que antes requería Jenkins, ArgoCD, manifiestos escritos a mano, registros DNS y una docena de pasos manuales por aplicación ahora es un solo botón.
 
 Funciona en un pequeño laboratorio casero, pero está hecho como un producto: un solo programa en Go, una interfaz en React, una base de datos Postgres y recursos personalizados de Kubernetes, con pruebas, una arquitectura clara y espacio para crecer.
 

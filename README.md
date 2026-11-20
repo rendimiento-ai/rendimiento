@@ -2,7 +2,7 @@
 
 **Let your coding agents ship to infrastructure you own, safely.**
 
-Coding agents now write more apps than a platform team can check by hand. rendimiento is the deploy platform that agents and people share. Connect a GitHub repo, press **Deploy**, and get a live HTTPS URL, on your own Kubernetes cluster or on one computer.
+Coding agents now write more apps than a platform team can check by hand. rendimiento is the deploy platform that agents and people share. Connect a GitHub, GitLab or Bitbucket repo, press **Deploy**, and get a live HTTPS URL, on your own Kubernetes cluster or on one computer.
 
 - **Agents work on it, people decide what ships.** Each agent connects over **MCP** with a key that has a role (reader or collaborator) and, if you want, a set of apps. It can read apps, runs, logs and request traces, test any branch in CI, and pick up work people asked for. It cannot deploy: a push to the main branch, by a person, does. It cannot roll back either: it asks, with its reason, and an administrator approves or rejects.
 - **Every action is on the record.** The **bitácora** keeps each change a person makes and each tool call an agent makes, in a hash chain, so a row changed or removed in the database shows; it has filters and an export. What each agent did and handed over stays in **la Ruta**, the platform's shared memory.

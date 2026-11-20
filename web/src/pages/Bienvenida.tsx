@@ -107,11 +107,28 @@ function Ilustracion({ n }: { n: number }) {
   );
 }
 
+export type SignInOption = { forja?: string; id: number; host: string };
+
+/**
+ * The ways in, one button each: GitHub when it is connected, then each GitLab and Bitbucket workspace. With no forja
+ * connected at all it still offers GitHub, whose sign-in leads to the first-run setup: the page never ends with no
+ * way in. An older server does not say whether GitHub is connected; then it is.
+ */
+function entradas(signIn: SignInOption[], github: boolean | undefined) {
+  const otras = signIn.map((g) => g.forja === "bitbucket"
+    ? { key: `bitbucket-${g.id}`, href: `/api/auth/bitbucket/${g.id}`, label: t("Sign in with Bitbucket ({workspace})", { workspace: g.host }) }
+    : { key: `gitlab-${g.id}`, href: `/api/auth/gitlab/${g.id}`, label: t("Sign in with GitLab ({host})", { host: g.host }) });
+  const conGitHub = github !== false || otras.length === 0;
+  return [...(conGitHub ? [{ key: "github", href: "/api/auth/login", label: t("Sign in with GitHub") }] : []), ...otras];
+}
+
 /**
  * The welcome page, before signing in: "rendir" as a dictionary entry whose senses take turns with a drawing each, how
  * rendimiento works, la Ruta, what else it does on hanging signs, what is happening now on a bando, and the book.
  */
-export function Bienvenida({ book, activity, signIn = [] }: { book: BookLinks; activity: boolean; signIn?: { forja?: string; id: number; host: string }[] }) {
+export function Bienvenida({ book, activity, signIn = [], github }: { book: BookLinks; activity: boolean; signIn?: SignInOption[]; github?: boolean }) {
+  const formas = entradas(signIn, github);
+  const botones = formas.map((f, i) => <a key={f.key} className={`btn big${i === 0 ? " primary" : ""}`} href={f.href}>{f.label}</a>);
   const libro = (lang === "es" ? book.es : book.en) || book.en || book.es;
   // The senses take turns every few seconds, until one is chosen by hand.
   const [sentido, setSentido] = useState(1);
@@ -131,7 +148,7 @@ export function Bienvenida({ book, activity, signIn = [] }: { book: BookLinks; a
   ];
   const pasos = [
     { titulo: t("Connect a repository"), texto: t("rendimiento reads it, works out how to build it and proposes its rendimiento.yaml in a pull request.") },
-    { titulo: t("Push code"), texto: t("Tests and builds run on the cluster; GitHub shows the result on every commit and pull request.") },
+    { titulo: t("Push code"), texto: t("Tests and builds run on the cluster; your forja shows the result on every commit and pull request.") },
     { titulo: t("Watch it bloom"), texto: t("Your app goes live. Each app is a cempasúchil: it withers when something fails and revives when it recovers.") },
   ];
   const cosas = [
@@ -154,7 +171,7 @@ export function Bienvenida({ book, activity, signIn = [] }: { book: BookLinks; a
           <MovimientoSwitch />
           <LangSwitch />
         </span>
-        <a className="btn primary" href="/api/auth/login">{t("Sign in")}</a>
+        <a className="btn primary" href={formas[0]?.href ?? "/api/auth/login"}>{t("Sign in")}</a>
       </header>
 
       <main className="bienv-main">
@@ -166,7 +183,7 @@ export function Bienvenida({ book, activity, signIn = [] }: { book: BookLinks; a
               <span className="dicc-tipo">{t("Spanish verb")}</span>
             </div>
             <p className="bienv-entrada">
-              <b>{t("Make your code yield.")}</b> {t("Connect a GitHub repository and press deploy: rendimiento tests it, builds it and gives it a live HTTPS address. Every push after that is a new release, checked, and ready to roll back.")}
+              <b>{t("Make your code yield.")}</b> {t("Connect a GitHub, GitLab or Bitbucket repository and press deploy: rendimiento tests it, builds it and gives it a live HTTPS address. Every push after that is a new release, checked, and ready to roll back.")}
             </p>
             <div className="dicc-acepciones" role="group" aria-label={t("The senses of rendir")}>
               {acepciones.map((a, i) => (
@@ -185,10 +202,7 @@ export function Bienvenida({ book, activity, signIn = [] }: { book: BookLinks; a
               <b lang="es">rendimiento</b> · {t("what something yields: its performance. Here, what your code yields.")}
             </p>
             <div className="bienv-acciones">
-              <a className="btn primary big" href="/api/auth/login">{t("Sign in with GitHub")}</a>
-              {signIn.map((g) => g.forja === "bitbucket"
-                ? <a key={`bitbucket-${g.id}`} className="btn big" href={`/api/auth/bitbucket/${g.id}`}>{t("Sign in with Bitbucket ({workspace})", { workspace: g.host })}</a>
-                : <a key={`gitlab-${g.id}`} className="btn big" href={`/api/auth/gitlab/${g.id}`}>{t("Sign in with GitLab ({host})", { host: g.host })}</a>)}
+              {botones}
               {libro && <a className="btn big" href={libro}>{t("Read the book")}</a>}
             </div>
           </div>
@@ -249,7 +263,7 @@ export function Bienvenida({ book, activity, signIn = [] }: { book: BookLinks; a
         <section className="bienv-cierre">
           <h2>{t("Give your code life.")}</h2>
           <div className="bienv-acciones">
-            <a className="btn primary big" href="/api/auth/login">{t("Sign in with GitHub")}</a>
+            {botones}
             {libro && <a className="btn big" href={libro}>{t("Read the book")}</a>}
           </div>
           <p className="small muted">{t("An idea, or something that got in your way?")} <a href="https://rendimiento.ai/comentarios">{t("Write to us")}</a></p>
@@ -326,7 +340,7 @@ function Instalar() {
       </button>
     </div>
   );
-  const github = { titulo: t("Connect GitHub"), texto: t("Choose the repositories rendimiento may see, and deploy the first one.") };
+  const github = { titulo: t("Connect GitHub"), texto: t("Choose the repositories rendimiento may see, and deploy the first one. GitLab and Bitbucket connect afterwards, on the Environment page.") };
   const pasos = {
     windows: [
       { titulo: t("Open it"), texto: t("An assistant turns WSL 2 on, downloads rendimiento (about 174 MB) and starts it.") },
