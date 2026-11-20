@@ -572,6 +572,163 @@ func (f *Forja) CreateBranch(ctx context.Context, installation int64, repo, bran
 // CommitFiles commits files (any content, as base64) and removals on
 // branch in one commit, and returns its SHA.
 func (f *Forja) CommitFiles(ctx context.Context, installation int64, repo, branch, message string, files map[string][]byte, remove []string) (string, error) {
+	actions, err := f.fileActions(ctx, installation, repo, branch, "", files, remove)
+	if err != nil {
+		return "", err
+	}
+	var c glCommit
+	err = f.in(ctx, installation, repo, http.MethodPost, "/repository/commits", map[string]any{"branch": branch, "commit_message": message, "actions": actions}, &c)
+	return c.ID, err
+}
+
+// ErrNoMergeCommit is a project where rendimiento cannot write a merge
+// commit: one that merges only by fast-forward or rebase, or squashes
+// always.
+var ErrNoMergeCommit = errors.New("on GitLab, rendimiento cannot write a merge commit in this project")
+
+// mergeWait is how long CommitMerge waits between looks at its merge
+// request while GitLab works out whether it can be merged.
+var mergeWait = 500 * time.Millisecond
+
+// CommitMerge commits files and removals on branch (whose head must still
+// be head) as a merge of other into it: the result has other among its
+// ancestors and the tree head has with files and removals.
+//
+// GitLab's commits API writes commits with one parent (start_sha is only
+// where a new branch starts), and nothing else in its API writes a commit
+// object; only a merge request's merge makes one with two. So rendimiento
+// makes the merge GitLab's way, in a way that cannot conflict:
+//
+//  1. ours: the resolved tree committed on branch, on head ([skip ci]: the
+//     merge that follows is what gets tested);
+//  2. theirs: the same tree committed on a passing branch made at other
+//     (rendimiento/mezcla-...), from the difference between other and ours;
+//  3. a merge request of the passing branch into branch, merged with the
+//     message: both sides have the same tree, so GitLab's merge is clean
+//     and its tree is the resolved one. The passing branch is deleted.
+//
+// The merge commit's parents are ours (on head) and theirs (on other): the
+// default branch is merged, and a merge request of branch into it no
+// longer conflicts. Two commits more than git would write, but the same
+// history. When GitLab refuses the merge (approvals, a pipeline it waits
+// for), the passing branch and its merge request are removed and the
+// error says the resolution stays committed on branch without the merge.
+func (f *Forja) CommitMerge(ctx context.Context, installation int64, repo, branch, head, other, message string, files map[string][]byte, remove []string) (string, error) {
+	now, err := f.BranchSHA(ctx, installation, repo, branch)
+	if err != nil {
+		return "", err
+	}
+	if now != head {
+		return "", fmt.Errorf("%w: %s moved to %s while it was being merged", forja.ErrConflict, branch, now)
+	}
+	var proj struct {
+		MergeMethod  string `json:"merge_method"`
+		SquashOption string `json:"squash_option"`
+	}
+	if err := f.in(ctx, installation, repo, http.MethodGet, "", nil, &proj); err != nil {
+		return "", err
+	}
+	if (proj.MergeMethod != "" && proj.MergeMethod != "merge") || proj.SquashOption == "always" {
+		return "", fmt.Errorf("%w (it merges by %s, squash %s)", ErrNoMergeCommit, proj.MergeMethod, proj.SquashOption)
+	}
+	short := func(s string) string { return s[:min(len(s), 7)] }
+
+	// 1. Ours.
+	ours := head
+	actions, err := f.fileActions(ctx, installation, repo, branch, other, files, remove)
+	if err != nil {
+		return "", err
+	}
+	if len(actions) > 0 {
+		var c glCommit
+		msg := "Resolve the merge of " + short(other) + " [skip ci]"
+		if err := f.in(ctx, installation, repo, http.MethodPost, "/repository/commits", map[string]any{"branch": branch, "commit_message": msg, "actions": actions}, &c); err != nil {
+			return "", err
+		}
+		ours = c.ID
+	}
+	committed := func(err error) error {
+		if ours == head {
+			return err
+		}
+		return fmt.Errorf("the resolution is committed on %s as %s, but not as a merge of %s: %w", branch, short(ours), short(other), err)
+	}
+
+	// 2. Theirs, on a passing branch.
+	side := "rendimiento/mezcla-" + short(other) + "-" + short(ours)
+	_ = f.DeleteBranch(ctx, installation, repo, side)
+	q := url.Values{"branch": {side}, "ref": {other}}
+	if err := f.in(ctx, installation, repo, http.MethodPost, "/repository/branches?"+q.Encode(), nil, nil); err != nil {
+		return "", committed(err)
+	}
+	number := 0
+	defer func() {
+		cleanup := context.WithoutCancel(ctx)
+		if number != 0 {
+			_ = f.ClosePull(cleanup, installation, repo, number)
+		}
+		_ = f.DeleteBranch(cleanup, installation, repo, side)
+	}()
+	theirs := other
+	actions, err = f.treeActions(ctx, installation, repo, other, ours)
+	if err != nil {
+		return "", committed(err)
+	}
+	if len(actions) > 0 {
+		var c glCommit
+		msg := "Resolve the merge of " + short(other) + " into " + branch + " [skip ci]"
+		if err := f.in(ctx, installation, repo, http.MethodPost, "/repository/commits", map[string]any{"branch": side, "commit_message": msg, "actions": actions}, &c); err != nil {
+			return "", committed(err)
+		}
+		theirs = c.ID
+	}
+
+	// 3. The merge request, merged.
+	var m glMR
+	if err := f.in(ctx, installation, repo, http.MethodPost, "/merge_requests", map[string]any{"source_branch": side, "target_branch": branch,
+		"title": "Merge " + short(other) + " into " + branch, "description": "rendimiento's coding agent merges the default branch here; this merge request closes by itself.",
+		"remove_source_branch": true, "squash": false}, &m); err != nil {
+		return "", committed(err)
+	}
+	number = m.IID
+	for i := 0; i < 20 && stillChecking(m); i++ {
+		time.Sleep(mergeWait)
+		if err := f.in(ctx, installation, repo, http.MethodGet, fmt.Sprintf("/merge_requests/%d", number), nil, &m); err != nil {
+			return "", committed(err)
+		}
+	}
+	var merged glMR
+	if err := f.in(ctx, installation, repo, http.MethodPut, fmt.Sprintf("/merge_requests/%d/merge", number), map[string]any{
+		"sha": theirs, "merge_commit_message": message, "should_remove_source_branch": true, "squash": false}, &merged); err != nil {
+		return "", committed(err)
+	}
+	if merged.State != "merged" {
+		return "", committed(fmt.Errorf("GitLab left merge request !%d %s", number, merged.State))
+	}
+	number = 0 // merged: nothing to close
+	if merged.MergeCommitSHA != "" {
+		return merged.MergeCommitSHA, nil
+	}
+	return f.BranchSHA(ctx, installation, repo, branch)
+}
+
+// stillChecking reports whether GitLab is still working out whether a merge
+// request can be merged (merging it then would be refused).
+func stillChecking(m glMR) bool {
+	switch m.DetailedMergeStatus {
+	case "unchecked", "checking", "preparing", "approvals_syncing":
+		return true
+	case "":
+		return m.MergeStatus == "" || m.MergeStatus == "unchecked" || m.MergeStatus == "checking" || m.MergeStatus == "cannot_be_merged_recheck"
+	}
+	return false
+}
+
+// fileActions are the commits API's actions that write files and removals
+// on ref: a file ref lacks is created, executable when it is executable at
+// modes (another commit, "" for none: a file the default branch brings
+// keeps its mode there).
+func (f *Forja) fileActions(ctx context.Context, installation int64, repo, ref, modes string, files map[string][]byte, remove []string) ([]map[string]any, error) {
 	names := make([]string, 0, len(files))
 	for p := range files {
 		names = append(names, p)
@@ -579,14 +736,16 @@ func (f *Forja) CommitFiles(ctx context.Context, installation int64, repo, branc
 	sort.Strings(names)
 	actions := []map[string]any{}
 	for _, p := range names {
-		action := "create"
-		if _, err := f.FileAt(ctx, installation, repo, p, branch); err == nil {
-			action = "update"
+		a := map[string]any{"action": "create", "file_path": strings.TrimPrefix(p, "/"),
+			"encoding": "base64", "content": base64.StdEncoding.EncodeToString(files[p])}
+		if _, err := f.FileAt(ctx, installation, repo, p, ref); err == nil {
+			a["action"] = "update"
 		} else if !forja.IsNotFound(err) {
-			return "", err
+			return nil, err
+		} else if modes != "" && f.executable(ctx, installation, repo, p, modes) {
+			a["execute_filemode"] = true
 		}
-		actions = append(actions, map[string]any{"action": action, "file_path": strings.TrimPrefix(p, "/"),
-			"encoding": "base64", "content": base64.StdEncoding.EncodeToString(files[p])})
+		actions = append(actions, a)
 	}
 	for _, p := range remove {
 		if _, ok := files[p]; ok {
@@ -594,19 +753,73 @@ func (f *Forja) CommitFiles(ctx context.Context, installation int64, repo, branc
 		}
 		actions = append(actions, map[string]any{"action": "delete", "file_path": strings.TrimPrefix(p, "/")})
 	}
-	var c glCommit
-	err := f.in(ctx, installation, repo, http.MethodPost, "/repository/commits", map[string]any{"branch": branch, "commit_message": message, "actions": actions}, &c)
-	return c.ID, err
+	return actions, nil
 }
 
-// ErrNoMergeCommit: GitLab's API writes commits with one parent, so
-// rendimiento cannot join a conflict there itself yet.
-var ErrNoMergeCommit = errors.New("on GitLab, rendimiento cannot write a merge commit yet")
+// executable reports whether a file is executable at ref (false when
+// GitLab does not say).
+func (f *Forja) executable(ctx context.Context, installation int64, repo, filePath, ref string) bool {
+	var meta struct {
+		ExecuteFilemode bool `json:"execute_filemode"`
+	}
+	err := f.in(ctx, installation, repo, http.MethodGet, "/repository/files/"+url.PathEscape(strings.TrimPrefix(filePath, "/"))+"?ref="+url.QueryEscape(ref), nil, &meta)
+	return err == nil && meta.ExecuteFilemode
+}
 
-// CommitMerge is not done on GitLab yet (ErrNoMergeCommit): the conflict
-// stays a person's.
-func (f *Forja) CommitMerge(context.Context, int64, string, string, string, string, string, map[string][]byte, []string) (string, error) {
-	return "", ErrNoMergeCommit
+// treeActions are the commits API's actions that make from's tree into
+// to's: GitLab's straight compare of the two, each file as it is at to,
+// with its mode. A difference GitLab cut, a link or a submodule is refused:
+// only git would write those right.
+func (f *Forja) treeActions(ctx context.Context, installation int64, repo, from, to string) ([]map[string]any, error) {
+	var out struct {
+		Diffs []struct {
+			OldPath     string `json:"old_path"`
+			NewPath     string `json:"new_path"`
+			AMode       string `json:"a_mode"`
+			BMode       string `json:"b_mode"`
+			NewFile     bool   `json:"new_file"`
+			RenamedFile bool   `json:"renamed_file"`
+			DeletedFile bool   `json:"deleted_file"`
+		} `json:"diffs"`
+		CompareTimeout bool `json:"compare_timeout"`
+	}
+	q := url.Values{"from": {from}, "to": {to}, "straight": {"true"}}
+	if err := f.in(ctx, installation, repo, http.MethodGet, "/repository/compare?"+q.Encode(), nil, &out); err != nil {
+		return nil, err
+	}
+	if out.CompareTimeout || len(out.Diffs) >= 1000 {
+		return nil, errors.New("GitLab cut the comparison: too many files to merge without git")
+	}
+	actions := []map[string]any{}
+	for _, d := range out.Diffs {
+		for _, mode := range []string{d.AMode, d.BMode} {
+			if mode == "120000" || mode == "160000" {
+				return nil, fmt.Errorf("%s is a link or a submodule: only git merges it", d.NewPath)
+			}
+		}
+		if d.DeletedFile || d.RenamedFile {
+			actions = append(actions, map[string]any{"action": "delete", "file_path": d.OldPath})
+			if d.DeletedFile {
+				continue
+			}
+		}
+		b, err := f.FileAt(ctx, installation, repo, d.NewPath, to)
+		if err != nil {
+			return nil, err
+		}
+		a := map[string]any{"action": "update", "file_path": d.NewPath, "encoding": "base64", "content": base64.StdEncoding.EncodeToString(b)}
+		if d.NewFile || d.RenamedFile {
+			a["action"] = "create"
+			if d.BMode == "100755" {
+				a["execute_filemode"] = true
+			}
+		}
+		actions = append(actions, a)
+		if !d.NewFile && !d.RenamedFile && d.AMode != "" && d.BMode != "" && d.AMode != d.BMode {
+			actions = append(actions, map[string]any{"action": "chmod", "file_path": d.NewPath, "execute_filemode": d.BMode == "100755"})
+		}
+	}
+	return actions, nil
 }
 
 // ---- for the wizard ----
