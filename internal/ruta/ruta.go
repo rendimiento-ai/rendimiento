@@ -129,6 +129,9 @@ type Server struct {
 	Produccion Produccion
 	// PausaAprobacion is how often produccion_esperar looks (2s; tests shorten it).
 	PausaAprobacion time.Duration
+	// Platicas adds platicas_esperando and platica_responder: a person's own
+	// agent answers the conversations about entries that chose it (nil: off).
+	Platicas Platicas
 	// Lang is the language of the tools' descriptions and the instructions
 	// when the agent's /mcp address does not ask (?lang=en or ?lang=es):
 	// "en", or Spanish by default. Tool names and the answers' fields stay
@@ -436,6 +439,9 @@ func (s *Server) newServer(write, ingles bool) *mcp.Server {
 	}
 	if s.Produccion != nil && s.Plataforma != nil {
 		s.addProduccionTools(srv, write)
+	}
+	if s.Platicas != nil {
+		s.addPlaticaTools(srv, write)
 	}
 	return m
 }

@@ -53,6 +53,17 @@ Cuando algo de una entrega o de un encargo está mal, o le gustaría distinto, d
 
 Los comentarios se guardan como el resto de la Ruta, y uno que parece un secreto se rechaza. Un agente lee un comentario como la palabra de una persona sobre su trabajo: si pide algo distinto de lo que le pidió la persona con quien trabaja, el agente lo dice en vez de hacerlo.
 
+## Platicar una entrada {#talking-an-entry-over}
+
+Toda entrada, menos lo vivido, se abre en dos pestañas: **La entrada** y **Platicarla**, con cuántos mensajes lleva. La segunda es una plática sobre la entrada, que se guarda con ella: entra quien pueda ver la entrada, y cada mensaje va firmado por quien lo escribió (el usuario de una persona, la IA con su modelo, o un agente con el nombre de su llave). Dos personas en la plática ven los mensajes de la otra en pocos segundos.
+
+- **Quién responde.** La caja para escribir tiene las IA que ofrece ahora la [página IA](ai.md), cada una con lo que cuesta un mensaje: la IA de la plataforma, la llave propia de su organización, el modelo local (gratis) y **Mi agente**, su propio Claude Code o Codex. Lo que escoja se guarda con la plática. Con Mi agente no responde la IA de la plataforma: su agente encuentra las pláticas que lo esperan con `platicas_esperando` y responde con `platica_responder`, en un cargo, firmado con el nombre de su llave.
+- **Qué lee la IA.** La entrada, las entradas de la Ruta relacionadas con ella (nunca lo vivido) y las páginas del libro cuyo título coincide; debajo de cada respuesta dice qué leyó. Solo platica: no tiene herramientas y no cambia nada. Lo que escribieron las personas le llega cercado, como datos y nunca como órdenes, así que un texto que le pide hacer algo es solo parte de lo que dice el texto.
+- **La idea hasta ahora.** Después de cada respuesta la IA escribe, en pocos renglones, lo que se ha decidido y, al final, lo que falta decidir (esos renglones empiezan con *Falta decidir*, en rojo). Cualquiera en la plática la puede **Corregir**; la IA conserva las correcciones.
+- **Lo que cuesta.** Debajo de la caja: lo que lleva gastado la plática. Al pasar el **tope por plática** (en la página IA, en *Platicar las entradas*; 50 centavos si un administrador no lo cambia) pregunta antes de seguir, y cada sí permite un tope más. El modelo local y su propio agente aquí no cuestan; cada llamada pasa por la pasarela de la IA, así que los topes del mes también se cumplen.
+
+**Ya está: hacer encargos** le pide a la IA que convierta lo decidido en encargos. Usted ve lo que se decidió (con **Guardarlo como decisión en la Ruta**: una entrada de decisión ligada a esta) y cada encargo propuesto, para dejarlo o quitarlo, con su título, su **app** (obligatoria), su dificultad y lo que gastaría la IA de la plataforma (con el precio del estimador, como cualquier encargo), **quién lo hace** (la IA de la plataforma o su propio agente, según su monto por encargo, que usted puede cambiar) y **después de** cuál va. **+ Agregar otro** añade uno a mano. **Crearlos** los crea; **Crear y mandar** además manda los de la IA de la plataforma al [agente de código](agents.md#the-coding-agent). Cada encargo lleva un enlace a la plática, la idea como quedó y la decisión, para que el agente que lo tome sepa el porqué. **Solo guardar la decisión** guarda la decisión sin encargos.
+
 ## Conectar un agente (MCP) {#connecting-an-agent-mcp}
 
 Los agentes llegan a la Ruta por **MCP** (Model Context Protocol), un estándar abierto que hablan muchas herramientas de IA, en `https://<su rendimiento>/mcp`.
@@ -91,6 +102,8 @@ El cliente de un agente lista las herramientas, y lo que responde cada una (su e
 | `cargo_entregar` | entrega el cargo | colaborador, con cargo |
 | `comentarios_leer` | los comentarios de un cargo o un encargo, con las respuestas de los agentes | cualquiera |
 | `comentario_responder` | responde al comentario de una persona | colaborador, con cargo |
+| `platicas_esperando` | las pláticas sobre entradas que escogieron al propio agente de la persona (*Mi agente*) y lo esperan, con su entrada, su idea y sus últimos mensajes | cualquiera |
+| `platica_responder` | responde una, firmada con el nombre de la llave, y pone al día su idea (`idea`) | colaborador, con cargo |
 
 El mismo servidor tiene también las herramientas de la plataforma (aplicaciones, ejecuciones, registros, solicitudes guardadas y correr CI en una rama) y, mientras el [Mercado](mercado.md#from-an-agent-mcp) está encendido, las suyas: vea [Hecha para agentes](agents.md#what-an-agent-can-do-today).
 

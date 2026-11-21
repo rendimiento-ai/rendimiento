@@ -322,6 +322,8 @@ func (s *Server) Handler() http.Handler {
 	plat(store.MemberAdmin, "PUT /api/ia/local", s.putLocalModel)
 	plat(store.MemberAdmin, "POST /api/ia/local/probe", s.probeLocal)
 	plat(store.MemberAdmin, "PUT /api/ia/orgs/{id}/allowance", s.putIAAllowance)
+	// Platicar una entrada: a conversation about a Ruta entry (platica.go).
+	s.platicaRoutes(auth)
 	auth(store.MemberAdmin, "PUT /api/members/{login}", s.putMember)
 	auth(store.MemberAdmin, "DELETE /api/members/{login}", s.deleteMember)
 	auth(store.MemberAdmin, "GET /api/demo-links", s.listDemoLinks)

@@ -108,6 +108,14 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | POST | `/api/ia/test` | ask the organization's model one question (`prompt`), measured; collaborators |
 | GET | `/api/ia/orgs` | every organization's allowance of the platform's AI and spending, and the platform's bill; operators |
 | PUT | `/api/ia/orgs/{id}/allowance` | an organization's monthly allowance of the platform's AI (`dollars`); operators |
+| GET | `/api/ia/platica` | what one conversation about an entry may spend on paid models before it asks (`capMicros`) |
+| PUT | `/api/ia/platica` | change it (`dollars`, $0.05 to $20); administrators |
+| GET | `/api/ruta/{id}/platica` | the conversation about an entry ([talking an entry over](../guide/ruta.md#talking-an-entry-over)): its signed messages, the idea so far, the AIs it may choose (`ias`, with what a message costs) and the one answering (`ia`), what it spent and its cap (`alTope`: reached); never lo vivido |
+| POST | `/api/ruta/{id}/platica` | write in it (`texto`); the chosen AI answers shortly (your own agent, over MCP). Past the cap it answers 402, and `continuar: true` allows one cap more; collaborators |
+| PUT | `/api/ruta/{id}/platica/ia` | who answers it from now on (`ia`: `local`, `own`, `platform` or `agente`); collaborators |
+| PUT | `/api/ruta/{id}/platica/idea` | correct the idea so far (`idea`); collaborators |
+| POST | `/api/ruta/{id}/platica/propuesta` | the AI's proposal of encargos from it, priced by the estimator (`encargos`, `decidido`, `precios` for each difficulty); collaborators |
+| POST | `/api/ruta/{id}/platica/encargos` | create the encargos kept from it (`encargos`: `titulo`, `app`, `dificultad`, `detalle`, `ruta`: `platform` or `local`, `despuesDe`), save the decision (`decision`: `guardar`, `texto`) and send the platform AI's to the coding agent (`mandar`); collaborators |
 | GET | `/api/members` | the organization's people and their roles |
 | POST | `/api/runs/{id}/diagnosis/feedback` | judge a run's explanation (`useful`, or `cause` when it was wrong): it becomes a known failure in the Ruta the diagnostician reads; collaborators |
 | PUT | `/api/members/{login}` | add a person by GitHub login, or change their role (`role`: `guest`, `collaborator`, `admin`); administrators only |

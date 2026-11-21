@@ -24,7 +24,7 @@ export const RUTAS = [
 export const ACCIONES = [
   "build_now", "retry", "cancel_run", "merge", "dismiss_problem",
   "ask_agent", "select_step", "switch_theme", "switch_language", "rollback",
-  "customize_home", "save_home",
+  "customize_home", "save_home", "talk_entry", "make_encargos",
 ] as const;
 export type Accion = (typeof ACCIONES)[number];
 

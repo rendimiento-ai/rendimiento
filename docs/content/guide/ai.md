@@ -18,6 +18,7 @@ Each organization chooses, on its **AI** page (administrators):
 - With the platform's key, the limit is the smaller of the organization's cap and the operators' **allowance**, and all organizations together stay under `AI_PLATFORM_CAP` (5 dollars by default).
 - When a cap is reached, a key is missing, or the provider fails, **the local model answers instead**, and the call says why. Nothing stops working; it just gets simpler.
 - A single answer is at most 4,096 tokens, so a call can pass a cap only by one answer's worth.
+- A [conversation about a Ruta entry](ruta.md#talking-an-entry-over) has its own **cap per conversation** (*Talking entries over* on the AI page, 50 cents by default): past it, it asks a person before going on, and each yes allows one cap more.
 
 Spending is measured from the tokens each provider reports and the model's list price (`ia.DefaultPrices`; a model not listed counts as free, so give it a price before relying on its cap). Caps reset on the first of each month (UTC).
 

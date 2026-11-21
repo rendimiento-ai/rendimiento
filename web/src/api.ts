@@ -375,6 +375,98 @@ export interface RutaInput {
   discarded?: string;
 }
 
+// ---- platicar una entrada: a conversation about a Ruta entry (api.PlaticaView) ----
+
+/** Who answers a conversation: one of the AI page's providers, or the person's own agent over MCP. */
+export type PlaticaIAId = AIProvider | "agente";
+
+/** One AI a conversation may choose, with its model and about what a message costs. */
+export interface PlaticaIA {
+  id: PlaticaIAId;
+  model?: string;
+  mensajeMicros: number;
+  gratis?: boolean;
+}
+
+/** One message, signed: a person's login, the AI's model, or the agent key's name. */
+export interface PlaticaMensaje {
+  id: number;
+  author: string;
+  tipo: "persona" | "ia" | "agente" | "aviso";
+  provider?: AIProvider;
+  model?: string;
+  body: string;
+  /** What the AI read: "ruta:92", "libro:guide/ai/|AI". */
+  read: string[];
+  costMicros: number;
+  note?: string;
+  createdAt: string;
+}
+
+export interface Platica {
+  /** 0 while nobody wrote in it. */
+  id: number;
+  entryId: number;
+  ia: PlaticaIAId | "";
+  idea: string;
+  ideaBy?: string;
+  ideaAt?: string;
+  spentMicros: number;
+  allowedMicros: number;
+  thinking: boolean;
+  decisionId?: number;
+  encargos: number[];
+  messages: number;
+}
+
+export interface PlaticaView {
+  platica: Platica;
+  mensajes: PlaticaMensaje[];
+  ias: PlaticaIA[];
+  ia: PlaticaIAId;
+  topeMicros: number;
+  alTope: boolean;
+  participantes: string[];
+  /** How the lines of the idea still to decide begin («Falta decidir:»). */
+  faltaDecidir: string;
+}
+
+/** A proposed encargo, priced as the estimator prices it. */
+export interface PropuestaEncargo {
+  titulo: string;
+  app: string;
+  dificultad: number;
+  detalle: string;
+  despuesDe: number[];
+  costoMicros: number;
+  ruta: "platform" | "local";
+}
+
+export interface PropuestaView {
+  decidido: string;
+  encargos: PropuestaEncargo[];
+  /** precios[d-1]: what the platform's AI would spend on difficulty d. */
+  precios: number[];
+  encargoAutoMicros: number;
+  apps: string[];
+  codeAgent: CodeAgent;
+  model: string;
+  costMicros: number;
+}
+
+export interface PlaticaEncargosInput {
+  encargos: { titulo: string; app: string; dificultad: number; detalle: string; ruta: "platform" | "local"; despuesDe: number[] }[];
+  decision: { guardar: boolean; texto: string };
+  mandar: boolean;
+}
+
+export interface PlaticaEncargosView {
+  encargos: Encargo[];
+  decision?: RutaEntry;
+  enviados: number;
+  note?: string;
+}
+
 export interface Cargo {
   id: number;
   keyId: number;
@@ -1476,6 +1568,14 @@ export const api = {
   addRuta: (e: RutaInput) => request<RutaEntry>("POST", "/api/ruta", e),
   updateRuta: (id: number, e: RutaInput) => request<RutaEntry>("PUT", `/api/ruta/${id}`, e),
   archiveRuta: (id: number) => request<void>("POST", `/api/ruta/${id}/archive`),
+  platica: (id: number) => request<PlaticaView>("GET", `/api/ruta/${id}/platica`),
+  platicar: (id: number, texto: string, continuar = false) => request<PlaticaView>("POST", `/api/ruta/${id}/platica`, { texto, continuar }),
+  platicaIA: (id: number, ia: PlaticaIAId) => request<PlaticaView>("PUT", `/api/ruta/${id}/platica/ia`, { ia }),
+  platicaIdea: (id: number, idea: string) => request<PlaticaView>("PUT", `/api/ruta/${id}/platica/idea`, { idea }),
+  proponerEncargos: (id: number) => request<PropuestaView>("POST", `/api/ruta/${id}/platica/propuesta`, {}),
+  encargosDePlatica: (id: number, input: PlaticaEncargosInput) => request<PlaticaEncargosView>("POST", `/api/ruta/${id}/platica/encargos`, input),
+  platicaTope: () => request<{ capMicros: number }>("GET", "/api/ia/platica"),
+  putPlaticaTope: (dollars: number) => request<{ capMicros: number }>("PUT", "/api/ia/platica", { dollars }),
   rutaActivity: () => request<{ cargos: Cargo[]; actions: AgentAction[] }>("GET", "/api/ruta/activity"),
   bitacora: (f: { quien?: string; accion?: string; app?: string; antes?: number }) =>
     request<BitacoraRow[]>("GET", `/api/bitacora?${new URLSearchParams(Object.entries(f).filter(([, v]) => v).map(([k, v]) => [k, String(v)]))}`),

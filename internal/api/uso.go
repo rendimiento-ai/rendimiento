@@ -36,7 +36,7 @@ const rutaDesconocida = "(unknown)"
 var accionesUso = map[string]bool{
 	"build_now": true, "retry": true, "cancel_run": true, "merge": true, "dismiss_problem": true,
 	"ask_agent": true, "select_step": true, "switch_theme": true, "switch_language": true, "rollback": true,
-	"customize_home": true, "save_home": true,
+	"customize_home": true, "save_home": true, "talk_entry": true, "make_encargos": true,
 }
 
 // Limits of one request: at most this many events, of this many bytes.

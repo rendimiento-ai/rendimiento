@@ -18,6 +18,7 @@ Cada organización elige en su página **IA** (los administradores):
 - Con la llave de la plataforma, el límite es el menor entre el tope de la organización y la **asignación** de los operadores, y todas las organizaciones juntas se quedan bajo `AI_PLATFORM_CAP` (5 dólares si no se cambia).
 - Cuando se alcanza un tope, falta una llave o el proveedor falla, **contesta el modelo local** y la llamada dice por qué. Nada deja de funcionar; solo se vuelve más sencillo.
 - Una respuesta tiene a lo más 4,096 tokens, así que una llamada solo puede pasarse de un tope por una respuesta.
+- Una [plática sobre una entrada de la Ruta](ruta.md#talking-an-entry-over) tiene su propio **tope por plática** (*Platicar las entradas* en la página IA, 50 centavos si no se cambia): al pasarlo, le pregunta a una persona antes de seguir, y cada sí permite un tope más.
 
 El gasto se mide con los tokens que reporta cada proveedor y el precio de lista del modelo (`ia.DefaultPrices`; un modelo que no está en la lista cuenta como gratis, así que póngale precio antes de confiar en su tope). Los topes vuelven a cero el primero de cada mes (UTC).
 

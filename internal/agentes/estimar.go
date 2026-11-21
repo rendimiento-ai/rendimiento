@@ -185,12 +185,34 @@ func (e *Estimator) system() string {
 		lang = "Mexican Spanish (usted)"
 	}
 	return fmt.Sprintf(`You rate encargos for rendimiento, a platform that builds, tests and deploys apps. An encargo is work a person asks of a coding agent: changing an app's code, its configuration or its tests. Rate how hard it is for a coding agent, from 1 to 10:
-1-2: a small, clear change in one place (a text, a value, a one-line fix).
-3-4: a change in a few files that is clear what to do.
-5-6: a feature or a fix that needs reading around, several files and new tests.
-7-8: a change across parts of the system, or a cause still to be found.
-9-10: a design change, a migration, or something vague and large.
+`+EscalaDificultad+`
 Rate the size of the fix, not the length of the detail: a failed run with its log, and its cause already explained (a wrong formula in one function), is a clear small fix, 2 or 3, however long the log.
 When what to do is too vague to know, rate it higher, not lower.
 Answer only with JSON: {"difficulty": <1-10>, "reason": "<one sentence in %s>"}`, lang)
+}
+
+// EscalaDificultad is how hard an encargo is, from 1 to 10, as the
+// estimator rates it (and the conversation's proposal of encargos too).
+const EscalaDificultad = `1-2: a small, clear change in one place (a text, a value, a one-line fix).
+3-4: a change in a few files that is clear what to do.
+5-6: a feature or a fix that needs reading around, several files and new tests.
+7-8: a change across parts of the system, or a cause still to be found.
+9-10: a design change, a migration, or something vague and large.`
+
+// Precio is what the platform's AI would spend on an encargo of
+// difficulty d for the organization, as Estimate prices it (the table,
+// corrected by what the coding agent spent when set.EstimateLearn), and so
+// who should do it: the platform's AI up to the organization's amount, the
+// person's own agent above it.
+func (e *Estimator) Precio(ctx context.Context, set store.AISettings, d int) (int64, string) {
+	cost := e.Cost(d)
+	if set.EstimateLearn && e.Store != nil {
+		if f, ok := e.Learned(ctx, set.OrgID).For(d); ok && f.X != 1 {
+			cost = f.Scale(cost)
+		}
+	}
+	if cost <= set.EncargoAutoMicros {
+		return cost, store.RoutePlatform
+	}
+	return cost, store.RouteLocal
 }
