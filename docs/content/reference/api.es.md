@@ -97,6 +97,7 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | PUT | `/api/ruta/{id}` | cambia una entrada (se conserva la versión anterior) |
 | POST | `/api/ruta/{id}/archive` | esconde una entrada de las listas |
 | GET | `/api/ruta/activity` | los cargos de los agentes y sus últimas llamadas a herramientas |
+| GET | `/api/ruta/portada` | la portada de la Ruta para usted: encargos entregados por revisar, entradas con la etiqueta `por-decidir`, pendientes con `para-usted` o con su usuario, fallas conocidas sin confirmar, comentarios que nadie respondió, encargos que nadie tiene, las cuentas del día (`?hoy=`: cuándo empezó su día) y las últimas entradas |
 | GET | `/api/agent-keys` | las llaves de agente (nunca los tokens) |
 | POST | `/api/agent-keys` | crea una llave de agente (`name`, `role`: `reader` o `collaborator`, `apps`: vacío para todas, `days`); el token solo viene en esta respuesta |
 | DELETE | `/api/agent-keys/{id}` | revoca una llave de agente |
@@ -116,7 +117,11 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | POST | `/api/encargos` | pedirles algo a los agentes (`title`, `body`, `app`, `runId`) |
 | GET | `/api/encargos/{id}` | un encargo con su historia |
 | POST | `/api/encargos/{id}/review` | aceptar un encargo entregado (`accept: true`) o devolverlo con un `comment` |
-| POST | `/api/encargos/{id}/cancel` | descartar un encargo |
+| POST | `/api/encargos/{id}/cancel` | descartar un encargo (`reason` opcional) |
+| POST | `/api/encargos/{id}/app` | de qué aplicación es un encargo pendiente que nadie tiene (`app`); colaboradores de esa aplicación |
+| POST | `/api/encargos/{id}/stop` | pedirle al agente de código que se detenga en el encargo que hace: lo devuelve con lo que hizo |
+| GET | `/api/encargos/cola` | la fila del agente de código: qué hace ahora, lo que sigue en orden, lo terminado por revisar, lo devuelto; su modo, cuántos a la vez y lo que gastó hoy |
+| POST | `/api/encargos/cola/orden` | el orden de la fila (`ids`, el primero se hace primero); los demás van después |
 | GET | `/api/comentarios` | los comentarios sobre el trabajo de los agentes, del más viejo al más nuevo: los de un cargo (`?cargo=`), los de un encargo (`?encargo=`) o los últimos de la organización; `new` marca la respuesta de un agente a uno suyo que usted no ha visto |
 | POST | `/api/comentarios` | comentar un cargo (`cargoId`) o un encargo (`encargoId`) sin devolverlo (`body`); colaboradores |
 | GET | `/api/comentarios/respuestas` | las respuestas de los agentes a sus comentarios que usted no ha visto (la campana) |

@@ -204,7 +204,7 @@ function Shell() {
           <Route path="/addons" element={<Addons />} />
           <Route path="/problems" element={<Problems />} />
           <Route path="/registro" element={<Registro />} />
-          <Route path="/ruta" element={<Ruta />} />
+          <Route path="/ruta" element={<Ruta me={state.login ?? ""} />} />
           <Route path="/bitacora" element={<Bitacora />} />
           <Route path="/senales" element={<SenalesPage />} />
           <Route path="/uso" element={<UsoPage />} />

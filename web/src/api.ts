@@ -596,6 +596,8 @@ export interface AISettings {
   escalateLimit: number;
   encargoAutoMicros: number;
   codeAgent: CodeAgent;
+  /** How many encargos the coding agent may do at once (1 to 3), never two of one app. */
+  codeConcurrency: number;
   /** The estimator corrects its table by what the coding agent spent (false: the fixed table). */
   estimateLearn: boolean;
   autoEncargo: AutoEncargo;
@@ -759,10 +761,50 @@ export interface Encargo {
   // Sent to the platform's coding agent, and what it spent on it.
   doNow?: boolean;
   spentMicros?: number;
+  /** Its place in the coding agent's queue as a person ordered it; what the agent does on it now ("tool:what"); a person asked it to stop. */
+  queuePos?: number;
+  doing?: string;
+  stopAsked?: boolean;
+  /** A person (not the estimator) chose who does it. */
+  routeChosen?: boolean;
   createdAt: string;
   updatedAt: string;
   log?: { at: string; who: string; what: string; note?: string }[];
 }
+
+/** A known failure the diagnostician wrote that nobody rated yet, with the run to rate it on. */
+export interface UnconfirmedManual { id: number; title: string; runId: number; app: string; at: string }
+
+/** The Ruta's front page (api.Portada): what needs the person, and what goes on meanwhile. */
+export interface Portada {
+  review: Encargo[];
+  decide: RutaEntry[];
+  yours: RutaEntry[];
+  rate: UnconfirmedManual[];
+  unanswered: Comentario[];
+  unowned: Encargo[];
+  counts: { withAgents: number; pendientes: number; doneToday: number; vividoNew: number };
+  latest: RutaEntry[];
+}
+
+/** The coding agent's queue (api.Cola). */
+export interface Cola {
+  mode: CodeAgent;
+  concurrency: number;
+  now: Encargo[];
+  next: Encargo[];
+  delivered: Encargo[];
+  returned: Encargo[];
+  spentTodayMicros: number;
+  capMicros: number;
+}
+
+/** When the person's day began, for "today" (the server's otherwise is the last 24 hours). */
+const hoy = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return encodeURIComponent(d.toISOString().replace(/\.\d{3}Z$/, "Z"));
+};
 
 export interface AgentKey {
   id: number;
@@ -1335,7 +1377,7 @@ export const api = {
   fixLog: (run: number, fix: number) => request<string>("GET", `/api/runs/${run}/fixes/${fix}/log`),
   judgeDiagnosis: (run: number, useful: boolean, cause = "") =>
     request<{ feedback: string; rutaEntry: number }>("POST", `/api/runs/${run}/diagnosis/feedback`, { useful, cause }),
-  saveIA: (v: { provider: AIProvider; kind?: string; baseUrl?: string; model?: string; capDollars: number; key?: string; removeKey?: boolean; autoDiagnose?: boolean; escalateTo?: string; escalateLimit?: number; encargoAutoDollars?: number; codeAgent?: CodeAgent; estimateLearn?: boolean; autoEncargo?: AutoEncargo }) =>
+  saveIA: (v: { provider: AIProvider; kind?: string; baseUrl?: string; model?: string; capDollars: number; key?: string; removeKey?: boolean; autoDiagnose?: boolean; escalateTo?: string; escalateLimit?: number; encargoAutoDollars?: number; codeAgent?: CodeAgent; codeConcurrency?: number; estimateLearn?: boolean; autoEncargo?: AutoEncargo }) =>
     request<IAView>("PUT", "/api/ia", v),
   testIA: (prompt: string) => request<IAAnswer>("POST", "/api/ia/test", { prompt }),
   iaOrgs: () => request<IAOrgs>("GET", "/api/ia/orgs"),
@@ -1453,7 +1495,12 @@ export const api = {
   encargo: (id: number) => request<Encargo>("GET", `/api/encargos/${id}`),
   createEncargo: (e: { title: string; body: string; app?: string; runId?: number }) => request<Encargo>("POST", "/api/encargos", e),
   reviewEncargo: (id: number, accept: boolean, comment = "") => request<Encargo>("POST", `/api/encargos/${id}/review`, { accept, comment }),
-  cancelEncargo: (id: number) => request<Encargo>("POST", `/api/encargos/${id}/cancel`),
+  cancelEncargo: (id: number, reason?: string) => request<Encargo>("POST", `/api/encargos/${id}/cancel`, reason ? { reason } : undefined),
+  setEncargoApp: (id: number, app: string) => request<Encargo>("POST", `/api/encargos/${id}/app`, { app }),
+  stopEncargo: (id: number) => request<Encargo>("POST", `/api/encargos/${id}/stop`),
+  cola: () => request<Cola>("GET", `/api/encargos/cola?hoy=${hoy()}`),
+  reorderCola: (ids: number[]) => request<Cola>("POST", `/api/encargos/cola/orden?hoy=${hoy()}`, { ids }),
+  portada: () => request<Portada>("GET", `/api/ruta/portada?hoy=${hoy()}`),
   routeEncargo: (id: number, route: "platform" | "local") => request<Encargo>("POST", `/api/encargos/${id}/route`, { route }),
   doEncargos: (ids: number[]) => request<{ sent: number }>("POST", "/api/encargos/do", { ids }),
   setAppAutoEncargo: (app: string, mode: AutoEncargo | "") => request<void>("PUT", `/api/apps/${app}/auto-encargo`, { mode }),

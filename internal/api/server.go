@@ -377,6 +377,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberCollaborator, "PUT /api/ruta/{id}", s.updateRuta)
 	auth(store.MemberCollaborator, "POST /api/ruta/{id}/archive", s.archiveRuta)
 	auth(store.MemberGuest, "GET /api/ruta/activity", s.rutaActivity)
+	auth(store.MemberGuest, "GET /api/ruta/portada", s.portada)
 	// The bitácora: every action, by people and agents (collaborators and
 	// administrators: arguments can show more than guests should see).
 	// The señales de vida: what this installation sends, for the operators.
@@ -406,6 +407,10 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberCollaborator, "POST /api/encargos/{id}/route", s.routeEncargo)
 	auth(store.MemberCollaborator, "POST /api/encargos/{id}/estimate", s.reestimateEncargo)
 	auth(store.MemberCollaborator, "POST /api/encargos/do", s.doEncargos)
+	auth(store.MemberGuest, "GET /api/encargos/cola", s.cola)
+	auth(store.MemberCollaborator, "POST /api/encargos/cola/orden", s.reorderCola)
+	auth(store.MemberCollaborator, "POST /api/encargos/{id}/app", s.setEncargoApp)
+	auth(store.MemberCollaborator, "POST /api/encargos/{id}/stop", s.stopEncargo)
 	// What people say about agents' work (a cargo, an encargo), and agents'
 	// answers, which reach the person who commented in the bell.
 	auth(store.MemberGuest, "GET /api/comentarios", s.listComentarios)

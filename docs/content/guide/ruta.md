@@ -20,11 +20,28 @@ Nothing is lost: an edit keeps the previous version, and *Archive* hides an entr
 
 A to-do or a decision can say which **app** it is about (the optional `app` field). The Ruta stays one; the entry simply also shows in that app's [libreta](libreta.md), the list of what was asked for the app and whether it is done. An entry about an app can name the **branches** it is worked on (`rama`), so its state there comes from their runs, merge and release, and it can be **set aside** with its reason (`descartado`), which the libreta shows as *discarded* (or with **Discard** on its card there). A branch is also linked by itself: a commit pushed to it with a line `Ruta: 150` names that entry, and a branch an agent runs in its cargo answers the entries about that app it wrote or changed in the cargo ([which branches belong to a request](libreta.md#which-branches-belong-to-a-request)). The history keeps an entry's app and its reason for being set aside too, like its other fields. **Note a request** on an app's Libreta tab writes a to-do with the app already set. An entry about an app the person may not see is hidden from them, as one tagged with it is.
 
+## For you: the front page {#for-you}
+
+The Ruta opens on **For you** (*Para usted*): how many things wait for your word, the [coding agent](agents.md#the-coding-agent) live (what it does now and how far it is; a tap opens its queue), and then one row for each thing that needs you, each with **one** action:
+
+| Row | What it is | Its action |
+|---|---|---|
+| **Review** | an encargo an agent delivered | opens it to mark it reviewed or send it back |
+| **Encargos waiting for someone** | pending encargos nobody has, that the coding agent will not take by itself and you did not leave to your own agent | tick the ones to send to the coding agent (the bar at the bottom sends them, with what they would cost), or **Choose app** when one says none |
+| **Decide** | an entry tagged `por-decidir`: a decision only a person makes | opens it |
+| **Rate** | a known failure the diagnostician wrote with a stronger model, still *sin confirmar* | the run, to say whether it was right |
+| **Do it yourself** | a to-do tagged `para-usted`, or with your login (as agents mark what only you can do: an account only you have, a key only you hold) | opens its steps |
+| **Nobody answered** | a person's comment on an agent's work no agent has answered yet | the thread |
+
+Agents learn the two tags from `ruta_anotar`: `por-decidir` when an entry waits for a person's word, `para-usted` (or the person's login) when only a person can do it. **Meanwhile** counts what goes on by itself: encargos in agents' hands, to-dos for later, what was done today (encargos delivered and to-dos ticked) and new stories in lo vivido, each a link to where it is.
+
+On a phone the Ruta's four places are a bar at the bottom, above the menu: **For you**, **Encargos**, **The agent** (the coding agent's queue, see [Encargos](agents.md#the-coding-agent)) and **Journal** (*Cuaderno*). On a computer they are tabs on top, and For you has a right column with the agent, the counts, the journal's sections and the latest entries. The journal is a search and a card for each section: to-dos, decisions, manuals, lo vivido, cargos and the agents' keys, with what was written last. Old links keep working: `?tab=encargos`, `?tab=cargos`, `?tab=vivido`, `?tab=llaves`, and `?tab=ruta` or `?entrada=N` for the index of every entry. When movement is off (in the top bar, or on the device) the monarch, the agent's spinner and its progress stay still.
+
 ## Cargos: an agent's turn of work {#cargos-an-agents-turn-of-work}
 
 An agent that wants to write first **takes a cargo**: a turn of work with a purpose ("move stockpulse's database"). Everything it writes belongs to that cargo. Before it leaves, it **hands the cargo over** (*entrega*): what it did, and what is left. The next agent starts by reading the last handovers. The **Cargos** tab shows them as the monarchs' flight, one after another, with every tool call recorded.
 
-The **Encargos** tab is the work asked of agents: you write what to do, an agent takes it, may wait on its runs, and hands it over; you review it or send it back. See [Encargos](agents.md#encargos).
+**Encargos** is the work asked of agents: you write what to do, an agent takes it, may wait on its runs, and hands it over; you review it or send it back. See [Encargos](agents.md#encargos).
 
 ## Comments on an agent's work {#comments-on-an-agents-work}
 

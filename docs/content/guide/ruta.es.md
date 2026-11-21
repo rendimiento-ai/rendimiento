@@ -20,11 +20,28 @@ No se pierde nada: una edición conserva la versión anterior, y *Archivar* esco
 
 Un pendiente o una decisión puede decir de qué **aplicación** trata (el campo opcional `app`). La Ruta sigue siendo una sola; la entrada simplemente sale también en la [libreta](libreta.md) de esa aplicación, la lista de lo que se pidió para ella y si ya se hizo. Una entrada de una aplicación puede nombrar las **ramas** en que se trabaja (`rama`), para que su estado salga de sus ejecuciones, su integración y su versión, y se puede **dejar de lado** con su porqué (`descartado`), que la libreta muestra como *descartado* (o con **Descartar** en su tarjeta ahí). Una rama también se liga sola: una confirmación subida a ella con una línea `Ruta: 150` nombra esa entrada, y una rama que un agente ejecuta en su cargo responde a las entradas de esa aplicación que escribió o cambió en el cargo ([qué ramas son de un pedido](libreta.md#which-branches-belong-to-a-request)). El historial guarda también la aplicación de una entrada y su porqué de dejarla de lado, como sus demás campos. **Anotar un pedido**, en la pestaña Libreta de una aplicación, escribe un pendiente con la aplicación ya puesta. Una entrada de una aplicación que la persona no puede ver se le esconde, igual que una etiquetada con ella.
 
+## Para usted: la portada {#for-you}
+
+La Ruta abre en **Para usted**: cuántas cosas esperan su palabra, el [agente de código](agents.md#the-coding-agent) en vivo (qué hace ahora y cuánto lleva; al tocarlo abre su fila), y luego una fila por cada cosa que lo necesita a usted, cada una con **una** acción:
+
+| Fila | Qué es | Su acción |
+|---|---|---|
+| **Revisar** | un encargo que un agente entregó | lo abre para marcarlo revisado o devolverlo |
+| **Encargos que esperan quién los haga** | encargos pendientes que nadie tiene, que el agente de código no tomará por su cuenta y que usted no le dejó a su propio agente | marque los que manda al agente de código (la barra de abajo los manda, con lo que costarían), o **Escoger app** cuando uno no dice cuál |
+| **Decidir** | una entrada con la etiqueta `por-decidir`: una decisión que solo toma una persona | la abre |
+| **Calificar** | una falla conocida que el diagnosticador escribió con un modelo más fuerte, todavía *sin confirmar* | la ejecución, para decir si acertó |
+| **Hacer usted** | un pendiente con la etiqueta `para-usted`, o con su usuario (así marcan los agentes lo que solo usted puede hacer: una cuenta que solo usted tiene, una llave que solo usted guarda) | abre sus pasos |
+| **Nadie ha respondido** | el comentario de una persona sobre el trabajo de un agente que ningún agente ha respondido | el hilo |
+
+Los agentes conocen las dos etiquetas por `ruta_anotar`: `por-decidir` cuando una entrada espera la palabra de una persona, `para-usted` (o el usuario de la persona) cuando solo una persona puede hacerlo. **Mientras tanto** cuenta lo que va solo: encargos en manos de agentes, pendientes para después, lo hecho hoy (encargos entregados y pendientes marcados) y las historias nuevas de lo vivido, cada uno con un enlace a donde está.
+
+En el teléfono, los cuatro lugares de la Ruta son una barra abajo, encima del menú: **Para usted**, **Encargos**, **El agente** (la fila del agente de código, vea [Encargos](agents.md#the-coding-agent)) y **Cuaderno**. En la computadora son pestañas arriba, y Para usted tiene una columna a la derecha con el agente, las cuentas, las secciones del cuaderno y las últimas entradas. El cuaderno es un buscador y una tarjeta por sección: pendientes, decisiones, manuales, lo vivido, cargos y las llaves de los agentes, con lo último que se escribió. Los enlaces de antes siguen sirviendo: `?tab=encargos`, `?tab=cargos`, `?tab=vivido`, `?tab=llaves`, y `?tab=ruta` o `?entrada=N` para el índice de todas las entradas. Con el movimiento apagado (en la barra de arriba, o en el dispositivo) la monarca, el giro del agente y su avance se quedan quietos.
+
 ## Cargos: el turno de trabajo de un agente {#cargos-an-agents-turn-of-work}
 
 Un agente que quiere escribir primero **toma un cargo**: un turno de trabajo con un propósito ("mudar la base de datos de stockpulse"). Todo lo que escribe pertenece a ese cargo. Antes de irse, **entrega el cargo**: qué hizo y qué falta. El siguiente agente empieza leyendo las últimas entregas. La pestaña **Cargos** las muestra como el vuelo de las monarcas, una tras otra, con cada llamada a una herramienta anotada.
 
-La pestaña **Encargos** es el trabajo que se les pide a los agentes: usted escribe qué hay que hacer, un agente lo toma, puede esperar sus ejecuciones y lo entrega; usted lo revisa o lo devuelve. Vea [Encargos](agents.md#encargos).
+**Encargos** es el trabajo que se les pide a los agentes: usted escribe qué hay que hacer, un agente lo toma, puede esperar sus ejecuciones y lo entrega; usted lo revisa o lo devuelve. Vea [Encargos](agents.md#encargos).
 
 ## Comentarios sobre el trabajo de un agente {#comments-on-an-agents-work}
 

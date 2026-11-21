@@ -42,7 +42,7 @@ var toolsEN = map[string]string{
 	"ruta_buscar":     "Searches the Ruta's entries by text and kind (decision, manual, pendiente, nota, vivido). Returns summaries; use ruta_leer for the whole content.",
 	"ruta_leer":       "Reads a whole Ruta entry by its number.",
 	"cargo_tomar":     "Takes a cargo (a turn of work) with its purpose. Needed to write. Returns the last handovers, so you know where whoever came before left off.",
-	"ruta_anotar":     "Records a new entry: a decision (with its reason), a manual, a to-do (pendiente) or a note. With app, the entry is about that app and shows in its libreta; with rama, the branch it is worked on, whose runs, merge and release give its state. Never include secrets. Needs an open cargo.",
+	"ruta_anotar":     "Records a new entry: a decision (with its reason), a manual, a to-do (pendiente) or a note. With app, the entry is about that app and shows in its libreta; with rama, the branch it is worked on, whose runs, merge and release give its state. When it waits for a person's word, tag it por-decidir; when only a person can do it, para-usted (or their login): so it shows on their Ruta front page. Never include secrets. Needs an open cargo.",
 	"ruta_actualizar": "Changes an entry (title, body, tags, its app, or marks a to-do as done), links one more branch to it (rama), or sets it aside with the reason (descartado). The previous version is kept. Lo vivido can't be changed from here. Needs an open cargo.",
 	"cargo_entregar":  "Hands your cargo over before you leave: what you did and what is left, for whoever comes next.",
 

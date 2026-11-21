@@ -162,6 +162,7 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
   const [escalateLimit, setEscalateLimit] = useState(s.escalateLimit);
   const [encargoAuto, setEncargoAuto] = useState(s.encargoAutoMicros / 1e6);
   const [codeAgent, setCodeAgent] = useState<CodeAgent>(s.codeAgent);
+  const [aLaVez, setALaVez] = useState(s.codeConcurrency || 1);
   const [learn, setLearn] = useState(s.estimateLearn);
   const [autoEncargo, setAutoEncargo] = useState<AutoEncargo>(s.autoEncargo);
   const [busy, setBusy] = useState(false);
@@ -170,7 +171,7 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
   const reset = () => {
     setProvider(s.provider); setKind(s.kind ?? "anthropic"); setBaseUrl(s.baseUrl ?? "");
     setModel(s.model ?? ""); setCap(s.capMicros / 1e6); setAuto(s.autoDiagnose);
-    setEscalateTo(s.escalateTo); setEscalateLimit(s.escalateLimit); setEncargoAuto(s.encargoAutoMicros / 1e6); setCodeAgent(s.codeAgent); setLearn(s.estimateLearn); setAutoEncargo(s.autoEncargo); setKey("");
+    setEscalateTo(s.escalateTo); setEscalateLimit(s.escalateLimit); setEncargoAuto(s.encargoAutoMicros / 1e6); setCodeAgent(s.codeAgent); setALaVez(s.codeConcurrency || 1); setLearn(s.estimateLearn); setAutoEncargo(s.autoEncargo); setKey("");
   };
   // Polling brings a new object every time: reset only when the saved settings change.
   useEffect(reset, [JSON.stringify(s)]);
@@ -194,12 +195,13 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
   if (Math.round(encargoAuto * 1e6) !== s.encargoAutoMicros) changes.push([t("Encargos for the platform's AI"), dollars(s.encargoAutoMicros), dollars(Math.round(encargoAuto * 1e6))]);
   if (auto && autoEncargo !== s.autoEncargo) changes.push([t("Encargos for failures"), t(autoEncargoName[s.autoEncargo]), t(autoEncargoName[autoEncargo])]);
   if (codeAgent !== s.codeAgent) changes.push([t("The coding agent"), t(codeAgentName[s.codeAgent]), t(codeAgentName[codeAgent])]);
+  if (aLaVez !== (s.codeConcurrency || 1)) changes.push([t("Encargos at once"), String(s.codeConcurrency || 1), String(aLaVez)]);
   if (learn !== s.estimateLearn) changes.push([t("Estimates"), t(s.estimateLearn ? "corrects the estimates" : "the fixed table"), t(learn ? "corrects the estimates" : "the fixed table")]);
   if (Math.round(cap * 1e6) !== s.capMicros) changes.push([t("Monthly cap"), dollars(s.capMicros), dollars(Math.round(cap * 1e6))]);
 
   const save = (extra: { removeKey?: boolean } = {}) => {
     setBusy(true); setErr(undefined);
-    api.saveIA({ provider, kind, baseUrl, model, capDollars: cap, key: key || undefined, autoDiagnose: auto, escalateTo, escalateLimit, encargoAutoDollars: encargoAuto, codeAgent, estimateLearn: learn, autoEncargo, ...extra })
+    api.saveIA({ provider, kind, baseUrl, model, capDollars: cap, key: key || undefined, autoDiagnose: auto, escalateTo, escalateLimit, encargoAutoDollars: encargoAuto, codeAgent, codeConcurrency: aLaVez, estimateLearn: learn, autoEncargo, ...extra })
       .then(() => { setBusy(false); setKey(""); setSaved(true); onSaved(); }, (e) => { setBusy(false); setErr(e); });
   };
   const allowance = Math.min(s.allowanceMicros, s.capMicros);
@@ -316,6 +318,18 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
           <Tile name="code-agent" title={t(codeAgentName.auto)} checked={codeAgent === "auto"} disabled={!admin || !anthropic} onPick={() => setCodeAgent("auto")}
             cost={t("also every cheap one (under the amount above) on its own")} status={anthropicStatus} />
         </div>
+        <fieldset className="ia-a-la-vez" disabled={!admin || codeAgent === "off"}>
+          <legend>{t("Encargos at once")}</legend>
+          <p className="small muted">{t("One at a time, in the queue's order, is the default. With more, it does several at once, never two of the same app, and each one keeps its own brake; all of them count toward the monthly cap.")}</p>
+          <div className="ia-a-la-vez-opciones" role="radiogroup" aria-label={t("Encargos at once")}>
+            {[1, 2, 3].map((n) => (
+              <label key={n} className={`ia-a-la-vez-opcion${aLaVez === n ? " on" : ""}`}>
+                <input type="radio" name="code-concurrency" checked={aLaVez === n} onChange={() => setALaVez(n)} />
+                <strong>{n}</strong> <span className="small">{n === 1 ? t("one at a time") : t("up to {n} at once", { n })}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         {v.coder && <Boleta b={v.coder} learn={learn} onLearn={setLearn} admin={admin} />}
       </section>
 
