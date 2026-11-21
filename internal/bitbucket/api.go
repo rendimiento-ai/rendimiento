@@ -105,7 +105,8 @@ type form struct {
 }
 
 // call is one request with a bearer token; out, when not nil, is a
-// *[]byte for the raw answer or anything JSON decodes into.
+// *[]byte for the raw answer, an *http.Header for the answer's headers
+// (a new commit's Location), or anything JSON decodes into.
 func (f *Forja) call(ctx context.Context, token, method, rawURL string, body, out any) error {
 	var rd io.Reader
 	contentType := ""
@@ -143,6 +144,10 @@ func (f *Forja) call(ctx context.Context, token, method, rawURL string, body, ou
 	switch o := out.(type) {
 	case nil:
 		_, _ = io.Copy(io.Discard, resp.Body)
+		return nil
+	case *http.Header:
+		_, _ = io.Copy(io.Discard, resp.Body)
+		*o = resp.Header.Clone()
 		return nil
 	case *[]byte:
 		*o, err = io.ReadAll(io.LimitReader(resp.Body, 256<<20))

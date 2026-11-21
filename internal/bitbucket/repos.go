@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 	"path"
 	"sort"
@@ -734,19 +735,77 @@ func (f *Forja) CreateBranch(ctx context.Context, installation int64, repo, bran
 
 // CommitFiles commits files and removals on branch in one commit
 // (Bitbucket's /src, as a form: a path with no content is removed), and
-// returns the branch's new head.
+// returns the new commit.
 func (f *Forja) CommitFiles(ctx context.Context, installation int64, repo, branch, message string, files map[string][]byte, remove []string) (string, error) {
+	return f.writeSrc(ctx, installation, repo, branch, message, nil, []string{branch}, files, remove)
+}
+
+// ErrNoMergeCommit is a Bitbucket that wrote a merge commit with one
+// parent: its /src takes several parents, but says that it will stop.
+var ErrNoMergeCommit = errors.New("on Bitbucket, rendimiento could not write a commit with two parents")
+
+// CommitMerge commits files and removals on branch (whose head must still
+// be head) as a merge of other into it, with head and other as parents.
+//
+// Bitbucket's /src takes the parents of the commit it writes: with head
+// first, the tree is head's with the files and removals, and Bitbucket
+// refuses (409) when branch no longer points at head. Its documentation
+// marks more than one parent as deprecated; should Bitbucket drop it and
+// write the commit with head alone, the resolution is committed (no marks
+// are left), but it is not a merge, and ErrNoMergeCommit says so: the
+// conflict then goes to a person.
+func (f *Forja) CommitMerge(ctx context.Context, installation int64, repo, branch, head, other, message string, files map[string][]byte, remove []string) (string, error) {
+	now, err := f.BranchSHA(ctx, installation, repo, branch)
+	if err != nil {
+		return "", err
+	}
+	if now != head {
+		return "", fmt.Errorf("%w: %s moved to %s while it was being merged", forja.ErrConflict, branch, now)
+	}
+	sha, err := f.writeSrc(ctx, installation, repo, branch, message, []string{head, other}, []string{head, other}, files, remove)
+	if err != nil {
+		return "", err
+	}
+	c, err := f.commit(ctx, installation, repo, sha)
+	if err != nil {
+		return "", err
+	}
+	if len(c.Parents) < 2 {
+		return "", fmt.Errorf("%w: %s has only %s as parent", ErrNoMergeCommit, sha[:min(7, len(sha))], head[:min(7, len(head))])
+	}
+	return c.Hash, nil
+}
+
+// writeSrc writes one commit on branch through /src, on parents (none:
+// on branch's head). Bitbucket keeps a file executable only when the form
+// says so, so each file is as executable as it is at the first of modes
+// that has it. It returns the commit Bitbucket says it wrote (its
+// Location), and branch's head only when it does not say: another push
+// meanwhile would move it.
+func (f *Forja) writeSrc(ctx context.Context, installation int64, repo, branch, message string, parents, modes []string, files map[string][]byte, remove []string) (string, error) {
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	_ = mw.WriteField("message", message)
 	_ = mw.WriteField("branch", branch)
+	if len(parents) > 0 {
+		_ = mw.WriteField("parents", strings.Join(parents, ","))
+	}
 	names := make([]string, 0, len(files))
 	for p := range files {
 		names = append(names, p)
 	}
 	sort.Strings(names)
+	quote := strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
 	for _, p := range names {
-		w, err := mw.CreateFormFile(strings.TrimPrefix(p, "/"), path.Base(p))
+		name := strings.TrimPrefix(p, "/")
+		disposition := fmt.Sprintf(`form-data; name="%s"; filename="%s"`, quote.Replace(name), quote.Replace(path.Base(p)))
+		if f.executable(ctx, installation, repo, name, modes) {
+			disposition += `; x-attributes="executable"`
+		}
+		h := textproto.MIMEHeader{}
+		h.Set("Content-Disposition", disposition)
+		h.Set("Content-Type", "application/octet-stream")
+		w, err := mw.CreatePart(h)
 		if err != nil {
 			return "", err
 		}
@@ -760,20 +819,35 @@ func (f *Forja) CommitFiles(ctx context.Context, installation int64, repo, branc
 	if err := mw.Close(); err != nil {
 		return "", err
 	}
-	if err := f.in(ctx, installation, repo, http.MethodPost, "/src", form{contentType: mw.FormDataContentType(), data: buf.Bytes()}, nil); err != nil {
+	var hdr http.Header
+	if err := f.in(ctx, installation, repo, http.MethodPost, "/src", form{contentType: mw.FormDataContentType(), data: buf.Bytes()}, &hdr); err != nil {
 		return "", err
+	}
+	if _, sha, ok := strings.Cut(hdr.Get("Location"), "/commit/"); ok && sha != "" {
+		return strings.Trim(sha, "/"), nil
 	}
 	return f.BranchSHA(ctx, installation, repo, branch)
 }
 
-// ErrNoMergeCommit: Bitbucket's API writes commits with one parent, so
-// rendimiento cannot join a conflict there itself yet.
-var ErrNoMergeCommit = errors.New("on Bitbucket, rendimiento cannot write a merge commit yet")
-
-// CommitMerge is not done on Bitbucket yet (ErrNoMergeCommit): the
-// conflict stays a person's.
-func (f *Forja) CommitMerge(context.Context, int64, string, string, string, string, string, map[string][]byte, []string) (string, error) {
-	return "", ErrNoMergeCommit
+// executable reports whether a file is executable at the first of refs
+// that has it (false when Bitbucket does not say).
+func (f *Forja) executable(ctx context.Context, installation int64, repo, filePath string, refs []string) bool {
+	for _, ref := range refs {
+		var meta struct {
+			Attributes []string `json:"attributes"`
+		}
+		err := f.in(ctx, installation, repo, http.MethodGet, "/src/"+url.PathEscape(ref)+"/"+escapePath(filePath)+"?format=meta", nil, &meta)
+		if forja.IsNotFound(err) {
+			continue
+		}
+		for _, a := range meta.Attributes {
+			if a == "executable" {
+				return err == nil
+			}
+		}
+		return false
+	}
+	return false
 }
 
 // ---- for the wizard ----

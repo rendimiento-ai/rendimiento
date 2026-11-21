@@ -303,9 +303,6 @@ func TestStatusesAndPulls(t *testing.T) {
 	if err := f.MergePull(ctx, 1, repo, 7, full); err != nil {
 		t.Fatalf("merge: %v", err)
 	}
-	if _, err := f.CommitMerge(ctx, 1, repo, "rama", full, "main", "m", nil, nil); !errors.Is(err, ErrNoMergeCommit) {
-		t.Fatalf("a merge commit: %v", err)
-	}
 
 	// Onboarding: the files in one commit off main, then the pull request.
 	opened, err := f.OpenPR(ctx, 1, repo, "main", "nueva", "Add rendimiento.yaml", "body", map[string]string{"rendimiento.yaml": "services: []\n"})
