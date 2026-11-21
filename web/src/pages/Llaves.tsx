@@ -32,7 +32,7 @@ const fecha = (iso: string) => new Date(iso).toLocaleDateString(locale, { day: "
 
 /** When a key expires, or when it was changed here, in a few words. */
 function estadoDe(l: Llave): { texto: string; aviso?: boolean } {
-  if (l.pronto) return { texto: l.set ? t("Set") : t("Changes here soon") };
+  if (l.externa) return { texto: t("Outside rendimiento") };
   if (!l.set) return { texto: t("Not set") };
   if (l.venceEn) {
     const d = Math.floor((new Date(l.venceEn).getTime() - Date.now()) / 86400000);
@@ -88,7 +88,7 @@ export function Llaves() {
                     <span className="llave-texto"><strong>{q.nombre()}</strong><span className="small muted">{q.para()}</span></span>
                     <span className={`llave-estado small${e.aviso ? " aviso" : ""}`}>{e.aviso && <i className="punto" />}{e.texto}</span>
                     <button className={`pildora${sel === l.id ? " primary" : ""}`} aria-pressed={sel === l.id} onClick={() => pick(sel === l.id ? undefined : l.id)}>
-                      {sel === l.id ? t("Changing") : t("Change")}
+                      {l.externa ? t("See") : sel === l.id ? t("Changing") : t("Change")}
                     </button>
                   </li>
                 );
@@ -118,9 +118,33 @@ export function Llaves() {
   );
 }
 
-/** How to make the new key, and what its test does, by key. */
-function instrucciones(l: Llave): { pasos: ReactNode[]; prueba: string[]; guarda: string; etiqueta: string; placeholder: string } {
+/** How to make the new key, and what its test does, by key; usuario: the label and placeholder of its first value, for a key of two. */
+function instrucciones(l: Llave): { pasos: ReactNode[]; prueba: string[]; guarda: string; etiqueta: string; placeholder: string; usuario?: { etiqueta: string; placeholder: string } } {
   switch (l.id) {
+    case "registros":
+      return {
+        pasos: [
+          t("In your S3 storage (Garage, MinIO, R2…), make an access key that may read, write and delete in the logs' bucket, and only in it."),
+          t("Paste its id and its secret here:"),
+        ],
+        prueba: [t("The archive accepts it"), t("The bucket is there"), t("It writes, reads back and deletes a test object")],
+        guarda: t("Only if everything passes is it saved for the log archive, and used with no restart."),
+        usuario: { etiqueta: t("Access key id"), placeholder: t("Paste the id") },
+        etiqueta: t("Secret key"),
+        placeholder: t("Paste the secret"),
+      };
+    case "umami":
+      return {
+        pasos: [
+          t("In Umami, under Settings → Users, make a user with the «View only» role, in the team that owns your websites."),
+          t("Write its name and paste its password here:"),
+        ],
+        prueba: [t("Umami lets it in"), t("It sees your websites")],
+        guarda: t("Only if both pass is it saved for the visitor numbers, and used with no restart."),
+        usuario: { etiqueta: t("User name"), placeholder: t("Write the user name") },
+        etiqueta: t("Password"),
+        placeholder: t("Paste the password"),
+      };
     case "cloudflare":
       return {
         pasos: [
@@ -162,7 +186,19 @@ function instrucciones(l: Llave): { pasos: ReactNode[]; prueba: string[]; guarda
 function nombrePaso(llave: string, id: LlaveResultado["pasos"][number]["id"]): string {
   switch (id) {
     case "verify":
-      return llave === "cloudflare" ? t("Cloudflare accepts it") : llave === "correo" ? t("Resend accepts it") : t("Anthropic accepts it");
+      switch (llave) {
+        case "cloudflare": return t("Cloudflare accepts it");
+        case "correo": return t("Resend accepts it");
+        case "registros": return t("The archive accepts it");
+        case "umami": return t("Umami lets it in");
+        default: return t("Anthropic accepts it");
+      }
+    case "bucket":
+      return t("The bucket is there");
+    case "object":
+      return t("It wrote, read back and deleted a test object");
+    case "websites":
+      return t("It sees your websites");
     case "zones":
       return t("It sees the zones");
     case "record":
@@ -183,40 +219,34 @@ function nombrePaso(llave: string, id: LlaveResultado["pasos"][number]["id"]): s
 function Cambiar({ l, onDone }: { l: Llave; onDone: () => void }) {
   const conexion = useConexion();
   const [valor, setValor] = useState("");
+  const [usuario, setUsuario] = useState("");
   const [prueba, setPrueba] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>();
   const [res, setRes] = useState<LlaveResultado>();
   const q = QUE[l.id];
 
-  if (l.pronto) {
-    return (
-      <section className="cambiar-panel">
-        <span className="cambiar-sello" aria-hidden="true">{t("Key")}</span>
-        <h2 className="entorno-h2">{t("Change: {what}", { what: q.nombre() })}</h2>
-        <p style={{ margin: 0 }}>{t("Changing this key here, tested first like the others, comes in the next version. Today it changes with Helm, or in its secret, and a restart.")}</p>
-      </section>
-    );
-  }
   if (!l.cambiable) {
     return (
       <section className="cambiar-panel">
         <span className="cambiar-sello" aria-hidden="true">{t("Key")}</span>
-        <h2 className="entorno-h2">{t("Change: {what}", { what: q.nombre() })}</h2>
+        <h2 className="entorno-h2">{l.externa ? q.nombre() : t("Change: {what}", { what: q.nombre() })}</h2>
         <p style={{ margin: 0 }}>{l.reason}</p>
+        {l.externa && <p className="small muted" style={{ margin: 0 }}>{t("rendimiento does not write secrets it does not own: what uses this key keeps it, and changes it.")}</p>}
       </section>
     );
   }
   const i = instrucciones(l);
+  const falta = !valor.trim() || (!!i.usuario && !usuario.trim());
   const enviar = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!valor.trim()) return;
+    if (falta) return;
     setBusy(true);
     setErr(undefined);
     const v = valor;
     setValor(""); // the value is not kept in the page once it is sent
     try {
-      const r = await envApi.cambiarLlave(l.id, v, l.id === "correo" && prueba);
+      const r = await envApi.cambiarLlave(l.id, v, l.id === "correo" && prueba, i.usuario ? usuario.trim() : undefined);
       setRes(r);
       if (r.guardada) onDone();
     } catch (x) {
@@ -227,6 +257,12 @@ function Cambiar({ l, onDone }: { l: Llave; onDone: () => void }) {
   };
   const formulario = (otraVez: boolean) => (
     <form className="stack-sm" onSubmit={enviar}>
+      {i.usuario && (
+        <label className="field">
+          <span>{i.usuario.etiqueta}</span>
+          <input autoComplete="off" spellCheck={false} value={usuario} onChange={(e) => setUsuario(e.target.value)} placeholder={i.usuario.placeholder} />
+        </label>
+      )}
       <label className="field">
         <span>{i.etiqueta}</span>
         <input type="password" autoComplete="off" spellCheck={false} value={valor} onChange={(e) => setValor(e.target.value)}
@@ -237,7 +273,7 @@ function Cambiar({ l, onDone }: { l: Llave; onDone: () => void }) {
       )}
       <ErrorBox error={err} />
       <div className="row">
-        <button className="primary pildora" type="submit" {...apagado(conexion, busy || !valor.trim())}>{busy ? t("Testing…") : otraVez ? t("Try again") : t("Test and save")}</button>
+        <button className="primary pildora" type="submit" {...apagado(conexion, busy || falta)}>{busy ? t("Testing…") : otraVez ? t("Try again") : t("Test and save")}</button>
       </div>
     </form>
   );

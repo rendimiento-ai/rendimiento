@@ -18,10 +18,14 @@ import (
 type LlaveView struct {
 	ID  string `json:"id"`
 	Set bool   `json:"set"`
-	// Cambiable: it changes here now. Pronto: it will, in a later version.
-	// Reason is why it does not change here, when it does not.
+	// Cambiable: it changes here now. Externa: it is not the platform's
+	// (something outside it uses it). Reason is why it does not change
+	// here, when it does not.
 	Cambiable   bool       `json:"cambiable"`
-	Pronto      bool       `json:"pronto,omitempty"`
+	Externa     bool       `json:"externa,omitempty"`
+	// Usuario: the key is two values, who (an access key's id, a user
+	// name) and its secret.
+	Usuario     bool       `json:"usuario,omitempty"`
 	Reason      string     `json:"reason,omitempty"`
 	CambiadaPor string     `json:"cambiadaPor,omitempty"`
 	CambiadaEn  *time.Time `json:"cambiadaEn,omitempty"`
@@ -39,9 +43,6 @@ type LlavesView struct {
 	Helm    []string       `json:"helm"`
 }
 
-// llavesPronto are the keys the page lists that change here in a later
-// version, with the variable that says whether each is set ("": unknown).
-var llavesPronto = []struct{ id, env string }{{"r2", ""}, {"registros", "LOG_ARCHIVE_ACCESS_KEY"}, {"umami", "UMAMI_PASSWORD"}}
 
 // ajustesProbados are the settings that will change here, tested first.
 var ajustesProbados = []string{"REGISTRY", "DNS_ZONE", "DNS_TARGET", "CLUSTER_ISSUER", "STORAGE_CLASS", "INGRESS_CLASS", "BASE_URL"}
@@ -72,7 +73,12 @@ func (s *Server) getLlaves(w http.ResponseWriter, r *http.Request, _ string) {
 			l.Set = os.Getenv("RESEND_API_KEY") != ""
 		case llaves.IA:
 			l.Set = s.IA != nil && s.IA.PlatformKeyNow() != ""
+		case llaves.Registros:
+			l.Set = os.Getenv("LOG_ARCHIVE_ACCESS_KEY") != ""
+		case llaves.Umami:
+			l.Set = os.Getenv("UMAMI_PASSWORD") != ""
 		}
+		l.Usuario = llaves.ConUsuario(id)
 		if row, ok := rows[id]; ok {
 			l.Set, l.CambiadaPor = true, row.CambiadaPor
 			at := row.CambiadaEn
@@ -92,8 +98,8 @@ func (s *Server) getLlaves(w http.ResponseWriter, r *http.Request, _ string) {
 		l.Cambiable = l.Reason == ""
 		v.Llaves = append(v.Llaves, l)
 	}
-	for _, p := range llavesPronto {
-		v.Llaves = append(v.Llaves, LlaveView{ID: p.id, Pronto: true, Set: p.env != "" && os.Getenv(p.env) != ""})
+	for _, id := range llaves.Externas {
+		v.Llaves = append(v.Llaves, LlaveView{ID: id, Externa: true, Reason: (&llaves.Cambiador{}).Disponible(id)})
 	}
 	for _, k := range ajustesProbados {
 		val := os.Getenv(k)
@@ -111,8 +117,8 @@ func (s *Server) getLlaves(w http.ResponseWriter, r *http.Request, _ string) {
 // key, and its expiry; the value is never written anywhere but its Secrets.
 func (s *Server) postLlave(w http.ResponseWriter, r *http.Request, login string) {
 	id := r.PathValue("llave")
-	if slices.ContainsFunc(llavesPronto, func(p struct{ id, env string }) bool { return p.id == id }) {
-		httpError(w, http.StatusConflict, i18n.M("changing this key here comes in a later version"))
+	if slices.Contains(llaves.Externas, id) {
+		httpError(w, http.StatusConflict, (&llaves.Cambiador{}).Disponible(id))
 		return
 	}
 	if !slices.Contains(llaves.Cambiables, id) {
@@ -125,12 +131,13 @@ func (s *Server) postLlave(w http.ResponseWriter, r *http.Request, login string)
 	}
 	var in struct {
 		Value    string `json:"value"`
+		User     string `json:"user"`
 		SendTest bool   `json:"sendTest"`
 	}
 	if !readJSON(w, r, &in) {
 		return
 	}
-	value := strings.TrimSpace(in.Value)
+	value, user := strings.TrimSpace(in.Value), strings.TrimSpace(in.User)
 	switch {
 	case value == "":
 		httpError(w, http.StatusBadRequest, i18n.M("paste the new key"))
@@ -138,9 +145,15 @@ func (s *Server) postLlave(w http.ResponseWriter, r *http.Request, login string)
 	case len(value) > 4096 || strings.ContainsAny(value, " \t\r\n"):
 		httpError(w, http.StatusBadRequest, i18n.M("that does not look like a key: it has spaces or is too long"))
 		return
+	case llaves.ConUsuario(id) && user == "":
+		httpError(w, http.StatusBadRequest, i18n.M("write who the key is for: the access key's id, or the user name"))
+		return
+	case len(user) > 256 || strings.ContainsAny(user, "\r\n"):
+		httpError(w, http.StatusBadRequest, i18n.M("that does not look like a user: it is too long or has line breaks"))
+		return
 	}
 	anotarDetalle(r, "llave", id)
-	res, err := s.Llaves.Cambiar(r.Context(), id, value, login, in.SendTest)
+	res, err := s.Llaves.Cambiar(r.Context(), id, llaves.Nueva{Usuario: user, Valor: value, EnviarPrueba: in.SendTest}, login)
 	if errors.Is(err, llaves.ErrDesconocida) {
 		httpError(w, http.StatusConflict, strings.TrimPrefix(err.Error(), llaves.ErrDesconocida.Error()+": "))
 		return

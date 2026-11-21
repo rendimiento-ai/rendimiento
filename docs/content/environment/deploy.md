@@ -93,7 +93,7 @@ The platform's own service account (`rendimiento`) can:
 - manage namespaces, Deployments, Services, Ingresses, CronJobs, PVCs and Secrets **cluster-wide**, because every app gets its own namespace. The controller refuses namespaces and hostnames it does not own ([ownership checks](../architecture/controller.md#ownership-checks));
 - read nodes, metrics, ingress classes, storage classes, CRDs, cluster issuers and StatefulSets, for the Environment and Services pages;
 - create and delete pods and secrets in `rendimiento-builds` (CI);
-- get and update, by name, its own `rendimiento-dns`, `rendimiento-notify` and `rendimiento-ia` secrets, and in `cert-manager` the one secret the ClusterIssuer reads its Cloudflare token from (`cloudflare-api-token-secret` here; patch the name in your overlay, or set `certManagerSecret.name` with Helm), for [Keys and settings](#keys-and-settings). Those Roles are new: after updating, run `make deploy` (or `helm upgrade`) once to apply them;
+- get and update, by name, its own `rendimiento-dns`, `rendimiento-notify`, `rendimiento-ia`, `rendimiento-logs` and `rendimiento-umami` secrets, and in `cert-manager` the one secret the ClusterIssuer reads its Cloudflare token from (`cloudflare-api-token-secret` here; patch the name in your overlay, or set `certManagerSecret.name` with Helm), for [Keys and settings](#keys-and-settings). When these Roles are new or name more secrets (as `rendimiento-logs` and `rendimiento-umami` did), run `make deploy` (or `helm upgrade`) once after updating to apply them;
 - **impersonate** the `rendimiento-addons` service account, and nothing more.
 
 `rendimiento-addons` is bound to `cluster-admin`, because installing software like Longhorn means creating CRDs, ClusterRoles and DaemonSets, exactly what ArgoCD needed. No pod runs as it: only the add-on controller acts as it, so the Kubernetes audit log shows every add-on change under that name. See [Security model](../architecture/security.md).
@@ -371,17 +371,23 @@ Folded below: the platform's version (open when there is a new one, or `make dep
 
 **Keys and settings** (`/environment/llaves`, administrators only) lists every key rendimiento talks to other services with: its purpose, when it expires (*Expires in 21 days*, or *Does not expire*) and when it was changed here. Never its value.
 
-Three keys change here, each **tested before it is saved**:
+Five keys change here, each **tested before it is saved**:
 
 | Key | The test | Where it is saved |
 |---|---|---|
 | Cloudflare token | Cloudflare accepts it and says until when (`/user/tokens/verify`); it sees every zone the apps and `DNS_ZONE` are in; it creates and deletes a TXT record `_rendimiento-prueba` in `DNS_ZONE` | `rendimiento-dns` (`CLOUDFLARE_API_TOKEN`), and the secret of the `CLUSTER_ISSUER`'s DNS-01 solver (its `apiTokenSecretRef`, in `CERT_MANAGER_NAMESPACE`) |
 | Email (Resend) | Resend accepts it (asking for its domains, which sends nothing), and its account has the domain of `NOTIFY_EMAIL_FROM`; a test email only when asked | `rendimiento-notify` (`RESEND_API_KEY`) |
 | Platform AI | Anthropic answers with it for `AI_PLATFORM_MODEL` | `rendimiento-ia` (`AI_PLATFORM_KEY`) |
+| Log archive (S3): an access key's id and secret | the archive at `LOG_ARCHIVE_ENDPOINT` accepts it; the bucket `LOG_ARCHIVE_BUCKET` is there; it writes a small object under `_rendimiento-prueba/`, reads it back and deletes it (the archive deletes old logs with the same key) | `rendimiento-logs` (`LOG_ARCHIVE_ACCESS_KEY` and `LOG_ARCHIVE_SECRET_KEY`, together) |
+| Visits (Umami): a user name and password | Umami at `UMAMI_URL` lets the user in; it sees at least one website (a view-only user is enough) | `rendimiento-umami` (`UMAMI_USERNAME` and `UMAMI_PASSWORD`, together) |
 
 If any step fails, **nothing is saved** and the page says which step and why (*It does not see example.org: add it under «Zone Resources»*); the key before keeps working. When every step passes, the key is written to both secrets or to neither, and the platform uses it **with no restart**: the process that saved it at once, every other within 15 seconds (it sees the key's new version in the database and reads its secret again). cert-manager reads its secret each time, so certificates follow too. The database and the bitácora keep which key, who changed it, when, and when it expires; the value is only in its secrets. A Cloudflare token that expires is warned about 30 days before, in *What needs you*.
 
-A key changes here only where the platform already uses its service: Cloudflare and email are set up at install (Helm, or the secrets above); the AI key can start here. The off-site backups (R2), the log archive (S3) and Umami are listed, and change here in a later version; the settings tested first (registry, DNS zone and target, issuer, storage, ingress, address) are shown read-only for now. The database, the secrets key and the mode change only with Helm: without them the platform does not start.
+A key changes here only where the platform already uses its service: Cloudflare, email, the log archive (`LOG_ARCHIVE_ENDPOINT`) and Umami (`UMAMI_URL`) are set up at install (Helm, or the secrets above); the AI key can start here. Its secret must exist already: the platform may update its own secrets, not create them.
+
+The **off-site backups (R2)** are listed, marked *Outside rendimiento*, and do not change here: a job outside the platform (an rclone CronJob in its own namespace, with its own secret) copies the backup bucket to R2, and rendimiento does not write secrets it does not own. Change that key where the job is set up.
+
+The settings tested first (registry, DNS zone and target, issuer, storage, ingress, address) are shown read-only for now. The database, the secrets key and the mode change only with Helm: without them the platform does not start.
 
 ## The build side
 

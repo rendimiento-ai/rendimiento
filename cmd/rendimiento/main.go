@@ -663,12 +663,6 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	srv.Environment.Config.NotifyTo, srv.Environment.Config.NotifyReady = notifier.To, notifier.Enabled()
 	log.Info("email notifications", "enabled", notifier.Enabled(), "to", notifier.To)
 	srv.Environment.Config.AI = iaDelEntorno(srv.IA)
-	// The keys that change on the Environment page, tested first and with
-	// no restart: every process follows a change within 15 seconds.
-	llavesCambian, recargador := llavesQueCambian(kube, st, ns, baseURL, renderOpts.ClusterIssuer, dnsProvider, notifier, srv.IA, log.With("component", "llaves"))
-	srv.Llaves = llavesCambian
-	go recargador.Run(ctx)
-
 	// Log archive: finished runs' step logs move to S3-compatible storage (Garage here),
 	// which deletes them after LOG_RETENTION_DAYS.
 	var logArchive *logarchive.Archive
@@ -699,6 +693,14 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 			return true, i18n.M("%d step logs archived (%.1f MB of text) in %s/%s, %d waiting; kept %d days", n, float64(size)/1e6, endpoint, logBucket.Bucket, pending, days)
 		}
 	}
+
+	umami, _ := srv.Analytics.(*analytics.Umami)
+	// The keys that change on the Environment page, tested first and with
+	// no restart: every process follows a change within 15 seconds.
+	llavesCambian, recargador := llavesQueCambian(kube, st, ns, baseURL, renderOpts.ClusterIssuer, dnsProvider, notifier, srv.IA,
+		logBucket, umami, log.With("component", "llaves"))
+	srv.Llaves = llavesCambian
+	go recargador.Run(ctx)
 
 	// Release verification: watch each new release, roll back a broken one.
 	verifyWindow, err := time.ParseDuration(env("VERIFY_WINDOW", "5m"))

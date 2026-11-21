@@ -13,6 +13,7 @@ import (
 	"io"
 	"log/slog"
 	"regexp"
+	"sync"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -152,16 +153,55 @@ func compress(s string) ([]byte, error) {
 type MinIO struct {
 	Client *minio.Client
 	Bucket string
+	creds  *cambiantes
 }
 
 // NewMinIO connects to endpoint (host:port) with an access key.
 func NewMinIO(endpoint, accessKey, secretKey, bucket string, secure bool) (*MinIO, error) {
-	c, err := minio.New(endpoint, &minio.Options{Creds: credentials.NewStaticV4(accessKey, secretKey, ""), Secure: secure})
+	cr := &cambiantes{}
+	cr.set(accessKey, secretKey)
+	c, err := minio.New(endpoint, &minio.Options{Creds: credentials.New(cr), Secure: secure})
 	if err != nil {
 		return nil, err
 	}
-	return &MinIO{Client: c, Bucket: bucket}, nil
+	return &MinIO{Client: c, Bucket: bucket, creds: cr}, nil
 }
+
+// SetKeys makes every request from now on use another access key (a key
+// changed on the Environment page), with no new client.
+func (m *MinIO) SetKeys(accessKey, secretKey string) {
+	if m.creds != nil {
+		m.creds.set(accessKey, secretKey)
+	}
+}
+
+// cambiantes are credentials that change while the client runs: they are
+// read again for every request, which costs nothing.
+type cambiantes struct {
+	mu sync.Mutex
+	v  credentials.Value
+}
+
+func (c *cambiantes) set(accessKey, secretKey string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.v = credentials.Value{AccessKeyID: accessKey, SecretAccessKey: secretKey, SignerType: credentials.SignatureV4}
+	if accessKey == "" || secretKey == "" {
+		c.v.SignerType = credentials.SignatureAnonymous
+	}
+}
+
+func (c *cambiantes) Retrieve() (credentials.Value, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.v, nil
+}
+
+func (c *cambiantes) RetrieveWithCredContext(*credentials.CredContext) (credentials.Value, error) {
+	return c.Retrieve()
+}
+
+func (c *cambiantes) IsExpired() bool { return true }
 
 // Put uploads one object.
 func (m *MinIO) Put(ctx context.Context, key string, data []byte) error {

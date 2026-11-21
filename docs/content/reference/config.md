@@ -153,7 +153,7 @@ Taken from the optional Secret `rendimiento-dns`. Without a token, DNS automatio
 | `UMAMI_URL` | *(empty: off)* | `http://umami.umami.svc.cluster.local:3000` | Umami inside the cluster, read for the [Visits](../guide/visits.md) tab and the dashboard's visitors panel |
 | `UMAMI_PUBLIC_URL` | *(empty: no links)* | `https://umami.example.com` | Umami's public address, for "Open in Umami" links |
 | `UMAMI_WEBSITE_ID` | *(empty: not counted)* | `00000000-1111-2222-3333-444444444444` | the id Umami gives a website made for rendimiento's own address: with it and `UMAMI_PUBLIC_URL`, every page of rendimiento loads Umami's script (`<UMAMI_PUBLIC_URL>/script.js`), so its visits are counted like any app's. The dashboard's visitors panel shows them in a line of their own, only to administrators of the platform's organization (the view-only user must be able to read that website) |
-| `UMAMI_USERNAME`, `UMAMI_PASSWORD` | — | from the `rendimiento-umami` Secret | a **view-only** Umami user in the team that owns the websites |
+| `UMAMI_USERNAME`, `UMAMI_PASSWORD` | — | from the `rendimiento-umami` Secret | a **view-only** Umami user in the team that owns the websites; changes, tested first, under [Keys and settings](../environment/deploy.md#keys-and-settings) |
 
 Days and hours are counted in `PUBLIC_STATS_TZ`.
 
@@ -187,7 +187,7 @@ Days and hours are counted in `PUBLIC_STATS_TZ`.
 | `LOG_ARCHIVE_ENDPOINT` | *(empty: off)* | `garage.garage.svc.cluster.local:3900` | S3-compatible `host:port` that [step logs are archived](../architecture/data.md#the-log-archive) to |
 | `LOG_ARCHIVE_BUCKET` | `rendimiento-logs` | | the bucket |
 | `LOG_ARCHIVE_SECURE` | `false` | | use HTTPS |
-| `LOG_ARCHIVE_ACCESS_KEY`, `LOG_ARCHIVE_SECRET_KEY` | — | from Secret `rendimiento-logs` | credentials of a user allowed to use the bucket |
+| `LOG_ARCHIVE_ACCESS_KEY`, `LOG_ARCHIVE_SECRET_KEY` | — | from Secret `rendimiento-logs` | credentials of a user allowed to use the bucket; change, tested first, under [Keys and settings](../environment/deploy.md#keys-and-settings) |
 | `LOG_RETENTION_DAYS` | `365` | | archived logs are deleted after this many days (a lifecycle rule on the bucket) |
 
 ## Add-ons

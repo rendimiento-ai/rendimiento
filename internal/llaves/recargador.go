@@ -18,13 +18,13 @@ type Versiones interface {
 // the Environment page, with no restart: every 15 seconds it looks at
 // their versions in the database, and for each one newer than the one it
 // uses it reads the value from its Secret and hands it to Aplicar (the DNS
-// provider, the email sender, the AI gateway). A key without Aplicar is not
-// used in this process.
+// provider, the email sender, the AI gateway, the log archive, Umami). A
+// key without Aplicar is not used in this process.
 type Recargador struct {
 	Store Versiones
-	// Leer reads a key's value from where it is kept (its Secret).
-	Leer    func(ctx context.Context, id string) (string, error)
-	Aplicar map[string]func(valor string)
+	// Leer reads a key's values from where they are kept (its Secret).
+	Leer    func(ctx context.Context, id string) (Valores, error)
+	Aplicar map[string]func(Valores)
 	Log     *slog.Logger
 
 	mu    sync.Mutex
@@ -59,7 +59,7 @@ func (r *Recargador) Revisar(ctx context.Context) error {
 		}
 		r.mu.Lock()
 		if r.visto[id] < l.Version { // not used here meanwhile (Usar)
-			if valor != "" {
+			if valor.completos(id) {
 				aplicar(valor)
 			}
 			r.marcar(id, l.Version)
@@ -73,7 +73,7 @@ func (r *Recargador) Revisar(ctx context.Context) error {
 }
 
 // Usar uses a key just changed in this process, at once.
-func (r *Recargador) Usar(id, valor string, version int64) {
+func (r *Recargador) Usar(id string, valor Valores, version int64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if aplicar := r.Aplicar[id]; aplicar != nil {
