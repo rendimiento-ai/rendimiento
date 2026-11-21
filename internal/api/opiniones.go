@@ -17,6 +17,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/rendimiento-ai/rendimiento/internal/i18n"
 	"github.com/rendimiento-ai/rendimiento/internal/senales"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -432,12 +433,8 @@ type MisComentariosView struct {
 	Mios       []store.MiComentario       `json:"mios"`
 }
 
-func idiomaDe(r *http.Request) string {
-	if strings.HasPrefix(strings.ToLower(r.Header.Get("Accept-Language")), "es") {
-		return "es"
-	}
-	return "en"
-}
+// idiomaDe is the request's language, "es" or "en" (i18n.FromRequest).
+func idiomaDe(r *http.Request) string { return string(i18n.FromRequest(r)) }
 
 // AlVerEspera is how long opening the comments page may wait for
 // rendimiento.ai's answers before it shows what is here.

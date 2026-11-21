@@ -14,7 +14,6 @@ package i18n
 
 import (
 	"fmt"
-	"net/http"
 	"regexp"
 	"sort"
 	"strings"
@@ -38,18 +37,6 @@ func M(format string, args ...any) string {
 	}
 	return fmt.Sprintf(format, args...)
 }
-
-// Parse reads a language setting or an Accept-Language header: Spanish if
-// it starts with "es", else English.
-func Parse(s string) Lang {
-	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(s)), "es") {
-		return Spanish
-	}
-	return English
-}
-
-// FromRequest is the language the browser asked for.
-func FromRequest(r *http.Request) Lang { return Parse(r.Header.Get("Accept-Language")) }
 
 // pattern is one catalog entry, compiled to match finished messages.
 type pattern struct {

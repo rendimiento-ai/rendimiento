@@ -4,7 +4,16 @@ rendimiento habla **inglés** y **español de México** (es-MX).
 
 ## En el navegador {#in-the-browser}
 
-El menú de su cuenta (su nombre, a la derecha de la barra superior; en un teléfono, la hoja de abajo) tiene un selector de idioma (**ES** / **EN**). La primera vez, el idioma sigue al del navegador; después, la elección se recuerda en ese navegador. Las fechas y los números también siguen al idioma.
+El menú de su cuenta (su nombre, a la derecha de la barra superior; en un teléfono, la hoja de abajo) tiene un selector de idioma (**ES** / **EN**). Lo que elija se recuerda en ese navegador. Las fechas y los números también siguen al idioma.
+
+Mientras usted no elija, el idioma se escoge así:
+
+1. el que eligió antes con el selector, en este navegador;
+2. si no, el primero de los idiomas del navegador (en su orden de preferencia) que sea español o inglés;
+3. si no, cuando el navegador no pide ninguno de los dos, el del país desde el que nos visita, según Cloudflare (el encabezado `CF-IPCountry`): español para México, España y los demás países hispanohablantes; inglés para los demás. El servidor pone en la página solo `es` o `en` (`<meta name="rendimiento-lang-pais">`), nunca el país, y no guarda nada; sin Cloudflare enfrente, este paso no ocurre;
+4. si no, inglés.
+
+La API responde de la misma manera (`i18n.FromRequest`). Una solicitud sin `Accept-Language`, como la del rastreador de un buscador o un programa, se responde en inglés, venga de donde venga.
 
 El español es formal (*usted*) y traduce los términos técnicos: *despliegue*, *construcción* (build), *versión*, *reversión*, *complemento*, *confirmación* (commit), *envío* (push), *solicitud de incorporación* (pull request), *cubeta* (bucket), *balanceador de carga*, *entrada* (ingress), *demonio* (daemon).
 

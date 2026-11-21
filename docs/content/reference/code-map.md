@@ -1384,8 +1384,8 @@ Package i18n translates the platform's messages for people: the API's answers to
 |---|---|---|
 | `Lang` | type | Lang is a language the platform speaks. |
 | `M` | func | M formats a message for people. |
-| `Parse` | func | Parse reads a language setting or an Accept-Language header: Spanish if it starts with "es", else English. |
-| `FromRequest` | func | FromRequest is the language the browser asked for. |
+| `Parse` | func | Parse reads a language setting ("es", "en") or an Accept-Language header: the first language in the header's order of preference (q) that is Spanish or English; English when there is none. |
+| `FromRequest` | func | FromRequest is the language to answer a request in: the first Spanish or English language the browser asks for (Accept-Language, which the web UI sets to the language chosen with its switch); else, for a browser that asks for other languages only, its country's (CountryDefault); else English. |
 | `pattern` | struct | pattern is one catalog entry, compiled to match finished messages. |
 | `verbs` | func | verbs finds the verbs of a format, skipping literal percent signs (%%). |
 | `compile` | func | compile prepares the catalog once: messages without verbs are looked up as they are; the others become patterns (verbs match any text), tried longest first, so a specific message wins over a general one. |

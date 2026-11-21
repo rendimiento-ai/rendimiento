@@ -4,7 +4,16 @@ rendimiento speaks **English** and **Mexican Spanish** (es-MX).
 
 ## In the browser
 
-The account's menu (your name, at the right of the top bar; on a phone, the sheet at the bottom) has a language switch (**ES** / **EN**). The first time, the language follows the browser's; after that, the choice is remembered in that browser. Dates and numbers follow the language too.
+The account's menu (your name, at the right of the top bar; on a phone, the sheet at the bottom) has a language switch (**ES** / **EN**). What you choose is remembered in that browser. Dates and numbers follow the language too.
+
+Until you choose, the language is picked like this:
+
+1. the one chosen before with the switch, in this browser;
+2. else the first of the browser's languages (in its order of preference) that is Spanish or English;
+3. else, when the browser asks for neither, the one of the country you visit from, as Cloudflare tells it (the `CF-IPCountry` header): Spanish for Mexico, Spain and the other Spanish-speaking countries, English for the rest. The server puts only `es` or `en` in the page (`<meta name="rendimiento-lang-pais">`), never the country, and keeps nothing; without Cloudflare in front, this step is skipped;
+4. else English.
+
+The API answers in the same way (`i18n.FromRequest`). A request without `Accept-Language` at all, like a search engine's crawler or a script, is answered in English wherever it comes from.
 
 The Spanish is formal (*usted*) and translates technical terms: *despliegue*, *construcción* (build), *versión*, *reversión*, *complemento*, *confirmación* (commit), *envío* (push), *solicitud de incorporación* (pull request), *cubeta* (bucket), *balanceador de carga*, *entrada* (ingress), *demonio* (daemon).
 
