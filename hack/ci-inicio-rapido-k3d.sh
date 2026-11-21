@@ -114,7 +114,11 @@ aviso notice "inicio rápido (k3d)" "the cluster took ${cluster}s and rendimient
 # The setup page's return from GitHub, and the sign-in's.
 ficha=$(kubectl -n "$ns" get secret rendimiento-setup -o jsonpath='{.data.token}' | base64 -d)
 [ -n "$ficha" ] || falla "the setup token the chart's notes point at is not there"
-codigo=$(c -sS -m 30 -o "$tmp/respuesta" -w '%{http_code}' -G --data-urlencode "token=$ficha" --data-urlencode code=prueba "$api/api/setup/github/callback")
+# The setup page first: it opens the install session and sets the state
+# GitHub hands back with the code, which the return checks.
+c -sS -m 10 -o /dev/null -c "$tmp/instalar" -G --data-urlencode "token=$ficha" "$api/api/setup/github"
+estado=$(awk '$6 == "setup_state" { print $7 }' "$tmp/instalar")
+codigo=$(c -sS -m 30 -o "$tmp/respuesta" -w '%{http_code}' -b "$tmp/instalar" -c "$tmp/instalar" -G --data-urlencode "state=$estado" --data-urlencode code=prueba "$api/api/setup/github/callback")
 [ "$codigo" = 302 ] || falla "the setup did not take the GitHub App (HTTP $codigo): $(cut -c1-300 "$tmp/respuesta")"
 c -sS -m 10 -o /dev/null -c "$tmp/galletas" "$api/api/auth/login"
 estado=$(awk '$6 == "oauth_state" { print $7 }' "$tmp/galletas")
