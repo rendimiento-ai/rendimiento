@@ -387,7 +387,24 @@ A key changes here only where the platform already uses its service: Cloudflare,
 
 The **off-site backups (R2)** are listed, marked *Outside rendimiento*, and do not change here: a job outside the platform (an rclone CronJob in its own namespace, with its own secret) copies the backup bucket to R2, and rendimiento does not write secrets it does not own. Change that key where the job is set up.
 
-The settings tested first (registry, DNS zone and target, issuer, storage, ingress, address) are shown read-only for now. The database, the secrets key and the mode change only with Helm: without them the platform does not start.
+#### Settings tested before they change {#settings-tested-first}
+
+Six settings the platform reads when it starts change here too, each after its **connection test**. Pick one, write the new value beside the one of now, and press **Test the connection**: nothing changes yet. Only when every step passes is **Change** enabled, for those very values, within 15 minutes; the page says first what happens to what already exists.
+
+| Setting | The test | What happens to what exists |
+|---|---|---|
+| Image registry (`REGISTRY`) | it answers the registry API (`/v2/`); BuildKit pushes a tiny test image to it (`rendimiento-prueba`, `FROM scratch`); a pod on every ready, uncordoned node pulls it; the test image is deleted (a registry that does not allow deletes keeps it, a few bytes) | apps keep their images; new builds go to the new registry, with no cache at first |
+| DNS zone and target (`DNS_ZONE`, `DNS_TARGET`) | the Cloudflare token in use sees the zone and creates and deletes a test record in it; the target is an IP, resolves, or is `auto` | records point to the new target at their next check |
+| Certificate issuer (`CLUSTER_ISSUER`) | the ClusterIssuer exists and cert-manager says it is ready | certificates are renewed by the new issuer |
+| Storage (`STORAGE_CLASS`) | the StorageClass exists; a 64 MiB test volume binds (with a pod that uses it when the class waits for one), then both are deleted | volumes that exist keep their class (it cannot change); new ones use the new class |
+| Entrance (`INGRESS_CLASS`) | the IngressClass exists, and a ready pod of its controller runs | every app's ingress moves to the new controller |
+| Public address (`BASE_URL`) | it resolves, and answers over HTTPS, with a valid certificate, as **this** platform (it signs a nonce with a key only its processes have, at `/api/identidad`), so a typo cannot lock anyone out | change it in the forjas' apps too (sign-in and webhooks) |
+
+The test's pods and volume run in the builds' namespace, and go when it ends. If a step fails, nothing is saved and the page says which step and why (*1 of 2 nodes pulled it; not node-b (http: server gave HTTP response to HTTPS client)*).
+
+A change is saved as a platform setting that **wins over the ConfigMap's value**, and the platform's Deployments (`SERVICES`) restart at once to read it, the one answering last: a minute or two, and a run that is going may have to run again. The page shows who changed it and when, and **Back to the ConfigMap's value** forgets it (another restart). If the page cannot be reached, start the platform with `TESTED_SETTINGS=ignore` in its ConfigMap: it then uses the ConfigMap's values alone.
+
+The database, the secrets key, the mode and the role change only with Helm: without them the platform does not start.
 
 ## The build side
 

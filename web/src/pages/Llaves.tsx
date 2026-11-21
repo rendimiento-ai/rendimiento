@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { envApi, session, timeAgo, type Llave, type LlaveResultado } from "../api";
+import { envApi, session, timeAgo, type AjusteProbado, type AjusteResultado, type Llave, type LlaveResultado } from "../api";
 import { ErrorBox, usePoll } from "../components/ui";
 import { locale, t, tn } from "../i18n";
 import { useConexion } from "../conexion";
@@ -18,15 +18,39 @@ const QUE: Record<Llave["id"], { dibujo: Dibujo; color: string; nombre: () => st
   umami: { dibujo: "grafica", color: "var(--rosa)", nombre: () => t("Visits (Umami)"), para: () => t("A read-only user") },
 };
 
-/** The settings that will change here once they are tested first, by what they are. */
-const AJUSTES: { keys: string[]; nombre: () => string }[] = [
-  { keys: ["REGISTRY"], nombre: () => t("Image registry") },
-  { keys: ["DNS_ZONE", "DNS_TARGET"], nombre: () => t("DNS zone and target") },
-  { keys: ["CLUSTER_ISSUER"], nombre: () => t("Certificate issuer") },
-  { keys: ["STORAGE_CLASS"], nombre: () => t("Storage") },
-  { keys: ["INGRESS_CLASS"], nombre: () => t("Entrance (ingress class)") },
-  { keys: ["BASE_URL"], nombre: () => t("Public address") },
-];
+/** The settings tested before they change: their name, what happens to what already exists, and what the test does. */
+const AJUSTES: Record<AjusteProbado["id"], { nombre: () => string; existe: () => string; prueba: () => string[] }> = {
+  registro: {
+    nombre: () => t("Image registry"),
+    existe: () => t("The apps keep their images of today. New builds go to the new registry, starting with no cache; each app moves at its next release."),
+    prueba: () => [t("It answers the registry API"), t("BuildKit pushes a test image to it"), t("Every node pulls it"), t("The test image is deleted")],
+  },
+  dns: {
+    nombre: () => t("DNS zone and target"),
+    existe: () => t("The apps' records point to the new target at their next check; the zone is where new apps get their address."),
+    prueba: () => [t("The Cloudflare token in use sees the zone"), t("It creates and deletes a test record"), t("The target is an IP, resolves, or is auto")],
+  },
+  emisor: {
+    nombre: () => t("Certificate issuer"),
+    existe: () => t("The apps' certificates are renewed by the new issuer; until then the ones of today keep working."),
+    prueba: () => [t("The ClusterIssuer exists"), t("cert-manager says it is ready")],
+  },
+  almacenamiento: {
+    nombre: () => t("Storage"),
+    existe: () => t("Volumes that exist keep their storage class (it cannot change); new volumes use the new one."),
+    prueba: () => [t("The StorageClass exists"), t("A small test volume binds, and is deleted")],
+  },
+  entrada: {
+    nombre: () => t("Entrance (ingress class)"),
+    existe: () => t("Every app's entrance moves to the new controller: for a moment, an app may not answer."),
+    prueba: () => [t("The IngressClass exists"), t("Its controller is running")],
+  },
+  direccion: {
+    nombre: () => t("Public address"),
+    existe: () => t("rendimiento answers at the new address. Change it too in the forjas' apps (sign-in and webhooks), or people cannot sign in."),
+    prueba: () => [t("The address resolves"), t("It answers over HTTPS as this platform")],
+  },
+};
 
 const fecha = (iso: string) => new Date(iso).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
 
@@ -51,7 +75,9 @@ export function Llaves() {
   const { data, error, setData } = usePoll(() => (session.operator ? envApi.llaves() : Promise.resolve(undefined)), [], 60000);
   const [params, setParams] = useSearchParams();
   const sel = params.get("llave") ?? undefined;
+  const selAjuste = params.get("ajuste") ?? undefined;
   const pick = (id?: string) => setParams(id ? { llave: id } : {}, { replace: true });
+  const pickAjuste = (id?: string) => setParams(id ? { ajuste: id } : {}, { replace: true });
 
   if (!session.operator) {
     return (
@@ -64,7 +90,8 @@ export function Llaves() {
   if (error) return <ErrorBox error={error} />;
   if (!data) return <EsqCosa />;
   const elegida = data.llaves.find((l) => l.id === sel);
-  const valor = (k: string) => data.ajustes.find((a) => a.key === k)?.value || "—";
+  const ajuste = data.ajustes.find((a) => a.id === selAjuste);
+  const recargar = () => envApi.llaves().then(setData, () => undefined);
 
   return (
     <div className="entorno">
@@ -98,11 +125,12 @@ export function Llaves() {
           <section className="stack-sm" aria-labelledby="llaves-ajustes">
             <h2 id="llaves-ajustes" className="entorno-h2">{t("Settings tested before they change")}</h2>
             <div className="ajustes-probados">
-              {AJUSTES.map((a) => (
-                <div key={a.keys[0]} className="ajuste-probado">
-                  <span><strong>{a.nombre()}</strong> <span className="badge">{t("Soon")}</span></span>
-                  <span className="small mono">{a.keys.map(valor).join(" → ")}</span>
-                </div>
+              {data.ajustes.map((a) => (
+                <button key={a.id} type="button" className={`ajuste-probado${selAjuste === a.id ? " on" : ""}`} aria-pressed={selAjuste === a.id}
+                  onClick={() => pickAjuste(selAjuste === a.id ? undefined : a.id)}>
+                  <span><strong>{AJUSTES[a.id].nombre()}</strong>{a.guardado && <> <span className="badge">{t("Changed here")}</span></>}</span>
+                  <span className="small mono">{a.valores.map((v) => v.value || "—").join(" → ")}</span>
+                </button>
               ))}
             </div>
             <p className="small muted" style={{ margin: 0 }}>
@@ -111,7 +139,8 @@ export function Llaves() {
             </p>
           </section>
         </div>
-        {elegida ? <Cambiar key={elegida.id} l={elegida} onDone={() => envApi.llaves().then(setData, () => undefined)} />
+        {ajuste ? <CambiarAjuste key={ajuste.id} a={ajuste} onDone={recargar} />
+          : elegida ? <Cambiar key={elegida.id} l={elegida} onDone={recargar} />
           : <section className="cambiar-panel vacio"><p className="small muted" style={{ margin: 0 }}>{t("Choose a key to change it. Its value is never shown: only whether it is set, when it expires and when it was changed.")}</p></section>}
       </div>
     </div>
@@ -330,6 +359,148 @@ function Resultado({ l, res, otraVez, onOtra }: { l: Llave; res: LlaveResultado;
       {fallo?.detail && <p style={{ margin: 0 }}>{fallo.detail}</p>}
       <div className="nota-falta small">{t("The key before is still in use: nothing stopped working.")}</div>
       {otraVez}
+    </section>
+  );
+}
+
+/** A step of a setting's test or change, in words. */
+function nombrePasoAjuste(id: string): string {
+  const nombres: Record<string, () => string> = {
+    valid: () => t("The value is well formed"),
+    answers: () => t("It answers the registry API"),
+    push: () => t("BuildKit pushed a test image"),
+    pull: () => t("Every node pulled it"),
+    delete: () => t("The test image"),
+    zones: () => t("The token sees the zone"),
+    record: () => t("It created and deleted a test record"),
+    target: () => t("The target"),
+    exists: () => t("It exists"),
+    ready: () => t("It is ready"),
+    bind: () => t("A test volume binds"),
+    controller: () => t("Its controller is running"),
+    resolves: () => t("The address resolves"),
+    identity: () => t("It answers as this platform"),
+    save: () => t("Saved"),
+    restart: () => t("The platform restarts"),
+  };
+  return (nombres[id] ?? (() => id))();
+}
+
+function PasosAjuste({ pasos }: { pasos: AjusteResultado["pasos"] }) {
+  return (
+    <ul className="resultado-pasos">
+      {pasos.map((p) => (
+        <li key={p.id} className={p.ok ? "ok" : "bad"}>
+          <span className="marca" aria-hidden="true">{p.ok ? "✓" : "✗"}</span>
+          <span><strong>{nombrePasoAjuste(p.id)}</strong>{p.detail && <span className="small muted"> · {p.detail}</span>}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Changing a setting tested first: now and new, what happens to what already exists, the connection test, and
+ * «Change» only once the test passed for these very values. Saving restarts the platform; the ConfigMap's value is one
+ * click away.
+ */
+function CambiarAjuste({ a, onDone }: { a: AjusteProbado; onDone: () => void }) {
+  const conexion = useConexion();
+  const q = AJUSTES[a.id];
+  const [nuevos, setNuevos] = useState<Record<string, string>>(() => Object.fromEntries(a.valores.map((v) => [v.key, v.value])));
+  const [busy, setBusy] = useState<"" | "prueba" | "cambio" | "vuelta">("");
+  const [err, setErr] = useState<unknown>();
+  const [prueba, setPrueba] = useState<AjusteResultado>();
+  const [hecho, setHecho] = useState<AjusteResultado>();
+  const distinto = a.valores.some((v) => (nuevos[v.key] ?? "").trim() !== v.value);
+  const correr = async (que: "prueba" | "cambio" | "vuelta") => {
+    setBusy(que);
+    setErr(undefined);
+    try {
+      if (que === "prueba") {
+        setPrueba(await envApi.probarAjuste(a.id, nuevos));
+      } else {
+        const r = que === "cambio" ? await envApi.cambiarAjuste(a.id, nuevos, prueba?.ficha ?? "") : await envApi.volverAjuste(a.id);
+        setHecho(r);
+        setPrueba(undefined);
+        if (r.guardado) onDone();
+      }
+    } catch (x) {
+      setErr(x);
+    } finally {
+      setBusy("");
+    }
+  };
+  const cambiar = (k: string, v: string) => {
+    setNuevos((n) => ({ ...n, [k]: v }));
+    setPrueba(undefined); // a test is for the values it tried
+  };
+
+  if (!a.cambiable) {
+    return (
+      <section className="cambiar-panel">
+        <span className="cambiar-sello" aria-hidden="true">{t("Setting")}</span>
+        <h2 className="entorno-h2">{t("Change: {what}", { what: q.nombre() })}</h2>
+        <p style={{ margin: 0 }}>{a.reason}</p>
+      </section>
+    );
+  }
+  if (hecho) {
+    const ok = hecho.guardado;
+    return (
+      <section className={`cambiar-panel resultado ${ok ? "ok" : "bad"}`} aria-labelledby="ajuste-hecho" role={ok ? "status" : "alert"}>
+        <h2 id="ajuste-hecho" className="entorno-h2">{ok ? `✓ ${t("Saved")}` : `✗ ${t("It was not saved")}`}</h2>
+        <PasosAjuste pasos={hecho.pasos} />
+        {ok && hecho.reinicio && <div className="nota-falta small">{hecho.reinicio}</div>}
+        {!ok && <div className="nota-falta small">{t("The value before is still in use: nothing stopped working.")}</div>}
+        <div className="row">
+          <Link className="btn primary pildora" to="/environment">{t("Back to the Environment")}</Link>
+          <button className="link small" onClick={() => setHecho(undefined)}>{t("Change it again")}</button>
+        </div>
+      </section>
+    );
+  }
+  const pendiente = a.valores.some((v) => v.pendiente);
+  return (
+    <section className="cambiar-panel" aria-labelledby="ajuste-titulo">
+      <span className="cambiar-sello" aria-hidden="true">{t("Setting")}</span>
+      <h2 id="ajuste-titulo" className="entorno-h2">{t("Change: {what}", { what: q.nombre() })}</h2>
+      <form className="stack-sm" onSubmit={(e) => { e.preventDefault(); if (distinto) void correr("prueba"); }}>
+        {a.valores.map((v) => (
+          <div key={v.key} className="stack-sm">
+            <span className="small muted">{t("Now")} · <span className="mono">{v.key}</span>: <span className="mono">{v.value || "—"}</span>
+              {v.savedBy && <> · {t("changed here by {who}, {when}", { who: v.savedBy, when: v.savedAt ? timeAgo(v.savedAt) : "" })}</>}
+            </span>
+            <label className="field">
+              <span>{t("New")}</span>
+              <input className="mono" autoComplete="off" spellCheck={false} value={nuevos[v.key] ?? ""} onChange={(e) => cambiar(v.key, e.target.value)} />
+            </label>
+          </div>
+        ))}
+        <div className="nota-falta small"><strong>{t("What happens to what already exists:")}</strong> {q.existe()}</div>
+        <ErrorBox error={err} />
+        <div className="row">
+          <button className="pildora" type="submit" {...apagado(conexion, busy !== "" || !distinto)}>{busy === "prueba" ? t("Testing…") : t("Test the connection")}</button>
+        </div>
+      </form>
+      <div className="cambiar-prueba small">
+        <strong>{t("The connection test:")}</strong>
+        {prueba ? <PasosAjuste pasos={prueba.pasos} /> : q.prueba().map((p) => <span key={p}><i className="punto" aria-hidden="true" />{p}</span>)}
+        <span className="muted">{prueba?.pasa === false ? t("It did not pass: the value of now stays, and nothing changed.")
+          : t("If it passes, you see the summary and confirm with «Change». The platform then restarts to use it (a minute or two).")}</span>
+      </div>
+      <div className="row">
+        <button className="primary pildora" type="button" onClick={() => void correr("cambio")} {...apagado(conexion, busy !== "" || !prueba?.pasa)}>
+          {busy === "cambio" ? t("Saving…") : t("Change")}
+        </button>
+        {a.guardado && (
+          <button className="link small" type="button" onClick={() => void correr("vuelta")} {...apagado(conexion, busy !== "")}>
+            {t("Back to the ConfigMap's value ({value})", { value: a.valores.map((v) => v.env || "—").join(" → ") })}
+          </button>
+        )}
+      </div>
+      {pendiente && <p className="small muted" style={{ margin: 0 }}>{t("A value saved here is waiting for the platform to restart.")}</p>}
+      <span className="small muted">{t("Administrators only. Who changed it and when is recorded. Only with Helm: the database, the encryption key, the mode and the role.")}</span>
     </section>
   );
 }

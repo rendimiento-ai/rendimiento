@@ -1824,6 +1824,9 @@ export const envApi = {
   llaves: () => request<LlavesView>("GET", "/api/llaves"),
   cambiarLlave: (id: string, value: string, sendTest = false, user?: string) =>
     request<LlaveResultado>("POST", `/api/llaves/${id}`, { value, sendTest, ...(user !== undefined ? { user } : {}) }),
+  probarAjuste: (id: string, values: Record<string, string>) => request<AjusteResultado>("POST", `/api/ajustes-probados/${id}/prueba`, { values }),
+  cambiarAjuste: (id: string, values: Record<string, string>, ficha: string) => request<AjusteResultado>("POST", `/api/ajustes-probados/${id}`, { values, ficha }),
+  volverAjuste: (id: string) => request<AjusteResultado>("DELETE", `/api/ajustes-probados/${id}`),
 };
 
 /** A key on the Keys and settings page (api.LlaveView): never its value. */
@@ -1844,8 +1847,27 @@ export interface Llave {
 /** The Keys and settings page (api.LlavesView). */
 export interface LlavesView {
   llaves: Llave[];
-  ajustes: FixedSetting[];
+  ajustes: AjusteProbado[];
   helm: string[];
+}
+/** A setting tested before it changes (api.AjusteProbadoView): each variable's value in use and the ConfigMap's. */
+export interface AjusteProbado {
+  id: "registro" | "dns" | "emisor" | "almacenamiento" | "entrada" | "direccion";
+  valores: { key: string; value: string; env: string; savedBy?: string; savedAt?: string; pendiente?: string }[];
+  cambiable: boolean;
+  reason?: string;
+  /** A value saved here wins over the ConfigMap's. */
+  guardado?: boolean;
+}
+/** How a test or a change of a setting went (probados.Resultado). */
+export interface AjusteResultado {
+  ajuste: string;
+  valores: Record<string, string>;
+  pasa: boolean;
+  pasos: { id: string; ok: boolean; detail?: string }[];
+  ficha?: string;
+  guardado?: boolean;
+  reinicio?: string;
 }
 /** How changing a key went (llaves.Resultado): every step tried, and whether it was saved. */
 export interface LlaveResultado {

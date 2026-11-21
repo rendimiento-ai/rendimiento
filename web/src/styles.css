@@ -2987,6 +2987,9 @@ button.link:hover { background: none; text-decoration: underline; }
 .llave-estado.aviso { color: var(--warn); }
 .ajustes-probados { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 10px; }
 .ajuste-probado { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 14px; border: 1.5px dashed var(--border); background: var(--surface); min-width: 0; overflow-wrap: anywhere; }
+button.ajuste-probado { font: inherit; color: inherit; text-align: left; cursor: pointer; }
+button.ajuste-probado:hover, button.ajuste-probado:focus-visible { border-style: solid; }
+.ajuste-probado.on { border-style: solid; border-color: var(--accent, currentColor); }
 .cambiar-panel { position: relative; display: flex; flex-direction: column; gap: 14px; padding: 20px; border-radius: 20px; background: var(--surface); border: 2px solid var(--accent); min-width: 0; overflow: hidden; }
 .cambiar-panel.vacio { border: 1.5px dashed var(--border); }
 .cambiar-sello { align-self: flex-start; font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); border: 2px solid var(--accent); border-radius: 8px; padding: 2px 8px; transform: rotate(-3deg); }

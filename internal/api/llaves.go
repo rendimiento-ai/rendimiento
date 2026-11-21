@@ -35,20 +35,17 @@ type LlaveView struct {
 }
 
 // LlavesView is the Keys and settings page: the keys, the settings that
-// will change here once they are tested first (read-only for now), and
-// the ones that change only with Helm.
+// change here once they are tested first, and the ones that change only
+// with Helm.
 type LlavesView struct {
-	Llaves  []LlaveView    `json:"llaves"`
-	Ajustes []FixedSetting `json:"ajustes"`
-	Helm    []string       `json:"helm"`
+	Llaves  []LlaveView         `json:"llaves"`
+	Ajustes []AjusteProbadoView `json:"ajustes"`
+	Helm    []string            `json:"helm"`
 }
-
-// ajustesProbados are the settings that will change here, tested first.
-var ajustesProbados = []string{"REGISTRY", "DNS_ZONE", "DNS_TARGET", "CLUSTER_ISSUER", "STORAGE_CLASS", "INGRESS_CLASS", "BASE_URL"}
 
 // getLlaves is the Keys and settings page.
 func (s *Server) getLlaves(w http.ResponseWriter, r *http.Request, _ string) {
-	v := LlavesView{Llaves: []LlaveView{}, Ajustes: []FixedSetting{}, Helm: []string{"DATABASE_URL", "SECRETS_KEY_FILE", "MODE"}}
+	v := LlavesView{Llaves: []LlaveView{}, Helm: []string{"DATABASE_URL", "SECRETS_KEY_FILE", "MODE", "ROLE"}}
 	rows, err := s.Store.Llaves(r.Context())
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
@@ -100,13 +97,7 @@ func (s *Server) getLlaves(w http.ResponseWriter, r *http.Request, _ string) {
 	for _, id := range llaves.Externas {
 		v.Llaves = append(v.Llaves, LlaveView{ID: id, Externa: true, Reason: (&llaves.Cambiador{}).Disponible(id)})
 	}
-	for _, k := range ajustesProbados {
-		val := os.Getenv(k)
-		if k == "BASE_URL" {
-			val = s.BaseURL
-		}
-		v.Ajustes = append(v.Ajustes, FixedSetting{Key: k, Value: val, Set: val != ""})
-	}
+	v.Ajustes = s.ajustesProbadosView(r)
 	writeJSON(w, v)
 }
 

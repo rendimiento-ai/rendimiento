@@ -49,6 +49,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/mercado"
 	"github.com/rendimiento-ai/rendimiento/internal/notify"
 	"github.com/rendimiento-ai/rendimiento/internal/platform"
+	"github.com/rendimiento-ai/rendimiento/internal/probados"
 	"github.com/rendimiento-ai/rendimiento/internal/renovate"
 	"github.com/rendimiento-ai/rendimiento/internal/selfupdate"
 	"github.com/rendimiento-ai/rendimiento/internal/senales"
@@ -134,10 +135,16 @@ type Server struct {
 	// Llaves changes the keys the platform talks to other services with
 	// (Cloudflare, email, AI), tested first, with no restart (nil: they do
 	// not change here, as on one computer).
-	Llaves   *llaves.Cambiador
-	Catalog  *catalog.Builder
-	Renovate *renovate.Runner
-	Addons   *addon.Syncer
+	Llaves *llaves.Cambiador
+	// Probados changes the settings read at start (registry, DNS zone,
+	// issuer, classes, address), tested first, then restarting the
+	// platform (nil: they change only with Helm). Identidad is the key the
+	// platform proves who it is with, at its address (probados.Firmar).
+	Probados  *probados.Probador
+	Identidad []byte
+	Catalog   *catalog.Builder
+	Renovate  *renovate.Runner
+	Addons    *addon.Syncer
 	// MCP serves /mcp, the agents' door to the Ruta (nil: off).
 	MCP http.Handler
 	// Analytics reads visitor numbers from Umami (nil: off); AnalyticsURL
@@ -208,6 +215,8 @@ func (s *Server) Handler() http.Handler {
 
 	// Public endpoints.
 	mux.HandleFunc("POST /api/webhooks/github", s.webhook)
+	// Who answers at this address: the test of a new BASE_URL.
+	mux.HandleFunc("GET "+probados.RutaIdentidad, s.identidad)
 	mux.HandleFunc("POST "+gitlab.WebhookPath, s.gitlabWebhook)
 	mux.HandleFunc("GET "+gitlab.CallbackPath, s.gitlabCallback)
 	mux.HandleFunc("GET /api/auth/gitlab/{id}", s.gitlabLogin)
@@ -339,6 +348,9 @@ func (s *Server) Handler() http.Handler {
 	// never shown (internal/api/llaves.go).
 	plat(store.MemberAdmin, "GET /api/llaves", s.getLlaves)
 	plat(store.MemberAdmin, "POST /api/llaves/{llave}", s.postLlave)
+	plat(store.MemberAdmin, "POST /api/ajustes-probados/{ajuste}/prueba", s.probarAjuste)
+	plat(store.MemberAdmin, "POST /api/ajustes-probados/{ajuste}", s.cambiarAjuste)
+	plat(store.MemberAdmin, "DELETE /api/ajustes-probados/{ajuste}", s.volverAjuste)
 	plat(store.MemberGuest, "GET /api/platform/version", s.platformVersion)
 	plat(store.MemberAdmin, "GET /api/platform/published", s.platformPublished)
 	plat(store.MemberAdmin, "POST /api/platform/install", s.platformInstall)
