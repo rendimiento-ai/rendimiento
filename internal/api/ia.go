@@ -91,7 +91,7 @@ func (s *Server) iaView(w http.ResponseWriter, r *http.Request, _ string) {
 		return
 	}
 	ctx, org := r.Context(), orgOf(r)
-	v := IAView{LocalModel: "", PlatformAvailable: s.IA.PlatformKey != ""}
+	v := IAView{LocalModel: "", PlatformAvailable: s.IA.PlatformKeyNow() != ""}
 	var err error
 	if v.Settings, err = s.Store.AISettingsOf(ctx, org); err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
@@ -345,7 +345,7 @@ func (s *Server) iaOrgs(w http.ResponseWriter, r *http.Request, _ string) {
 		SpentMicros    int64   `json:"spentMicros"`
 		CapMicros      int64   `json:"capMicros"`
 		PlatformKeySet bool    `json:"platformKeySet"`
-	}{Orgs: []IAOrg{}, CapMicros: s.IA.PlatformCapMicros, PlatformKeySet: s.IA.PlatformKey != ""}
+	}{Orgs: []IAOrg{}, CapMicros: s.IA.PlatformCapMicros, PlatformKeySet: s.IA.PlatformKeyNow() != ""}
 	if out.SpentMicros, err = s.Store.AIPlatformSpent(ctx, now); err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return

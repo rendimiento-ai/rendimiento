@@ -8,10 +8,14 @@ package ia
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/rendimiento-ai/rendimiento/internal/store"
@@ -85,6 +89,53 @@ type Gateway struct {
 	// AnthropicURL replaces Anthropic's API address (tests).
 	AnthropicURL string
 	now          func() time.Time
+	// newKey is a platform key changed while the platform runs
+	// (SetPlatformKey); it wins over PlatformKey.
+	newKey atomic.Pointer[string]
+}
+
+// SetPlatformKey makes the gateway use another platform key from now on,
+// without a restart (a key changed on the Environment page).
+func (g *Gateway) SetPlatformKey(key string) { g.newKey.Store(&key) }
+
+// PlatformKeyNow is the platform's key in use ("" when there is none).
+func (g *Gateway) PlatformKeyNow() string {
+	if k := g.newKey.Load(); k != nil {
+		return *k
+	}
+	return g.PlatformKey
+}
+
+// ProbarLlave asks Anthropic, with key, for the model the platform uses
+// (GET /v1/models/{model}): it answers only when the key works and can use
+// that model, and it costs nothing.
+func ProbarLlave(ctx context.Context, h *http.Client, url, key, model string) error {
+	if h == nil {
+		h = &http.Client{Timeout: 20 * time.Second}
+	}
+	u := strings.TrimRight(or(url, "https://api.anthropic.com"), "/") + "/v1/models/" + or(model, DefaultAnthropicModel)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("x-api-key", key)
+	req.Header.Set("anthropic-version", "2023-06-01")
+	res, err := h.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	if res.StatusCode >= 300 {
+		raw, _ := io.ReadAll(io.LimitReader(res.Body, 2048))
+		var e struct {
+			Error struct{ Type, Message string } `json:"error"`
+		}
+		if json.Unmarshal(raw, &e) == nil && e.Error.Message != "" {
+			return fmt.Errorf("anthropic answered %d: %s", res.StatusCode, e.Error.Message)
+		}
+		return fmt.Errorf("anthropic answered %d", res.StatusCode)
+	}
+	return nil
 }
 
 // LocalNow is the local model's Ollama and model now ("" address: there is
@@ -177,14 +228,14 @@ func (g *Gateway) choose(ctx context.Context, set store.AISettings) (target, str
 		switch {
 		case err != nil:
 			return target{}, "", err
-		case g.PlatformKey == "":
+		case g.PlatformKeyNow() == "":
 			return local, "the platform has no AI key", nil
 		case spentPlatform >= limit:
 			return local, fmt.Sprintf("this organization's share of the platform's AI (%s this month) was reached", Dollars(limit)), nil
 		case total >= g.PlatformCapMicros:
 			return local, "the platform's monthly AI budget was reached", nil
 		default:
-			return target{provider: store.AIPlatform, client: anthropic{url: g.AnthropicURL, key: g.PlatformKey, http: g.http()}, model: or(g.PlatformModel, DefaultAnthropicModel)}, "", nil
+			return target{provider: store.AIPlatform, client: anthropic{url: g.AnthropicURL, key: g.PlatformKeyNow(), http: g.http()}, model: or(g.PlatformModel, DefaultAnthropicModel)}, "", nil
 		}
 	}
 	return local, "", nil

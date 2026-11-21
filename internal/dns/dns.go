@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/rendimiento-ai/rendimiento/internal/i18n" //nolint:revive // M marks messages for people
@@ -43,6 +44,9 @@ type Description struct {
 	Healthy bool     `json:"healthy"`
 	Detail  string   `json:"detail"`
 	Zones   []string `json:"zones,omitempty"`
+	// ExpiresAt is when the provider's token stops working, when it says
+	// (nil: it does not expire, or the provider does not tell).
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
 }
 
 var ErrConflict = errors.New("a DNS record not managed by rendimiento already exists for this host")
@@ -81,6 +85,65 @@ type Cloudflare struct {
 	mu    sync.Mutex
 	zones map[string]string // zone name → id
 	ddns  ddnsState
+	// newToken is a token changed while the platform runs (SetToken); it
+	// wins over Token.
+	newToken atomic.Pointer[string]
+}
+
+// SetToken makes the provider use another API token from now on, without
+// a restart (a key changed on the Environment page). The zones it knew are
+// looked up again with it.
+func (c *Cloudflare) SetToken(token string) {
+	c.newToken.Store(&token)
+	c.mu.Lock()
+	c.zones = nil
+	c.mu.Unlock()
+}
+
+// token is the API token in use.
+func (c *Cloudflare) token() string {
+	if t := c.newToken.Load(); t != nil {
+		return *t
+	}
+	return c.Token
+}
+
+// TokenInfo is what Cloudflare says of an API token.
+type TokenInfo struct {
+	Status    string     `json:"status"`
+	ExpiresOn *time.Time `json:"expires_on,omitempty"`
+}
+
+// Verify asks Cloudflare whether the token is valid, and until when.
+func (c *Cloudflare) Verify(ctx context.Context) (TokenInfo, error) {
+	var tok TokenInfo
+	err := c.do(ctx, http.MethodGet, "/user/tokens/verify", nil, &tok)
+	return tok, err
+}
+
+// TestRecord creates a TXT record in zone and deletes it again: the token
+// can edit that zone's DNS. The record is named so that no app's could be.
+func (c *Cloudflare) TestRecord(ctx context.Context, zone string) error {
+	if _, err := c.Zones(ctx); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	id, ok := c.zones[zone]
+	c.mu.Unlock()
+	if !ok {
+		return fmt.Errorf("the token does not see the zone %s", zone)
+	}
+	var made struct {
+		ID string `json:"id"`
+	}
+	rec := map[string]any{"type": "TXT", "name": "_rendimiento-prueba." + zone, "content": "\"rendimiento: key test, deleted at once\"", "ttl": 60, "comment": marker + " test"}
+	if err := c.do(ctx, http.MethodPost, "/zones/"+id+"/dns_records", rec, &made); err != nil {
+		return err
+	}
+	if made.ID == "" {
+		return errors.New("cloudflare created the test record without an id")
+	}
+	return c.do(context.WithoutCancel(ctx), http.MethodDelete, "/zones/"+id+"/dns_records/"+made.ID, nil, nil)
 }
 
 const marker = "managed-by=rendimiento"
@@ -144,13 +207,12 @@ func (c *Cloudflare) Ensure(ctx context.Context, host, app string) error {
 // Describe verifies the API token and lists the zones it can manage.
 func (c *Cloudflare) Describe(ctx context.Context) Description {
 	d := Description{ID: "cloudflare", Name: "Cloudflare"}
-	var tok struct {
-		Status string `json:"status"`
-	}
-	if err := c.do(ctx, http.MethodGet, "/user/tokens/verify", nil, &tok); err != nil {
+	tok, err := c.Verify(ctx)
+	if err != nil {
 		d.Detail = M("API token rejected: %s", err.Error())
 		return d
 	}
+	d.ExpiresAt = tok.ExpiresOn
 	if tok.Status != "active" {
 		d.Detail = M("API token is %s", tok.Status)
 		return d
@@ -271,7 +333,7 @@ func (c *Cloudflare) do(ctx context.Context, method, path string, body, out any)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.Token)
+	req.Header.Set("Authorization", "Bearer "+c.token())
 	req.Header.Set("Content-Type", "application/json")
 	hc := c.HTTP
 	if hc == nil {

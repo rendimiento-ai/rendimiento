@@ -91,6 +91,16 @@ resources:
   requests: { cpu: 100m, memory: 128Mi }
   limits: { memory: 512Mi }
 
+# Keys and settings (the Environment page): a new Cloudflare token that
+# passed its test is also written to the Secret your ClusterIssuer's DNS-01
+# solver reads (spec.acme.solvers[].dns01.cloudflare.apiTokenSecretRef).
+# This lets the platform get and update that one Secret (only with
+# ingress.clusterIssuer set); false: no Role in cert-manager's namespace.
+certManagerSecret:
+  enabled: true
+  namespace: cert-manager
+  name: cloudflare-api-token-secret
+
 # Add-ons install cluster software as a cluster-admin identity that the
 # platform only impersonates while applying them. false: no add-ons.
 addons:

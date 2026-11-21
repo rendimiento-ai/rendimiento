@@ -20,13 +20,14 @@ export function EnvironmentNavLink({ dibujo }: { dibujo?: ReactNode }) {
 
 const describe = (r: PlatformRelease) => t("release #{n} ({sha}, {when})", { n: r.release, sha: r.sha.slice(0, 7), when: timeAgo(r.at) });
 
-// The version of rendimiento that runs, and the button that moves it to the
-// newest image its own repository built and tested.
-export function PlatformVersion() {
+/**
+ * The version rendimiento runs, when it builds itself, and how to move it to the newest release: after the person says yes, the
+ * platform restarts in it, and the page reloads once the new version answers.
+ */
+export function useActualizar() {
   const { data, error, setData } = usePoll(envApi.version, [], 60000);
   const [target, setTarget] = useState<number>();
   const [failed, setFailed] = useState<string>();
-  const conexion = useConexion();
 
   // While it restarts the API stops answering; once it answers with the new
   // release, reload the page so the new UI loads too.
@@ -41,9 +42,6 @@ export function PlatformVersion() {
     return () => clearInterval(id);
   }, [target, setData]);
 
-  const st = data?.status;
-  if ((error && !target) || !data?.enabled || !st) return null;
-  const manifests = st.manifests;
   const update = async (n: number) => {
     if (!confirm(t("Update rendimiento to release #{n}? It restarts: for about a minute the page and webhooks do not answer, and runs in progress start again.", { n }))) return;
     setFailed(undefined);
@@ -54,6 +52,33 @@ export function PlatformVersion() {
       setFailed(e instanceof Error ? e.message : String(e));
     }
   };
+  return { data, error, target, failed, update };
+}
+
+/** The update button of the Environment page's header: only when a newer release is ready and an administrator looks. */
+export function BotonActualizar() {
+  const { data, target, failed, update } = useActualizar();
+  const conexion = useConexion();
+  const st = data?.status;
+  if (!session.operator || !st?.available || !st.latest) return null;
+  if (target) return <span className="badge warn">{t("Updating… the page reloads when the new version answers")}</span>;
+  return (
+    <>
+      <button className="primary pildora" {...apagado(conexion)} onClick={() => update(st.latest!.release)}>{t("Update to release #{n}", { n: st.latest.release })}</button>
+      {failed && <span className="small" style={{ color: "var(--bad)" }}>{failed}</span>}
+    </>
+  );
+}
+
+// The version of rendimiento that runs, and the button that moves it to the
+// newest image its own repository built and tested.
+export function PlatformVersion() {
+  const { data, error, target, failed, update } = useActualizar();
+  const conexion = useConexion();
+
+  const st = data?.status;
+  if ((error && !target) || !data?.enabled || !st) return null;
+  const manifests = st.manifests;
 
   return (
     <div className={`bando ${st.available ? "warn" : "ok"}`}>

@@ -93,6 +93,7 @@ La cuenta de servicio propia de la plataforma (`rendimiento`) puede:
 - administrar espacios de nombres, Deployments, Services, Ingresses, CronJobs, PVCs y Secrets **en todo el clúster**, porque cada aplicación recibe su propio espacio de nombres. El controlador rechaza los espacios de nombres y nombres de host que no le pertenecen ([comprobaciones de propiedad](../architecture/controller.md#ownership-checks));
 - leer nodos, métricas, clases de entrada, clases de almacenamiento, CRD, emisores del clúster y StatefulSets, para las páginas Entorno y Servicios;
 - crear y borrar pods y secretos en `rendimiento-builds` (integración continua);
+- leer y actualizar, por nombre, sus secretos `rendimiento-dns`, `rendimiento-notify` y `rendimiento-ia`, y en `cert-manager` el único secreto del que el ClusterIssuer lee su ficha de Cloudflare (aquí `cloudflare-api-token-secret`; cambie el nombre en su capa privada, o con Helm en `certManagerSecret.name`), para [Llaves y ajustes](#keys-and-settings). Esos Roles son nuevos: después de actualizar, ejecute una vez `make deploy` (o `helm upgrade`) para aplicarlos;
 - **suplantar** a la cuenta de servicio `rendimiento-addons`, y nada más.
 
 `rendimiento-addons` está ligada a `cluster-admin`, porque instalar programas como Longhorn significa crear CRD, ClusterRoles y DaemonSets, exactamente lo que necesitaba ArgoCD. Ningún pod corre con ella: solo el controlador de complementos actúa como ella, así la bitácora de auditoría de Kubernetes muestra cada cambio de complemento bajo ese nombre. Vea [Modelo de seguridad](../architecture/security.md).
@@ -354,6 +355,33 @@ Los administradores de la plataforma cambian, sin redesplegar (cada proceso lo s
 - **Cachés de cada prueba**: cuántos volúmenes conserva una prueba con `cache: true` (2 si queda vacío, hasta 6). La prueba de una ejecución toma el primero que ninguna otra esté usando, así que esa cantidad de ejecuciones prueban a la vez sin esperar una caché. Cada una es un volumen de `TEST_CACHE_SIZE`, que se crea la primera vez que hace falta; al bajar el número, las que sobran quedan sin uso hasta que se borre su aplicación.
 - **Un nodo está ocupado desde (%)**: cada 15 segundos la plataforma mide la CPU de cada nodo, reservada y en uso; uno en ese porcentaje o más (85 si no se cambia) dice *ocupado*, y los pasos nuevos van a los otros nodos cuando alguno tiene lugar para ellos. Es una preferencia, no una regla: un paso creado cuando casi todos los nodos están ocupados sí va a uno ocupado en cuanto cabe ahí, en vez de esperar al único nodo que quedó, donde quizá nunca quepa. Los demonios de BuildKit en nodos ocupados se dejan de lado mientras haya otro listo. Con 100 se apaga.
 - **CPU máxima que reserva un paso**: baja lo que pide el pod de cualquier paso, para que quepa en nodos ocupados; sin límite de CPU, aun así usa los núcleos libres que encuentre. Vacío: lo que pida `resources` de cada aplicación.
+
+### La página Entorno {#the-environment-page}
+
+En un clúster, la página Entorno dice primero cómo va todo y luego qué necesita de usted:
+
+- **Cómo va**: un sol que gira despacio, con *Todo en marcha*, *En marcha, con avisos* o *Algo está caído*, y cuántas cosas están caídas (una revisión obligatoria que falla, un nodo que no está listo) y cuántos avisos hay (una revisión opcional, una carga de trabajo o un certificado con fallas). Junto a él, los nodos listos, las aplicaciones en línea con sus certificados vigentes y la versión de la plataforma.
+- **Lo que necesita de usted**: una tarjeta por cada revisión que no está bien y por cada pod o certificado que falla, con su acción: **Cambiarla** para la ficha de Cloudflare, **Ver** para abrir su servicio abajo o mostrar cómo arreglarlo.
+- **Los nodos**: cada nodo es una casita. Sus ventanas encendidas son el procesador, el zócalo rosa sube con su memoria, una nota flota encima cuando no está listo, tiene presión, está acordonado o casi lleno, y el nodo que manda tiene torre con reloj. Al presionar uno se ven sus detalles.
+- **Con qué se conecta**: dónde vive el código, DNS, certificados, correo, la construcción, el registro de imágenes, los respaldos y la IA, cada uno con un punto que late en verde, ámbar o rojo. Al presionar uno se abre su ventanilla: el DNS dinámico, el correo de prueba, las forjas, sus revisiones y **Cambiar su llave**.
+
+Plegados abajo: la versión de la plataforma (abierta cuando hay una nueva o hace falta `make deploy`), la [Capacidad](#capacity), todas las revisiones por categoría y, para los administradores, los ajustes en vivo. Las animaciones se detienen cuando el dispositivo pide menos movimiento.
+
+### Llaves y ajustes {#keys-and-settings}
+
+**Llaves y ajustes** (`/environment/llaves`, solo administradores) muestra cada llave con la que rendimiento habla con otros servicios: para qué es, cuándo vence (*Vence en 21 días*, o *No vence*) y cuándo se cambió aquí. Nunca su valor.
+
+Tres llaves se cambian aquí, y cada una **se prueba antes de guardarse**:
+
+| Llave | La prueba | Dónde se guarda |
+|---|---|---|
+| Ficha de Cloudflare | Cloudflare la acepta y dice hasta cuándo (`/user/tokens/verify`); ve todas las zonas donde están las aplicaciones y `DNS_ZONE`; crea y borra un registro TXT `_rendimiento-prueba` en `DNS_ZONE` | `rendimiento-dns` (`CLOUDFLARE_API_TOKEN`), y el secreto del resolvedor DNS-01 del `CLUSTER_ISSUER` (su `apiTokenSecretRef`, en `CERT_MANAGER_NAMESPACE`) |
+| Correo (Resend) | Resend la acepta (pidiendo sus dominios, lo que no envía nada), y su cuenta tiene el dominio de `NOTIFY_EMAIL_FROM`; un correo de prueba solo si se pide | `rendimiento-notify` (`RESEND_API_KEY`) |
+| IA de la plataforma | Anthropic responde con ella para `AI_PLATFORM_MODEL` | `rendimiento-ia` (`AI_PLATFORM_KEY`) |
+
+Si algún paso falla, **no se guarda nada** y la página dice qué paso y por qué (*No ve example.org: agréguela en «Zone Resources»*); la llave anterior sigue funcionando. Cuando pasan todos, la llave se escribe en los dos secretos o en ninguno, y la plataforma la usa **sin reiniciar**: el proceso que la guardó, al momento; cada uno de los demás, en menos de 15 segundos (ve en la base de datos la versión nueva de la llave y vuelve a leer su secreto). cert-manager lee su secreto cada vez, así que los certificados también la siguen. La base de datos y la bitácora guardan qué llave, quién la cambió, cuándo y cuándo vence; el valor solo está en sus secretos. De una ficha de Cloudflare que vence se avisa 30 días antes, en *Lo que necesita de usted*.
+
+Una llave se cambia aquí solo donde la plataforma ya usa su servicio: Cloudflare y el correo se configuran al instalar (Helm, o los secretos de arriba); la llave de IA puede empezar aquí. Los respaldos fuera de casa (R2), el archivo de registros (S3) y Umami aparecen en la lista y se cambiarán aquí en una versión próxima; los ajustes que se prueban antes (registro, zona y destino del DNS, emisor, almacenamiento, entrada, dirección) se muestran por ahora solo para leer. La base de datos, la llave de los secretos y el modo se cambian solo con Helm: sin ellos la plataforma no arranca.
 
 ## El lado de las construcciones {#the-build-side}
 

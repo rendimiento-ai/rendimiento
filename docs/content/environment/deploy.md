@@ -93,6 +93,7 @@ The platform's own service account (`rendimiento`) can:
 - manage namespaces, Deployments, Services, Ingresses, CronJobs, PVCs and Secrets **cluster-wide**, because every app gets its own namespace. The controller refuses namespaces and hostnames it does not own ([ownership checks](../architecture/controller.md#ownership-checks));
 - read nodes, metrics, ingress classes, storage classes, CRDs, cluster issuers and StatefulSets, for the Environment and Services pages;
 - create and delete pods and secrets in `rendimiento-builds` (CI);
+- get and update, by name, its own `rendimiento-dns`, `rendimiento-notify` and `rendimiento-ia` secrets, and in `cert-manager` the one secret the ClusterIssuer reads its Cloudflare token from (`cloudflare-api-token-secret` here; patch the name in your overlay, or set `certManagerSecret.name` with Helm), for [Keys and settings](#keys-and-settings). Those Roles are new: after updating, run `make deploy` (or `helm upgrade`) once to apply them;
 - **impersonate** the `rendimiento-addons` service account, and nothing more.
 
 `rendimiento-addons` is bound to `cluster-admin`, because installing software like Longhorn means creating CRDs, ClusterRoles and DaemonSets, exactly what ArgoCD needed. No pod runs as it: only the add-on controller acts as it, so the Kubernetes audit log shows every add-on change under that name. See [Security model](../architecture/security.md).
@@ -354,6 +355,33 @@ Administrators of the platform change, without a redeploy (every process follows
 - **Caches of each test**: how many volumes a test with `cache: true` keeps (2 when empty, up to 6). A run's test takes the first that no other run is using, so that many runs test at once without waiting for a cache. Each is a volume of `TEST_CACHE_SIZE`, made the first time it is needed; lowering the number leaves the extra ones unused until their app is deleted.
 - **A node is busy from (%)**: every 15 seconds the platform measures each node's CPU, reserved and in use; one at this percent or more (85 by default) shows *busy*, and new steps go to the other nodes when one has room for them. It is a preference, not a rule: a step made while most nodes are busy still goes to a busy one once it fits there, instead of waiting for the only node left, which may never have room. BuildKit daemons on busy nodes are left out while another is ready. 100 turns it off.
 - **Most CPU a step reserves**: lowers what any step's pod asks for, so steps fit on busy nodes; with no CPU limit they still use the free cores they find. Empty: what each app's `resources` asks.
+
+### The Environment page {#the-environment-page}
+
+On a cluster, the Environment page says first how things go, then what needs you:
+
+- **How it goes**: a sun that turns slowly, with *Everything running*, *Running, with notices* or *Something is down*, and how many things are down (a required check that fails, a node not ready) and how many notices there are (an optional check, an unhealthy workload or certificate). Beside it, the nodes ready, the apps online with their valid certificates, and the platform's release.
+- **What needs you**: a card for each check that is not well and each failing pod or certificate, with its action: **Change it** for the Cloudflare token, **See** to open its service below or to show how to fix it.
+- **The nodes**: each node is a small house. Its lit windows are the processor, the pink skirting rises with its memory, a note floats over it when it is not ready, under pressure, cordoned or nearly full, and the node in charge has a clock tower. Pressing one shows its details.
+- **What it connects to**: where the code lives, DNS, certificates, email, the builder, the image registry, backups and AI, each with a dot that breathes green, amber or red. Pressing one opens its window: the dynamic DNS, the test email, the forjas, its checks, and **Change its key**.
+
+Folded below: the platform's version (open when there is a new one, or `make deploy` is needed), [Capacity](#capacity), every check by category, and, for administrators, the live settings. Animations stop when the device asks for reduced motion.
+
+### Keys and settings {#keys-and-settings}
+
+**Keys and settings** (`/environment/llaves`, administrators only) lists every key rendimiento talks to other services with: its purpose, when it expires (*Expires in 21 days*, or *Does not expire*) and when it was changed here. Never its value.
+
+Three keys change here, each **tested before it is saved**:
+
+| Key | The test | Where it is saved |
+|---|---|---|
+| Cloudflare token | Cloudflare accepts it and says until when (`/user/tokens/verify`); it sees every zone the apps and `DNS_ZONE` are in; it creates and deletes a TXT record `_rendimiento-prueba` in `DNS_ZONE` | `rendimiento-dns` (`CLOUDFLARE_API_TOKEN`), and the secret of the `CLUSTER_ISSUER`'s DNS-01 solver (its `apiTokenSecretRef`, in `CERT_MANAGER_NAMESPACE`) |
+| Email (Resend) | Resend accepts it (asking for its domains, which sends nothing), and its account has the domain of `NOTIFY_EMAIL_FROM`; a test email only when asked | `rendimiento-notify` (`RESEND_API_KEY`) |
+| Platform AI | Anthropic answers with it for `AI_PLATFORM_MODEL` | `rendimiento-ia` (`AI_PLATFORM_KEY`) |
+
+If any step fails, **nothing is saved** and the page says which step and why (*It does not see example.org: add it under «Zone Resources»*); the key before keeps working. When every step passes, the key is written to both secrets or to neither, and the platform uses it **with no restart**: the process that saved it at once, every other within 15 seconds (it sees the key's new version in the database and reads its secret again). cert-manager reads its secret each time, so certificates follow too. The database and the bitácora keep which key, who changed it, when, and when it expires; the value is only in its secrets. A Cloudflare token that expires is warned about 30 days before, in *What needs you*.
+
+A key changes here only where the platform already uses its service: Cloudflare and email are set up at install (Helm, or the secrets above); the AI key can start here. The off-site backups (R2), the log archive (S3) and Umami are listed, and change here in a later version; the settings tested first (registry, DNS zone and target, issuer, storage, ingress, address) are shown read-only for now. The database, the secrets key and the mode change only with Helm: without them the platform does not start.
 
 ## The build side
 

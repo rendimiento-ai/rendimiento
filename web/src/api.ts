@@ -1566,6 +1566,8 @@ export interface EnvCheck {
   details?: string[];
   version?: string;
   fix?: string;
+  /** An optional integration that is not set up (and need not be). */
+  off?: boolean;
 }
 
 export interface EnvProvider {
@@ -1576,6 +1578,9 @@ export interface EnvProvider {
   status: EnvStatus;
   detail: string;
   options: { id: string; name: string; available: boolean }[];
+  /** DNS only: how many zones it manages, and when its token expires (when it says). */
+  zones?: number;
+  expiresAt?: string;
 }
 
 export interface EnvNode {
@@ -1680,7 +1685,7 @@ export interface EnvReport {
   generatedAt: string;
   overall: EnvStatus;
   summary: string;
-  cluster: { distribution: string; name: string; version: string; nodes: number; nodesReady: number; pods: number; namespaces: number };
+  cluster: { distribution: string; name: string; version: string; nodes: number; nodesReady: number; pods: number; namespaces: number; certificates?: number; certificatesBad?: number };
   providers: EnvProvider[];
   checks: EnvCheck[];
   nodes: EnvNode[];
@@ -1816,7 +1821,37 @@ export const envApi = {
   saveSetting: (key: string, value: string) => request<SettingsView>("PUT", `/api/environment/settings/${key}`, { value }),
   forgetSetting: (key: string) => request<SettingsView>("DELETE", `/api/environment/settings/${key}`),
   boundaryCheck: () => request<BoundaryCheck>("GET", "/api/environment/settings/boundary-check"),
+  llaves: () => request<LlavesView>("GET", "/api/llaves"),
+  cambiarLlave: (id: string, value: string, sendTest = false) => request<LlaveResultado>("POST", `/api/llaves/${id}`, { value, sendTest }),
 };
+
+/** A key on the Keys and settings page (api.LlaveView): never its value. */
+export interface Llave {
+  id: "cloudflare" | "correo" | "ia" | "r2" | "registros" | "umami";
+  set: boolean;
+  /** It changes here now; pronto: in a later version; reason: why it does not. */
+  cambiable: boolean;
+  pronto?: boolean;
+  reason?: string;
+  cambiadaPor?: string;
+  cambiadaEn?: string;
+  venceEn?: string;
+  zonas?: number;
+}
+/** The Keys and settings page (api.LlavesView). */
+export interface LlavesView {
+  llaves: Llave[];
+  ajustes: FixedSetting[];
+  helm: string[];
+}
+/** How changing a key went (llaves.Resultado): every step tried, and whether it was saved. */
+export interface LlaveResultado {
+  llave: string;
+  guardada: boolean;
+  pasos: { id: "verify" | "zones" | "record" | "send" | "save" | "apply"; ok: boolean; detail?: string }[];
+  venceEn?: string;
+  avisoEn?: string;
+}
 
 // rendimiento's own versions: the images its repository's builds made.
 export interface PlatformRelease {

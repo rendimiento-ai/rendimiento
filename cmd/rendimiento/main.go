@@ -662,6 +662,12 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	srv.StatsInternalOnly = statsAddr != ""
 	srv.Environment.Config.NotifyTo, srv.Environment.Config.NotifyReady = notifier.To, notifier.Enabled()
 	log.Info("email notifications", "enabled", notifier.Enabled(), "to", notifier.To)
+	srv.Environment.Config.AI = iaDelEntorno(srv.IA)
+	// The keys that change on the Environment page, tested first and with
+	// no restart: every process follows a change within 15 seconds.
+	llavesCambian, recargador := llavesQueCambian(kube, st, ns, baseURL, renderOpts.ClusterIssuer, dnsProvider, notifier, srv.IA, log.With("component", "llaves"))
+	srv.Llaves = llavesCambian
+	go recargador.Run(ctx)
 
 	// Log archive: finished runs' step logs move to S3-compatible storage (Garage here),
 	// which deletes them after LOG_RETENTION_DAYS.

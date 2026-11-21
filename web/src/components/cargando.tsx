@@ -14,6 +14,7 @@ const porRuta: [string[], () => ReactNode][] = [
   [["/apps/:name", "/apps/:name/:tab"], () => <EsqCosa codigo flor datos={4} pestanas />],
   [["/universe"], () => <EsqPueblo codigo />],
   [["/environment"], () => <EsqCosa codigo acciones cuerpo="calle" />],
+  [["/environment/llaves"], () => <EsqCosa codigo volver />],
   [["/services", "/services/:ns/:name"], () => <EsqListaDetalle codigo acciones />],
   [["/addons", "/addons/:name", "/mercado", "/buzon"], () => <EsqListaDetalle codigo />],
   [["/problems"], () => <EsqListaDetalle codigo cuentas />],

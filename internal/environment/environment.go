@@ -75,6 +75,8 @@ type Check struct {
 	Version  string   `json:"version,omitempty"`
 	// Fix explains how to resolve a non-OK status (install command, setting).
 	Fix string `json:"fix,omitempty"`
+	// Off is an optional integration that is not set up (and need not be).
+	Off bool `json:"off,omitempty"`
 }
 
 // Option is one choice for a provider slot; unavailable ones are on the roadmap.
@@ -93,6 +95,10 @@ type Provider struct {
 	Status  Status   `json:"status"`
 	Detail  string   `json:"detail"`
 	Options []Option `json:"options"`
+	// Zones is how many DNS zones the provider manages (dns only), and
+	// ExpiresAt when its token stops working, when it says.
+	Zones     int        `json:"zones,omitempty"`
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
 }
 
 // Node is one cluster node with its capacity, usage and health.
@@ -136,6 +142,10 @@ type ClusterInfo struct {
 	NodesReady   int    `json:"nodesReady"`
 	Pods         int    `json:"pods"`
 	Namespaces   int    `json:"namespaces"`
+	// Certificates is how many cert-manager certificates the cluster has,
+	// and CertificatesBad how many of them need attention.
+	Certificates    int `json:"certificates"`
+	CertificatesBad int `json:"certificatesBad"`
 }
 
 // Report is everything the Environment page shows.
@@ -179,6 +189,9 @@ type Config struct {
 	LogArchive func(ctx context.Context) (ok bool, summary string)
 	// Analytics checks that Umami answers (nil: visitor numbers are off).
 	Analytics func(ctx context.Context) (ok bool, summary string)
+	// AI says whether the platform's AI (its key, or a local model) is set
+	// up, and how (nil: the check says it is off).
+	AI func(ctx context.Context) (on bool, summary string)
 	// Namespace and Services are where the platform's own Deployments run
 	// (one per role: api, control, worker); a missing one is skipped (one
 	// Deployment with ROLE=all).
@@ -255,6 +268,7 @@ func (c *Checker) build(ctx context.Context) *Report {
 	r := &Report{GeneratedAt: time.Now()}
 	snap := c.snapshot(ctx)
 	r.Cluster = snap.cluster
+	r.Cluster.Certificates, r.Cluster.CertificatesBad = snap.certTotal, len(snap.certProblems)
 	r.Nodes = snap.nodes
 	r.Problems = snap.problems
 

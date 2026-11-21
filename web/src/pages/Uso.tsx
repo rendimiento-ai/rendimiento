@@ -12,7 +12,7 @@ const LIBRO = lang === "es" ? "https://aprende.rendimiento.ai/guide/uso/" : "htt
 function nombre(ruta: string): string {
   const n: Record<string, string> = {
     "/": t("Apps"), "/new": t("New app"), "/mercado": t("Mercado"), "/mercado/nuevo": t("A new Mercado page"), "/mercado/:app": t("A Mercado page"),
-    "/environment": t("Environment"), "/universe": t("Universe"), "/universe/requests/:id": t("A request"), "/services": t("Services"),
+    "/environment": t("Environment"), "/environment/llaves": t("Keys and settings"), "/universe": t("Universe"), "/universe/requests/:id": t("A request"), "/services": t("Services"),
     "/addons": t("Add-ons"), "/addons/:name": t("An add-on"), "/problems": t("Problems"), "/ruta": t("Ruta"), "/bitacora": t("Bitácora"),
     "/senales": t("Señales de vida"), "/ia": t("AI"), "/buzon": t("Comments"), "/escribir": t("Write to the team"), "/members": t("Members"),
     "/services/:ns/:name": t("A service"), "/apps/:name": t("An app"), "/apps/:name/:tab": t("A tab of an app"),
