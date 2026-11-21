@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { api, type DeliveryReport, type DeliveryWeek } from "../api";
 import { usePoll } from "./ui";
+import { EsqBloques } from "./esqueleto";
 import { locale, t, tn } from "../i18n";
 
 /** Seconds as the largest sensible unit. */
@@ -199,9 +200,9 @@ function Days({ days }: { days: { day: string; n: number }[] }) {
 }
 
 /** The dashboard's delivery health: the numbers of the last 30 days and a chart of twelve weeks. */
-export function DeliveryPanel() {
+export function DeliveryPanel({ esqueleto }: { esqueleto?: boolean }) {
   const { data } = usePoll(api.delivery, [], 60000);
-  if (!data) return null;
+  if (!data) return esqueleto ? <EsqBloques alturas={[380]} /> : null;
   const ts = tiles(data);
   return (
     <section className="card dlv" aria-labelledby="dlv-h">

@@ -8,7 +8,7 @@ import { ErrorBox, usePoll } from "../components/ui";
 import { api, timeAgo, type Pagina, type PaletaPagina, type Puesto, type TipoEnlace, type TipoPagina } from "../api";
 import { t } from "../i18n";
 import { marchita } from "./Dashboard";
-import { EsqListaDetalle } from "../components/esqueleto";
+import { EsqListaDetalle, Esqueleto, Hueso } from "../components/esqueleto";
 
 const tipos: { id: TipoPagina; titulo: () => string; texto: () => string }[] = [
   { id: "personal", titulo: () => t("Personal"), texto: () => t("About you, and where to find you.") },
@@ -117,7 +117,12 @@ function PuestoVista({ p }: { p: Puesto }) {
   return (
     <main className="ld-detalle puesto-vista">
       <div className="telefono" aria-label={t("Preview on a phone")}>
-        {html ? <iframe title={t("Preview")} sandbox="" srcDoc={html} /> : <div className="empty small">{fallo ?? t("Loading…")}</div>}
+        {html ? <iframe title={t("Preview")} sandbox="" srcDoc={html} /> : fallo ? <div className="empty small">{fallo}</div> : (
+          <Esqueleto className="esq-pagina">
+            <Hueso h={22} w="40%" /><Hueso h={140} r={12} /><Hueso className="esq-titulo" w="70%" />
+            <Hueso className="esq-renglon" w="92%" /><Hueso className="esq-renglon" w="80%" /><Hueso h={40} w="55%" r={999} />
+          </Esqueleto>
+        )}
       </div>
       <div className="puesto-datos">
         <div className="row" style={{ gap: 10 }}>

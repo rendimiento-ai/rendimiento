@@ -11,7 +11,7 @@ import { Maqueta, ms, rate, worst, type Engine, type MapBarda, type MapModel, ty
 import { outsideWhy } from "../components/barda";
 import { ErrorBox, usePoll } from "../components/ui";
 import { t, tn } from "../i18n";
-import { EsqPueblo } from "../components/esqueleto";
+import { EsqPueblo, EsqRenglones, Esqueleto, Hueso } from "../components/esqueleto";
 
 const windows: { id: UniverseWindow; label: string; short: string }[] = [
   { id: "15m", label: "Last 15 minutes", short: "15 min" },
@@ -761,7 +761,7 @@ function Spans({ service, win }: { service: string; win: UniverseWindow }) {
     return () => { live = false; };
   }, [service, win]);
   if (failed && !spans?.length) return <p className="small muted" style={{ margin: 0 }}>{t("Latency could not be read from the metrics store: {error}", { error: failed })}</p>;
-  if (!spans) return <p className="small muted" style={{ margin: 0 }}>{t("Loading…")}</p>;
+  if (!spans) return <EsqRenglones n={6} />;
   return (
     <>
       {spanGroups.map((g) => {
@@ -814,7 +814,7 @@ function Requests({ service }: { service: string }) {
       <h3 className="u-h">{t("Recent requests")}</h3>
       <label className="small muted"><input type="checkbox" checked={errorsOnly} onChange={(e) => setErrorsOnly(e.target.checked)} /> {t("Only the failed ones")}</label>
       {failed && <p className="small muted" style={{ margin: 0 }}>{failed}</p>}
-      {!list && !failed && <p className="small muted" style={{ margin: 0 }}>{t("Loading…")}</p>}
+      {!list && !failed && <Esqueleto className="stack" >{Array.from({ length: 5 }, (_, i) => <Hueso key={i} h={34} r={8} />)}</Esqueleto>}
       {list && !list.length && <p className="small muted" style={{ margin: 0 }}>{t("None kept yet. The traces service keeps every request that fails or is slow, and one in ten of the rest, for a week.")}</p>}
       <div className="u-reqs">
         {list?.slice(0, 12).map((r) => (

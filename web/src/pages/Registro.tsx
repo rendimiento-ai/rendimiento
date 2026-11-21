@@ -8,6 +8,7 @@ import { api, timeAgo, type LogFilter, type LogLine } from "../api";
 import { locale, t } from "../i18n";
 import { ErrorBox, usePoll } from "../components/ui";
 import { Vigia } from "../components/vigia";
+import { EsqTabla } from "../components/esqueleto";
 
 /** The processes of a cluster, and the single one of a computer. */
 const PROCESSES = ["api", "control", "worker", "agents", "traces", "all", "local"];
@@ -142,6 +143,7 @@ export function Registro() {
         <input type="search" className="registro-buscar" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("Search the messages")} aria-label={t("Search the messages")} />
       </div>
       <ErrorBox error={error} />
+      {!lines && !error && <EsqTabla filas={12} columnas={5} />}
       {lines && lines.length === 0 && <div className="card empty"><p>{t("No lines match.")}</p></div>}
       {lines && lines.length > 0 && (
         <div style={{ overflowX: "auto" }}>

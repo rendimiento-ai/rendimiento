@@ -3,6 +3,7 @@ import { api, timeAgo, type BitacoraRow } from "../api";
 import { locale, t } from "../i18n";
 import { ErrorBox, usePoll } from "../components/ui";
 import { Aprobaciones, Decididas } from "../components/aprobaciones";
+import { EsqTabla, Esqueleto, Hueso } from "../components/esqueleto";
 
 /** How an action ended, as a badge: HTTP 2xx and agents' "ok" are fine, 4xx a refusal, the rest a failure. */
 function resultado(r: string): { cls: string; label: string } {
@@ -108,6 +109,7 @@ export function Bitacora() {
       <Aprobaciones />
       <Decididas />
       <ErrorBox error={error ?? checkError} />
+      {!check && !checkError && <Esqueleto><Hueso h={42} r={10} /></Esqueleto>}
       {check && (
         <div className={`alert ${check.rotaEn ? "" : "info"}`} role="status">
           {check.rotaEn
@@ -125,6 +127,7 @@ export function Bitacora() {
         <span className="spacer" />
         <button type="button" onClick={exportar} disabled={!rows?.length}>{t("Export (JSONL)")}</button>
       </div>
+      {!rows && !error && <EsqTabla columnas={5} alto={56} />}
       {rows && rows.length === 0 && <div className="card empty"><p>{t("Nothing here yet: every change people or agents make will appear.")}</p></div>}
       {rows && rows.length > 0 && (
         <div style={{ overflowX: "auto" }}>

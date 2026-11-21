@@ -10,7 +10,7 @@ import { TextoConFormato } from "../components/texto";
 import { Rama } from "../components/lo-ultimo";
 import { forjaOf } from "../forja";
 import { Pasos } from "../components/pasos";
-import { EsqCosa } from "../components/esqueleto";
+import { EsqCosa, EsqRenglones } from "../components/esqueleto";
 import { anotar } from "../uso";
 
 /** A run's page: why it failed, its steps with when each ran, live as they go, and the log of the step chosen. */
@@ -342,7 +342,7 @@ function EnSeco({ run }: { run: Run }) {
             <span className="small muted">{duration(x.startedAt, x.finishedAt)}</span>
             {x.status !== "skipped" && <button className="small" aria-expanded={abierto === x.name} onClick={() => ver(x)}>{t("Log")}</button>}
           </div>
-          {abierto === x.name && <pre className="en-seco-registro">{registros[x.name] ?? t("Loading…")}</pre>}
+          {abierto === x.name && (registros[x.name] === undefined ? <EsqRenglones n={4} /> : <pre className="en-seco-registro">{registros[x.name]}</pre>)}
         </div>
       ))}
     </section>
@@ -571,7 +571,7 @@ function WhyFailed({ run, d, setD }: { run: Run; d: Diagnosis | null | undefined
         <h2 style={{ margin: 0 }}>{t("Why did it fail?")}</h2>
         {canAsk && d?.status !== "pending" && <button className="link small" disabled={asking} onClick={ask}>{d ? t("Explain again") : t("Explain")}</button>}
       </div>
-      {d === undefined && <p className="muted small">{t("Loading…")}</p>}
+      {d === undefined && <EsqRenglones n={3} />}
       {d === null && <p className="muted small">{t("No explanation yet. If automatic diagnosis is on (AI page), the diagnostician agent writes one within a minute of the failure.")}</p>}
       {d?.status === "pending" && <p className="muted small">{t("The diagnostician agent is reading the logs…")}</p>}
       {d?.status === "done" && d.text && <TextoConFormato text={d.text} className="why-text" />}

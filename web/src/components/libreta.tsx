@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { api, session, type App, type LibretaItem, type LibretaStatus } from "../api";
 import { locale, t, tn } from "../i18n";
 import { ErrorBox, usePoll } from "./ui";
+import { EsqListaDetalle } from "./esqueleto";
 import { Rama } from "./lo-ultimo";
 import { forjaOf, pullLabel, pullURL } from "../forja";
 
@@ -61,7 +62,7 @@ export function LibretaTab({ app }: { app: App }) {
       </div>
       {anotando && <Anotar app={app} onDone={() => { setAnotando(false); reload(); }} onCancel={() => setAnotando(false)} />}
       <ErrorBox error={error} />
-      {!data && !error && <p className="muted">{t("Loading…")}</p>}
+      {!data && !error && <EsqListaDetalle cabeza={false} />}
       {data && (
         <div className="libreta-cuerpo">
           <div className="libreta-lista">

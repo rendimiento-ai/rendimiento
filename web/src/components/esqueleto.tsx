@@ -208,3 +208,30 @@ export function EsqRenglones({ n = 5, className }: { n?: number; className?: str
     </Esqueleto>
   );
 }
+
+/**
+ * (e) A table's rows (the Bitácora, the Log, the señales received, the AI's calls): a line for its head and its rows,
+ * "alto" pixels each, in as many columns as the real one. Under the page's own title and filters.
+ */
+export function EsqTabla({ filas = 8, columnas = 5, alto = 34 }: { filas?: number; columnas?: number; alto?: number }) {
+  const rejilla = { gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))` };
+  return (
+    <Esqueleto className="esq-tabla">
+      <div className="esq-tabla-fila" style={rejilla}>{Array.from({ length: columnas }, (_, i) => <Hueso key={i} h={10} w="55%" />)}</div>
+      {Array.from({ length: filas }, (_, f) => (
+        <div key={f} className="esq-tabla-fila" style={{ ...rejilla, height: alto }}>
+          {Array.from({ length: columnas }, (_, i) => <Hueso key={i} h={12} w={`${88 - ((f + i) % 3) * 18}%`} />)}
+        </div>
+      ))}
+    </Esqueleto>
+  );
+}
+
+/** (f) Cards one under the other, of the heights given: an app's tab (Reliability, Visits), a panel whose data is on its way. */
+export function EsqBloques({ alturas = [150, 230], className }: { alturas?: number[]; className?: string }) {
+  return (
+    <Esqueleto className={className ? `esq-bloques ${className}` : "esq-bloques"}>
+      {alturas.map((h, i) => <Hueso key={i} h={h} r={14} />)}
+    </Esqueleto>
+  );
+}

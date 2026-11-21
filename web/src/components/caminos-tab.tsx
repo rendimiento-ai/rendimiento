@@ -6,6 +6,7 @@ import { api, type Caminos, type CaminosBranch, type CaminosRun } from "../api";
 import { locale, t, tn } from "../i18n";
 import { CaminosMap, Layout, type CaminosSel, type PlayState } from "./caminos";
 import { ErrorBox, usePoll } from "./ui";
+import { EsqBloques } from "./esqueleto";
 
 const fmtWhen = new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const when = (iso?: string) => (iso ? fmtWhen.format(new Date(iso)) : "—");
@@ -41,7 +42,7 @@ const PACES = [
 export function CaminosTab({ name }: { name: string }) {
   const { data, error } = usePoll(() => api.caminos(name), [name], 30000);
   if (error) return <ErrorBox error={error} />;
-  if (!data) return <p className="muted">{t("Loading…")}</p>;
+  if (!data) return <EsqBloques alturas={[420]} />;
   if (data.main.length === 0 && data.branches.length === 0) return <p className="muted">{t("No runs in the last two weeks yet: the road starts with the first push.")}</p>;
   return <CaminosView name={name} data={data} />;
 }

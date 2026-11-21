@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { api, session } from "../api";
 import { usePoll } from "../components/ui";
+import { EsqBloques } from "../components/esqueleto";
 import { VisitsPanel } from "../components/visits";
 import { DeliveryPanel } from "../components/delivery";
 import { t } from "../i18n";
@@ -20,8 +21,8 @@ export function Numeros() {
       <div className="numeros" data-listo={listo}>
         <section id="visitas" aria-label={t("Visits")}>
           {visitas && visitas.configured && (visitas.apps.length > 0 || visitas.platform)
-            ? <VisitsPanel />
-            : (visitas || error !== undefined) && (
+            ? <VisitsPanel esqueleto />
+            : !visitas && error === undefined ? <EsqBloques alturas={[380]} /> : (
               <div className="card">
                 <h2 style={{ marginTop: 0 }}>{t("Visitors")}</h2>
                 <p className="small muted" style={{ margin: 0 }}>
@@ -34,7 +35,7 @@ export function Numeros() {
         </section>
         {session.operator && (
           <section id="entregas" aria-label={t("Delivery")}>
-            <DeliveryPanel />
+            <DeliveryPanel esqueleto />
           </section>
         )}
         {session.operator && (

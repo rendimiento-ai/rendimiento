@@ -7,6 +7,7 @@ import { Cielo, Guardapolvo, MovimientoSwitch, TemaSwitch, Techo } from "../comp
 import { LangSwitch, Logo } from "../components/marca";
 import { api, timeAgo, type PublicActivity } from "../api";
 import { usePoll } from "../components/ui";
+import { Esqueleto, Hueso } from "../components/esqueleto";
 import { lang, t } from "../i18n";
 
 export interface BookLinks {
@@ -36,8 +37,9 @@ function Monarca({ size = 44 }: { size?: number }) {
 
 /** "Right now in the town": what rendimiento is doing, pinned up as a bando, refreshed every 20 seconds. */
 function Bando() {
-  const { data } = usePoll<PublicActivity>(() => api.publicActivity(), [], 20000);
-  if (!data) return null;
+  const { data, error } = usePoll<PublicActivity>(() => api.publicActivity(), [], 20000);
+  // On its way, the board in silhouette, the size of a few lines; if it cannot be read, nothing.
+  if (!data) return error ? null : <Esqueleto><Hueso h={190} r={4} style={{ margin: "0 0 48px" }} /></Esqueleto>;
   const que = (r: PublicActivity["running"][number]) =>
     r.status === "queued" ? t("waiting its turn") : r.deploy ? t("building a new release") : t("checking a proposed change");
   const version = (e: PublicActivity["recent"][number]) =>

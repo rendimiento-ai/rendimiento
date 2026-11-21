@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api, forjasApi, session, timeAgo, type MemberRole, type Org } from "../api";
 import { forjaName, forjasDeEntrada, loginEn, type ForjaDeEntrada } from "../forja";
 import { ErrorBox, usePoll } from "../components/ui";
+import { EsqListaDetalle, EsqRenglones, Esqueleto, Hueso } from "../components/esqueleto";
 import { t } from "../i18n";
 import { memberRoleLabel } from "../components/cuenta";
 
@@ -54,62 +55,64 @@ export function Members({ me, role, org }: { me: string; role: MemberRole; org?:
       <h1>{t("Members")}</h1>
       <p className="sub" style={{ marginBottom: 0 }}>{t("People who can sign in here, and what each may do. You are {role}.", { role: t(memberRoleLabel[role]).toLowerCase() })}</p>
       <ErrorBox error={err ?? error} />
-      <div className="lista-detalle">
-        <aside className="ld-lista">
-          {admin && <button className="primary" onClick={() => setParams({ agregar: "1" }, { replace: true })}>{t("Add someone")}</button>}
-          {(["admin", "collaborator", "guest"] as MemberRole[]).map((r) => {
-            const items = (data ?? []).filter((m) => m.role === r);
-            if (items.length === 0) return null;
-            return (
-              <div key={r}>
-                <div className="ld-grupo">{t(grupoLabel[r])} · {items.length}</div>
-                {items.map((m) => (
-                  <button key={m.login} className={`ld-item${elegido?.login === m.login ? " on" : ""}`} style={{ ["--c" as string]: colorDe(m.login) }}
-                    aria-current={elegido?.login === m.login} onClick={() => setParams({ persona: m.login }, { replace: true })}>
-                    <Inicial login={m.login} />
-                    <span className="ld-nombre">@{m.login}{yo(m.login) && <span className="muted" style={{ fontWeight: 400 }}> ({t("you")})</span>}</span>
+      {!data && !error ? <EsqListaDetalle cabeza={false} /> : (
+        <div className="lista-detalle">
+          <aside className="ld-lista">
+            {admin && <button className="primary" onClick={() => setParams({ agregar: "1" }, { replace: true })}>{t("Add someone")}</button>}
+            {(["admin", "collaborator", "guest"] as MemberRole[]).map((r) => {
+              const items = (data ?? []).filter((m) => m.role === r);
+              if (items.length === 0) return null;
+              return (
+                <div key={r}>
+                  <div className="ld-grupo">{t(grupoLabel[r])} · {items.length}</div>
+                  {items.map((m) => (
+                    <button key={m.login} className={`ld-item${elegido?.login === m.login ? " on" : ""}`} style={{ ["--c" as string]: colorDe(m.login) }}
+                      aria-current={elegido?.login === m.login} onClick={() => setParams({ persona: m.login }, { replace: true })}>
+                      <Inicial login={m.login} />
+                      <span className="ld-nombre">@{m.login}{yo(m.login) && <span className="muted" style={{ fontWeight: 400 }}> ({t("you")})</span>}</span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+          </aside>
+          {agregando && <AddMember onDone={(login) => { reload(); setParams({ persona: login }, { replace: true }); }} onCancel={() => setParams({}, { replace: true })} />}
+          {elegido && (
+            <main className="ld-detalle" key={elegido.login}>
+              <div className="ld-cabeza">
+                <Inicial login={elegido.login} size={60} />
+                <div style={{ minWidth: 0 }}>
+                  <h2 className="ld-titulo">@{elegido.login}{yo(elegido.login) && <span className="muted" style={{ fontSize: 16, fontWeight: 400 }}> ({t("you")})</span>}</h2>
+                  <span className="small muted">{t("added by {who} · {when}", { who: elegido.addedBy, when: timeAgo(elegido.createdAt) })}</span>
+                </div>
+              </div>
+              <div className="roles-elegir" role="radiogroup" aria-label={t("Role")}>
+                {(["guest", "collaborator", "admin"] as MemberRole[]).map((r) => (
+                  <button key={r} role="radio" aria-checked={elegido.role === r} className={`rol-tarjeta${elegido.role === r ? " on" : ""}`} disabled={!admin}
+                    onClick={() => elegido.role !== r && act(api.setMember(elegido.login, r))}>
+                    <strong>{t(memberRoleLabel[r])}</strong>
+                    <span className="small muted">{t(roleHelp[r])}</span>
                   </button>
                 ))}
               </div>
-            );
-          })}
-        </aside>
-        {agregando && <AddMember onDone={(login) => { reload(); setParams({ persona: login }, { replace: true }); }} onCancel={() => setParams({}, { replace: true })} />}
-        {elegido && (
-          <main className="ld-detalle" key={elegido.login}>
-            <div className="ld-cabeza">
-              <Inicial login={elegido.login} size={60} />
-              <div style={{ minWidth: 0 }}>
-                <h2 className="ld-titulo">@{elegido.login}{yo(elegido.login) && <span className="muted" style={{ fontSize: 16, fontWeight: 400 }}> ({t("you")})</span>}</h2>
-                <span className="small muted">{t("added by {who} · {when}", { who: elegido.addedBy, when: timeAgo(elegido.createdAt) })}</span>
+              <div>
+                <h3 className="ld-h3">{t("What they can do")}</h3>
+                <ul className="permisos">
+                  {permisos.map((p) => {
+                    const si = nivel[elegido.role] >= nivel[p.min];
+                    return <li key={p.text} className={si ? "si" : "no"}><span role="img" aria-label={si ? t("Allowed") : t("Not allowed")}>{si ? "✓" : "—"}</span>{t(p.text)}</li>;
+                  })}
+                </ul>
               </div>
-            </div>
-            <div className="roles-elegir" role="radiogroup" aria-label={t("Role")}>
-              {(["guest", "collaborator", "admin"] as MemberRole[]).map((r) => (
-                <button key={r} role="radio" aria-checked={elegido.role === r} className={`rol-tarjeta${elegido.role === r ? " on" : ""}`} disabled={!admin}
-                  onClick={() => elegido.role !== r && act(api.setMember(elegido.login, r))}>
-                  <strong>{t(memberRoleLabel[r])}</strong>
-                  <span className="small muted">{t(roleHelp[r])}</span>
+              {admin && (
+                <button style={{ alignSelf: "flex-start" }} onClick={() => confirm(t("Remove {login}? They lose access at once.", { login: elegido.login })) && act(api.removeMember(elegido.login).then(() => setParams({}, { replace: true })))}>
+                  {t("Remove @{login}", { login: elegido.login })}
                 </button>
-              ))}
-            </div>
-            <div>
-              <h3 className="ld-h3">{t("What they can do")}</h3>
-              <ul className="permisos">
-                {permisos.map((p) => {
-                  const si = nivel[elegido.role] >= nivel[p.min];
-                  return <li key={p.text} className={si ? "si" : "no"}><span role="img" aria-label={si ? t("Allowed") : t("Not allowed")}>{si ? "✓" : "—"}</span>{t(p.text)}</li>;
-                })}
-              </ul>
-            </div>
-            {admin && (
-              <button style={{ alignSelf: "flex-start" }} onClick={() => confirm(t("Remove {login}? They lose access at once.", { login: elegido.login })) && act(api.removeMember(elegido.login).then(() => setParams({}, { replace: true })))}>
-                {t("Remove @{login}", { login: elegido.login })}
-              </button>
-            )}
-          </main>
-        )}
-      </div>
+              )}
+            </main>
+          )}
+        </div>
+      )}
       {admin && <DemoLinks org={org} />}
       <Orgs />
       {session.operator && <Senales />}
@@ -147,6 +150,7 @@ function DemoLinks({ org }: { org?: Org }) {
       ) : (
         <div className="card stack">
           <ErrorBox error={error ?? err} />
+          {!data && !error && <EsqRenglones n={2} />}
           {nueva && (
             <div className="stack demo-nueva">
               <strong>{t("Here is the link. It is shown only this once:")}</strong>
@@ -212,13 +216,17 @@ function AddMember({ onDone, onCancel }: { onDone: (login: string) => void; onCa
       <h2 className="ld-titulo">{t("Add someone")}</h2>
       <div className="stack" style={{ gap: 6 }}>
         <span className="small">{t("Their account is on")}</span>
-        <div className="row" role="radiogroup" aria-label={t("Their account is on")} style={{ gap: 6, flexWrap: "wrap" }}>
-          {(forjas ?? []).map((x, i) => (
-            <button key={`${x.forja}-${x.host}`} type="button" role="radio" aria-checked={i === elegida} className={`chip-btn${i === elegida ? " on" : ""}`} onClick={() => setElegida(i)}>
-              {x.label}
-            </button>
-          ))}
-        </div>
+        {!forjas && !err ? (
+          <Esqueleto><div className="row" style={{ gap: 6 }}>{[92, 84, 104].map((w) => <Hueso key={w} w={w} h={32} r={999} />)}</div></Esqueleto>
+        ) : (
+          <div className="row" role="radiogroup" aria-label={t("Their account is on")} style={{ gap: 6, flexWrap: "wrap" }}>
+            {(forjas ?? []).map((x, i) => (
+              <button key={`${x.forja}-${x.host}`} type="button" role="radio" aria-checked={i === elegida} className={`chip-btn${i === elegida ? " on" : ""}`} onClick={() => setElegida(i)}>
+                {x.label}
+              </button>
+            ))}
+          </div>
+        )}
         <span className="small muted">{t("Only the forjas connected in Environment show.")}</span>
       </div>
       <label className="field"><span>{f ? t("{forja} username", { forja: forjaName(f.forja) }) : t("Username")}</span>
@@ -264,6 +272,7 @@ export function Orgs() {
       <h2 style={{ marginTop: 28 }}>{t("Organizations")}</h2>
       <p className="sub">{t("Each organization has its own apps, Ruta, encargos, agent keys and people. Switch between yours at the top.")}</p>
       <ErrorBox error={error ?? err} />
+      {!data && !error && <EsqRenglones n={2} />}
       <ul className="small">
         {data?.map((o) => <li key={o.id}><strong>{o.name}</strong> <span className="muted">({o.slug}) · {t(memberRoleLabel[o.role ?? "guest"])}</span></li>)}
       </ul>

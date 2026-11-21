@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api, timeAgo } from "../api";
 import { lang, t } from "../i18n";
 import { ErrorBox, usePoll } from "./ui";
+import { Esqueleto, Hueso } from "./esqueleto";
 
 /** The book's page on the señales, in the reader's language. */
 const LIBRO = lang === "es" ? "https://aprende.rendimiento.ai/guide/senales/" : "https://learn.rendimiento.ai/guide/senales/";
@@ -17,7 +18,17 @@ export function Senales() {
   const { data, error, setData } = usePoll(api.senales, [], 60000);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>();
-  if (!data) return error ? null : <ErrorBox error={error} />;
+  // Failed: why. On its way: its title, the lines under it and the card with the next señal, in silhouette.
+  if (!data) return error ? <ErrorBox error={error} /> : (
+    <Esqueleto>
+      <div style={{ marginTop: 28 }}>
+        <Hueso className="esq-titulo" w="36%" />
+        <Hueso className="esq-renglon" w="94%" />
+        <Hueso className="esq-renglon" w="62%" />
+        <Hueso h={280} r={14} style={{ marginTop: 14 }} />
+      </div>
+    </Esqueleto>
+  );
   const cambiar = async (encendidas: boolean) => {
     setBusy(true);
     setErr(undefined);

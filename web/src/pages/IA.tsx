@@ -5,6 +5,7 @@ import { t } from "../i18n";
 import { useConexion } from "../conexion";
 import { apagado } from "../components/conexion-aviso";
 import { VigiaIA } from "../components/vigia";
+import { EsqBloques, EsqTabla } from "../components/esqueleto";
 import { Boleta } from "../components/boleta";
 
 const providerLabel: Record<AIProvider, string> = { local: "local model", own: "own key", platform: "the platform's" };
@@ -31,12 +32,15 @@ export function IA() {
       <h1>{t("AI")}</h1>
       <p className="sub">{t("Every call the platform makes to a model goes through here: the agents inside the platform, and the explanations of what failed. It stays within the cap you set, and when a cap is reached the local model answers instead.")}</p>
       <ErrorBox error={error} />
+      {/* On its way: the summary and the settings, then the latest calls under the try box. */}
+      {!data && !error && <EsqBloques alturas={[190, 560]} />}
       {data && <Summary v={data} />}
       {/* Without a local model nothing may answer: the place to connect one comes first. */}
       {data && session.operator && !data.localModel && <ModeloLocal onSaved={reload} />}
       {data && <Settings v={data} onSaved={reload} />}
       {session.operator && <VigiaIA />}
       <Try onDone={reload} />
+      {!data && !error && <div style={{ marginTop: 24 }}><EsqTabla filas={6} columnas={6} /></div>}
       {data && <Calls v={data} />}
       {session.operator && <Operator local={data?.localModel ? <ModeloLocal onSaved={reload} /> : null} />}
     </>
@@ -400,6 +404,7 @@ function Operator({ local }: { local: ReactNode }) {
       <h2 style={{ marginTop: 28 }}>{t("The platform's AI (operators)")}</h2>
       {local}
       <ErrorBox error={error} />
+      {!data && !error && <EsqTabla filas={3} columnas={4} />}
       {data && (
         <>
           {data.platformKeySet

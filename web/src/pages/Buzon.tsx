@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, ApiError, timeAgo, type ClaseOpinion, type EstadoOpinion, type Opinion, type OpinionDetalle } from "../api";
-import { EsqListaDetalle } from "../components/esqueleto";
+import { EsqListaDetalle, Esqueleto, Hueso } from "../components/esqueleto";
 import { t, tn } from "../i18n";
 import { useConexion } from "../conexion";
 import { apagado, PorQueApagado } from "../components/conexion-aviso";
@@ -148,7 +148,11 @@ function Detalle({ id, abrir, cambio, lista }: { id: number; abrir: (id: number)
     }
   }
 
-  if (!o) return <div className="buzon-detalle">{error ? <p className="error">{error}</p> : <span className="muted">{t("Loading…")}</span>}</div>;
+  if (!o) return (
+    <div className="buzon-detalle">
+      {error ? <p className="error">{error}</p> : <Esqueleto className="stack">{[60, 92, 84, 70].map((w) => <Hueso key={w} className="esq-renglon" w={`${w}%`} />)}<Hueso h={160} r={12} /></Esqueleto>}
+    </div>
+  );
   const respondido = o.estado === "respondido";
   const mismos = lista.filter((x) => x.id !== o.id && (x.grupo ?? x.id) === (o.grupo ?? o.id));
 
