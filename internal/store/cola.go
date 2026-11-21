@@ -38,10 +38,7 @@ func (s *Store) CoderCandidates(ctx context.Context, limit int) ([]CoderCandidat
 	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (CoderCandidate, error) {
 		var c CoderCandidate
 		e := &c.Encargo
-		err := r.Scan(&e.ID, &e.Title, &e.Body, &e.App, &e.RunID, &e.Status, &e.CreatedBy, &e.ByAgent, &e.KeyID, &e.KeyName,
-			&e.CargoID, &e.WaitingRun, &e.Result, &e.Links, &e.Comment, &e.CreatedAt, &e.UpdatedAt, &e.OrgID,
-			&e.Difficulty, &e.EstimateMicros, &e.EstimateReason, &e.Route, &e.DoNow, &e.SpentMicros, &e.QueuePos, &e.Doing, &e.StopAsked, &e.RouteChosen, &e.RunBranch,
-			&c.Concurrency)
+		err := r.Scan(encargoFields(e, &c.Concurrency)...)
 		return c, err
 	})
 }
