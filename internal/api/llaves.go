@@ -21,8 +21,8 @@ type LlaveView struct {
 	// Cambiable: it changes here now. Externa: it is not the platform's
 	// (something outside it uses it). Reason is why it does not change
 	// here, when it does not.
-	Cambiable   bool       `json:"cambiable"`
-	Externa     bool       `json:"externa,omitempty"`
+	Cambiable bool `json:"cambiable"`
+	Externa   bool `json:"externa,omitempty"`
 	// Usuario: the key is two values, who (an access key's id, a user
 	// name) and its secret.
 	Usuario     bool       `json:"usuario,omitempty"`
@@ -42,7 +42,6 @@ type LlavesView struct {
 	Ajustes []FixedSetting `json:"ajustes"`
 	Helm    []string       `json:"helm"`
 }
-
 
 // ajustesProbados are the settings that will change here, tested first.
 var ajustesProbados = []string{"REGISTRY", "DNS_ZONE", "DNS_TARGET", "CLUSTER_ISSUER", "STORAGE_CLASS", "INGRESS_CLASS", "BASE_URL"}

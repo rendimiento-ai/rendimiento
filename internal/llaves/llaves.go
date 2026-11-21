@@ -461,7 +461,9 @@ func probarObjeto(ctx context.Context, cl *minio.Client, bucket string, res *Res
 		res.Pasos = append(res.Pasos, Paso{ID: "object", Detail: M("it cannot write to the bucket: %s", err.Error())})
 		return false
 	}
-	borrar := func() error { return cl.RemoveObject(context.WithoutCancel(ctx), bucket, nombre, minio.RemoveObjectOptions{}) }
+	borrar := func() error {
+		return cl.RemoveObject(context.WithoutCancel(ctx), bucket, nombre, minio.RemoveObjectOptions{})
+	}
 	obj, err := cl.GetObject(ctx, bucket, nombre, minio.GetObjectOptions{})
 	var leido []byte
 	if err == nil {
@@ -560,9 +562,9 @@ func (c *Cambiador) Destinos(ctx context.Context, id string) ([]Destino, error) 
 func (c *Cambiador) guardar(ctx context.Context, destinos []Destino, valores Valores, secreto string) error {
 	type antes struct {
 		ns, name string
-		sec      *corev1.Secret     // nil: it did not exist
-		nuevos   map[string][]byte  // what is written
-		previos  map[string][]byte  // the keys it had before (nil: it did not have it)
+		sec      *corev1.Secret    // nil: it did not exist
+		nuevos   map[string][]byte // what is written
+		previos  map[string][]byte // the keys it had before (nil: it did not have it)
 		teniaKey map[string]bool
 	}
 	var leidos []*antes
