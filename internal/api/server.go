@@ -2094,11 +2094,10 @@ func (s *Server) ui() http.Handler {
 	}
 	files := http.FileServerFS(s.UI)
 	// With a tracker, the page is served with its tag in the head.
+	index, _ := fs.ReadFile(s.UI, "index.html")
 	var tracked []byte
-	if s.Tracker != "" {
-		if page, err := fs.ReadFile(s.UI, "index.html"); err == nil {
-			tracked = withTracker(page, s.Tracker)
-		}
+	if s.Tracker != "" && index != nil {
+		tracked = withTracker(index, s.Tracker)
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
@@ -2141,9 +2140,21 @@ func (s *Server) ui() http.Handler {
 			r = r.Clone(r.Context())
 			r.URL.Path = "/"
 			w.Header().Set("Cache-Control", "no-cache")
-			if tracked != nil {
+			w.Header().Add("Vary", "Accept-Language, CF-IPCountry")
+			page := tracked
+			// A browser whose languages are neither Spanish nor English starts in its country's (from
+			// Cloudflare's CF-IPCountry): the page carries only that "es" or "en", never the country.
+			if l, ok := i18n.CountryDefault(r); ok && index != nil {
+				if page == nil {
+					page = index
+				}
+				page = withCountryLang(page, l)
+			}
+			if page != nil {
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				_, _ = w.Write(tracked)
+				if r.Method != http.MethodHead {
+					_, _ = w.Write(page)
+				}
 				return
 			}
 		} else if strings.HasPrefix(p, "assets/") {

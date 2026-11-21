@@ -46,3 +46,32 @@ func TestUITracker(t *testing.T) {
 		t.Fatalf("without a tracker: %s", w.Body.String())
 	}
 }
+
+// A browser asking only for other languages gets its country's language in
+// the page (never the country itself); a browser that asks for Spanish or
+// English, a crawler without Accept-Language, and a request not behind
+// Cloudflare get the built page.
+func TestUILangPais(t *testing.T) {
+	ui := fstest.MapFS{"index.html": {Data: []byte("<html><head><title>r</title></head><body></body></html>")}}
+	s := &Server{UI: ui}
+	for _, c := range []struct{ accept, country, want string }{
+		{"pt-BR,pt;q=0.9", "MX", `<meta name="rendimiento-lang-pais" content="es" /></head>`},
+		{"pt-BR", "BR", `<meta name="rendimiento-lang-pais" content="en" /></head>`},
+		{"", "MX", "<title>r</title></head>"},
+		{"pt-BR", "", "<title>r</title></head>"},
+	} {
+		r := httptest.NewRequest("GET", "/apps/shop", nil)
+		if c.accept != "" {
+			r.Header.Set("Accept-Language", c.accept)
+		}
+		if c.country != "" {
+			r.Header.Set("CF-IPCountry", c.country)
+		}
+		w := httptest.NewRecorder()
+		s.ui().ServeHTTP(w, r)
+		if !strings.Contains(w.Body.String(), c.want) || strings.Contains(w.Body.String(), c.country+`"`) && c.country != "" ||
+			!strings.Contains(w.Header().Get("Vary"), "CF-IPCountry") {
+			t.Errorf("%q %q: %v %s", c.accept, c.country, w.Header(), w.Body.String())
+		}
+	}
+}
