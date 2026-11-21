@@ -59,6 +59,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/notify"
 	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/platform"
+	"github.com/rendimiento-ai/rendimiento/internal/probados"
 	"github.com/rendimiento-ai/rendimiento/internal/problems"
 	"github.com/rendimiento-ai/rendimiento/internal/registro"
 	"github.com/rendimiento-ai/rendimiento/internal/registrocentral"
@@ -131,7 +132,6 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	log = log.With("role", role)
 
 	// --8<-- [start:startup]
-	baseURL := strings.TrimRight(env("BASE_URL", "http://localhost:8080"), "/")
 	ns := env("NAMESPACE", "rendimiento-system")
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -149,6 +149,20 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	if err := st.Migrate(ctx); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
+	// The settings tested and changed on the Environment page (Keys and
+	// settings) win over the ConfigMap's: they go into the environment
+	// before anything reads it. TESTED_SETTINGS=ignore starts with the
+	// ConfigMap's alone.
+	entorno, probadosEnUso, err := probados.AlArrancar(ctx, st, os.Getenv, os.Setenv)
+	if err != nil {
+		log.Warn("could not read the tested settings; starting with the ConfigMap's", "err", err)
+		for k, v := range entorno {
+			_ = os.Setenv(k, v)
+		}
+	} else if len(probadosEnUso) > 0 {
+		log.Info("tested settings changed on the Environment page win over the ConfigMap's", "settings", strings.Join(probadosEnUso, ", "))
+	}
+	baseURL := strings.TrimRight(env("BASE_URL", "http://localhost:8080"), "/")
 	go central.Run(ctx, st, plain)
 	// The Problems recorder's own warnings are kept in the log.
 	go problemLog.Run(ctx, st, slog.New(central.Handler(plain.Handler())))
@@ -714,6 +728,10 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	if srv.Update != nil {
 		srv.Update.Also = slices.DeleteFunc(slices.Clone(srv.Environment.Config.Services), func(d string) bool { return d == srv.Update.Deployment })
 	}
+	// The settings tested before they change (Keys and settings): saved,
+	// they win over the ConfigMap's at the next start, which follows.
+	srv.Probados = ajustesProbados(kube, st, ns, executor, dnsProvider, settings, entorno, srv.Environment.Config.Services, dsn, log.With("component", "probados"))
+	srv.Identidad = probados.LlaveDeIdentidad(dsn)
 	// Renovate, the add-on sync, release verification and dynamic DNS run
 	// on the control service; the other services ask it through the hub.
 	if !runs("control") {

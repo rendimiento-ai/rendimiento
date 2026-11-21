@@ -387,7 +387,24 @@ Una llave se cambia aquí solo donde la plataforma ya usa su servicio: Cloudflar
 
 Los **respaldos fuera de casa (R2)** aparecen en la lista, marcados *Fuera de rendimiento*, y no se cambian aquí: un trabajo fuera de la plataforma (un CronJob de rclone en su propio espacio de nombres, con su propio secreto) copia la cubeta de respaldos a R2, y rendimiento no escribe secretos que no son suyos. Cambie esa llave donde está configurado ese trabajo.
 
-Los ajustes que se prueban antes (registro, zona y destino del DNS, emisor, almacenamiento, entrada, dirección) se muestran por ahora solo para leer. La base de datos, la llave de los secretos y el modo se cambian solo con Helm: sin ellos la plataforma no arranca.
+#### Ajustes que se prueban antes de cambiar {#settings-tested-first}
+
+Seis ajustes que la plataforma lee al arrancar también se cambian aquí, cada uno después de su **prueba de conexión**. Escoja uno, escriba el valor nuevo junto al de ahora y oprima **Probar la conexión**: todavía no cambia nada. Solo cuando pasan todos los pasos se habilita **Cambiar**, para esos mismos valores, durante 15 minutos; antes, la página dice qué pasa con lo que ya existe.
+
+| Ajuste | La prueba | Qué pasa con lo que existe |
+|---|---|---|
+| Registro de imágenes (`REGISTRY`) | responde la API del registro (`/v2/`); BuildKit le sube una imagen de prueba diminuta (`rendimiento-prueba`, `FROM scratch`); un pod en cada nodo listo y no acordonado la baja; se borra la imagen de prueba (un registro que no permite borrar la conserva, unos cuantos bytes) | las aplicaciones siguen con sus imágenes; las construcciones nuevas van al registro nuevo, al principio sin caché |
+| Zona y destino del DNS (`DNS_ZONE`, `DNS_TARGET`) | la ficha de Cloudflare en uso ve la zona y crea y borra en ella un registro de prueba; el destino es una IP, se resuelve, o es `auto` | los registros apuntan al destino nuevo en su siguiente revisión |
+| Emisor de certificados (`CLUSTER_ISSUER`) | el ClusterIssuer existe y cert-manager dice que está listo | el emisor nuevo renueva los certificados |
+| Almacenamiento (`STORAGE_CLASS`) | la StorageClass existe; un volumen de prueba de 64 MiB se liga (con un pod que lo usa cuando la clase espera uno), y luego se borran los dos | los volúmenes que existen conservan su clase (no puede cambiar); los nuevos usan la nueva |
+| Entrada (`INGRESS_CLASS`) | la IngressClass existe, y corre un pod listo de su controlador | la entrada de cada aplicación pasa al controlador nuevo |
+| Dirección pública (`BASE_URL`) | se resuelve, y responde por HTTPS, con un certificado válido, como **esta** plataforma (firma un número único con una llave que solo tienen sus procesos, en `/api/identidad`), para que un error de dedo no deje fuera a nadie | cámbiela también en las aplicaciones de las forjas (inicio de sesión y avisos web) |
+
+Los pods y el volumen de la prueba corren en el espacio de nombres de las construcciones, y se van al terminar. Si un paso falla, no se guarda nada y la página dice qué paso y por qué (*1 de 2 nodos la bajaron; no node-b (http: server gave HTTP response to HTTPS client)*).
+
+Un cambio se guarda como ajuste de la plataforma que **gana sobre el valor del ConfigMap**, y los Deployments de la plataforma (`SERVICES`) se reinician de inmediato para leerlo, el que responde al final: un minuto o dos, y una ejecución en curso quizá tenga que volver a correr. La página muestra quién lo cambió y cuándo, y **Volver al valor del ConfigMap** lo olvida (otro reinicio). Si no se puede llegar a la página, arranque la plataforma con `TESTED_SETTINGS=ignore` en su ConfigMap: entonces usa solo los valores del ConfigMap.
+
+La base de datos, la llave de los secretos, el modo y el papel se cambian solo con Helm: sin ellos la plataforma no arranca.
 
 ## El lado de las construcciones {#the-build-side}
 

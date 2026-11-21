@@ -173,6 +173,9 @@ func (r *AppReconciler) sync(ctx context.Context, app *v1alpha1.App, st *v1alpha
 			}
 			continue
 		}
+		if pvc, isPVC := obj.(*corev1.PersistentVolumeClaim); isPVC {
+			r.keepStorageClass(ctx, pvc)
+		}
 		if err := r.apply(ctx, app, obj); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -468,6 +471,16 @@ func selects(selector, labels map[string]string) bool {
 		}
 	}
 	return true
+}
+
+// keepStorageClass leaves a volume that exists in the storage class it was
+// made with: a claim's class cannot change, and a new STORAGE_CLASS is for
+// new volumes only.
+func (r *AppReconciler) keepStorageClass(ctx context.Context, pvc *corev1.PersistentVolumeClaim) {
+	var live corev1.PersistentVolumeClaim
+	if err := r.Get(ctx, client.ObjectKeyFromObject(pvc), &live); err == nil && live.Spec.StorageClassName != nil {
+		pvc.Spec.StorageClassName = live.Spec.StorageClassName
+	}
 }
 
 // apply writes one object with server-side apply as rendimiento, owned by
