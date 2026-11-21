@@ -236,13 +236,25 @@ func (s *Server) reestimateEncargo(w http.ResponseWriter, r *http.Request, login
 	s.encargoAnswer(w, e, err)
 }
 
-// cancelEncargo cancels an encargo that is not finished.
+// cancelEncargo cancels an encargo that is not finished, with why when
+// the person says it ({"reason": ...}, optional).
 func (s *Server) cancelEncargo(w http.ResponseWriter, r *http.Request, login string) {
 	id, ok := s.encargoID(w, r)
 	if !ok {
 		return
 	}
-	e, err := s.Store.CancelEncargo(r.Context(), id, login, "")
+	var in struct {
+		Reason string `json:"reason"`
+	}
+	if r.ContentLength != 0 && !readJSON(w, r, &in) {
+		return
+	}
+	in.Reason = strings.TrimSpace(in.Reason)
+	if len([]rune(in.Reason)) > 2000 {
+		httpError(w, http.StatusBadRequest, "the reason must be up to 2,000 characters")
+		return
+	}
+	e, err := s.Store.CancelEncargo(r.Context(), id, login, in.Reason)
 	s.encargoAnswer(w, e, err)
 }
 

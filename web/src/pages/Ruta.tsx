@@ -3,8 +3,10 @@
 // key made on the Keys tab; lo vivido (what people lived) only people write.
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { api, timeAgo, type AgentKey, type AgentRole, type CreatedAgentKey, type RutaEntry, type RutaInput, type RutaKind } from "../api";
+import { api, session, timeAgo, type AgentKey, type AgentRole, type CreatedAgentKey, type RutaEntry, type RutaInput, type RutaKind } from "../api";
 import { Encargos } from "../components/encargos";
+import { Agente, useCola } from "../components/cola";
+import { ParaUsted } from "../components/portada";
 import { Comentarios, porTrabajo } from "../components/comentarios";
 import { CopyButton, ErrorBox, usePoll } from "../components/ui";
 import { t, tn } from "../i18n";
@@ -12,10 +14,20 @@ import { useConexion } from "../conexion";
 import { apagado, PorQueApagado } from "../components/conexion-aviso";
 import { BorradorGuardado, borradorDe, guardarBorrador, soltarBorrador } from "../components/borrador";
 import { TextoConFormato } from "../components/texto";
-import { EsqRenglones } from "../components/esqueleto";
+import { EsqCuaderno, EsqRenglones } from "../components/esqueleto";
 
-type Tab = "ruta" | "encargos" | "vivido" | "cargos" | "llaves";
-const tabIds: Tab[] = ["ruta", "encargos", "vivido", "cargos", "llaves"];
+/**
+ * The Ruta's views (?tab=): the front page «Para usted» (the default), the encargos, the coding agent's
+ * queue and the notebook, whose sections open as their own pages: the index of every entry ("ruta",
+ * the old default, where ?entrada=N opens one), the to-dos, decisions and manuals alone, lo vivido,
+ * the cargos and the agents' keys.
+ */
+type Vista = "para-usted" | "encargos" | "agente" | "cuaderno" | "ruta" | "pendientes" | "decisiones" | "manuales" | "vivido" | "cargos" | "llaves";
+const vistas: Vista[] = ["para-usted", "encargos", "agente", "cuaderno", "ruta", "pendientes", "decisiones", "manuales", "vivido", "cargos", "llaves"];
+/** The notebook's sections (the bottom bar marks «Cuaderno» on them). */
+const delCuaderno: Vista[] = ["cuaderno", "ruta", "pendientes", "decisiones", "manuales", "vivido", "cargos", "llaves"];
+/** The kind of entries each section of one kind shows. */
+const kindOf: Partial<Record<Vista, RutaKind>> = { pendientes: "pendiente", decisiones: "decision", manuales: "manual" };
 
 const kinds: { id: RutaKind; label: string }[] = [
   { id: "decision", label: "Decisions" },
@@ -143,13 +155,13 @@ const kindColor: Record<RutaKind, string> = {
  * The Ruta tab, as a notebook's index: the entries by kind, each a line with its date at the end of a dotted leader
  * (to-dos with a box to tick), and a search; an entry opens as its own page.
  */
-function Entries() {
-  const [q, setQ] = useState("");
-  const [adding, setAdding] = useState(false);
-  // ?entrada=N opens that entry (an app's libreta links to its requests so).
+function Entries({ kind }: { kind?: RutaKind }) {
+  // ?entrada=N opens that entry (an app's libreta links to its requests so); ?nueva=1 starts one.
   const [params] = useSearchParams();
+  const [q, setQ] = useState(() => params.get("q") ?? "");
+  const [adding, setAdding] = useState(() => params.get("nueva") === "1");
   const [open, setOpen] = useState<number | undefined>(() => Number(params.get("entrada")) || undefined);
-  const { data, error, reload } = usePoll(() => api.ruta({ q }), [q], 30000);
+  const { data, error, reload } = usePoll(() => api.ruta({ q, kind }), [q, kind], 30000);
   const list = (data ?? []).filter((e) => e.kind !== "vivido");
   const shown = list.find((e) => e.id === open);
   if (shown) return <Pagina e={shown} onBack={() => setOpen(undefined)} onChange={reload} />;
@@ -157,13 +169,13 @@ function Entries() {
   return (
     <div className="hoja-vista">
       <div className="hoja-cabeza">
-        <h2 className="mano">{t("Index of the Ruta")}</h2>
+        <h2 className="mano">{kind ? t(kinds.find((k) => k.id === kind)?.label ?? "") : t("Index of the Ruta")}</h2>
         <div className="row">
           <input className="ruta-search" type="search" placeholder={t("Search the notebook…")} aria-label={t("Search the Ruta…")} value={q} onChange={(e) => setQ(e.target.value)} />
           <button className="primary" onClick={() => setAdding(!adding)}>{adding ? t("Close") : t("New entry")}</button>
         </div>
       </div>
-      {adding && <EntryForm kind="nota" onDone={() => { setAdding(false); reload(); }} onCancel={() => setAdding(false)} />}
+      {adding && <EntryForm kind={kind ?? "nota"} onDone={() => { setAdding(false); reload(); }} onCancel={() => setAdding(false)} />}
       <ErrorBox error={error} />
       {!data && !error && <EsqRenglones n={8} />}
       {data && list.length === 0 && <p className="renglon-texto muted">{q ? t("Nothing matches.") : t("Nothing here yet. Agents add decisions, manuals and to-dos as they work; you can too.")}</p>}
@@ -457,38 +469,137 @@ function Keys() {
   );
 }
 
-/** The Ruta page: the platform's memory, kept by people and agents, as a notebook with its section tabs. */
-export function Ruta() {
-  // ?tab=encargos opens a tab (a run's "Ask an agent" lands there).
-  const [params, setParams] = useSearchParams();
-  const asked = params.get("tab") as Tab;
-  const tab: Tab = tabIds.includes(asked) ? asked : "ruta";
-  const setTab = (id: Tab) => setParams(id === "ruta" ? {} : { tab: id }, { replace: true });
-  const tabs: { id: Tab; label: string; color: string }[] = [
-    { id: "ruta", label: "The Ruta", color: "#F2A93B" }, { id: "encargos", label: "Encargos", color: "#E9B824" }, { id: "vivido", label: "Lived", color: "#E58FB5" },
-    { id: "cargos", label: "Cargos", color: "#9DB4F2" }, { id: "llaves", label: "Keys", color: "#A8CFA0" },
+/** The four places of the Ruta: on a phone the bar at the bottom, on a computer the tabs on top. */
+const lugares: { id: Vista; label: string; icono: string }[] = [
+  { id: "para-usted", label: "For you", icono: "M4 13l3-8h10l3 8v6H4z M4 13h5l1 2h4l1-2h5" },
+  { id: "encargos", label: "Encargos", icono: "M6 4h12v16H6z M9 9h6 M9 13h6" },
+  { id: "agente", label: "The agent", icono: "M5 8h14v11H5z M12 8V4 M9 13h.01 M15 13h.01" },
+  { id: "cuaderno", label: "Journal", icono: "M5 5h14v14H5z M5 10h14 M10 10v9" },
+];
+
+/** The notebook's sections as colored cards (C2), each with a line of what it holds. */
+function Cuaderno({ ir }: { ir: (v: Vista) => void }) {
+  const [q, setQ] = useState("");
+  const { data: portada } = usePoll(api.portada, [], 60000);
+  const { data: llaves } = usePoll(() => (session.role === "admin" ? api.agentKeys().catch(() => []) : Promise.resolve([])), [], 0);
+  const { data: hallado } = usePoll(() => (q.trim() ? api.ruta({ q: q.trim() }) : Promise.resolve(undefined)), [q], 0);
+  const activas = (llaves ?? []).filter((k) => !k.revokedAt && new Date(k.expiresAt).getTime() > Date.now()).length;
+  const c = portada?.counts;
+  const tarjetas: { id: Vista; titulo: string; linea: string; tono: string }[] = [
+    { id: "pendientes", titulo: t("To-dos"), linea: c ? tn(c.pendientes, "{n} open to-do", "{n} open to-dos") : "", tono: "cempasuchil" },
+    { id: "decisiones", titulo: t("Decisions"), linea: t("with their reasons"), tono: "anil" },
+    { id: "manuales", titulo: t("Manuals"), linea: t("known failures and how they are fixed"), tono: "nopal" },
+    { id: "vivido", titulo: t("Lived"), linea: c ? (c.vividoNew ? tn(c.vividoNew, "{n} new story", "{n} new stories") : t("stories people lived")) : "", tono: "rosa" },
+    { id: "cargos", titulo: t("Cargos"), linea: t("who worked and what they handed over"), tono: "terciopelo" },
+    ...(session.role === "admin" ? [{ id: "llaves" as Vista, titulo: t("Agent keys"), linea: llaves ? tn(activas, "{n} active key", "{n} active keys") : "", tono: "maiz" }] : []),
   ];
   return (
-    <>
-      <h1 className="row" style={{ gap: 10 }}><Monarca /> {t("La Ruta")}</h1>
+    <div className="vista-cuaderno">
+      <div className="vista-cabeza"><h1 className="row" style={{ gap: 10 }}><Monarca /> {t("The journal")}</h1></div>
       <p className="sub">{t("No monarch makes the whole journey; it takes several generations, and still they find the same forests in Michoacán. Each agent session is one generation: the Ruta keeps the way. Decisions with their reasons, manuals, to-dos, and what each agent handed over, for the next one, whoever it is.")}</p>
-      <div className="libro">
-        <div className="hoja">
-          <div className="anillos" aria-hidden="true">{Array.from({ length: 8 }, (_, i) => <span key={i} />)}</div>
-          <div className="vuelta" key={tab}>
-            {tab === "ruta" && <Entries />}
-            {tab === "encargos" && <Encargos />}
-            {tab === "vivido" && <Vivido />}
-            {tab === "cargos" && <Cargos />}
-            {tab === "llaves" && <Keys />}
-          </div>
-        </div>
-        <nav className="separadores" aria-label={t("Sections of the Ruta")}>
-          {tabs.map((x) => (
-            <button key={x.id} className={`sep${tab === x.id ? " on" : ""}`} style={{ ["--c" as string]: x.color }} aria-current={tab === x.id ? "page" : undefined} onClick={() => setTab(x.id)}>{t(x.label)}</button>
-          ))}
-        </nav>
+      <input className="cu-buscar" type="search" placeholder={t("Search the notebook…")} aria-label={t("Search the Ruta…")} value={q} onChange={(e) => setQ(e.target.value)} />
+      {q.trim() ? (
+        <section aria-label={t("What was found")} className="cu-hallado">
+          {!hallado && <EsqRenglones n={4} />}
+          {hallado && !hallado.length && <p className="muted">{t("Nothing matches.")}</p>}
+          <ul className="pu-ultimo">{hallado?.slice(0, 30).map((e) => (
+            <li key={e.id}><span className="marca" style={{ ["--c" as string]: kindColor[e.kind] }} /> <Link to={`/ruta?tab=${e.kind === "vivido" ? "vivido" : "ruta"}&entrada=${e.id}`}>{e.title}</Link> <span className="small muted">{t(kindLabel[e.kind])} · {timeAgo(e.updatedAt)}</span></li>
+          ))}</ul>
+        </section>
+      ) : (
+        <>
+          {!portada && <EsqCuaderno />}
+          {portada && (
+            <div className="cu-tarjetas">
+              {tarjetas.map((x) => (
+                <button key={x.id} type="button" className={`cu-tarjeta tono-${x.tono}`} onClick={() => ir(x.id)}>
+                  <strong>{x.titulo}</strong><span>{x.linea}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {portada && portada.latest.length > 0 && (
+            <section className="cu-ultimo" aria-labelledby="cu-ultimo">
+              <h2 id="cu-ultimo">{t("The latest written")}</h2>
+              <ul className="pu-ultimo">{portada.latest.map((e) => (
+                <li key={e.id}><span className="marca" style={{ ["--c" as string]: kindColor[e.kind] }} /> <Link to={`/ruta?tab=ruta&entrada=${e.id}`}>{e.title}</Link> <span className="small muted">{timeAgo(e.updatedAt)}</span></li>
+              ))}</ul>
+            </section>
+          )}
+          <Link className="et-boton principal" to="/ruta?tab=ruta&nueva=1">{t("+ Write in the Ruta")}</Link>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The Ruta page: the platform's memory, kept by people and agents. It opens on «Para usted», what waits
+ * for the person; the encargos, the coding agent and the notebook are the other three places.
+ */
+export function Ruta({ me = "" }: { me?: string }) {
+  // ?tab= opens a view (a run's "Ask an agent" lands on encargos); ?entrada=N an entry of the index.
+  const [params, setParams] = useSearchParams();
+  const asked = params.get("tab") as Vista;
+  const vista: Vista = vistas.includes(asked) ? asked : params.has("entrada") ? "ruta" : "para-usted";
+  const ir = (id: Vista) => {
+    setParams(id === "para-usted" ? {} : { tab: id });
+    window.scrollTo({ top: 0 });
+  };
+  const { data: cola, error: colaError, reload: reloadCola } = useCola();
+  const enCuaderno = delCuaderno.includes(vista);
+  // The notebook's sections keep the sheet with its section tabs, as before.
+  const separadores: { id: Vista; label: string; color: string }[] = [
+    { id: "ruta", label: "The Ruta", color: "#F2A93B" }, { id: "pendientes", label: "To-dos", color: "#E8890C" }, { id: "decisiones", label: "Decisions", color: "#9DB4F2" },
+    { id: "manuales", label: "Manuals", color: "#A8CFA0" }, { id: "vivido", label: "Lived", color: "#E58FB5" }, { id: "cargos", label: "Cargos", color: "#C9A2D8" },
+    ...(session.role === "admin" ? [{ id: "llaves" as Vista, label: "Keys", color: "#E9B824" }] : []),
+  ];
+  return (
+    <div className={`ruta-nueva vista-${vista}`}>
+      <nav className="ruta-lugares" aria-label={t("Places of the Ruta")}>
+        {lugares.map((l) => {
+          const on = l.id === vista || (l.id === "cuaderno" && enCuaderno);
+          const cuantos = l.id === "agente" && cola ? cola.now.length + cola.next.length : 0;
+          return (
+            <a key={l.id} href={l.id === "para-usted" ? "/ruta" : `/ruta?tab=${l.id}`} aria-current={on ? "page" : undefined} className={on ? "on" : undefined}
+              onClick={(e) => { e.preventDefault(); ir(l.id); }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d={l.icono} /></svg>
+              <span>{t(l.label)}</span>
+              {cuantos > 0 && <span className="nav-count">{cuantos}</span>}
+            </a>
+          );
+        })}
+      </nav>
+      <div className="ruta-vista" key={vista}>
+        {vista === "para-usted" && <ParaUsted me={me} cola={cola} onCola={reloadCola} />}
+        {vista === "encargos" && <Encargos cola={cola} onCola={reloadCola} />}
+        {vista === "agente" && <Agente cola={cola} error={colaError} onChange={reloadCola} />}
+        {vista === "cuaderno" && <Cuaderno ir={ir} />}
+        {enCuaderno && vista !== "cuaderno" && (
+          <>
+            <div className="vista-cabeza">
+              <a className="cu-volver" href="/ruta?tab=cuaderno" onClick={(e) => { e.preventDefault(); ir("cuaderno"); }}>{t("← Journal")}</a>
+              <h1 className="row" style={{ gap: 10 }}><Monarca /> {t("La Ruta")}</h1>
+            </div>
+            <div className="libro">
+              <div className="hoja">
+                <div className="anillos" aria-hidden="true">{Array.from({ length: 8 }, (_, i) => <span key={i} />)}</div>
+                <div className="vuelta">
+                  {(vista === "ruta" || kindOf[vista]) && <Entries key={vista} kind={kindOf[vista]} />}
+                  {vista === "vivido" && <Vivido />}
+                  {vista === "cargos" && <Cargos />}
+                  {vista === "llaves" && <Keys />}
+                </div>
+              </div>
+              <nav className="separadores" aria-label={t("Sections of the Ruta")}>
+                {separadores.map((x) => (
+                  <button key={x.id} className={`sep${vista === x.id ? " on" : ""}`} style={{ ["--c" as string]: x.color }} aria-current={vista === x.id ? "page" : undefined} onClick={() => ir(x.id)}>{t(x.label)}</button>
+                ))}
+              </nav>
+            </div>
+          </>
+        )}
       </div>
-    </>
+    </div>
   );
 }

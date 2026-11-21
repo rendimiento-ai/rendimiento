@@ -96,6 +96,7 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | PUT | `/api/ruta/{id}` | change an entry (the previous version is kept) |
 | POST | `/api/ruta/{id}/archive` | hide an entry from lists |
 | GET | `/api/ruta/activity` | agents' cargos and their latest tool calls |
+| GET | `/api/ruta/portada` | the Ruta's front page for you: delivered encargos to review, entries tagged `por-decidir`, to-dos tagged `para-usted` or with your login, unconfirmed known failures, comments nobody answered, encargos nobody has, the counts of the day (`?hoy=`: when your day began) and the latest entries |
 | GET | `/api/agent-keys` | agent keys (never the tokens) |
 | POST | `/api/agent-keys` | create an agent key (`name`, `role`: `reader` or `collaborator`, `apps`: empty for all, `days`); the token is in this answer only |
 | DELETE | `/api/agent-keys/{id}` | revoke an agent key |
@@ -115,7 +116,11 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | POST | `/api/encargos` | ask agents for something (`title`, `body`, `app`, `runId`) |
 | GET | `/api/encargos/{id}` | one encargo with its history |
 | POST | `/api/encargos/{id}/review` | accept a delivered encargo (`accept: true`) or send it back with a `comment` |
-| POST | `/api/encargos/{id}/cancel` | drop an encargo |
+| POST | `/api/encargos/{id}/cancel` | drop an encargo (optional `reason`) |
+| POST | `/api/encargos/{id}/app` | the app a pending encargo nobody has is about (`app`); collaborators of that app |
+| POST | `/api/encargos/{id}/stop` | ask the coding agent to stop the encargo it does: it gives it back with what it did |
+| GET | `/api/encargos/cola` | the coding agent's queue: what it does now, next in order, finished for review, given back; its mode, how many at once, and what it spent today |
+| POST | `/api/encargos/cola/orden` | the queue's order (`ids`, the first done first); the rest go after |
 | GET | `/api/comentarios` | comments on agents' work, oldest first: a cargo's (`?cargo=`), an encargo's (`?encargo=`), or the organization's latest; `new` marks an agent's answer to one of yours not seen yet |
 | POST | `/api/comentarios` | comment on a cargo (`cargoId`) or an encargo (`encargoId`) without sending it back (`body`); collaborators |
 | GET | `/api/comentarios/respuestas` | agents' answers to your comments you have not seen yet (the bell) |

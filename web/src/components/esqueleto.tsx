@@ -235,3 +235,54 @@ export function EsqBloques({ alturas = [150, 230], className }: { alturas?: numb
     </Esqueleto>
   );
 }
+
+/** (g) The Ruta's front page: its rows for the person, one under the other, and the counts of what goes on meanwhile. Under its real grana head. */
+export function EsqPortada({ codigo }: { codigo?: boolean }) {
+  return (
+    <Esqueleto className="esq-portada" codigo={codigo}>
+      {codigo && <Hueso className="esq-pu-cabeza" r="0 0 28px 28px" />}
+      <Hueso className="esq-titulo" w={140} />
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="esq-pu-fila"><Hueso w={44} h={44} r={14} /><div className="esq-cabeza-texto"><Hueso className="esq-renglon" w="62%" /><Hueso className="esq-renglon" w="40%" /></div><Hueso w={88} h={44} r={999} /></div>
+      ))}
+      <div className="esq-pu-cuentas">{[0, 1, 2, 3].map((i) => <Hueso key={i} h={84} r={18} />)}</div>
+    </Esqueleto>
+  );
+}
+
+/** (h) The encargos' cards, while they come: a head line, the title, the difficulty and the actions. */
+export function EsqTarjetas({ n = 3 }: { n?: number }) {
+  return (
+    <Esqueleto className="esq-tarjetas">
+      {Array.from({ length: n }, (_, i) => (
+        <div key={i} className="esq-et">
+          <div className="row"><Hueso w={44} h={44} r={10} /><div className="esq-cabeza-texto"><Hueso w={120} h={20} r={999} /><Hueso className="esq-renglon" w="78%" /></div></div>
+          <div className="row"><Hueso w={42} h={42} r={12} /><Hueso className="esq-renglon" w="44%" /></div>
+          <div className="row"><Hueso h={46} r={999} style={{ flex: 1 }} /><Hueso w={110} h={46} r={999} /><Hueso w={46} h={46} r={999} /></div>
+        </div>
+      ))}
+    </Esqueleto>
+  );
+}
+
+/** (i) The coding agent's queue: what it does now, and the line of what follows. */
+export function EsqCola() {
+  return (
+    <Esqueleto className="esq-cola">
+      <Hueso className="esq-titulo" w={160} />
+      <Hueso h={170} r={20} />
+      <Hueso className="esq-titulo" w={110} />
+      {[0, 1, 2].map((i) => <div key={i} className="esq-pu-fila"><Hueso w={32} h={32} r={999} /><div className="esq-cabeza-texto"><Hueso className="esq-renglon" w="70%" /><Hueso className="esq-renglon" w="36%" /></div><Hueso w={96} h={44} r={12} /></div>)}
+    </Esqueleto>
+  );
+}
+
+/** (j) The notebook: its search and its colored cards. */
+export function EsqCuaderno() {
+  return (
+    <Esqueleto className="esq-cuaderno">
+      <Hueso h={48} r={999} />
+      <div className="esq-cu-tarjetas">{Array.from({ length: 6 }, (_, i) => <Hueso key={i} h={96} r={18} />)}</div>
+    </Esqueleto>
+  );
+}

@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -31,7 +32,9 @@ const (
 
 // CoderStore is what the coding agent reads and keeps.
 type CoderStore interface {
-	EncargoForCoder(ctx context.Context) (store.Encargo, error)
+	CoderCandidates(ctx context.Context, limit int) ([]store.CoderCandidate, error)
+	SetEncargoDoing(ctx context.Context, id int64, doing string) error
+	ShouldStop(ctx context.Context, id int64) (bool, error)
 	EncargosOfSystemKey(ctx context.Context, name string) ([]store.Encargo, error)
 	SystemKey(ctx context.Context, orgID int64, name string) (store.AgentKey, error)
 	TakeCargo(ctx context.Context, keyID int64, purpose string) (store.Cargo, error)
@@ -98,6 +101,21 @@ type Coder struct {
 	// Fixes runs the app's declared fixes for run_fix (nil: the tool is
 	// not offered).
 	Fixes Fixes
+
+	// The encargos it does now, and the cargo each organization's key has
+	// open while it does them (several at once share it, see Pick).
+	mu      sync.Mutex
+	running map[int64]Slot
+	cargos  map[int64]*sharedCargo
+}
+
+// sharedCargo is a key's open cargo while the coding agent does one or
+// more encargos in it: handed over when the last one ends, with what
+// each became.
+type sharedCargo struct {
+	id       int64
+	jobs     int
+	entregas []string
 }
 
 // Limits on the work: the turns, the most a run is waited for, and what a
@@ -114,29 +132,156 @@ const (
 	defaultCost = 500_000 // what an encargo with no estimate is taken to cost
 )
 
-// Run does the encargos it should, one at a time, until ctx ends. First it
-// gives back any it had when the platform stopped.
+// Run does the encargos it should until ctx ends: each organization's
+// queue in its order, as many at once as the organization lets it (one by
+// default), never two of the same app (Pick). First it gives back any it
+// had when the platform stopped.
 func (c *Coder) Run(ctx context.Context) {
+	if c.Poll == 0 {
+		c.Poll = 15 * time.Second
+	}
 	tick := time.NewTicker(30 * time.Second)
 	defer tick.Stop()
 	c.recover(ctx)
+	wake := make(chan struct{}, 1)
+	var wg sync.WaitGroup
+	defer wg.Wait()
 	for {
-		e, err := c.Store.EncargoForCoder(ctx)
+		cands, err := c.Store.CoderCandidates(ctx, 200)
 		switch {
 		case err == nil:
-			wctx, cancel := context.WithTimeout(ctx, 3*time.Hour)
-			if err := c.Do(wctx, e); err != nil {
-				c.Log.Warn("coder: an encargo", "encargo", e.ID, "err", err)
+			c.mu.Lock()
+			if c.running == nil {
+				c.running = map[int64]Slot{}
 			}
-			cancel()
-			continue // the next one at once
-		case !errors.Is(err, store.ErrNotFound) && ctx.Err() == nil:
+			picked := Pick(cands, c.running)
+			for _, e := range picked {
+				c.running[e.ID] = Slot{Org: e.OrgID, App: e.App}
+			}
+			c.mu.Unlock()
+			for _, e := range picked {
+				wg.Add(1)
+				go func(e store.Encargo) {
+					defer wg.Done()
+					wctx, cancel := context.WithTimeout(ctx, 3*time.Hour)
+					if err := c.Do(wctx, e); err != nil {
+						c.Log.Warn("coder: an encargo", "encargo", e.ID, "err", err)
+					}
+					cancel()
+					c.mu.Lock()
+					delete(c.running, e.ID)
+					c.mu.Unlock()
+					select { // the next one at once
+					case wake <- struct{}{}:
+					default:
+					}
+				}(e)
+			}
+		case ctx.Err() == nil:
 			c.Log.Warn("coder: looking for encargos", "err", err)
 		}
 		select {
 		case <-ctx.Done():
 			return
+		case <-wake:
 		case <-tick.C:
+		}
+	}
+}
+
+// Slot is an encargo the coding agent does: its organization and app.
+type Slot struct {
+	Org int64
+	App string
+}
+
+// Pick chooses which candidates to start now, given the ones running (by
+// encargo): each organization's queue in its order, while it does fewer
+// than its organization lets it at once (1 to store.MaxCodeConcurrency),
+// and never an encargo of an app it already does one of, in the same
+// organization: two branches of one repository at once would step on each
+// other's runs. A candidate whose app is busy waits; the next one, of
+// another app, may go first.
+func Pick(cands []store.CoderCandidate, running map[int64]Slot) []store.Encargo {
+	inFlight := map[int64]int{}
+	busy := map[Slot]bool{}
+	for _, s := range running {
+		inFlight[s.Org]++
+		busy[s] = true
+	}
+	var out []store.Encargo
+	for _, c := range cands {
+		n := min(max(c.Concurrency, 1), store.MaxCodeConcurrency)
+		s := Slot{Org: c.OrgID, App: c.App}
+		if _, ok := running[c.ID]; ok || c.App == "" || inFlight[c.OrgID] >= n || busy[s] {
+			continue
+		}
+		out = append(out, c.Encargo)
+		inFlight[c.OrgID]++
+		busy[s] = true
+	}
+	return out
+}
+
+// takeCargo is the cargo an encargo is done in: the key's open one when
+// the coding agent does another of that organization now, else a new one.
+func (c *Coder) takeCargo(ctx context.Context, keyID int64, purpose string) (int64, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.cargos == nil {
+		c.cargos = map[int64]*sharedCargo{}
+	}
+	if sc, ok := c.cargos[keyID]; ok {
+		sc.jobs++
+		return sc.id, nil
+	}
+	cg, err := c.Store.TakeCargo(ctx, keyID, purpose)
+	if errors.Is(err, store.ErrCargoOpen) {
+		cg, err = c.Store.OpenCargo(ctx, keyID)
+	}
+	if err != nil {
+		return 0, err
+	}
+	c.cargos[keyID] = &sharedCargo{id: cg.ID, jobs: 1}
+	return cg.ID, nil
+}
+
+// handOver adds what became of an encargo to its cargo, and hands the
+// cargo over when it was the last one in it.
+func (c *Coder) handOver(ctx context.Context, keyID int64, entrega string) error {
+	c.mu.Lock()
+	sc, ok := c.cargos[keyID]
+	if !ok {
+		c.mu.Unlock()
+		return nil
+	}
+	sc.entregas = append(sc.entregas, entrega)
+	if sc.jobs--; sc.jobs > 0 {
+		c.mu.Unlock()
+		return nil
+	}
+	delete(c.cargos, keyID)
+	c.mu.Unlock()
+	return c.Store.HandOver(ctx, sc.id, strings.Join(sc.entregas, "\n\n"), "")
+}
+
+// errStopped is a person stopping the encargo the coding agent does.
+var errStopped = errors.New("stopped by a person")
+
+// watchStop cancels the work on an encargo when a person asks to stop it,
+// or it is dropped (store.ShouldStop), looking every Poll.
+func (c *Coder) watchStop(ctx context.Context, id int64, cancel context.CancelCauseFunc) {
+	t := time.NewTicker(max(c.Poll, 50*time.Millisecond))
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if stop, err := c.Store.ShouldStop(ctx, id); err == nil && stop {
+				cancel(errStopped)
+				return
+			}
 		}
 	}
 }
@@ -208,10 +353,7 @@ func (c *Coder) Do(ctx context.Context, e store.Encargo) error {
 	if err != nil {
 		return err
 	}
-	cg, err := c.Store.TakeCargo(ctx, key.ID, c.say("Encargo %d: %s", "Encargo %d: %s", e.ID, e.Title))
-	if errors.Is(err, store.ErrCargoOpen) {
-		cg, err = c.Store.OpenCargo(ctx, key.ID)
-	}
+	cargo, err := c.takeCargo(ctx, key.ID, c.say("Encargo %d: %s", "Encargo %d: %s", e.ID, e.Title))
 	if err != nil {
 		return err
 	}
@@ -219,21 +361,31 @@ func (c *Coder) Do(ctx context.Context, e store.Encargo) error {
 	if e.EstimateMicros != nil {
 		budget = max(2**e.EstimateMicros, minBudget)
 	}
-	if e, err = c.Store.TakeEncargo(ctx, e.ID, key.ID, cg.ID, CoderName); err != nil {
+	id := e.ID
+	if e, err = c.Store.TakeEncargo(ctx, id, key.ID, cargo, CoderName); err != nil {
+		_ = c.handOver(context.WithoutCancel(ctx), key.ID, c.say("Encargo %d: otro lo tomó antes.", "Encargo %d: someone took it first.", id))
 		return err
 	}
+	wctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+	go c.watchStop(wctx, e.ID, cancel)
 	j := &job{c: c, e: e, key: key, branch: branchFor(e), changed: map[string][]byte{}, removed: map[string]bool{}, budget: budget}
-	err = j.work(ctx)
+	err = j.work(wctx)
 	if !j.finished {
 		why := c.say("No pude terminarlo", "Could not finish it")
-		if err != nil {
+		if errors.Is(context.Cause(wctx), errStopped) {
+			why = c.say("Una persona lo detuvo", "A person stopped it")
+			if sha := j.commitLeft(context.WithoutCancel(ctx)); sha != "" {
+				why += c.say(". Lo que llevaba quedó SIN PROBAR en el commit %s", ". What I had is in commit %s, UNTESTED", sha[:min(7, len(sha))])
+			}
+		} else if err != nil {
 			why += ": " + err.Error()
 		}
 		j.giveBack(context.WithoutCancel(ctx), why)
 	}
 	entrega := c.say("Encargo %d (%s): %s. Gastó %s de %s.", "Encargo %d (%s): %s. Spent %s of %s.",
 		e.ID, e.Title, j.outcome, ia.Dollars(j.spent), ia.Dollars(j.budget))
-	return c.Store.HandOver(context.WithoutCancel(ctx), cg.ID, entrega, "")
+	return c.handOver(context.WithoutCancel(ctx), key.ID, entrega)
 }
 
 func (j *job) giveBack(ctx context.Context, why string) {
@@ -289,6 +441,9 @@ func (j *job) work(ctx context.Context) error {
 	turns := []ia.Turn{ia.UserText(j.brief())}
 	nudged := 0
 	for turn := 0; turn < maxTurns; turn++ {
+		if ctx.Err() != nil { // a person stopped it, or its time ran out
+			return context.Cause(ctx)
+		}
 		// The brake looks ahead (Ruta 77): it stops before a call that would
 		// take it past twice the estimate, not after, even in the middle of
 		// an edit; what it has is kept as an untested commit.
@@ -303,6 +458,7 @@ func (j *job) work(ctx context.Context) error {
 			j.giveBack(context.WithoutCancel(ctx), why)
 			return nil
 		}
+		j.doing(ctx, "think", "")
 		res, err := c.Model.CompleteTools(ctx, j.e.OrgID, CoderSource, ia.ToolRequest{System: j.system(), Tools: j.tools(), Turns: turns,
 			Model: WorkModel, MaxTokens: 16000})
 		j.spent += res.CostMicros
@@ -526,6 +682,18 @@ func (j *job) tool(ctx context.Context, call ia.ToolCall) (string, bool) {
 	}
 	in.Path = strings.TrimPrefix(path.Clean("/"+in.Path), "/")
 	switch call.Name {
+	case "list_files":
+		j.doing(ctx, call.Name, in.Folder)
+	case "search":
+		j.doing(ctx, call.Name, in.Pattern)
+	case "run_fix":
+		j.doing(ctx, call.Name, in.Name)
+	case "read_file", "write_file", "edit_file", "delete_file":
+		j.doing(ctx, call.Name, in.Path)
+	default:
+		j.doing(ctx, call.Name, "")
+	}
+	switch call.Name {
 	case "read_file", "edit_file", "delete_file":
 		if in.Ref == "" || call.Name != "read_file" {
 			if msg := j.fetchBig(ctx, in.Path); msg != "" {
@@ -580,6 +748,15 @@ func (j *job) tool(ctx context.Context, call ia.ToolCall) (string, bool) {
 		return "given back", false
 	}
 	return "no such tool: " + call.Name, true
+}
+
+// doing keeps what it does now ("tool:what") for the queue's page: the
+// interface says it in the person's language (web/src/components/cola.tsx).
+func (j *job) doing(ctx context.Context, tool, what string) {
+	if what == "" && tool == "list_files" {
+		what = "."
+	}
+	_ = j.c.Store.SetEncargoDoing(context.WithoutCancel(ctx), j.e.ID, tool+":"+what)
 }
 
 // fetchBig brings in a file the branch's snapshot left out for its size

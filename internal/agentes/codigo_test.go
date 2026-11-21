@@ -26,11 +26,19 @@ type coderStore struct {
 	handover  string
 	waited    []int64
 	notes     []string
+	doing     []string
+	stop      bool // a person asked it to stop
+	cargos    int  // how many it took
 }
 
-func (s *coderStore) EncargoForCoder(context.Context) (store.Encargo, error) {
-	return store.Encargo{}, store.ErrNotFound
+func (s *coderStore) CoderCandidates(context.Context, int) ([]store.CoderCandidate, error) {
+	return nil, nil
 }
+func (s *coderStore) SetEncargoDoing(_ context.Context, _ int64, doing string) error {
+	s.doing = append(s.doing, doing)
+	return nil
+}
+func (s *coderStore) ShouldStop(context.Context, int64) (bool, error) { return s.stop, nil }
 func (s *coderStore) EncargosOfSystemKey(context.Context, string) ([]store.Encargo, error) {
 	return nil, nil
 }
@@ -38,6 +46,7 @@ func (s *coderStore) SystemKey(_ context.Context, org int64, name string) (store
 	return store.AgentKey{ID: 9, Name: name, OrgID: org}, nil
 }
 func (s *coderStore) TakeCargo(_ context.Context, key int64, purpose string) (store.Cargo, error) {
+	s.cargos++
 	return store.Cargo{ID: 3, KeyID: key, Purpose: purpose}, nil
 }
 func (s *coderStore) OpenCargo(context.Context, int64) (store.Cargo, error) {

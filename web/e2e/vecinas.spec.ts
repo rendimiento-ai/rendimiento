@@ -64,7 +64,7 @@ test("two organizations: neither sees the other's", async ({ page, browser, base
 
     // Her Ruta has her note; her bitácora, what she did (her own apps too,
     // made by the next test) and not what prueba did.
-    await suya.goto("/ruta");
+    await suya.goto("/ruta?tab=ruta");
     await expect(suya.locator("main")).toContainText(nota("vecina").title);
     await suya.goto("/bitacora");
     await expect(suya.locator("table.bitacora").first()).toContainText("POST /api/ruta");
@@ -87,7 +87,7 @@ test("two organizations: neither sees the other's", async ({ page, browser, base
       expect(texto, `${href} shows prueba the other's note`).not.toContain("solo la lee vecina");
     });
   }
-  await page.goto("/ruta");
+  await page.goto("/ruta?tab=ruta");
   await expect(page.locator("main")).toContainText(nota("prueba").title);
   expect(problemas).toEqual([]);
 });

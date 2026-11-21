@@ -4,7 +4,7 @@
 // only after a moment, so a page that arrives quickly never flashes it.
 import type { ReactNode } from "react";
 import { matchPath, useLocation } from "react-router-dom";
-import { EsqCosa, EsqListaDetalle, EsqMosaico, EsqPueblo } from "./esqueleto";
+import { EsqCosa, EsqListaDetalle, EsqMosaico, EsqPortada, EsqPueblo } from "./esqueleto";
 
 /** Which skeleton each page has; the first pattern that matches wins. Any other page: a page of one thing. */
 const porRuta: [string[], () => ReactNode][] = [
@@ -18,7 +18,7 @@ const porRuta: [string[], () => ReactNode][] = [
   [["/services", "/services/:ns/:name"], () => <EsqListaDetalle codigo acciones />],
   [["/addons", "/addons/:name", "/mercado", "/buzon"], () => <EsqListaDetalle codigo />],
   [["/problems"], () => <EsqListaDetalle codigo cuentas />],
-  [["/ruta"], () => <EsqCosa codigo renglones={2} cuerpo="hoja" />],
+  [["/ruta"], () => <EsqPortada codigo />],
 ];
 
 export function Cargando() {

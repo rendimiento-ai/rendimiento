@@ -55,11 +55,20 @@ type Encargo struct {
 	SpentMicros int64 `json:"spentMicros,omitempty"`
 	// RunBranch is the branch of its run when that is not the app's default
 	// branch: the encargo is worked on there (RamaDeEncargo).
-	RunBranch string       `json:"runBranch,omitempty"`
-	OrgID     int64        `json:"orgId"`
-	CreatedAt time.Time    `json:"createdAt"`
-	UpdatedAt time.Time    `json:"updatedAt"`
-	Log       []EncargoLog `json:"log,omitempty"`
+	RunBranch string `json:"runBranch,omitempty"`
+	// QueuePos is its place in the coding agent's queue, as a person
+	// ordered it (nil: after the ordered ones, oldest first); Doing what
+	// the coding agent does on it now ("tool:what", see agentes.Coder);
+	// StopAsked that a person asked it to stop.
+	QueuePos  *int   `json:"queuePos,omitempty"`
+	Doing     string `json:"doing,omitempty"`
+	StopAsked bool   `json:"stopAsked,omitempty"`
+	// RouteChosen: a person (not the estimator) chose who does it.
+	RouteChosen bool         `json:"routeChosen,omitempty"`
+	OrgID       int64        `json:"orgId"`
+	CreatedAt   time.Time    `json:"createdAt"`
+	UpdatedAt   time.Time    `json:"updatedAt"`
+	Log         []EncargoLog `json:"log,omitempty"`
 }
 
 // EncargoLog is one thing that happened to an encargo.
@@ -72,16 +81,23 @@ type EncargoLog struct {
 
 const encargoCols = `e.id, e.title, e.body, e.app, e.run_id, e.status, e.created_by, e.by_agent, e.key_id, COALESCE(k.name, ''),
 	e.cargo_id, e.waiting_run, e.result, e.links, e.comment, e.created_at, e.updated_at, e.org_id,
-	e.difficulty, e.estimate_micros, e.estimate_reason, e.route, e.do_now, e.spent_micros,
+	e.difficulty, e.estimate_micros, e.estimate_reason, e.route, e.do_now, e.spent_micros, e.queue_pos, e.doing, e.stop_asked,
+	EXISTS (SELECT 1 FROM encargo_log rl WHERE rl.encargo_id = e.id AND rl.what = 'routed'),
 	COALESCE((SELECT r.branch FROM runs r JOIN apps a ON a.id = r.app_id WHERE r.id = e.run_id AND r.branch <> a.default_branch), '')`
 
 const encargoFrom = ` FROM encargos e LEFT JOIN agent_keys k ON k.id = e.key_id`
 
+// encargoFields are where encargoCols are scanned to, in their order; a
+// query that selects more after them appends its own.
+func encargoFields(e *Encargo, more ...any) []any {
+	return append([]any{&e.ID, &e.Title, &e.Body, &e.App, &e.RunID, &e.Status, &e.CreatedBy, &e.ByAgent, &e.KeyID, &e.KeyName,
+		&e.CargoID, &e.WaitingRun, &e.Result, &e.Links, &e.Comment, &e.CreatedAt, &e.UpdatedAt, &e.OrgID,
+		&e.Difficulty, &e.EstimateMicros, &e.EstimateReason, &e.Route, &e.DoNow, &e.SpentMicros, &e.QueuePos, &e.Doing, &e.StopAsked, &e.RouteChosen, &e.RunBranch}, more...)
+}
+
 func scanEncargo(row pgx.Row) (Encargo, error) {
 	var e Encargo
-	err := row.Scan(&e.ID, &e.Title, &e.Body, &e.App, &e.RunID, &e.Status, &e.CreatedBy, &e.ByAgent, &e.KeyID, &e.KeyName,
-		&e.CargoID, &e.WaitingRun, &e.Result, &e.Links, &e.Comment, &e.CreatedAt, &e.UpdatedAt, &e.OrgID,
-		&e.Difficulty, &e.EstimateMicros, &e.EstimateReason, &e.Route, &e.DoNow, &e.SpentMicros, &e.RunBranch)
+	err := row.Scan(encargoFields(&e)...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return e, ErrNotFound
 	}
@@ -177,7 +193,7 @@ func (s *Store) change(ctx context.Context, id int64, who, what, note, sql strin
 // agent can have it: a second one taking it gets ErrEncargoState.
 func (s *Store) TakeEncargo(ctx context.Context, id, keyID, cargoID int64, who string) (Encargo, error) {
 	return s.change(ctx, id, who, "taken", "",
-		`UPDATE encargos SET status = 'taken', key_id = $2, cargo_id = $3, updated_at = now() WHERE id = $1 AND status = 'pending'`,
+		`UPDATE encargos SET status = 'taken', key_id = $2, cargo_id = $3, doing = '', stop_asked = false, updated_at = now() WHERE id = $1 AND status = 'pending'`,
 		id, keyID, cargoID)
 }
 
@@ -201,7 +217,7 @@ func (s *Store) DeliverEncargo(ctx context.Context, id, keyID int64, who, result
 		links = []string{}
 	}
 	return s.change(ctx, id, who, "delivered", "",
-		`UPDATE encargos SET status = 'delivered', waiting_run = NULL, result = $3, links = $4, updated_at = now()
+		`UPDATE encargos SET status = 'delivered', waiting_run = NULL, result = $3, links = $4, doing = '', stop_asked = false, updated_at = now()
 		 WHERE id = $1 AND key_id = $2 AND status IN ('taken', 'waiting')`,
 		id, keyID, result, links)
 }
@@ -222,7 +238,7 @@ func (s *Store) ReviewEncargo(ctx context.Context, id int64, who string, accept 
 // cannot finish it; note says why.
 func (s *Store) ReleaseEncargo(ctx context.Context, id, keyID int64, who, note string) (Encargo, error) {
 	return s.change(ctx, id, who, "released", note,
-		`UPDATE encargos SET status = 'pending', key_id = NULL, cargo_id = NULL, waiting_run = NULL, updated_at = now()
+		`UPDATE encargos SET status = 'pending', key_id = NULL, cargo_id = NULL, waiting_run = NULL, doing = '', stop_asked = false, updated_at = now()
 		 WHERE id = $1 AND key_id = $2 AND status IN ('taken', 'waiting')`,
 		id, keyID)
 }
@@ -230,7 +246,7 @@ func (s *Store) ReleaseEncargo(ctx context.Context, id, keyID int64, who, note s
 // CancelEncargo cancels an encargo that is not finished.
 func (s *Store) CancelEncargo(ctx context.Context, id int64, who, note string) (Encargo, error) {
 	return s.change(ctx, id, who, "cancelled", note,
-		`UPDATE encargos SET status = 'cancelled', waiting_run = NULL, updated_at = now() WHERE id = $1 AND status NOT IN ('reviewed', 'cancelled')`, id)
+		`UPDATE encargos SET status = 'cancelled', waiting_run = NULL, doing = '', updated_at = now() WHERE id = $1 AND status NOT IN ('reviewed', 'cancelled')`, id)
 }
 
 // Encargo routes: the platform's AI, or the person's own agent.
@@ -280,18 +296,26 @@ func (s *Store) ReestimateEncargo(ctx context.Context, id int64, who string) (En
 		WHERE id = $1 AND status <> 'cancelled'`, id)
 }
 
-// EncargoForCoder is the oldest pending encargo of an app the platform's
-// coding agent should do: one a person sent it, or, where the organization
-// lets it, a cheap one (route platform): in system mode only those about a
-// run (fixing a failed run, resolving a conflict: rendimiento opens them,
-// by itself or with a run page's button), in auto mode every one.
-// ErrNotFound when there is none.
+// coderWhere is which pending encargos of an app the platform's coding
+// agent should do (e is the encargo, a its organization's AI settings):
+// one a person sent it, or, where the organization lets it, a cheap one
+// (route platform): in system mode only those about a run (fixing a
+// failed run, resolving a conflict: rendimiento opens them, by itself or
+// with a run page's button), in auto mode every one. coderOrder is the
+// queue's order: as a person ordered it, then the ones sent, the oldest
+// first.
+const (
+	coderWhere = `e.status = 'pending' AND e.app <> '' AND a.code_agent <> 'off'
+			AND (e.do_now OR (e.route = 'platform' AND (a.code_agent = 'auto' OR (a.code_agent = 'system' AND e.run_id IS NOT NULL))))`
+	coderOrder = `e.queue_pos NULLS LAST, e.do_now DESC, e.id`
+)
+
+// EncargoForCoder is the first encargo of the coding agent's queue, in any
+// organization (ErrNotFound when there is none).
 func (s *Store) EncargoForCoder(ctx context.Context) (Encargo, error) {
 	return scanEncargo(s.pool.QueryRow(ctx, `SELECT `+encargoCols+encargoFrom+`
 		JOIN ai_settings a ON a.org_id = e.org_id
-		WHERE e.status = 'pending' AND e.app <> '' AND a.code_agent <> 'off'
-			AND (e.do_now OR (e.route = 'platform' AND (a.code_agent = 'auto' OR (a.code_agent = 'system' AND e.run_id IS NOT NULL))))
-		ORDER BY e.do_now DESC, e.id LIMIT 1`))
+		WHERE `+coderWhere+` ORDER BY `+coderOrder+` LIMIT 1`))
 }
 
 // CoderEncargo is an encargo a platform agent took, with what became of it:
@@ -362,7 +386,7 @@ func (s *Store) DoEncargos(ctx context.Context, orgID int64, ids []int64, who st
 // agent, and no longer in its queue.
 func (s *Store) GiveBackEncargo(ctx context.Context, id, keyID int64, who, note string) (Encargo, error) {
 	return s.change(ctx, id, who, "released", note,
-		`UPDATE encargos SET status = 'pending', key_id = NULL, cargo_id = NULL, waiting_run = NULL, do_now = false, route = 'local', updated_at = now()
+		`UPDATE encargos SET status = 'pending', key_id = NULL, cargo_id = NULL, waiting_run = NULL, do_now = false, route = 'local', doing = '', stop_asked = false, queue_pos = NULL, updated_at = now()
 		 WHERE id = $1 AND key_id = $2 AND status IN ('taken', 'waiting')`, id, keyID)
 }
 

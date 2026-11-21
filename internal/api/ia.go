@@ -152,6 +152,9 @@ type IAInput struct {
 	// CodeAgent is what the platform's coding agent does: off, asked,
 	// system or auto (nil: unchanged). It needs an Anthropic model.
 	CodeAgent *string `json:"codeAgent"`
+	// CodeConcurrency is how many encargos the coding agent may do at
+	// once, 1 to store.MaxCodeConcurrency (nil: unchanged).
+	CodeConcurrency *int `json:"codeConcurrency"`
 	// EstimateLearn: the estimator corrects its table by what the coding
 	// agent spent, or keeps the fixed table (nil: unchanged).
 	EstimateLearn *bool `json:"estimateLearn"`
@@ -256,6 +259,16 @@ func (s *Server) putIA(w http.ResponseWriter, r *http.Request, login string) {
 			return
 		}
 		if err := s.Store.SetCodeAgent(ctx, org, mode, login); err != nil {
+			httpError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	if in.CodeConcurrency != nil {
+		if n := *in.CodeConcurrency; n < 1 || n > store.MaxCodeConcurrency {
+			httpError(w, http.StatusBadRequest, "the coding agent does 1 to "+strconv.Itoa(store.MaxCodeConcurrency)+" encargos at once")
+			return
+		}
+		if err := s.Store.SetCodeConcurrency(ctx, org, *in.CodeConcurrency, login); err != nil {
 			httpError(w, http.StatusInternalServerError, err.Error())
 			return
 		}

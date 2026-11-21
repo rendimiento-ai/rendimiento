@@ -21,8 +21,14 @@ export function porTrabajo(list: Comentario[] | undefined, de: "cargoId" | "enca
  * and answers it; the answer reaches the person in the bell, until they
  * see it here.
  */
-export function Comentarios({ list, cargoId, encargoId, onChange }: { list: Comentario[]; cargoId?: number; encargoId?: number; onChange: () => void }) {
-  const [open, setOpen] = useState(false);
+export function Comentarios({ list, cargoId, encargoId, onChange, abierto, poner }: {
+  list: Comentario[]; cargoId?: number; encargoId?: number; onChange: () => void;
+  /** Controlled from outside (an encargo's «Comentar» button): the box is open, and how to open or close it; then no link of its own. */
+  abierto?: boolean; poner?: (on: boolean) => void;
+}) {
+  const [suyo, setSuyo] = useState(false);
+  const open = abierto ?? suyo;
+  const setOpen = poner ?? setSuyo;
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>();
@@ -58,10 +64,10 @@ export function Comentarios({ list, cargoId, encargoId, onChange }: { list: Come
           <ErrorBox error={err} />
           <div className="row" style={{ gap: 8 }}>
             <button className="primary" disabled={busy || !body.trim()} onClick={send}>{t("Comment")}</button>
-            <button className="link small" onClick={() => { setOpen(false); setErr(undefined); }}>{t("Cancel")}</button>
+            <button onClick={() => { setOpen(false); setErr(undefined); }}>{t("Cancel")}</button>
           </div>
         </div>
-      ) : (
+      ) : poner ? null : (
         <div><button className="link small" onClick={() => setOpen(true)}>{list.length ? t("Add a comment") : t("Comment on it")}</button></div>
       )}
     </div>
