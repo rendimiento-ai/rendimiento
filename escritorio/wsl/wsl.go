@@ -1,7 +1,7 @@
 // Package wsl keeps rendimiento's WSL2 distribution for the Windows app
 // (instalar/wsl, published with each release): it says what is missing,
-// turns WSL on, imports the distribution, writes who signs in first, wakes
-// it and puts it to sleep. Everything goes through wsl.exe by an Ejecutor,
+// turns WSL on, imports the distribution, wakes it and puts it to sleep,
+// and reads the setup token for the setup page. Everything goes through wsl.exe by an Ejecutor,
 // so its tests run on any system with a fake one.
 package wsl
 
@@ -39,11 +39,10 @@ type Ejecutor interface {
 type Estado string
 
 const (
-	SinWSL     Estado = "sin-wsl"     // WSL2 is not installed (or wsl.exe is missing)
-	SinDistro  Estado = "sin-distro"  // WSL2 works; the distribution is not imported
-	SinUsuario Estado = "sin-usuario" // imported; nobody may sign in yet (no ALLOWED_USERS)
-	Dormida    Estado = "dormida"     // ready, and not running
-	Despierta  Estado = "despierta"   // rendimiento answers on Direccion
+	SinWSL    Estado = "sin-wsl"    // WSL2 is not installed (or wsl.exe is missing)
+	SinDistro Estado = "sin-distro" // WSL2 works; the distribution is not imported
+	Dormida   Estado = "dormida"    // imported and not running: ready to wake
+	Despierta Estado = "despierta"  // rendimiento answers on Direccion
 )
 
 // Problema is an error the app explains in the person's language: Clave
@@ -61,7 +60,6 @@ const (
 	Virtualizacion = "virtualizacion" // virtualization is off in the BIOS/UEFI (HCS_E_HYPERV_NOT_INSTALLED)
 	Descarga       = "descarga"       // the distribution could not be downloaded
 	Suma           = "suma"           // the download does not match the release's SHA256SUMS
-	Usuario        = "usuario"        // that is not a GitHub login
 	Arranque       = "arranque"       // rendimiento did not answer in time
 	Cancelado      = "cancelado"      // the person said no to Windows' administrator question
 	Otro           = "otro"           // anything else wsl.exe refused
@@ -253,9 +251,9 @@ func (d *Distro) cliente() *http.Client {
 	return http.DefaultClient
 }
 
-// Estado says where this computer is. It never changes anything: at most,
-// the first time it meets a distribution this app did not configure, it
-// starts it to read who may sign in, and remembers (see marca).
+// Estado says where this computer is. It never changes anything, and it
+// never starts the distribution to look: imported and not answering is
+// asleep.
 func (d *Distro) Estado(ctx context.Context) (Estado, error) {
 	estado, err := d.mirar(ctx)
 	if err != nil || estado != "" {
@@ -267,18 +265,6 @@ func (d *Distro) Estado(ctx context.Context) (Estado, error) {
 	if ctx.Err() != nil {
 		return "", ctx.Err()
 	}
-	if _, err := os.Stat(d.marca()); err == nil {
-		return Dormida, nil
-	}
-	env, err := d.dentro(ctx, nil, "sh", "-c", leerEnv)
-	if err != nil {
-		return "", err
-	}
-	usuario := usuarioDe(env)
-	if usuario == "" {
-		return SinUsuario, nil
-	}
-	d.marcar(usuario)
 	return Dormida, nil
 }
 

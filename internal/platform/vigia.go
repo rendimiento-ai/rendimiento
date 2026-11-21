@@ -7,16 +7,17 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/forja"
 )
 
-// Vigia asks GitHub for new commits where GitHub cannot send its webhooks
-// (rendimiento on a computer, without a tunnel): every Every it lists each
-// app's branches, and a branch whose head moved is handled as a push. The
+// Vigia asks the forjas for new commits where they cannot send their
+// webhooks (rendimiento on a computer, without a tunnel): every Every it
+// lists each app's branches on its forja (GitHub, GitLab or Bitbucket), and a branch whose head moved is handled as a push. The
 // first look only notes where each branch is, so starting does not run
 // every branch again, and neither does onboarding an app; a default
 // branch whose head has no run yet does run.
 type Vigia struct {
 	P     *Platform
 	Every time.Duration // default 1m
-	// Branches lists a repo's branches (the GitHub App's, faked in tests).
+	// Branches lists a repo's branches on the forja it lives on
+	// (Platform.Repos, which goes by the repo's name; faked in tests).
 	Branches func(ctx context.Context, installation int64, repo string) ([]forja.Branch, error)
 
 	seen  map[string]string // "repo branch" → head
@@ -46,7 +47,7 @@ func (v *Vigia) Mirar(ctx context.Context) {
 	}
 	apps, err := v.P.Store.ListApps(ctx)
 	if err != nil {
-		v.P.Log.Warn("watching GitHub: could not list the apps", "err", err)
+		v.P.Log.Warn("watching the forjas: could not list the apps", "err", err)
 		return
 	}
 	repos := map[string]bool{}
@@ -57,7 +58,7 @@ func (v *Vigia) Mirar(ctx context.Context) {
 		repos[app.Repo] = true
 		branches, err := v.Branches(ctx, app.InstallationID, app.Repo)
 		if err != nil {
-			v.P.Log.Warn("watching GitHub: could not list the branches", "repo", app.Repo, "err", err)
+			v.P.Log.Warn("watching the forjas: could not list the branches", "repo", app.Repo, "err", err)
 			continue
 		}
 		// The first look at a repo (at startup, or once its app is
@@ -70,7 +71,7 @@ func (v *Vigia) Mirar(ctx context.Context) {
 				continue
 			}
 			if _, err := v.P.HandlePush(ctx, PushEvent{Installation: app.InstallationID, Repo: app.Repo, Branch: b.Name, SHA: b.Commit.SHA}); err != nil {
-				v.P.Log.Warn("watching GitHub: could not queue the push", "repo", app.Repo, "branch", b.Name, "err", err)
+				v.P.Log.Warn("watching the forjas: could not queue the push", "repo", app.Repo, "branch", b.Name, "err", err)
 			}
 		}
 	}

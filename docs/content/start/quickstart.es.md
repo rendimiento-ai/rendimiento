@@ -2,7 +2,7 @@
 
 De una computadora que nunca ha visto rendimiento a una aplicación suya con dirección, en menos de diez minutos. La mayor parte de ese tiempo es de usted, en las páginas de GitHub; la parte de la máquina tarda menos de un minuto.
 
-Necesita una computadora con **Linux** (amd64 o arm64, con systemd y `curl`) y una **cuenta de GitHub**. No hace falta un motor de contenedores: el instalador usa containerd o Docker cuando la computadora tiene uno, y trae containerd cuando no tiene ninguno. En Windows, use [la aplicación](../environment/deploy.md#on-windows) (versión previa); con Kubernetes, los mismos pasos sirven en [un clúster en su computadora](#on-a-cluster), e [Instalar con Helm](../environment/deploy.md#installing-with-helm) cubre un clúster con dominio.
+Necesita una computadora con **Linux** (amd64 o arm64, con systemd y `curl`) y una **cuenta de GitHub** (o de GitLab o de Bitbucket: [los mismos pasos ahí](#with-gitlab-or-bitbucket)). No hace falta un motor de contenedores: el instalador usa containerd o Docker cuando la computadora tiene uno, y trae containerd cuando no tiene ninguno. En Windows, use [la aplicación](../environment/deploy.md#on-windows) (versión previa); con Kubernetes, los mismos pasos sirven en [un clúster en su computadora](#on-a-cluster), e [Instalar con Helm](../environment/deploy.md#installing-with-helm) cubre un clúster con dominio.
 
 ## 1. Instalar {#install}
 
@@ -10,11 +10,13 @@ Necesita una computadora con **Linux** (amd64 o arm64, con systemd y `curl`) y u
 curl -fsSL https://rendimiento.ai/instalar | sh
 ```
 
-Le pregunta su usuario de GitHub (el primer administrador) y, solo cuando tiene que instalar containerd, usa `sudo` una vez. Deja rendimiento corriendo como un servicio de su usuario en **<http://localhost:8080>**, y al terminar le dice cómo leer el **token de configuración**:
+Le pregunta dónde vive su código (conteste **GitHub** para este ejemplo, o déjelo para la página de configuración) y, solo cuando tiene que instalar containerd, usa `sudo` una vez. No hay que nombrar a nadie: quien autorice la forja en la página de configuración queda como primer administrador. Deja rendimiento corriendo como un servicio de su usuario en **<http://localhost:8080>**, y al terminar abre la página de configuración en su navegador con la **ficha de configuración** ya en la dirección (también imprime esa dirección). Para abrirla a mano, la ficha está aquí:
 
 ```sh
 cat ~/.config/rendimiento/ficha-configuracion
 ```
+
+`curl -fsSL https://rendimiento.ai/instalar | sh -s -- --forja github` contesta la pregunta por adelantado.
 
 ## 2. Copiar el ejemplo {#copy-the-example}
 
@@ -24,12 +26,12 @@ Con una aplicación suya, sáltese este paso: rendimiento lee el repositorio y r
 
 ## 3. Conectar GitHub {#connect-github}
 
-Abra <http://localhost:8080>. La página de configuración hace esto una sola vez:
+La página que abrió el instalador (o <http://localhost:8080>) es la página de configuración. Hace esto una sola vez:
 
-1. Pegue el **token de configuración**.
-2. Oprima **Crear la aplicación de GitHub**. GitHub se abre con el nombre y los permisos ya llenos; confirme.
+1. La **ficha de configuración**: ya está en la mano cuando viene del instalador; si no, péguela.
+2. **¿Dónde vive su código?** **GitHub**, y oprima **Crear la aplicación de GitHub**. GitHub se abre con el nombre y los permisos ya llenos; confirme.
 3. GitHub pregunta qué repositorios puede ver la aplicación: elija su copia de `hola` (o todos; se puede cambiar después).
-4. GitHub lo trae de vuelta a rendimiento, que inicia su sesión con su cuenta de GitHub (GitHub puede pedirle que lo autorice).
+4. GitHub lo trae de vuelta a rendimiento, que inicia su sesión con su cuenta de GitHub (GitHub puede pedirle que lo autorice), como **primer administrador**. Agregue a otros ahora o después en Miembros, y oprima **Terminar y entrar**.
 
 La aplicación de GitHub es suya, en su cuenta: el código de rendimiento nunca pasa por servidores de alguien más.
 
@@ -53,18 +55,31 @@ k3d cluster create rendimiento -p "8080:80@loadbalancer" --registry-create rendi
 helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento \
   -n rendimiento-system --create-namespace \
   --set baseURL=http://rendimiento.localhost:8080 \
-  --set firstAdmins=su-usuario-de-github \
   --set registry.host=rendimiento-registro:5000 \
   --set ingress.className=traefik
 ```
 
-En cosa de un minuto rendimiento responde en **<http://rendimiento.localhost:8080>** (su navegador resuelve todo nombre `.localhost` a su propia computadora). El token de configuración está en el clúster:
+En cosa de un minuto rendimiento responde en **<http://rendimiento.localhost:8080>** (su navegador resuelve todo nombre `.localhost` a su propia computadora). Aquí tampoco se nombra a nadie por adelantado: quien autorice la forja en la página de configuración queda como primer administrador (`--set firstAdmins=ana,luis@gitlab.com` nombra a más). La ficha de configuración está en el clúster:
 
 ```sh
 kubectl -n rendimiento-system get secret rendimiento-setup -o jsonpath='{.data.token}' | base64 -d
 ```
 
 Los pasos 2 a 5 son los mismos, en esa dirección, y la aplicación responde en **<http://hola.localhost:8080>**: en una dirección `.localhost` rendimiento publica cada aplicación por HTTP simple, sin certificado ni registro de DNS, y le pregunta a GitHub por commits nuevos cada minuto. `k3d cluster delete rendimiento` lo quita todo.
+
+## Con GitLab o Bitbucket {#with-gitlab-or-bitbucket}
+
+Los mismos pasos, en la otra forja:
+
+```sh
+curl -fsSL https://rendimiento.ai/instalar | sh -s -- --forja gitlab                                     # gitlab.com
+curl -fsSL https://rendimiento.ai/instalar | sh -s -- --forja gitlab --gitlab https://git.example.com     # el suyo propio
+curl -fsSL https://rendimiento.ai/instalar | sh -s -- --forja bitbucket
+```
+
+- **Copie el ejemplo** con la importación de su forja (GitLab: **New project → Import project → Repository by URL**; Bitbucket: **Create → Import repository**), desde `https://github.com/rendimiento-ai/hola.git`.
+- **Conéctela**: la página de configuración se abre en esa forja y pide una aplicación OAuth: en GitLab, **Configuración → Aplicaciones** de su grupo o de su usuario, con el URI de redirección `http://localhost:8080/api/forjas/gitlab/callback`, confidencial, con los alcances `api` y `read_user`; en Bitbucket, **Configuración → Consumidores OAuth** del espacio de trabajo, con la URL de retorno `http://localhost:8080/api/forjas/bitbucket/callback`. El instalador imprime la que necesita, y la página la muestra con un botón que la copia. Ahí sirve una dirección `http://localhost` sin https: es su navegador el que la sigue, y nada en internet tiene que llegar a su computadora. Pegue el identificador y el secreto de la aplicación, autorícela y regresa como primer administrador.
+- **Despliéguela y cámbiela** como arriba. GitLab y Bitbucket tampoco alcanzan a `localhost` con avisos web, así que en una computadora rendimiento les pregunta por confirmaciones nuevas cada minuto, igual que a GitHub.
 
 ## Cuánto tarda {#how-long-it-takes}
 
@@ -78,7 +93,7 @@ Cada versión de rendimiento, y cada cambio al instalador, se instala en una má
 
 El clúster se prueba igual cuando cambia el chart o la forma en que se publica una aplicación: k3d hizo el clúster en 18 s, rendimiento respondió entre 22 y 47 s después de `helm install`, y `hola` respondió 17 s después de **Desplegar**. Ahí la imagen de rendimiento ya estaba en la máquina; la suya se descarga primero.
 
-Los pasos 2 y 3 son una persona en las páginas de GitHub, y la prueba no los cuenta: ahí un sustituto responde por GitHub. Cuente con unos minutos la primera vez.
+Los pasos 2 y 3 son una persona en las páginas de GitHub, y la prueba no los cuenta: ahí un sustituto responde por GitHub (la prueba todavía nombra a su administrador por adelantado, con `RENDIMIENTO_GITHUB`). Cuente con unos minutos la primera vez.
 
 ## Quitarlo otra vez {#take-it-off-again}
 
@@ -86,7 +101,7 @@ Los pasos 2 y 3 son una persona en las páginas de GitHub, y la prueba no los cu
 curl -fsSL https://rendimiento.ai/instalar | sh -s -- --desinstalar
 ```
 
-Detiene y quita rendimiento, los contenedores de sus aplicaciones y el programa, y pregunta antes de borrar sus datos. La aplicación de GitHub se queda en su cuenta (Settings → Developer settings → GitHub Apps), donde puede borrarla.
+Detiene y quita rendimiento, los contenedores de sus aplicaciones y el programa, y pregunta antes de borrar sus datos. La aplicación de GitHub se queda en su cuenta (Settings → Developer settings → GitHub Apps), igual que una aplicación de GitLab o un consumidor OAuth de Bitbucket, donde puede borrarlos.
 
 ## A dónde seguir {#where-to-go-next}
 

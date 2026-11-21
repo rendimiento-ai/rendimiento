@@ -70,10 +70,7 @@ func (f *falsa) Importar(_ context.Context, avance func(int64, int64)) error {
 	for i := int64(1); i <= 1000; i++ {
 		avance(i<<20, 1000<<20)
 	}
-	return f.paso("importar", wsl.SinUsuario)
-}
-func (f *falsa) Configurar(_ context.Context, usuario string) error {
-	return f.paso("configurar:"+usuario, wsl.Dormida)
+	return f.paso("importar", wsl.Dormida)
 }
 func (f *falsa) Despertar(context.Context) error {
 	if f.espera != nil {
@@ -162,15 +159,12 @@ func TestCaminoCompleto(t *testing.T) {
 	if v := c.ultima(); v.Accion != "Importar" || v.Titulo != "Download rendimiento" {
 		t.Fatalf("after the restart: %+v", v)
 	}
+	// The import wakes rendimiento: nobody is named before the setup page.
 	a.Importar()
-	if v := c.ultima(); v.Accion != "Configurar" || v.Campo == "" || v.Avance != -1 {
+	if v := c.ultima(); v.Accion != "Conectar" || v.Avance != -1 || v.Titulo != "Connect where your code lives" {
 		t.Fatalf("after the import: %+v", v)
 	}
-	a.Configurar("octocat")
-	if v := c.ultima(); v.Accion != "Conectar" {
-		t.Fatalf("after who signs in: %+v", v)
-	}
-	if g := f.hizo(); g != "instalar importar configurar:octocat despertar" {
+	if g := f.hizo(); g != "instalar importar despertar" {
 		t.Fatalf("the distribution was asked: %s", g)
 	}
 	if g := c.fue(); g != "" {
@@ -178,14 +172,14 @@ func TestCaminoCompleto(t *testing.T) {
 	}
 
 	a.Conectar()
-	if g, want := c.fue(), casa+"/api/setup/github?token=ficha-secreta"; g != want {
-		t.Fatalf("to connect GitHub the window went to %q, want %q", g, want)
+	if g, want := c.fue(), casa+"/?token=ficha-secreta"; g != want {
+		t.Fatalf("to set up the window went to %q, want %q", g, want)
 	}
-	// GitHub connected in the window; it does not send the person back.
+	// Set up in the window (GitHub does not send the person back).
 	f.poner(wsl.Despierta, true)
 	a.abrir()
 	if g := c.fue(); !strings.HasSuffix(g, " "+casa) || c.muestras != 1 || c.vueltas != 0 {
-		t.Fatalf("opening after GitHub: went %q, shown %d, back %d", g, c.muestras, c.vueltas)
+		t.Fatalf("opening after the setup: went %q, shown %d, back %d", g, c.muestras, c.vueltas)
 	}
 
 	// The setup token went to the window's address and nowhere else.
@@ -382,8 +376,8 @@ func TestRelojAvisaYNoDejaEntrar(t *testing.T) {
 }
 
 func TestGuionIr(t *testing.T) {
-	want := `if(location.origin!=="http://localhost:8080")location.replace("http://localhost:8080/api/setup/github?token=a\u0026b")`
-	if g := guionIr(casa + "/api/setup/github?token=a&b"); g != want {
+	want := `if(location.origin!=="http://localhost:8080")location.replace("http://localhost:8080/?token=a\u0026b")`
+	if g := guionIr(casa + "/?token=a&b"); g != want {
 		t.Fatalf("%s", g)
 	}
 }

@@ -1580,7 +1580,11 @@ func (s *Server) createApp(w http.ResponseWriter, r *http.Request, login string)
 		return
 	}
 	req.OnboardRequest.OrgID = orgOf(r)
-	if req.Forja == gitlab.Name {
+	// On a localhost address no webhook can arrive (and gitlab.com refuses
+	// to add one): rendimiento asks the forja for new commits instead
+	// (platform.Vigia), so the app is made without it.
+	hook := !gh.Local(s.BaseURL)
+	if hook && req.Forja == gitlab.Name {
 		// GitLab tells rendimiento of each push through the project's
 		// webhook: made before the app, so an app never waits for pushes
 		// that cannot come.
@@ -1589,7 +1593,7 @@ func (s *Server) createApp(w http.ResponseWriter, r *http.Request, login string)
 			return
 		}
 	}
-	if req.Forja == bitbucket.Name {
+	if hook && req.Forja == bitbucket.Name {
 		// The same for Bitbucket: the repository's webhook, signed with
 		// the workspace's secret.
 		if err := s.Bitbucket.EnsureHook(r.Context(), req.Installation, req.Repo); err != nil {

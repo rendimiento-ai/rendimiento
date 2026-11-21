@@ -7,7 +7,13 @@
 # recommended, or Docker), or installs containerd when there is none; puts
 # the rendimiento program in ~/.local/bin; and leaves it running as a
 # service of your user that starts with the computer. Then it opens
-# http://localhost:8080, where the setup page connects GitHub.
+# rendimiento's setup page, with its setup token, where you pick where your
+# code lives (GitHub, GitLab or Bitbucket) and, by authorizing it, become
+# the first administrator. Nobody has to be named before.
+#
+# To say ahead where your code lives (the setup page opens on it):
+#
+#   curl -fsSL https://rendimiento.ai/instalar | sh -s -- --forja gitlab --gitlab https://git.example.com
 #
 # To take it off the computer again:
 #
@@ -18,7 +24,17 @@
 # secrets' key) only when you say so, and never without asking.
 #
 # Settings, all optional:
-#   RENDIMIENTO_GITHUB   your GitHub login (asked when not set)
+#   RENDIMIENTO_FORJA    where your code lives: github, gitlab or bitbucket
+#                        (as --forja; asked when there is a terminal; empty:
+#                        it is chosen on the setup page)
+#   RENDIMIENTO_GITLAB   your GitLab's address (as --gitlab; default
+#                        https://gitlab.com)
+#   RENDIMIENTO_ADMINS   first administrators named ahead, for scripts, comma
+#                        separated: ana (GitHub), ana@gitlab.com,
+#                        ana@git.example.com, ana@bitbucket.org (ALLOWED_USERS;
+#                        without it, whoever authorizes the forja on the setup
+#                        page is the first)
+#   RENDIMIENTO_GITHUB   the same as RENDIMIENTO_ADMINS, by its old name
 #   RENDIMIENTO_VERSION  a release such as v0.1.0 (default: the latest)
 #   RENDIMIENTO_SI=1     answer yes to every question (no terminal needed);
 #                        never to deleting the data
@@ -144,14 +160,77 @@ export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-case "${1:-}" in
---desinstalar | --uninstall)
-	desinstalar
-	exit 0
-	;;
-"") ;;
-*) fail "unknown option $1 (the only one is --desinstalar)" "opción desconocida $1 (la única es --desinstalar)" ;;
+FORJA="${RENDIMIENTO_FORJA:-}"
+GITLAB="${RENDIMIENTO_GITLAB:-}"
+while [ $# -gt 0 ]; do
+	case "$1" in
+	--desinstalar | --uninstall)
+		desinstalar
+		exit 0
+		;;
+	--forja | --forge | --gitlab)
+		[ $# -ge 2 ] || fail "$1 takes a value" "$1 lleva un valor"
+		if [ "$1" = --gitlab ]; then GITLAB=$2; else FORJA=$2; fi
+		shift
+		;;
+	--forja=* | --forge=*) FORJA=${1#*=} ;;
+	--gitlab=*) GITLAB=${1#*=} ;;
+	*) fail "unknown option $1 (they are --forja, --gitlab and --desinstalar)" "opción desconocida $1 (son --forja, --gitlab y --desinstalar)" ;;
+	esac
+	shift
+done
+
+# ---- where the code lives ----
+# Only to open the setup page on it: the forja is connected there, and
+# whoever authorizes it becomes the first administrator.
+if [ -z "$FORJA" ] && [ -z "$GITLAB" ] && [ "${RENDIMIENTO_SI:-}" != 1 ] && tty_ok; then
+	step "Where your code lives" "Dónde vive su código"
+	say "rendimiento builds what you push to GitHub, GitLab or Bitbucket. The setup page connects it, and whoever authorizes it there becomes the first administrator; the others can be connected later." \
+		"rendimiento compila lo que usted sube a GitHub, GitLab o Bitbucket. La página de configuración lo conecta, y quien lo autorice ahí queda como primer administrador; los demás se pueden conectar después."
+	printf '  1) GitHub\n  2) GitLab\n  3) Bitbucket\n'
+	say "  4) I will choose on the setup page" "  4) Lo elijo en la página de configuración"
+	if [ -n "$ES" ]; then printf 'Elija [4]: '; else printf 'Choose [4]: '; fi
+	read -r answer </dev/tty || answer=
+	case "$answer" in
+	1) FORJA=github ;;
+	2) FORJA=gitlab ;;
+	3) FORJA=bitbucket ;;
+	esac
+	if [ "$FORJA" = gitlab ]; then
+		if [ -n "$ES" ]; then printf 'La dirección de su GitLab [https://gitlab.com]: '; else printf "Your GitLab's address [https://gitlab.com]: "; fi
+		read -r GITLAB </dev/tty || GITLAB=
+	fi
+fi
+FORJA=$(printf '%s' "$FORJA" | tr '[:upper:]' '[:lower:]')
+[ -n "$FORJA" ] || [ -z "$GITLAB" ] || FORJA=gitlab
+case "$FORJA" in
+"" | github | gitlab | bitbucket) ;;
+*) fail "$FORJA is not a forja: github, gitlab or bitbucket" "$FORJA no es una forja: github, gitlab o bitbucket" ;;
 esac
+if [ "$FORJA" = gitlab ]; then
+	case "$GITLAB" in
+	"") GITLAB=https://gitlab.com ;;
+	http://* | https://*) ;;
+	*) GITLAB="https://$GITLAB" ;;
+	esac
+	GITLAB=${GITLAB%/}
+	case "${GITLAB#*://}" in
+	"" | *[!A-Za-z0-9.:/-]*) fail "$GITLAB is not a GitLab address like https://git.example.com" "$GITLAB no es la dirección de un GitLab, como https://git.example.com" ;;
+	esac
+fi
+
+# ---- who administers first, named ahead (optional) ----
+# The same names as Members and ALLOWED_USERS: ana on GitHub,
+# ana@gitlab.com (or a GitLab's own address), ana@bitbucket.org.
+ADMINS=
+set -f # a name is never a file pattern
+for a in $(printf '%s' "${RENDIMIENTO_ADMINS:-${RENDIMIENTO_GITHUB:-}}" | tr ',' ' '); do
+	printf '%s\n' "$a" | grep -Eqx '[A-Za-z0-9](-?[A-Za-z0-9]){0,38}|[A-Za-z0-9_][A-Za-z0-9_.-]{0,254}@[a-z0-9]([a-z0-9.-]{0,252}[a-z0-9])?(:[0-9]{1,5})?' ||
+		fail "$a is not a username: ana for GitHub, ana@gitlab.com (or your GitLab's address) for GitLab, ana@bitbucket.org for Bitbucket" \
+			"$a no es un nombre de usuario: ana para GitHub, ana@gitlab.com (o la dirección de su GitLab) para GitLab, ana@bitbucket.org para Bitbucket"
+	ADMINS="${ADMINS:+$ADMINS,}$a"
+done
+set +f
 
 # ---- the container engine ----
 step "Container engine" "Motor de contenedores"
@@ -245,17 +324,6 @@ got=$(sha256sum "$tmp/rendimiento" | cut -d' ' -f1)
 install -m 0755 "$tmp/rendimiento" "$HOME/.local/bin/rendimiento"
 say "Installed in ~/.local/bin/rendimiento." "Instalado en ~/.local/bin/rendimiento."
 
-# ---- who signs in first ----
-GITHUB="${RENDIMIENTO_GITHUB:-}"
-if [ -z "$GITHUB" ]; then
-	tty_ok || fail "set RENDIMIENTO_GITHUB to your GitHub login" "ponga su usuario de GitHub en RENDIMIENTO_GITHUB"
-	if [ -n "$ES" ]; then printf 'Su usuario de GitHub (el primer administrador): '; else printf 'Your GitHub login (the first administrator): '; fi
-	read -r GITHUB </dev/tty
-fi
-case "$GITHUB" in
-"" | *[!A-Za-z0-9-]*) fail "that is not a GitHub login" "ese no es un usuario de GitHub" ;;
-esac
-
 # ---- the service ----
 step "Service" "Servicio"
 # The person's own settings: a file of NAME=value lines that the service
@@ -271,7 +339,7 @@ if [ ! -e "$settings" ]; then
 		cat >"$settings" <<'EOF'
 # rendimiento's settings on this computer.
 # One NAME=value per line, such as NOTIFY_LANG=es; lines starting with # are
-# notes. They win over the service's own (MODE, ALLOWED_USERS, PATH). Every
+# notes. They win over the service's own (MODE, PATH). Every
 # variable is in the book's Settings page:
 #   https://learn.rendimiento.ai/reference/config/
 # After a change, restart rendimiento to read it:
@@ -280,7 +348,7 @@ if [ ! -e "$settings" ]; then
 #
 # Los ajustes de rendimiento en esta computadora.
 # Un NOMBRE=valor por línea, como NOTIFY_LANG=es; las líneas que empiezan
-# con # son notas. Ganan sobre los del servicio (MODE, ALLOWED_USERS, PATH).
+# con # son notas. Ganan sobre los del servicio (MODE, PATH).
 # Cada variable está en la página Ajustes del libro:
 #   https://aprende.rendimiento.ai/reference/config/
 # Después de un cambio, reinicie rendimiento para que lo lea:
@@ -295,8 +363,11 @@ mkdir -p "$(dirname "$unit")"
 # order (systemd.exec: "Settings from these files override settings made
 # with Environment="), so a value in it wins over the defaults here. The
 # leading - lets the service start if the file is gone. SETTINGS_FILE tells
-# rendimiento where it is, for the Environment page.
-cat >"$unit" <<EOF
+# rendimiento where it is, for the Environment page. ALLOWED_USERS is there
+# only when administrators were named ahead: it counts while rendimiento
+# has no members, so leaving it out on an update changes nothing.
+{
+	cat <<EOF
 [Unit]
 Description=rendimiento: deploy any app; AI agents fix what breaks
 After=containerd.service buildkit.service
@@ -304,7 +375,9 @@ Wants=containerd.service buildkit.service
 
 [Service]
 Environment=MODE=local
-Environment=ALLOWED_USERS=$GITHUB
+EOF
+	[ -z "$ADMINS" ] || printf 'Environment=ALLOWED_USERS=%s\n' "$ADMINS"
+	cat <<EOF
 Environment=PATH=$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
 Environment=SETTINGS_FILE=$settings
 EnvironmentFile=-$settings
@@ -315,6 +388,7 @@ RestartSec=5
 [Install]
 WantedBy=default.target
 EOF
+} >"$unit"
 systemctl --user daemon-reload
 systemctl --user enable rendimiento.service >/dev/null
 systemctl --user restart rendimiento.service
@@ -329,13 +403,49 @@ done
 step "Ready" "Listo"
 say "rendimiento runs at http://localhost:8080, and your apps at http://<app>.localhost:8000." \
 	"rendimiento corre en http://localhost:8080, y sus aplicaciones en http://<app>.localhost:8000."
-say "The setup page asks for a token; read it with:" "La página de configuración pide una ficha; léala con:"
-printf '  cat %s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/rendimiento/ficha-configuracion"
+token_file="$data/ficha-configuracion"
+page=http://localhost:8080
+if curl -fsS -m 5 http://127.0.0.1:8080/api/setup/status 2>/dev/null | grep -q '"configured":true'; then
+	say "It is already set up: sign in there." "Ya está configurado: entre ahí."
+else
+	# The setup page, with its token in the address (it is the key: it goes
+	# to this computer's browser and terminal, not to a log) and on the
+	# forja chosen.
+	query=
+	[ ! -s "$token_file" ] || query="token=$(cat "$token_file")"
+	[ -z "$FORJA" ] || query="${query:+$query&}forja=$FORJA"
+	[ "$FORJA" != gitlab ] || query="$query&gitlab=$GITLAB"
+	[ -z "$query" ] || page="http://localhost:8080/?$query"
+	say "Finish on the setup page: pick where your code lives and authorize it; you come back signed in as the first administrator." \
+		"Termine en la página de configuración: elija dónde vive su código y autorícelo; regresa con su sesión iniciada como primer administrador."
+	if [ -t 1 ]; then
+		say "Open it (the address carries the setup token: keep it to yourself):" "Ábrala (la dirección lleva la ficha de configuración: no la comparta):"
+		printf '  %s\n' "$page"
+	fi
+	say "Or open http://localhost:8080 and paste the setup token; read it with:" "O abra http://localhost:8080 y pegue la ficha de configuración; léala con:"
+	printf '  cat %s\n' "$token_file"
+	case "$FORJA" in
+	gitlab)
+		say "On $GITLAB, create an OAuth application (Settings → Applications) with the redirect URI http://localhost:8080/api/forjas/gitlab/callback, confidential, scopes api and read_user." \
+			"En $GITLAB, cree una aplicación OAuth (Configuración → Aplicaciones) con el URI de redirección http://localhost:8080/api/forjas/gitlab/callback, confidencial, con los alcances api y read_user."
+		;;
+	bitbucket)
+		say "On Bitbucket, add an OAuth consumer (the workspace's Settings → OAuth consumers) with the callback URL http://localhost:8080/api/forjas/bitbucket/callback, private." \
+			"En Bitbucket, agregue un consumidor OAuth (Configuración del espacio de trabajo → Consumidores OAuth) con la URL de retorno http://localhost:8080/api/forjas/bitbucket/callback, privado."
+		;;
+	esac
+	case "$FORJA" in
+	gitlab | bitbucket)
+		say "A plain http://localhost address works there: it is your browser that follows it. GitLab and Bitbucket cannot reach this computer with webhooks, so rendimiento asks them for new commits every minute." \
+			"Una dirección http://localhost, sin https, sirve ahí: es su navegador el que la sigue. GitLab y Bitbucket no pueden llegar a esta computadora con avisos web, así que rendimiento les pregunta por confirmaciones nuevas cada minuto."
+		;;
+	esac
+fi
 say "Your settings go in $settings (restart it after a change: systemctl --user restart rendimiento)." \
 	"Sus ajustes van en $settings (reinícielo después de un cambio: systemctl --user restart rendimiento)."
 say "Stop it with: systemctl --user stop rendimiento" "Deténgalo con: systemctl --user stop rendimiento"
 say "Take it off the computer with: curl -fsSL https://rendimiento.ai/instalar | sh -s -- --desinstalar" \
 	"Quítelo de la computadora con: curl -fsSL https://rendimiento.ai/instalar | sh -s -- --desinstalar"
 if need xdg-open && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
-	xdg-open http://localhost:8080 >/dev/null 2>&1 || true
+	xdg-open "$page" >/dev/null 2>&1 || true
 fi

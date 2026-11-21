@@ -1,7 +1,9 @@
-# rendimiento in its WSL distribution. Who signs in first (ALLOWED_USERS)
-# goes in /etc/rendimiento/env, written by the Windows app the first time
-# (or by hand: echo ALLOWED_USERS=your-login > /etc/rendimiento/env). Until
-# then it stops at once, and systemd tries again every 10 seconds.
+# rendimiento in its WSL distribution. It starts with nobody named: whoever
+# opens the setup page (http://localhost:8080) with the setup token, picks
+# where the code lives (GitHub, GitLab or Bitbucket) and authorizes it
+# becomes the first administrator. Settings go in /etc/rendimiento/env, one
+# NAME=value per line (ALLOWED_USERS=ana, ana@gitlab.com or
+# ana@bitbucket.org still names first administrators ahead, for scripts).
 [Unit]
 Description=rendimiento: deploy any app; AI agents fix what breaks
 After=containerd.service buildkit.service network-online.target

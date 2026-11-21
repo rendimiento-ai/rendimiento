@@ -2,7 +2,7 @@
 
 From a computer that has never seen rendimiento to an app of yours with an address, in under ten minutes. Most of that time is yours, on GitHub's pages; the machine's part takes under a minute.
 
-You need a computer with **Linux** (amd64 or arm64, with systemd and `curl`) and a **GitHub account**. A container engine is not needed: the installer uses containerd or Docker when the computer has one, and brings containerd when it has none. On Windows, use [the app](../environment/deploy.md#on-windows) (a preview); with Kubernetes, the same steps work on [a cluster on your computer](#on-a-cluster), and [Installing with Helm](../environment/deploy.md#installing-with-helm) covers a cluster with a domain.
+You need a computer with **Linux** (amd64 or arm64, with systemd and `curl`) and a **GitHub account** (or a GitLab or Bitbucket one: [the same steps there](#with-gitlab-or-bitbucket)). A container engine is not needed: the installer uses containerd or Docker when the computer has one, and brings containerd when it has none. On Windows, use [the app](../environment/deploy.md#on-windows) (a preview); with Kubernetes, the same steps work on [a cluster on your computer](#on-a-cluster), and [Installing with Helm](../environment/deploy.md#installing-with-helm) covers a cluster with a domain.
 
 ## 1. Install {#install}
 
@@ -10,11 +10,13 @@ You need a computer with **Linux** (amd64 or arm64, with systemd and `curl`) and
 curl -fsSL https://rendimiento.ai/instalar | sh
 ```
 
-It asks for your GitHub login (the first administrator) and, only when it has to install containerd, for `sudo` once. It leaves rendimiento running as a service of your user at **<http://localhost:8080>**, and it ends by printing how to read the **setup token**:
+It asks where your code lives (answer **GitHub** for this example, or leave it for the setup page) and, only when it has to install containerd, for `sudo` once. Nobody has to be named: whoever authorizes the forja on the setup page becomes the first administrator. It leaves rendimiento running as a service of your user at **<http://localhost:8080>**, and it ends by opening the setup page in your browser with the **setup token** already in its address (it prints that address too). To open it by hand, the token is here:
 
 ```sh
 cat ~/.config/rendimiento/ficha-configuracion
 ```
+
+`curl -fsSL https://rendimiento.ai/instalar | sh -s -- --forja github` answers the question ahead.
 
 ## 2. Copy the example {#copy-the-example}
 
@@ -24,12 +26,12 @@ With an app of your own, skip this step: rendimiento reads the repository and wo
 
 ## 3. Connect GitHub {#connect-github}
 
-Open <http://localhost:8080>. The setup page does this once:
+The page the installer opened (or <http://localhost:8080>) is the setup page. It does this once:
 
-1. Paste the **setup token**.
-2. Press **Create GitHub App**. GitHub opens with the name and the permissions already filled in; confirm.
+1. The **setup token**: already in hand when you came from the installer; otherwise paste it.
+2. **Where does your code live?** **GitHub**, and press **Create GitHub App**. GitHub opens with the name and the permissions already filled in; confirm.
 3. GitHub asks which repositories the app can see: choose your copy of `hola` (or all of them; you can change it later).
-4. GitHub brings you back to rendimiento, which signs you in with your GitHub account (GitHub may ask you to authorize it).
+4. GitHub brings you back to rendimiento, which signs you in with your GitHub account (GitHub may ask you to authorize it), as the **first administrator**. Add others now or later in Members, and press **Finish and go in**.
 
 The GitHub App is yours, in your account: rendimiento's code never passes through anyone else's servers.
 
@@ -53,18 +55,31 @@ k3d cluster create rendimiento -p "8080:80@loadbalancer" --registry-create rendi
 helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento \
   -n rendimiento-system --create-namespace \
   --set baseURL=http://rendimiento.localhost:8080 \
-  --set firstAdmins=your-github-login \
   --set registry.host=rendimiento-registro:5000 \
   --set ingress.className=traefik
 ```
 
-In about a minute rendimiento answers at **<http://rendimiento.localhost:8080>** (your browser resolves every `.localhost` name to your own computer). The setup token is in the cluster:
+In about a minute rendimiento answers at **<http://rendimiento.localhost:8080>** (your browser resolves every `.localhost` name to your own computer). Nobody is named ahead here either: whoever authorizes the forja on the setup page becomes the first administrator (`--set firstAdmins=ana,luis@gitlab.com` names more). The setup token is in the cluster:
 
 ```sh
 kubectl -n rendimiento-system get secret rendimiento-setup -o jsonpath='{.data.token}' | base64 -d
 ```
 
 Steps 2 to 5 are the same, at that address, and the app answers at **<http://hola.localhost:8080>**: on a `.localhost` address rendimiento publishes each app over plain HTTP, with no certificate or DNS record, and asks GitHub for new commits every minute. `k3d cluster delete rendimiento` takes it all off.
+
+## With GitLab or Bitbucket {#with-gitlab-or-bitbucket}
+
+The same steps, on the other forja:
+
+```sh
+curl -fsSL https://rendimiento.ai/instalar | sh -s -- --forja gitlab                                     # gitlab.com
+curl -fsSL https://rendimiento.ai/instalar | sh -s -- --forja gitlab --gitlab https://git.example.com     # your own
+curl -fsSL https://rendimiento.ai/instalar | sh -s -- --forja bitbucket
+```
+
+- **Copy the example** with your forja's import (GitLab: **New project → Import project → Repository by URL**; Bitbucket: **Create → Import repository**), from `https://github.com/rendimiento-ai/hola.git`.
+- **Connect it**: the setup page opens on that forja and asks for an OAuth application: on GitLab, **Settings → Applications** of your group or user, with the redirect URI `http://localhost:8080/api/forjas/gitlab/callback`, confidential, scopes `api` and `read_user`; on Bitbucket, the workspace's **Settings → OAuth consumers**, with the callback URL `http://localhost:8080/api/forjas/bitbucket/callback`. The installer prints the one you need, and the page shows it with a button that copies it. A plain `http://localhost` address works there: it is your browser that follows it, and nothing on the internet has to reach your computer. Paste the application's ID and secret, authorize it, and you come back as the first administrator.
+- **Deploy and change it** as above. GitLab and Bitbucket cannot reach `localhost` with webhooks either, so on one computer rendimiento asks them for new commits every minute, as it does GitHub.
 
 ## How long it takes {#how-long-it-takes}
 
@@ -78,7 +93,7 @@ Each release of rendimiento, and each change to the installer, is installed on a
 
 The cluster is tested the same way when the chart or how an app is published changes: k3d made the cluster in 18 s, rendimiento answered between 22 and 47 s after `helm install`, and `hola` answered 17 s after **Deploy**. There the image of rendimiento was already on the machine; yours is downloaded first.
 
-Steps 2 and 3 are a person on GitHub's pages, and the test does not count them: a stand-in answers for GitHub there. Expect a few minutes the first time.
+Steps 2 and 3 are a person on GitHub's pages, and the test does not count them: a stand-in answers for GitHub there (the test still names its administrator ahead, with `RENDIMIENTO_GITHUB`). Expect a few minutes the first time.
 
 ## Take it off again {#take-it-off-again}
 
@@ -86,7 +101,7 @@ Steps 2 and 3 are a person on GitHub's pages, and the test does not count them: 
 curl -fsSL https://rendimiento.ai/instalar | sh -s -- --desinstalar
 ```
 
-It stops and removes rendimiento, your apps' containers and the program, and asks before deleting your data. The GitHub App stays in your account (Settings → Developer settings → GitHub Apps), where you can delete it.
+It stops and removes rendimiento, your apps' containers and the program, and asks before deleting your data. The GitHub App stays in your account (Settings → Developer settings → GitHub Apps), and so do a GitLab application or a Bitbucket OAuth consumer, where you can delete them.
 
 ## Where to go next {#where-to-go-next}
 
