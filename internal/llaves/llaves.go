@@ -1,10 +1,13 @@
 // Package llaves changes the keys the platform talks to other services
 // with, from the Environment page (Llaves y ajustes), while it runs: the
-// Cloudflare token, the email (Resend) key and the platform's AI key.
+// Cloudflare token, the email (Resend) key, the platform's AI key, the log
+// archive's S3 key and the Umami user.
 //
 // A new key is tested first, against the service itself: Cloudflare
 // accepts it, sees every zone the apps use and can create and delete a
-// record; Resend accepts it; Anthropic answers with it. Only when every
+// record; Resend accepts it; Anthropic answers with it; the log archive's
+// bucket is there and the key can write, read and delete an object in it;
+// Umami lets the user in and shows it the websites. Only when every
 // test passes is it written to the Kubernetes Secrets where it is used (for
 // Cloudflare, also the cert-manager ClusterIssuer's), and then the running
 // platform uses it with no restart: this process at once, the others
@@ -19,6 +22,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/mail"
@@ -27,6 +31,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/minio/minio-go/v7"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,9 +40,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/rendimiento-ai/rendimiento/internal/analytics"
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
 	. "github.com/rendimiento-ai/rendimiento/internal/i18n" //nolint:revive // M marks messages for people
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
+	"github.com/rendimiento-ai/rendimiento/internal/logarchive"
 	"github.com/rendimiento-ai/rendimiento/internal/notify"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -46,20 +54,75 @@ const (
 	Cloudflare = "cloudflare"
 	Correo     = "correo"
 	IA         = "ia"
+	Registros  = "registros" // the log archive's S3 key
+	Umami      = "umami"     // the view-only Umami user
+	// R2 is the off-site backups' key: listed, but not the platform's (see
+	// Externas).
+	R2 = "r2"
 )
 
 // Cambiables are the keys that change here, in the order the page lists them.
-var Cambiables = []string{Cloudflare, Correo, IA}
+var Cambiables = []string{Cloudflare, Correo, IA, Registros, Umami}
+
+// Externas are keys the page lists that are not the platform's to change:
+// something outside it uses them, and it does not write secrets it does
+// not own (Disponible says why).
+var Externas = []string{R2}
 
 // Aviso is how long before a key expires the Environment page warns.
 const Aviso = 30 * 24 * time.Hour
 
-// The platform's own Secrets, and the key in each, by key: the
-// environment variable the platform reads at start (envFrom).
-var propios = map[string]Destino{
-	Cloudflare: {Name: "rendimiento-dns", Key: "CLOUDFLARE_API_TOKEN"},
-	Correo:     {Name: "rendimiento-notify", Key: "RESEND_API_KEY"},
-	IA:         {Name: "rendimiento-ia", Key: "AI_PLATFORM_KEY"},
+// Secreto is a platform's own Secret and the keys in it that make one of
+// its keys: the environment variables the platform reads at start
+// (envFrom). With two, the first is who (an access key's id, a user name)
+// and the second the secret part.
+type Secreto struct {
+	Name string
+	Keys []string
+}
+
+// The platform's own Secrets, by key.
+var propios = map[string]Secreto{
+	Cloudflare: {Name: "rendimiento-dns", Keys: []string{"CLOUDFLARE_API_TOKEN"}},
+	Correo:     {Name: "rendimiento-notify", Keys: []string{"RESEND_API_KEY"}},
+	IA:         {Name: "rendimiento-ia", Keys: []string{"AI_PLATFORM_KEY"}},
+	Registros:  {Name: "rendimiento-logs", Keys: []string{"LOG_ARCHIVE_ACCESS_KEY", "LOG_ARCHIVE_SECRET_KEY"}},
+	Umami:      {Name: "rendimiento-umami", Keys: []string{"UMAMI_USERNAME", "UMAMI_PASSWORD"}},
+}
+
+// ConUsuario says whether a key is two values: who, and its secret.
+func ConUsuario(id string) bool { return len(propios[id].Keys) == 2 }
+
+// Valores are a key's values, by the key of its Secret
+// (LOG_ARCHIVE_ACCESS_KEY, ...). They never go to a log or an answer.
+type Valores map[string]string
+
+// completos: every value of the key is there.
+func (v Valores) completos(id string) bool {
+	for _, k := range propios[id].Keys {
+		if v[k] == "" {
+			return false
+		}
+	}
+	return len(propios[id].Keys) > 0
+}
+
+// Nueva is a new key as it is pasted: its secret and, for a key of two
+// values, who (Usuario). EnviarPrueba sends a test email with a new email
+// key.
+type Nueva struct {
+	Usuario      string
+	Valor        string
+	EnviarPrueba bool
+}
+
+// valores are n's values, by the keys of id's Secret.
+func (n Nueva) valores(id string) Valores {
+	keys := propios[id].Keys
+	if len(keys) == 2 {
+		return Valores{keys[0]: n.Usuario, keys[1]: n.Valor}
+	}
+	return Valores{keys[0]: n.Valor}
 }
 
 // Destino is where a key's value is kept: one key of a Secret.
@@ -74,7 +137,7 @@ func (d Destino) String() string { return d.Namespace + "/" + d.Name }
 // Paso is one step of a change: a test against the service, saving the
 // value, using it. Detail says what it found, or why it failed.
 type Paso struct {
-	ID     string `json:"id"` // verify, zones, record, send, save, apply
+	ID     string `json:"id"` // verify, zones, record, send, bucket, object, websites, save, apply
 	OK     bool   `json:"ok"`
 	Detail string `json:"detail,omitempty"`
 }
@@ -129,7 +192,14 @@ type Cambiador struct {
 	// Anthropic: its API (tests) and the platform's model.
 	AnthropicURL string
 	Modelo       string
-	Log          *slog.Logger
+	// The log archive: its S3 endpoint (host:port), bucket and whether it
+	// is reached over TLS (LOG_ARCHIVE_*).
+	ArchivoEndpoint string
+	ArchivoBucket   string
+	ArchivoSeguro   bool
+	// Umami: its address inside the cluster (UMAMI_URL).
+	UmamiURL string
+	Log      *slog.Logger
 
 	mu sync.Mutex // one change at a time
 }
@@ -138,6 +208,9 @@ type Cambiador struct {
 // changes a service the platform already uses, set up when it was
 // installed.
 func (c *Cambiador) Disponible(id string) string {
+	if id == R2 {
+		return M("the off-site backups are copied to R2 by a job outside rendimiento, with its own secret: change its key where that job is set up")
+	}
 	if !slices.Contains(Cambiables, id) {
 		return M("this key does not change here yet")
 	}
@@ -147,6 +220,10 @@ func (c *Cambiador) Disponible(id string) string {
 			return M("DNS automation is not set up: set CLOUDFLARE_API_TOKEN and DNS_TARGET with Helm (or in the rendimiento-dns secret) first")
 		case Correo:
 			return M("email is not set up: set RESEND_API_KEY with Helm (or in the rendimiento-notify secret) first")
+		case Registros:
+			return M("the log archive is not set up: set LOG_ARCHIVE_ENDPOINT in the rendimiento ConfigMap, with its key in the rendimiento-logs secret, first")
+		case Umami:
+			return M("visitor numbers are not set up: set UMAMI_URL in the rendimiento ConfigMap, with its user in the rendimiento-umami secret, first")
 		default:
 			return M("the platform's AI is not set up in this process")
 		}
@@ -154,11 +231,10 @@ func (c *Cambiador) Disponible(id string) string {
 	return ""
 }
 
-// Cambiar tests valor as the new key id and, only when every test passes,
-// saves it and uses it. por is who changes it; enviarPrueba sends a test
-// email with a new email key. A failed step is in the result, not an error:
-// the error is for a key that does not change here.
-func (c *Cambiador) Cambiar(ctx context.Context, id, valor, por string, enviarPrueba bool) (Resultado, error) {
+// Cambiar tests n as the new key id and, only when every test passes,
+// saves it and uses it. por is who changes it. A failed step is in the
+// result, not an error: the error is for a key that does not change here.
+func (c *Cambiador) Cambiar(ctx context.Context, id string, n Nueva, por string) (Resultado, error) {
 	if why := c.Disponible(id); why != "" {
 		return Resultado{}, fmt.Errorf("%w: %s", ErrDesconocida, why)
 	}
@@ -168,26 +244,33 @@ func (c *Cambiador) Cambiar(ctx context.Context, id, valor, por string, enviarPr
 	var ok bool
 	switch id {
 	case Cloudflare:
-		ok = c.probarCloudflare(ctx, valor, &res)
+		ok = c.probarCloudflare(ctx, n.Valor, &res)
 	case Correo:
-		ok = c.probarCorreo(ctx, valor, enviarPrueba, &res)
+		ok = c.probarCorreo(ctx, n.Valor, n.EnviarPrueba, &res)
 	case IA:
-		ok = c.probarIA(ctx, valor, &res)
+		ok = c.probarIA(ctx, n.Valor, &res)
+	case Registros:
+		ok = c.probarArchivo(ctx, n.Usuario, n.Valor, &res)
+	case Umami:
+		ok = c.probarUmami(ctx, n.Usuario, n.Valor, &res)
 	}
 	if !ok {
 		return res, nil
 	}
+	valores := n.valores(id)
 	destinos, err := c.Destinos(ctx, id)
 	if err == nil {
-		err = c.guardar(ctx, destinos, valor)
+		err = c.guardar(ctx, destinos, valores, n.Valor)
 	}
 	if err != nil {
 		res.Pasos = append(res.Pasos, Paso{ID: "save", Detail: M("nothing was saved: %s", err.Error())})
 		return res, nil
 	}
-	names := make([]string, len(destinos))
-	for i, d := range destinos {
-		names[i] = d.String()
+	var names []string
+	for _, d := range destinos {
+		if !slices.Contains(names, d.String()) {
+			names = append(names, d.String())
+		}
 	}
 	res.Guardada = true
 	res.Pasos = append(res.Pasos, Paso{ID: "save", OK: true, Detail: M("saved in %s", strings.Join(names, ", "))})
@@ -196,7 +279,7 @@ func (c *Cambiador) Cambiar(ctx context.Context, id, valor, por string, enviarPr
 		res.AvisoEn = &aviso
 	}
 	l, err := c.Store.AnotarLlave(context.WithoutCancel(ctx), id, por, res.VenceEn)
-	c.Recargador.Usar(id, valor, l.Version)
+	c.Recargador.Usar(id, valores, l.Version)
 	if err != nil {
 		res.Pasos = append(res.Pasos, Paso{ID: "apply", Detail: M("in use in this process, but the others could not be told (%s): they take it when they restart", err.Error())})
 	} else {
@@ -345,18 +428,103 @@ func (c *Cambiador) probarIA(ctx context.Context, key string, res *Resultado) bo
 	return true
 }
 
+// probarArchivo: the log archive's S3 accepts the key, its bucket is
+// there, and the key can write, read back and delete a small object in it.
+func (c *Cambiador) probarArchivo(ctx context.Context, access, secret string, res *Resultado) bool {
+	m, err := logarchive.NewMinIO(c.ArchivoEndpoint, access, secret, c.ArchivoBucket, c.ArchivoSeguro)
+	if err != nil {
+		res.Pasos = append(res.Pasos, Paso{ID: "verify", Detail: M("cannot reach the archive: %s", err.Error())})
+		return false
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	hay, err := m.Client.BucketExists(ctx, m.Bucket)
+	if err != nil {
+		res.Pasos = append(res.Pasos, Paso{ID: "verify", Detail: M("the archive at %s does not accept it: %s", c.ArchivoEndpoint, err.Error())})
+		return false
+	}
+	res.Pasos = append(res.Pasos, Paso{ID: "verify", OK: true, Detail: M("the archive at %s accepts it", c.ArchivoEndpoint)})
+	if !hay {
+		res.Pasos = append(res.Pasos, Paso{ID: "bucket", Detail: M("the bucket %s does not exist, or this key cannot see it", m.Bucket)})
+		return false
+	}
+	res.Pasos = append(res.Pasos, Paso{ID: "bucket", OK: true, Detail: M("the bucket %s is there", m.Bucket)})
+	return probarObjeto(ctx, m.Client, m.Bucket, res)
+}
+
+// probarObjeto writes a small object, reads it back and deletes it: a key
+// that may only read, or only write, does not pass.
+func probarObjeto(ctx context.Context, cl *minio.Client, bucket string, res *Resultado) bool {
+	nombre := fmt.Sprintf("_rendimiento-prueba/%d.txt", time.Now().UnixNano())
+	cuerpo := []byte("rendimiento: a test of a new key; it is deleted at once\n")
+	if _, err := cl.PutObject(ctx, bucket, nombre, strings.NewReader(string(cuerpo)), int64(len(cuerpo)), minio.PutObjectOptions{ContentType: "text/plain"}); err != nil {
+		res.Pasos = append(res.Pasos, Paso{ID: "object", Detail: M("it cannot write to the bucket: %s", err.Error())})
+		return false
+	}
+	borrar := func() error {
+		return cl.RemoveObject(context.WithoutCancel(ctx), bucket, nombre, minio.RemoveObjectOptions{})
+	}
+	obj, err := cl.GetObject(ctx, bucket, nombre, minio.GetObjectOptions{})
+	var leido []byte
+	if err == nil {
+		leido, err = io.ReadAll(io.LimitReader(obj, 4096))
+		obj.Close()
+	}
+	if err == nil && string(leido) != string(cuerpo) {
+		err = errors.New(M("what came back is not what was written"))
+	}
+	if err != nil {
+		_ = borrar()
+		res.Pasos = append(res.Pasos, Paso{ID: "object", Detail: M("it wrote a test object but cannot read it back: %s", err.Error())})
+		return false
+	}
+	if err := borrar(); err != nil {
+		res.Pasos = append(res.Pasos, Paso{ID: "object", Detail: M("it wrote and read a test object but cannot delete it (%s): the archive deletes old logs with it", err.Error())})
+		return false
+	}
+	res.Pasos = append(res.Pasos, Paso{ID: "object", OK: true, Detail: M("it wrote, read back and deleted a test object")})
+	return true
+}
+
+// probarUmami: Umami lets the user in, and the user sees websites (a
+// view-only user is enough).
+func (c *Cambiador) probarUmami(ctx context.Context, usuario, clave string, res *Resultado) bool {
+	u := &analytics.Umami{URL: c.UmamiURL, Username: usuario, Password: clave, HTTP: c.http()}
+	if err := u.SignIn(ctx); errors.Is(err, analytics.ErrAuth) {
+		res.Pasos = append(res.Pasos, Paso{ID: "verify", Detail: M("Umami does not let %s in: the user name or the password is wrong", usuario)})
+		return false
+	} else if err != nil {
+		res.Pasos = append(res.Pasos, Paso{ID: "verify", Detail: M("cannot reach Umami: %s", err.Error())})
+		return false
+	}
+	res.Pasos = append(res.Pasos, Paso{ID: "verify", OK: true, Detail: M("Umami lets %s in", usuario)})
+	sitios, err := u.Websites(ctx)
+	switch {
+	case err != nil:
+		res.Pasos = append(res.Pasos, Paso{ID: "websites", Detail: M("it cannot list the websites: %s", err.Error())})
+		return false
+	case len(sitios) == 0:
+		res.Pasos = append(res.Pasos, Paso{ID: "websites", Detail: M("it sees no website: add the user to the team that owns them")})
+		return false
+	}
+	res.Pasos = append(res.Pasos, Paso{ID: "websites", OK: true, Detail: M("it sees %d websites", len(sitios))})
+	return true
+}
+
 var clusterIssuerGVK = schema.GroupVersionKind{Group: "cert-manager.io", Version: "v1", Kind: "ClusterIssuer"}
 
 // Destinos are the Secrets a key is written to: the platform's own, and
 // for Cloudflare also the one the ClusterIssuer's DNS-01 solvers read
 // (apiTokenSecretRef), in cert-manager's namespace.
 func (c *Cambiador) Destinos(ctx context.Context, id string) ([]Destino, error) {
-	d, ok := propios[id]
+	p, ok := propios[id]
 	if !ok {
 		return nil, ErrDesconocida
 	}
-	d.Namespace = c.Namespace
-	out := []Destino{d}
+	var out []Destino
+	for _, k := range p.Keys {
+		out = append(out, Destino{Namespace: c.Namespace, Name: p.Name, Key: k})
+	}
 	if id != Cloudflare || c.ClusterIssuer == "" {
 		return out, nil
 	}
@@ -387,90 +555,114 @@ func (c *Cambiador) Destinos(ctx context.Context, id string) ([]Destino, error) 
 	return out, nil
 }
 
-// guardar writes valor to every destino, or to none: when one cannot be
-// written, the ones written before it get their old value back.
-func (c *Cambiador) guardar(ctx context.Context, destinos []Destino, valor string) error {
+// guardar writes the values to every destino, or to none: when one
+// Secret cannot be written, the ones written before it get their old
+// values back. A destino whose key is not one of valores (the
+// ClusterIssuer's) gets secreto.
+func (c *Cambiador) guardar(ctx context.Context, destinos []Destino, valores Valores, secreto string) error {
 	type antes struct {
-		d      Destino
-		sec    *corev1.Secret // nil: it did not exist
-		tenia  bool
-		previo []byte
+		ns, name string
+		sec      *corev1.Secret    // nil: it did not exist
+		nuevos   map[string][]byte // what is written
+		previos  map[string][]byte // the keys it had before (nil: it did not have it)
+		teniaKey map[string]bool
 	}
-	var leidos []antes
+	var leidos []*antes
+	porSecreto := map[string]*antes{}
 	for _, d := range destinos {
-		var s corev1.Secret
-		err := c.Kube.Get(ctx, client.ObjectKey{Namespace: d.Namespace, Name: d.Name}, &s)
-		switch {
-		case apierrors.IsNotFound(err):
-			leidos = append(leidos, antes{d: d})
-		case err != nil:
-			return errors.New(M("cannot read the secret %s: %s", d.String(), err.Error()))
-		default:
-			v, tenia := s.Data[d.Key]
-			leidos = append(leidos, antes{d: d, sec: &s, tenia: tenia, previo: v})
+		a := porSecreto[d.String()]
+		if a == nil {
+			a = &antes{ns: d.Namespace, name: d.Name, nuevos: map[string][]byte{}, previos: map[string][]byte{}, teniaKey: map[string]bool{}}
+			var s corev1.Secret
+			err := c.Kube.Get(ctx, client.ObjectKey{Namespace: d.Namespace, Name: d.Name}, &s)
+			switch {
+			case apierrors.IsNotFound(err):
+			case err != nil:
+				return errors.New(M("cannot read the secret %s: %s", d.String(), err.Error()))
+			default:
+				a.sec = &s
+			}
+			porSecreto[d.String()] = a
+			leidos = append(leidos, a)
+		}
+		v, ok := valores[d.Key]
+		if !ok {
+			v = secreto
+		}
+		a.nuevos[d.Key] = []byte(v)
+		if a.sec != nil {
+			a.previos[d.Key], a.teniaKey[d.Key] = a.sec.Data[d.Key]
 		}
 	}
-	var escritos []antes
+	var escritos []*antes
 	for _, a := range leidos {
 		var err error
 		if a.sec == nil {
-			s := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: a.d.Namespace, Name: a.d.Name,
+			s := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: a.ns, Name: a.name,
 				Labels: map[string]string{"app.kubernetes.io/managed-by": "rendimiento"}},
-				Data: map[string][]byte{a.d.Key: []byte(valor)}}
+				Data: a.nuevos}
 			err = c.Kube.Create(ctx, s)
 		} else {
 			s := a.sec.DeepCopy()
 			if s.Data == nil {
 				s.Data = map[string][]byte{}
 			}
-			s.Data[a.d.Key] = []byte(valor)
+			for k, v := range a.nuevos {
+				s.Data[k] = v
+			}
 			err = c.Kube.Update(ctx, s)
 		}
 		if err != nil {
 			for _, w := range escritos {
-				c.devolver(ctx, w.d, w.sec, w.tenia, w.previo)
+				c.devolver(ctx, w.ns, w.name, w.sec == nil, w.previos, w.teniaKey)
 			}
-			return errors.New(M("it could not be written to the secret %s: %s", a.d.String(), err.Error()))
+			return errors.New(M("it could not be written to the secret %s: %s", a.ns+"/"+a.name, err.Error()))
 		}
 		escritos = append(escritos, a)
 	}
 	return nil
 }
 
-// devolver puts a Secret's key back as it was before a change that could
-// not be finished.
-func (c *Cambiador) devolver(ctx context.Context, d Destino, antes *corev1.Secret, tenia bool, previo []byte) {
+// devolver puts a Secret's keys back as they were before a change that
+// could not be finished (nuevo: the change made the Secret).
+func (c *Cambiador) devolver(ctx context.Context, ns, name string, nuevo bool, previos map[string][]byte, tenia map[string]bool) {
 	ctx = context.WithoutCancel(ctx)
 	var s corev1.Secret
-	if err := c.Kube.Get(ctx, client.ObjectKey{Namespace: d.Namespace, Name: d.Name}, &s); err != nil {
+	if err := c.Kube.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, &s); err != nil {
 		return
 	}
-	if antes == nil {
+	if nuevo {
 		_ = c.Kube.Delete(ctx, &s)
 		return
 	}
-	if tenia {
-		s.Data[d.Key] = previo
-	} else {
-		delete(s.Data, d.Key)
+	for k, v := range previos {
+		if tenia[k] {
+			s.Data[k] = v
+		} else {
+			delete(s.Data, k)
+		}
 	}
 	if err := c.Kube.Update(ctx, &s); err != nil && c.Log != nil {
-		c.Log.Error("a key could not be put back after a failed change", "secret", d.String(), "err", err)
+		c.Log.Error("a key could not be put back after a failed change", "secret", ns+"/"+name, "err", err)
 	}
 }
 
-// Leer reads a key's value from the platform's own Secret ("" when it is
+// Leer reads a key's values from the platform's own Secret ("" for those
 // not there), for the processes that follow a change.
-func Leer(ctx context.Context, kube client.Client, namespace, id string) (string, error) {
-	d, ok := propios[id]
+func Leer(ctx context.Context, kube client.Client, namespace, id string) (Valores, error) {
+	p, ok := propios[id]
 	if !ok {
-		return "", ErrDesconocida
+		return nil, ErrDesconocida
 	}
 	var s corev1.Secret
-	if err := kube.Get(ctx, client.ObjectKey{Namespace: namespace, Name: d.Name}, &s); err != nil {
-		return "", err
+	if err := kube.Get(ctx, client.ObjectKey{Namespace: namespace, Name: p.Name}, &s); err != nil {
+		return nil, err
 	}
-	return string(s.Data[d.Key]), nil
+	v := Valores{}
+	for _, k := range p.Keys {
+		v[k] = string(s.Data[k])
+	}
+	return v, nil
 }
 
 // ZonasUsadas are the zones (of those the DNS provider knows) that hold a

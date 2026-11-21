@@ -8,10 +8,12 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/rendimiento-ai/rendimiento/internal/analytics"
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
 	"github.com/rendimiento-ai/rendimiento/internal/i18n"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
 	"github.com/rendimiento-ai/rendimiento/internal/llaves"
+	"github.com/rendimiento-ai/rendimiento/internal/logarchive"
 	"github.com/rendimiento-ai/rendimiento/internal/notify"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -20,25 +22,36 @@ import (
 // (Llaves y ajustes): what tests and saves a new one, and what makes this
 // process follow a change made in any of them. A key is followed here only
 // when this process uses its service: the Cloudflare token when DNS
-// automation is on, the email key when email is, the AI key always.
+// automation is on, the email key when email is, the AI key always, the
+// log archive's key when it is on (logBucket), the Umami user when visitor
+// numbers are (umami).
 func llavesQueCambian(kube client.Client, st *store.Store, ns, baseURL, issuer string, dnsProvider dns.Provider,
-	notifier *notify.Notifier, gateway *ia.Gateway, log *slog.Logger) (*llaves.Cambiador, *llaves.Recargador) {
-	aplicar := map[string]func(string){}
+	notifier *notify.Notifier, gateway *ia.Gateway, logBucket *logarchive.MinIO, umami *analytics.Umami,
+	log *slog.Logger) (*llaves.Cambiador, *llaves.Recargador) {
+	aplicar := map[string]func(llaves.Valores){}
 	if cf, ok := dnsProvider.(*dns.Cloudflare); ok {
-		aplicar[llaves.Cloudflare] = cf.SetToken
+		aplicar[llaves.Cloudflare] = func(v llaves.Valores) { cf.SetToken(v["CLOUDFLARE_API_TOKEN"]) }
 	}
 	if r, ok := notifier.Sender.(*notify.Resend); ok {
-		aplicar[llaves.Correo] = r.SetKey
+		aplicar[llaves.Correo] = func(v llaves.Valores) { r.SetKey(v["RESEND_API_KEY"]) }
 	}
 	if gateway != nil {
-		aplicar[llaves.IA] = gateway.SetPlatformKey
+		aplicar[llaves.IA] = func(v llaves.Valores) { gateway.SetPlatformKey(v["AI_PLATFORM_KEY"]) }
+	}
+	if logBucket != nil {
+		aplicar[llaves.Registros] = func(v llaves.Valores) { logBucket.SetKeys(v["LOG_ARCHIVE_ACCESS_KEY"], v["LOG_ARCHIVE_SECRET_KEY"]) }
+	}
+	if umami != nil {
+		aplicar[llaves.Umami] = func(v llaves.Valores) { umami.SetLogin(v["UMAMI_USERNAME"], v["UMAMI_PASSWORD"]) }
 	}
 	rec := &llaves.Recargador{Store: st, Aplicar: aplicar, Log: log,
-		Leer: func(ctx context.Context, id string) (string, error) { return llaves.Leer(ctx, kube, ns, id) }}
+		Leer: func(ctx context.Context, id string) (llaves.Valores, error) { return llaves.Leer(ctx, kube, ns, id) }}
 	zona := os.Getenv("DNS_ZONE")
 	cam := &llaves.Cambiador{Kube: kube, Namespace: ns, ClusterIssuer: issuer, CertManagerNamespace: env("CERT_MANAGER_NAMESPACE", "cert-manager"),
 		Store: st, Recargador: rec, ZonaPrueba: zona, ResendFrom: env("NOTIFY_EMAIL_FROM", "rendimiento <alerts@example.com>"),
 		ResendTo: notifier.To, Lang: notifier.Lang, Log: log,
+		ArchivoEndpoint: os.Getenv("LOG_ARCHIVE_ENDPOINT"), ArchivoBucket: env("LOG_ARCHIVE_BUCKET", "rendimiento-logs"),
+		ArchivoSeguro: env("LOG_ARCHIVE_SECURE", "false") == "true", UmamiURL: os.Getenv("UMAMI_URL"),
 		// The zones a new token must see: those the platform's and the
 		// apps' hosts are in, of the zones the token in use knows, and
 		// DNS_ZONE.

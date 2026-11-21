@@ -163,6 +163,15 @@ func TestUmamiReport(t *testing.T) {
 	if _, err := bad.Websites(ctx); !errors.Is(err, ErrAuth) {
 		t.Errorf("wrong password: err = %v, want ErrAuth", err)
 	}
+	// A user changed on the Environment page: the same client signs in
+	// with it from then on.
+	if err := bad.SignIn(ctx); !errors.Is(err, ErrAuth) {
+		t.Errorf("SignIn with a wrong password: %v", err)
+	}
+	bad.SetLogin("rendimiento", "pw")
+	if err := bad.SignIn(ctx); err != nil {
+		t.Errorf("SignIn after SetLogin: %v", err)
+	}
 }
 
 func TestHost(t *testing.T) {

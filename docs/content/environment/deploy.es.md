@@ -93,7 +93,7 @@ La cuenta de servicio propia de la plataforma (`rendimiento`) puede:
 - administrar espacios de nombres, Deployments, Services, Ingresses, CronJobs, PVCs y Secrets **en todo el clúster**, porque cada aplicación recibe su propio espacio de nombres. El controlador rechaza los espacios de nombres y nombres de host que no le pertenecen ([comprobaciones de propiedad](../architecture/controller.md#ownership-checks));
 - leer nodos, métricas, clases de entrada, clases de almacenamiento, CRD, emisores del clúster y StatefulSets, para las páginas Entorno y Servicios;
 - crear y borrar pods y secretos en `rendimiento-builds` (integración continua);
-- leer y actualizar, por nombre, sus secretos `rendimiento-dns`, `rendimiento-notify` y `rendimiento-ia`, y en `cert-manager` el único secreto del que el ClusterIssuer lee su ficha de Cloudflare (aquí `cloudflare-api-token-secret`; cambie el nombre en su capa privada, o con Helm en `certManagerSecret.name`), para [Llaves y ajustes](#keys-and-settings). Esos Roles son nuevos: después de actualizar, ejecute una vez `make deploy` (o `helm upgrade`) para aplicarlos;
+- leer y actualizar, por nombre, sus secretos `rendimiento-dns`, `rendimiento-notify`, `rendimiento-ia`, `rendimiento-logs` y `rendimiento-umami`, y en `cert-manager` el único secreto del que el ClusterIssuer lee su ficha de Cloudflare (aquí `cloudflare-api-token-secret`; cambie el nombre en su capa privada, o con Helm en `certManagerSecret.name`), para [Llaves y ajustes](#keys-and-settings). Cuando esos Roles son nuevos o nombran más secretos (como pasó con `rendimiento-logs` y `rendimiento-umami`), ejecute una vez `make deploy` (o `helm upgrade`) después de actualizar para aplicarlos;
 - **suplantar** a la cuenta de servicio `rendimiento-addons`, y nada más.
 
 `rendimiento-addons` está ligada a `cluster-admin`, porque instalar programas como Longhorn significa crear CRD, ClusterRoles y DaemonSets, exactamente lo que necesitaba ArgoCD. Ningún pod corre con ella: solo el controlador de complementos actúa como ella, así la bitácora de auditoría de Kubernetes muestra cada cambio de complemento bajo ese nombre. Vea [Modelo de seguridad](../architecture/security.md).
@@ -371,17 +371,23 @@ Plegados abajo: la versión de la plataforma (abierta cuando hay una nueva o hac
 
 **Llaves y ajustes** (`/environment/llaves`, solo administradores) muestra cada llave con la que rendimiento habla con otros servicios: para qué es, cuándo vence (*Vence en 21 días*, o *No vence*) y cuándo se cambió aquí. Nunca su valor.
 
-Tres llaves se cambian aquí, y cada una **se prueba antes de guardarse**:
+Cinco llaves se cambian aquí, y cada una **se prueba antes de guardarse**:
 
 | Llave | La prueba | Dónde se guarda |
 |---|---|---|
 | Ficha de Cloudflare | Cloudflare la acepta y dice hasta cuándo (`/user/tokens/verify`); ve todas las zonas donde están las aplicaciones y `DNS_ZONE`; crea y borra un registro TXT `_rendimiento-prueba` en `DNS_ZONE` | `rendimiento-dns` (`CLOUDFLARE_API_TOKEN`), y el secreto del resolvedor DNS-01 del `CLUSTER_ISSUER` (su `apiTokenSecretRef`, en `CERT_MANAGER_NAMESPACE`) |
 | Correo (Resend) | Resend la acepta (pidiendo sus dominios, lo que no envía nada), y su cuenta tiene el dominio de `NOTIFY_EMAIL_FROM`; un correo de prueba solo si se pide | `rendimiento-notify` (`RESEND_API_KEY`) |
 | IA de la plataforma | Anthropic responde con ella para `AI_PLATFORM_MODEL` | `rendimiento-ia` (`AI_PLATFORM_KEY`) |
+| Archivo de registros (S3): el identificador y el secreto de una llave de acceso | el archivo en `LOG_ARCHIVE_ENDPOINT` la acepta; la cubeta `LOG_ARCHIVE_BUCKET` existe; escribe un objeto pequeño bajo `_rendimiento-prueba/`, lo vuelve a leer y lo borra (el archivo borra los registros viejos con la misma llave) | `rendimiento-logs` (`LOG_ARCHIVE_ACCESS_KEY` y `LOG_ARCHIVE_SECRET_KEY`, juntos) |
+| Visitas (Umami): un nombre de usuario y una contraseña | Umami en `UMAMI_URL` deja entrar al usuario; ve al menos un sitio web (basta un usuario de solo lectura) | `rendimiento-umami` (`UMAMI_USERNAME` y `UMAMI_PASSWORD`, juntos) |
 
 Si algún paso falla, **no se guarda nada** y la página dice qué paso y por qué (*No ve example.org: agréguela en «Zone Resources»*); la llave anterior sigue funcionando. Cuando pasan todos, la llave se escribe en los dos secretos o en ninguno, y la plataforma la usa **sin reiniciar**: el proceso que la guardó, al momento; cada uno de los demás, en menos de 15 segundos (ve en la base de datos la versión nueva de la llave y vuelve a leer su secreto). cert-manager lee su secreto cada vez, así que los certificados también la siguen. La base de datos y la bitácora guardan qué llave, quién la cambió, cuándo y cuándo vence; el valor solo está en sus secretos. De una ficha de Cloudflare que vence se avisa 30 días antes, en *Lo que necesita de usted*.
 
-Una llave se cambia aquí solo donde la plataforma ya usa su servicio: Cloudflare y el correo se configuran al instalar (Helm, o los secretos de arriba); la llave de IA puede empezar aquí. Los respaldos fuera de casa (R2), el archivo de registros (S3) y Umami aparecen en la lista y se cambiarán aquí en una versión próxima; los ajustes que se prueban antes (registro, zona y destino del DNS, emisor, almacenamiento, entrada, dirección) se muestran por ahora solo para leer. La base de datos, la llave de los secretos y el modo se cambian solo con Helm: sin ellos la plataforma no arranca.
+Una llave se cambia aquí solo donde la plataforma ya usa su servicio: Cloudflare, el correo, el archivo de registros (`LOG_ARCHIVE_ENDPOINT`) y Umami (`UMAMI_URL`) se configuran al instalar (Helm, o los secretos de arriba); la llave de IA puede empezar aquí. Su secreto ya debe existir: la plataforma puede actualizar sus propios secretos, no crearlos.
+
+Los **respaldos fuera de casa (R2)** aparecen en la lista, marcados *Fuera de rendimiento*, y no se cambian aquí: un trabajo fuera de la plataforma (un CronJob de rclone en su propio espacio de nombres, con su propio secreto) copia la cubeta de respaldos a R2, y rendimiento no escribe secretos que no son suyos. Cambie esa llave donde está configurado ese trabajo.
+
+Los ajustes que se prueban antes (registro, zona y destino del DNS, emisor, almacenamiento, entrada, dirección) se muestran por ahora solo para leer. La base de datos, la llave de los secretos y el modo se cambian solo con Helm: sin ellos la plataforma no arranca.
 
 ## El lado de las construcciones {#the-build-side}
 

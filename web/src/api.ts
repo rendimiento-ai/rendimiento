@@ -1822,17 +1822,20 @@ export const envApi = {
   forgetSetting: (key: string) => request<SettingsView>("DELETE", `/api/environment/settings/${key}`),
   boundaryCheck: () => request<BoundaryCheck>("GET", "/api/environment/settings/boundary-check"),
   llaves: () => request<LlavesView>("GET", "/api/llaves"),
-  cambiarLlave: (id: string, value: string, sendTest = false) => request<LlaveResultado>("POST", `/api/llaves/${id}`, { value, sendTest }),
+  cambiarLlave: (id: string, value: string, sendTest = false, user?: string) =>
+    request<LlaveResultado>("POST", `/api/llaves/${id}`, { value, sendTest, ...(user !== undefined ? { user } : {}) }),
 };
 
 /** A key on the Keys and settings page (api.LlaveView): never its value. */
 export interface Llave {
   id: "cloudflare" | "correo" | "ia" | "r2" | "registros" | "umami";
   set: boolean;
-  /** It changes here now; pronto: in a later version; reason: why it does not. */
+  /** It changes here now; externa: it is not the platform's (something outside it uses it); reason: why it does not change here. */
   cambiable: boolean;
-  pronto?: boolean;
+  externa?: boolean;
   reason?: string;
+  /** The key is two values: who (an access key's id, a user name) and its secret. */
+  usuario?: boolean;
   cambiadaPor?: string;
   cambiadaEn?: string;
   venceEn?: string;
@@ -1848,7 +1851,7 @@ export interface LlavesView {
 export interface LlaveResultado {
   llave: string;
   guardada: boolean;
-  pasos: { id: "verify" | "zones" | "record" | "send" | "save" | "apply"; ok: boolean; detail?: string }[];
+  pasos: { id: "verify" | "zones" | "record" | "send" | "bucket" | "object" | "websites" | "save" | "apply"; ok: boolean; detail?: string }[];
   venceEn?: string;
   avisoEn?: string;
 }

@@ -164,17 +164,28 @@ func nuevo(t *testing.T, funcs *interceptor.Funcs) *entorno {
 	t.Cleanup(cfSrv.Close)
 	e := &entorno{kube: kube, store: &memStore{}, logs: &bytes.Buffer{}, cf: cf, usadas: map[string]string{}}
 	log := slog.New(slog.NewTextHandler(e.logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	aplicar := func(id string) func(string) {
-		return func(v string) { e.usadasM.Lock(); e.usadas[id] = v; e.usadasM.Unlock() }
+	aplicar := func(id string) func(Valores) {
+		return func(v Valores) { e.usadasM.Lock(); e.usadas[id] = juntos(id, v); e.usadasM.Unlock() }
 	}
-	rec := &Recargador{Store: e.store, Log: log, Aplicar: map[string]func(string){Cloudflare: aplicar(Cloudflare), Correo: aplicar(Correo), IA: aplicar(IA)},
-		Leer: func(ctx context.Context, id string) (string, error) { return Leer(ctx, kube, ns, id) }}
+	rec := &Recargador{Store: e.store, Log: log, Aplicar: map[string]func(Valores){Cloudflare: aplicar(Cloudflare), Correo: aplicar(Correo), IA: aplicar(IA),
+		Registros: aplicar(Registros), Umami: aplicar(Umami)},
+		Leer: func(ctx context.Context, id string) (Valores, error) { return Leer(ctx, kube, ns, id) }}
 	e.c = &Cambiador{Kube: kube, Namespace: ns, ClusterIssuer: "letsencrypt-prod", CertManagerNamespace: "cert-manager",
 		Store: e.store, Recargador: rec, CloudflareURL: cfSrv.URL, ZonaPrueba: "example.com", Log: log,
 		Zonas: func(context.Context) ([]string, error) {
 			return ZonasUsadas([]string{"shop.example.org", "rendimiento.example.com"}, []string{"example.com", "example.org"}, "example.com"), nil
 		}}
 	return e
+}
+
+// juntos are a key's values in the order of its Secret's keys, joined by
+// "|": one value is itself.
+func juntos(id string, v Valores) string {
+	var out []string
+	for _, k := range propios[id].Keys {
+		out = append(out, v[k])
+	}
+	return strings.Join(out, "|")
 }
 
 func (e *entorno) valor(t *testing.T, namespace, name, key string) string {
@@ -220,7 +231,7 @@ func pasos(res Resultado) string {
 // and the issuer's, recorded with its expiry, and used at once.
 func TestCloudflareSeGuardaCuandoPasaTodo(t *testing.T) {
 	e := nuevo(t, nil)
-	res, err := e.c.Cambiar(context.Background(), Cloudflare, tokenBueno, "p0dxD", false)
+	res, err := e.c.Cambiar(context.Background(), Cloudflare, Nueva{Valor: tokenBueno}, "p0dxD")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,7 +277,7 @@ func TestCloudflareNoSeGuardaSiFalla(t *testing.T) {
 	} {
 		t.Run(c.token, func(t *testing.T) {
 			e := nuevo(t, nil)
-			res, err := e.c.Cambiar(context.Background(), Cloudflare, c.token, "p0dxD", false)
+			res, err := e.c.Cambiar(context.Background(), Cloudflare, Nueva{Valor: c.token}, "p0dxD")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -296,7 +307,7 @@ func TestCloudflareAmbosONinguno(t *testing.T) {
 		}
 		return c.Update(ctx, obj, opts...)
 	}})
-	res, err := e.c.Cambiar(context.Background(), Cloudflare, tokenBueno, "p0dxD", false)
+	res, err := e.c.Cambiar(context.Background(), Cloudflare, Nueva{Valor: tokenBueno}, "p0dxD")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -355,7 +366,7 @@ func TestCorreo(t *testing.T) {
 			enviados = 0
 			e := nuevo(t, nil)
 			e.c.ResendURL, e.c.ResendFrom, e.c.ResendTo = srv.URL, "rendimiento <alerts@example.com>", []string{"ops@example.com"}
-			res, err := e.c.Cambiar(context.Background(), Correo, c.key, "p0dxD", c.enviar)
+			res, err := e.c.Cambiar(context.Background(), Correo, Nueva{Valor: c.key, EnviarPrueba: c.enviar}, "p0dxD")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -385,11 +396,11 @@ func TestIA(t *testing.T) {
 	defer srv.Close()
 	e := nuevo(t, nil)
 	e.c.AnthropicURL = srv.URL
-	res, _ := e.c.Cambiar(context.Background(), IA, "sk-malo", "p0dxD", false)
+	res, _ := e.c.Cambiar(context.Background(), IA, Nueva{Valor: "sk-malo"}, "p0dxD")
 	if res.Guardada || pasos(res) != "verify✗" || !strings.Contains(res.Pasos[0].Detail, "invalid x-api-key") || e.valor(t, ns, "rendimiento-ia", "AI_PLATFORM_KEY") != "sk-viejo" {
 		t.Fatalf("a bad key: %+v", res)
 	}
-	res, _ = e.c.Cambiar(context.Background(), IA, "sk-bueno", "p0dxD", false)
+	res, _ = e.c.Cambiar(context.Background(), IA, Nueva{Valor: "sk-bueno"}, "p0dxD")
 	if !res.Guardada || e.valor(t, ns, "rendimiento-ia", "AI_PLATFORM_KEY") != "sk-bueno" || e.usadas[IA] != "sk-bueno" {
 		t.Fatalf("a good key: %+v", res)
 	}
@@ -401,13 +412,13 @@ func TestIA(t *testing.T) {
 func TestRecargador(t *testing.T) {
 	e := nuevo(t, nil)
 	otro := map[string]string{}
-	r := &Recargador{Store: e.store, Aplicar: map[string]func(string){Cloudflare: func(v string) { otro[Cloudflare] = v }},
-		Leer: func(ctx context.Context, id string) (string, error) { return Leer(ctx, e.kube, ns, id) }}
+	r := &Recargador{Store: e.store, Aplicar: map[string]func(Valores){Cloudflare: func(v Valores) { otro[Cloudflare] = v["CLOUDFLARE_API_TOKEN"] }},
+		Leer: func(ctx context.Context, id string) (Valores, error) { return Leer(ctx, e.kube, ns, id) }}
 	ctx := context.Background()
 	if err := r.Revisar(ctx); err != nil || len(otro) != 0 {
 		t.Fatalf("nothing changed yet: %v %v", otro, err)
 	}
-	if res, _ := e.c.Cambiar(ctx, Cloudflare, tokenBueno, "p0dxD", false); !res.Guardada {
+	if res, _ := e.c.Cambiar(ctx, Cloudflare, Nueva{Valor: tokenBueno}, "p0dxD"); !res.Guardada {
 		t.Fatalf("%+v", res)
 	}
 	if err := r.Revisar(ctx); err != nil || otro[Cloudflare] != tokenBueno {
@@ -422,12 +433,21 @@ func TestRecargador(t *testing.T) {
 
 // A key changes here only where the platform uses that service already.
 func TestDisponible(t *testing.T) {
-	c := &Cambiador{Recargador: &Recargador{Aplicar: map[string]func(string){IA: func(string) {}}}}
-	if c.Disponible(IA) != "" || c.Disponible(Cloudflare) == "" || c.Disponible(Correo) == "" || c.Disponible("umami") == "" {
+	c := &Cambiador{Recargador: &Recargador{Aplicar: map[string]func(Valores){IA: func(Valores) {}}}}
+	if c.Disponible(IA) != "" || c.Disponible(Cloudflare) == "" || c.Disponible(Correo) == "" || c.Disponible(Umami) == "" ||
+		c.Disponible(Registros) == "" || c.Disponible(R2) == "" || c.Disponible("otra") == "" {
 		t.Fatal("availability")
 	}
-	if _, err := c.Cambiar(context.Background(), "umami", "x", "p0dxD", false); !errors.Is(err, ErrDesconocida) {
-		t.Fatalf("umami: %v", err)
+	for _, id := range []string{Umami, R2} {
+		if _, err := c.Cambiar(context.Background(), id, Nueva{Usuario: "u", Valor: "x"}, "p0dxD"); !errors.Is(err, ErrDesconocida) {
+			t.Fatalf("%s: %v", id, err)
+		}
+	}
+	// R2's key is not the platform's: it never changes here, whatever is
+	// wired.
+	c.Recargador.Aplicar[R2] = func(Valores) {}
+	if !strings.Contains(c.Disponible(R2), "outside rendimiento") {
+		t.Fatalf("R2: %q", c.Disponible(R2))
 	}
 }
 

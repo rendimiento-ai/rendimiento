@@ -130,7 +130,9 @@ func (u *Umami) client() *http.Client {
 // login signs in to Umami with its user and password and returns the token
 // for later requests.
 func (u *Umami) login(ctx context.Context) (string, error) {
+	u.mu.Lock()
 	body, _ := json.Marshal(map[string]string{"username": u.Username, "password": u.Password})
+	u.mu.Unlock()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(u.URL, "/")+"/api/auth/login", bytes.NewReader(body))
 	if err != nil {
 		return "", err
@@ -154,6 +156,27 @@ func (u *Umami) login(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("umami login: no token in the answer")
 	}
 	return out.Token, nil
+}
+
+// SetLogin makes the client sign in with another user from now on (a user
+// changed on the Environment page), with no restart.
+func (u *Umami) SetLogin(username, password string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.Username, u.Password, u.token = username, password, ""
+}
+
+// SignIn signs in now: ErrAuth when Umami refuses the user name or
+// password. It tests a new user before it is used.
+func (u *Umami) SignIn(ctx context.Context) error {
+	tok, err := u.login(ctx)
+	if err != nil {
+		return err
+	}
+	u.mu.Lock()
+	u.token = tok
+	u.mu.Unlock()
+	return nil
 }
 
 // get calls a read-only endpoint, signing in first and again when the

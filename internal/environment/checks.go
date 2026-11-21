@@ -560,7 +560,7 @@ func (c *Checker) checkLogArchive(ctx context.Context) Check {
 		ch.Status = OK
 	} else {
 		ch.Status = Error
-		ch.Fix = M("Check that the bucket exists and the rendimiento-logs credentials can read and write it.")
+		ch.Fix = M("Check that the bucket exists, and change its key under Keys and settings on the Environment page: it is tested (write, read, delete) before it is saved, with no restart.")
 	}
 	return ch
 }
@@ -579,7 +579,7 @@ func (c *Checker) checkAnalytics(ctx context.Context) Check {
 		ch.Status = OK
 	} else {
 		ch.Status = Error
-		ch.Fix = M("Check the rendimiento-umami secret, and that the Umami user belongs to the team that owns the websites.")
+		ch.Fix = M("Change the Umami user under Keys and settings on the Environment page (it is tested before it is saved, with no restart), and check that it belongs to the team that owns the websites.")
 	}
 	return ch
 }
