@@ -10,8 +10,8 @@ import (
 // doing about it and what went wrong the last time.
 type situacion struct {
 	estado      wsl.Estado // "" until the first look
-	configurado bool       // rendimiento has its GitHub App
-	tarea       string     // "", mirar, instalar, importar, configurar, despertar, dormir, conectar
+	configurado bool       // rendimiento is installed: a forja and its first administrator
+	tarea       string     // "", mirar, instalar, importar, despertar, dormir, conectar
 	problema    *wsl.Problema
 	hecho       int64 // bytes of the download
 	total       int64
@@ -25,7 +25,7 @@ func (s situacion) entra() bool {
 }
 
 // afuera says a window that already left the assistant may stay where it
-// is (rendimiento's pages, or GitHub's while it is being connected).
+// is (rendimiento's pages, or a forja's while it is being connected).
 func (s situacion) afuera() bool { return s.estado == wsl.Despierta && s.tarea == "" }
 
 // Paso is one step of the assistant's list.
@@ -43,7 +43,6 @@ type Vista struct {
 	Texto    string `json:"texto"`
 	Boton    string `json:"boton"`    // "" when there is nothing to press
 	Accion   string `json:"accion"`   // the Asistente method the button calls
-	Campo    string `json:"campo"`    // the label of the text the action takes, or ""
 	Ocupado  bool   `json:"ocupado"`  // the app is working
 	Avance   int    `json:"avance"`   // percent of the download, or -1
 	Problema string `json:"problema"` // what went wrong, explained
@@ -61,19 +60,18 @@ var pasos = []struct {
 }{
 	{wsl.SinWSL, "wsl", "Instalar"},
 	{wsl.SinDistro, "descarga", "Importar"},
-	{wsl.SinUsuario, "usuario", "Configurar"},
 	{wsl.Dormida, "arranque", "Despertar"},
-	{wsl.Despierta, "github", "Conectar"},
+	{wsl.Despierta, "configuracion", "Conectar"},
 }
 
-const pasoArranque = 3
+const pasoArranque = 2
 
 // pasoDe is the step a situation is on: -1 before the first look,
 // len(pasos) when all are done.
 func pasoDe(s situacion) int {
 	switch {
 	case s.tarea == "despertar" || s.tarea == "dormir":
-		// Waking also follows "who signs in", before the state says so.
+		// Waking also follows the download, before the state says so.
 		return pasoArranque
 	case s.estado == wsl.Despierta && s.configurado:
 		return len(pasos)
@@ -88,11 +86,10 @@ func pasoDe(s situacion) int {
 
 // ocupado is what the page says while each task runs.
 var ocupado = map[string]string{
-	"instalar":   "wsl.ocupado",
-	"configurar": "usuario.ocupado",
-	"despertar":  "arranque.ocupado",
-	"dormir":     "dormir.ocupado",
-	"conectar":   "github.ocupado",
+	"instalar":  "wsl.ocupado",
+	"despertar": "arranque.ocupado",
+	"dormir":    "dormir.ocupado",
+	"conectar":  "configuracion.ocupado",
 }
 
 // ver is the page for a situation.
@@ -119,9 +116,6 @@ func ver(s situacion, idioma, version string) Vista {
 	default:
 		p := pasos[n]
 		v.Titulo, v.Texto, v.Boton, v.Accion = t(p.clave+".titulo"), t(p.clave+".texto"), t(p.clave+".boton"), p.accion
-		if p.accion == "Configurar" {
-			v.Campo = t("usuario.campo")
-		}
 	}
 	switch {
 	case s.problema == nil:
@@ -136,7 +130,7 @@ func ver(s situacion, idioma, version string) Vista {
 		v.Problema, v.Detalle = t(clave), s.problema.Detalle
 	}
 	if v.Ocupado {
-		v.Boton, v.Accion, v.Campo = "", "", ""
+		v.Boton, v.Accion = "", ""
 		switch {
 		case s.tarea == "dormir":
 			v.Titulo, v.Texto = t("dormir.titulo"), t("dormir.ocupado")

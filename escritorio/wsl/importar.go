@@ -53,9 +53,6 @@ func (d *Distro) Importar(ctx context.Context, avance func(hecho, total int64)) 
 			return err
 		}
 	}
-	// What was known of an earlier distribution by this name is not true
-	// of the new one.
-	_ = os.Remove(d.marca())
 	out, err := d.wsl(ctx, 0, nil, "--import", d.Nombre, d.disco(), destino, "--version", "2")
 	switch {
 	case err == nil, strings.Contains(out, "ERROR_ALREADY_EXISTS"): // imported meanwhile: it is there

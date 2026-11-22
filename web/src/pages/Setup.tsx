@@ -68,16 +68,31 @@ export function Setup() {
   );
 }
 
-/** Step 1: the setup token, checked by the server; a good one opens the install session in this browser. */
+/**
+ * What the address says ahead, from the installer or the Windows app: the setup token (?token=), and where the code lives
+ * (?forja=github|gitlab|bitbucket, and ?gitlab= its address), so the page opens on it.
+ */
+const deAntemano = () => new URLSearchParams(location.search);
+
+/** Step 1: the setup token, checked by the server; a good one opens the install session in this browser. One that came in
+ * the address is sent at once, and leaves the address (the forja chosen ahead stays, for step 2). */
 function PasoFicha({ command, onDone }: { command: string; onDone: () => void }) {
-  const [token, setToken] = useState(new URLSearchParams(location.search).get("token") ?? "");
+  const [token, setToken] = useState(deAntemano().get("token") ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>();
-  const send = (e: FormEvent) => {
-    e.preventDefault();
+  const enviar = (ficha: string) => {
     setBusy(true); setErr(undefined);
-    api.setupToken(token).then(() => { setBusy(false); history.replaceState(null, "", location.pathname); onDone(); }, (e) => { setBusy(false); setErr(e); });
+    api.setupToken(ficha).then(() => {
+      setBusy(false);
+      const q = deAntemano();
+      q.delete("token");
+      const resto = q.toString();
+      history.replaceState(null, "", location.pathname + (resto ? `?${resto}` : ""));
+      onDone();
+    }, (e) => { setBusy(false); setErr(e); });
   };
+  const send = (e: FormEvent) => { e.preventDefault(); enviar(token); };
+  useEffect(() => { if (token.trim()) enviar(token); }, []);
   return (
     <form className="stack" onSubmit={send}>
       <h3 className="ld-h3">{t("1. The setup token")}</h3>
@@ -102,8 +117,9 @@ const opciones: { forja: Forja; text: string }[] = [
 
 /** Step 2: where the code lives, three cards; the one chosen shows what it needs. */
 function PasoForja({ install }: { install: InstallState }) {
-  const [forja, setForja] = useState<Forja>("github");
   const puede = (f: Forja) => f === "github" || (f === "gitlab" ? install.canGitLab : install.canBitbucket);
+  const pedida = deAntemano().get("forja") as Forja | null;
+  const [forja, setForja] = useState<Forja>(pedida && opciones.some((o) => o.forja === pedida) && puede(pedida) ? pedida : "github");
   return (
     <div className="stack">
       <h3 className="ld-h3">{t("Where does your code live?")}</h3>
@@ -126,7 +142,7 @@ function PasoForja({ install }: { install: InstallState }) {
           <div className="setup-pie"><a className="btn primary big" href="/api/setup/github">{t("Create GitHub App")}</a></div>
         </>
       )}
-      {forja === "gitlab" && <ConGitLab callback={install.gitlabCallback} />}
+      {forja === "gitlab" && <ConGitLab callback={install.gitlabCallback} address={deAntemano().get("gitlab") || "https://gitlab.com"} />}
       {forja === "bitbucket" && <ConBitbucket callback={install.bitbucketCallback} />}
     </div>
   );
@@ -149,8 +165,8 @@ function Copiar({ value, label }: { value: string; label: string }) {
 }
 
 /** Step 2 with a GitLab: its address, the OAuth application's id and secret; GitLab then asks to authorize it. */
-function ConGitLab({ callback }: { callback: string }) {
-  const [baseUrl, setBaseUrl] = useState("https://gitlab.com");
+function ConGitLab({ callback, address }: { callback: string; address: string }) {
+  const [baseUrl, setBaseUrl] = useState(address);
   const [appId, setAppId] = useState("");
   const [secret, setSecret] = useState("");
   const [busy, setBusy] = useState(false);

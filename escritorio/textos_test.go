@@ -54,7 +54,7 @@ func TestTextosUsados(t *testing.T) {
 
 // Every problem the wsl package can report has its explanation.
 func TestTextosDeProblemas(t *testing.T) {
-	for _, clave := range []string{wsl.Reinicio, wsl.Virtualizacion, wsl.Descarga, wsl.Suma, wsl.Usuario, wsl.Arranque, wsl.Cancelado, wsl.Otro} {
+	for _, clave := range []string{wsl.Reinicio, wsl.Virtualizacion, wsl.Descarga, wsl.Suma, wsl.Arranque, wsl.Cancelado, wsl.Otro} {
 		if _, hay := textos["problema."+clave]; !hay {
 			t.Errorf("problema.%s has no text", clave)
 		}

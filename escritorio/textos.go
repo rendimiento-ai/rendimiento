@@ -11,11 +11,10 @@ type texto struct{ en, es string }
 // textos is everything the assistant's page and the icon say. The Spanish
 // is Mexico's, with usted; textos_test.go fails on a missing translation.
 var textos = map[string]texto{
-	"paso.wsl":      {"WSL", "WSL"},
-	"paso.descarga": {"Download", "Descarga"},
-	"paso.usuario":  {"Who signs in", "Quién entra"},
-	"paso.arranque": {"Start", "Arranque"},
-	"paso.github":   {"GitHub", "GitHub"},
+	"paso.wsl":           {"WSL", "WSL"},
+	"paso.descarga":      {"Download", "Descarga"},
+	"paso.arranque":      {"Start", "Arranque"},
+	"paso.configuracion": {"Setup", "Configuración"},
 
 	"mirar.titulo": {"Looking at this computer…", "Revisando esta computadora…"},
 	"mirar.fallo":  {"This computer could not be checked", "No se pudo revisar esta computadora"},
@@ -30,17 +29,11 @@ var textos = map[string]texto{
 	"reinicio.texto":  {"WSL is installed, and Windows has to restart before it works. Restart Windows and open rendimiento again: it continues from here.", "WSL ya está instalado, y Windows tiene que reiniciarse para que funcione. Reinicie Windows y abra rendimiento otra vez: continúa desde aquí."},
 
 	"descarga.titulo":  {"Download rendimiento", "Descargue rendimiento"},
-	"descarga.texto":   {"It is about 174 MB, and it stays on this computer.", "Son unos 174 MB, y se quedan en esta computadora."},
+	"descarga.texto":   {"It is about 174 MB, and it stays on this computer. Then rendimiento starts by itself.", "Son unos 174 MB, y se quedan en esta computadora. Después, rendimiento se inicia por sí solo."},
 	"descarga.boton":   {"Download", "Descargar"},
 	"descarga.empieza": {"Starting the download…", "Empezando la descarga…"},
 	"descarga.ocupado": {"Downloading: %d of %d MB.", "Descargando: %d de %d MB."},
 	"descarga.importa": {"Checking the download and importing it. It takes a minute.", "Comprobando la descarga e importándola. Tarda un minuto."},
-
-	"usuario.titulo":  {"Who signs in", "Quién entra"},
-	"usuario.texto":   {"Write your GitHub user name. Only that account will be able to sign in to rendimiento on this computer.", "Escriba su nombre de usuario de GitHub. Solo esa cuenta podrá iniciar sesión en rendimiento en esta computadora."},
-	"usuario.campo":   {"GitHub user name", "Nombre de usuario de GitHub"},
-	"usuario.boton":   {"Continue", "Continuar"},
-	"usuario.ocupado": {"Writing who signs in…", "Anotando quién entra…"},
 
 	"arranque.titulo":  {"Start rendimiento", "Inicie rendimiento"},
 	"arranque.texto":   {"rendimiento is asleep: it uses no memory until you wake it up.", "rendimiento está dormido: no ocupa memoria hasta que usted lo despierte."},
@@ -50,10 +43,10 @@ var textos = map[string]texto{
 	"dormir.titulo":  {"Going to sleep…", "Durmiendo…"},
 	"dormir.ocupado": {"Stopping rendimiento: its apps, its builds and the memory it held. Its data stays.", "Deteniendo rendimiento: sus aplicaciones, sus compilaciones y la memoria que ocupaba. Sus datos se quedan."},
 
-	"github.titulo":  {"Connect GitHub", "Conecte GitHub"},
-	"github.texto":   {"rendimiento builds what you push to GitHub. GitHub will ask you to create rendimiento's app in your account, and then to choose the repositories it may see.\n\nWhen GitHub is done, it brings you back. To come back before that, choose Back or Back to the start in the Navigate menu, at the top of the window.", "rendimiento compila lo que usted sube a GitHub. GitHub le pedirá crear la aplicación de rendimiento en su cuenta, y después elegir los repositorios que puede ver.\n\nCuando GitHub termine, lo trae de regreso. Para volver antes, elija Atrás o Volver al inicio en el menú Navegar, arriba en la ventana."},
-	"github.boton":   {"Connect GitHub", "Conectar GitHub"},
-	"github.ocupado": {"Opening GitHub…", "Abriendo GitHub…"},
+	"configuracion.titulo":  {"Connect where your code lives", "Conecte dónde vive su código"},
+	"configuracion.texto":   {"rendimiento builds what you push to GitHub, GitLab or Bitbucket. The setup page asks which one, and whoever authorizes it there becomes the administrator of rendimiento on this computer: nobody is named before. GitHub creates rendimiento's app with one click. For GitLab or Bitbucket, first create the OAuth application in your browser (the setup page says how), then paste its ID and secret in this window.\n\nTo come back here before the end, choose Back or Back to the start in the Navigate menu, at the top of the window.", "rendimiento compila lo que usted sube a GitHub, GitLab o Bitbucket. La página de configuración le pregunta cuál, y quien lo autorice ahí queda como administrador de rendimiento en esta computadora: no hay que nombrar a nadie antes. GitHub crea la aplicación de rendimiento con un clic. Para GitLab o Bitbucket, primero cree la aplicación OAuth en su navegador (la página de configuración le dice cómo) y después pegue su identificador y su secreto en esta ventana.\n\nPara volver aquí antes de terminar, elija Atrás o Volver al inicio en el menú Navegar, arriba en la ventana."},
+	"configuracion.boton":   {"Open the setup page", "Abrir la página de configuración"},
+	"configuracion.ocupado": {"Opening the setup page…", "Abriendo la página de configuración…"},
 
 	"listo.titulo": {"rendimiento is ready", "rendimiento está listo"},
 	"listo.texto":  {"It is awake on this computer.", "Está despierto en esta computadora."},
@@ -63,7 +56,6 @@ var textos = map[string]texto{
 	"problema.virtualizacion": {"Windows could not start the virtual machine WSL needs. One of two things fixes it:\n\n1. If WSL was just installed, restart Windows.\n\n2. If it still fails, turn on virtualization in this computer's BIOS/UEFI: it is called SVM Mode on AMD and Intel Virtualization Technology on Intel. When it is on, Task Manager → Performance → CPU says “Virtualization: Enabled”.", "Windows no pudo iniciar la máquina virtual que WSL necesita. Una de dos cosas lo arregla:\n\n1. Si WSL se acaba de instalar, reinicie Windows.\n\n2. Si sigue fallando, active la virtualización en el BIOS/UEFI de esta computadora: se llama SVM Mode en AMD e Intel Virtualization Technology en Intel. Cuando está activa, Administrador de tareas → Rendimiento → CPU dice «Virtualización: Habilitado»."},
 	"problema.descarga":       {"rendimiento could not be downloaded. Check the internet connection and try again.", "No se pudo descargar rendimiento. Revise la conexión a internet e intente de nuevo."},
 	"problema.suma":           {"The download arrived damaged: it does not match what the release published. Try again.", "La descarga llegó dañada: no coincide con lo que la versión publicó. Intente de nuevo."},
-	"problema.usuario":        {"That is not a GitHub user name: letters, numbers and hyphens, without spaces.", "Ese no es un nombre de usuario de GitHub: letras, números y guiones, sin espacios."},
 	"problema.arranque":       {"rendimiento did not answer in time. Try again; the first start is the slowest.", "rendimiento no respondió a tiempo. Intente de nuevo; el primer arranque es el más lento."},
 	"problema.cancelado":      {"You answered no to Windows' question, so nothing changed. Try again when you want.", "Usted respondió que no a la pregunta de Windows, así que nada cambió. Intente de nuevo cuando quiera."},
 	"problema.otro":           {"Something did not work. This is what the system said:", "Algo no funcionó. Esto dijo el sistema:"},

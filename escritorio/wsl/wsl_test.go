@@ -166,7 +166,7 @@ func TestEstado(t *testing.T) {
 		nombre   string
 		guion    func(f *falso)
 		servidor http.Handler
-		marca    bool
+		disco    bool // the distribution's disk is in its folder
 		quiere   Estado
 		falla    bool
 		nunca    string // a command that must not run
@@ -185,26 +185,18 @@ func TestEstado(t *testing.T) {
 		}, quiere: SinDistro, nunca: "-d rendimiento"},
 		{nombre: "the list fails with our disk in place", guion: func(f *falso) {
 			f.cuando("-l -q", u16("Error code: Wsl/Service/E_UNEXPECTED\r\n"), errSalida).cuando("--version", nil, nil)
-		}, marca: true, falla: true},
+		}, disco: true, falla: true},
 		{nombre: "wsl.exe cannot run", guion: func(f *falso) { f.cuando("-l -q", nil, errors.New("access denied")) }, falla: true},
-		{nombre: "imported by hand, no user", guion: func(f *falso) {
-			f.cuando("-l -q", lista, nil).cuando(leerEnv, nil, nil)
-		}, quiere: SinUsuario},
-		{nombre: "imported and configured by hand", guion: func(f *falso) {
-			f.cuando("-l -q", lista, nil).cuando(leerEnv, []byte("ALLOWED_USERS=octocat\n"), nil)
-		}, quiere: Dormida},
-		{nombre: "configured by the app: it is not woken to look", guion: func(f *falso) { f.cuando("-l -q", lista, nil) }, marca: true, quiere: Dormida, nunca: "-d rendimiento"},
+		// Nobody is named before it starts (the setup page makes the first
+		// administrator): imported is ready to wake, by the app or by hand.
+		{nombre: "imported: it is not woken to look", guion: func(f *falso) { f.cuando("-l -q", lista, nil) }, quiere: Dormida, nunca: "-d rendimiento"},
 		{nombre: "answers", guion: func(f *falso) { f.cuando("-l -q", lista, nil) }, servidor: sana(false), quiere: Despierta, nunca: "-d rendimiento"},
-		{nombre: "cannot start to be read", guion: func(f *falso) {
-			f.cuando("-l -q", lista, nil).cuando(leerEnv, u16(sinHyperV), errSalida)
-		}, falla: true},
 	} {
 		t.Run(c.nombre, func(t *testing.T) {
 			f := nuevoFalso(t)
 			c.guion(f)
 			d := distro(t, f, c.servidor)
-			if c.marca {
-				d.marcar("octocat")
+			if c.disco {
 				os.MkdirAll(d.disco(), 0o755)
 				os.WriteFile(filepath.Join(d.disco(), "ext4.vhdx"), nil, 0o644)
 			}
@@ -216,24 +208,6 @@ func TestEstado(t *testing.T) {
 				t.Fatalf("it ran %q: %v", c.nunca, f.llamadas)
 			}
 		})
-	}
-}
-
-// A distribution configured by hand is started once to be read; after
-// that the mark on the Windows side answers.
-func TestEstadoRecuerda(t *testing.T) {
-	f := nuevoFalso(t).cuando("-l -q", u16("rendimiento\r\n"), nil).cuando(leerEnv, []byte("# mine\nALLOWED_USERS=\"octocat\"\n"), nil)
-	d := distro(t, f, nil)
-	for range 3 {
-		if e, err := d.Estado(context.Background()); e != Dormida || err != nil {
-			t.Fatalf("Estado = %q, %v", e, err)
-		}
-	}
-	if n := f.hizo(leerEnv); n != 1 {
-		t.Fatalf("the distribution was started %d times to be read", n)
-	}
-	if b, _ := os.ReadFile(d.marca()); string(b) != "octocat\n" {
-		t.Fatalf("mark: %q", b)
 	}
 }
 
@@ -325,7 +299,6 @@ func TestImportar(t *testing.T) {
 		f := listo(t).cuando("--import", u16("The operation completed successfully.\r\n"), nil)
 		d := distro(t, f, nil)
 		d.Descargas = s.URL
-		d.marcar("an-earlier-one")
 		var hecho, total int64
 		if err := d.Importar(context.Background(), func(h, tt int64) { hecho, total = h, tt }); err != nil {
 			t.Fatal(err)
@@ -338,7 +311,7 @@ func TestImportar(t *testing.T) {
 		if hecho != int64(len(contenido)) || total != hecho {
 			t.Fatalf("avance: %d of %d", hecho, total)
 		}
-		for _, resto := range []string{destino, destino + ".part", d.marca()} {
+		for _, resto := range []string{destino, destino + ".part"} {
 			if _, err := os.Stat(resto); err == nil {
 				t.Errorf("%s was left", resto)
 			}
@@ -460,80 +433,8 @@ func TestImportar(t *testing.T) {
 	})
 }
 
-func TestConfigurar(t *testing.T) {
-	t.Run("only a GitHub login", func(t *testing.T) {
-		for _, malo := range []string{"", "-octocat", "octo cat", "octo_cat", "octocat\nMODE=x", "x; rm -rf /", "$(reboot)", "`id`", "a'b", strings.Repeat("a", 40), "josé"} {
-			f := nuevoFalso(t)
-			if c := clavede(t, distro(t, f, nil).Configurar(context.Background(), malo)); c != Usuario {
-				t.Errorf("%q: Clave = %s", malo, c)
-			}
-			if len(f.llamadas) != 0 {
-				t.Errorf("%q reached wsl.exe: %v", malo, f.llamadas)
-			}
-		}
-	})
-	t.Run("writes on standard input, restarts and remembers", func(t *testing.T) {
-		f := nuevoFalso(t).
-			cuando(leerEnv, []byte("wsl: a warning of its own\n# kept\nLOG_LEVEL=debug\nALLOWED_USERS=someone-else\n"), nil).
-			cuando(escribirEnv, nil, nil).
-			cuando("systemctl restart rendimiento", nil, nil)
-		d := distro(t, f, nil)
-		if err := d.Configurar(context.Background(), " Octo-Cat1 "); err != nil {
-			t.Fatal(err)
-		}
-		want := []string{
-			"wsl.exe -d rendimiento -u root --exec sh -c " + leerEnv,
-			"wsl.exe -d rendimiento -u root --exec sh -c " + escribirEnv,
-			"wsl.exe -d rendimiento -u root --exec systemctl restart rendimiento",
-		}
-		if strings.Join(f.llamadas, "\n") != strings.Join(want, "\n") {
-			t.Fatalf("calls:\n%s", strings.Join(f.llamadas, "\n"))
-		}
-		if strings.Contains(strings.Join(f.llamadas, " "), "Octo-Cat1") {
-			t.Fatal("the login is in a command line")
-		}
-		if got := f.entradas[1]; got != "# kept\nLOG_LEVEL=debug\nALLOWED_USERS=Octo-Cat1\n" {
-			t.Fatalf("env written: %q", got)
-		}
-		if b, _ := os.ReadFile(d.marca()); string(b) != "Octo-Cat1\n" {
-			t.Fatalf("mark: %q", b)
-		}
-	})
-	t.Run("the distribution cannot start", func(t *testing.T) {
-		f := nuevoFalso(t).cuando(leerEnv, u16(sinHyperV), errSalida)
-		d := distro(t, f, nil)
-		if c := clavede(t, d.Configurar(context.Background(), "octocat")); c != Virtualizacion {
-			t.Fatalf("Clave = %s", c)
-		}
-		if _, err := os.Stat(d.marca()); err == nil {
-			t.Fatal("it remembered what it did not write")
-		}
-	})
-	t.Run("systemd refuses", func(t *testing.T) {
-		f := nuevoFalso(t).cuando(leerEnv, nil, nil).cuando(escribirEnv, nil, nil).
-			cuando("systemctl", []byte("System has not been booted with systemd as init system (PID 1). Can't operate.\n"), errSalida)
-		err := distro(t, f, nil).Configurar(context.Background(), "octocat")
-		if c := clavede(t, err); c != Otro || !strings.Contains(err.Error(), "systemd") {
-			t.Fatalf("%v", err)
-		}
-	})
-}
-
-func TestConUsuario(t *testing.T) {
-	for _, c := range []struct{ env, quiere string }{
-		{"", "ALLOWED_USERS=octocat\n"},
-		{"ALLOWED_USERS=a,b\n", "ALLOWED_USERS=octocat\n"},
-		{"A=1\n\nALLOWED_USERS=a\nB=2\nALLOWED_USERS=b", "A=1\nALLOWED_USERS=octocat\nB=2\n"},
-		{"#ALLOWED_USERS=a\nGITHUB_URL=https://github.example.com", "#ALLOWED_USERS=a\nGITHUB_URL=https://github.example.com\nALLOWED_USERS=octocat\n"},
-	} {
-		if got := conUsuario(c.env, "octocat"); got != c.quiere {
-			t.Errorf("conUsuario(%q) = %q, want %q", c.env, got, c.quiere)
-		}
-	}
-}
-
 func TestDespertar(t *testing.T) {
-	conUsuario := []byte("ALLOWED_USERS=octocat\n")
+	const arranca = "-d rendimiento -u root --exec true"
 
 	t.Run("keeps it awake and waits for the answer", func(t *testing.T) {
 		corto(t, &pausa, time.Millisecond)
@@ -546,7 +447,7 @@ func TestDespertar(t *testing.T) {
 				http.Error(w, "starting", http.StatusServiceUnavailable)
 			}
 		})
-		f := nuevoFalso(t).cuando(leerEnv, conUsuario, nil)
+		f := nuevoFalso(t).cuando(arranca, nil, nil)
 		d := distro(t, f, servidor)
 		if err := d.Despertar(context.Background()); err != nil {
 			t.Fatal(err)
@@ -554,12 +455,12 @@ func TestDespertar(t *testing.T) {
 		if f.hizo("iniciar wsl.exe -d rendimiento --exec sleep infinity") != 1 || f.vivos != 1 {
 			t.Fatalf("calls %v, alive %d", f.llamadas, f.vivos)
 		}
-		if _, err := os.Stat(d.marca()); err != nil {
-			t.Fatal("it did not remember the user it read")
+		if f.hizo(arranca) != 1 {
+			t.Fatalf("it did not start the distribution to hear wsl.exe out: %v", f.llamadas)
 		}
 	})
 	t.Run("twice and from two goroutines: one keep-alive is left", func(t *testing.T) {
-		f := nuevoFalso(t).cuando(leerEnv, conUsuario, nil).cuando("--terminate rendimiento", nil, nil)
+		f := nuevoFalso(t).cuando(arranca, nil, nil).cuando("--terminate rendimiento", nil, nil)
 		d := distro(t, f, sana(true))
 		var wg sync.WaitGroup
 		for range 4 {
@@ -593,26 +494,15 @@ func TestDespertar(t *testing.T) {
 	t.Run("no answer in time: what the journal says", func(t *testing.T) {
 		corto(t, &pausa, time.Millisecond)
 		corto(t, &paciencia, 30*time.Millisecond)
-		f := nuevoFalso(t).cuando(leerEnv, conUsuario, nil).
+		f := nuevoFalso(t).cuando(arranca, nil, nil).
 			cuando("journalctl -u rendimiento -n 5 --no-pager", []byte("level=ERROR msg=\"postgres: connection refused\"\n"), nil)
 		err := distro(t, f, nil).Despertar(context.Background())
 		if c := clavede(t, err); c != Arranque || !strings.Contains(err.Error(), "connection refused") {
 			t.Fatalf("%v", err)
 		}
 	})
-	t.Run("nobody may sign in: it does not wait, and Estado asks again", func(t *testing.T) {
-		f := nuevoFalso(t).cuando(leerEnv, nil, nil)
-		d := distro(t, f, nil)
-		d.marcar("octocat")
-		if c := clavede(t, d.Despertar(context.Background())); c != Arranque {
-			t.Fatalf("Clave = %s", c)
-		}
-		if _, err := os.Stat(d.marca()); err == nil || f.vivos != 0 {
-			t.Fatalf("mark kept, or alive: %d", f.vivos)
-		}
-	})
 	t.Run("WSL2 cannot start its machine", func(t *testing.T) {
-		f := nuevoFalso(t).cuando(leerEnv, u16(sinHyperV), errSalida)
+		f := nuevoFalso(t).cuando(arranca, u16(sinHyperV), errSalida)
 		if c := clavede(t, distro(t, f, nil).Despertar(context.Background())); c != Virtualizacion || f.vivos != 0 {
 			t.Fatalf("Clave = %s, alive %d", c, f.vivos)
 		}
@@ -621,7 +511,7 @@ func TestDespertar(t *testing.T) {
 		corto(t, &pausa, time.Millisecond)
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
 		defer cancel()
-		f := nuevoFalso(t).cuando(leerEnv, conUsuario, nil)
+		f := nuevoFalso(t).cuando(arranca, nil, nil)
 		if err := distro(t, f, nil).Despertar(ctx); !errors.Is(err, context.DeadlineExceeded) {
 			t.Fatalf("err = %v", err)
 		}

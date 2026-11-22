@@ -284,7 +284,8 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	// The answers to the comments its people wrote to the team (decision 145).
 	go srv.Senales.RecogerRespuestas(ctx, st)
 
-	// GitHub cannot send webhooks to this computer: ask it for new commits.
+	// No forja can send webhooks to this computer: ask them for new commits
+	// (GitHub's, GitLab's and Bitbucket's apps alike).
 	every, err := time.ParseDuration(env("POLL_INTERVAL", "1m"))
 	if err != nil || every < 15*time.Second {
 		return fmt.Errorf("POLL_INTERVAL must be a duration of at least 15s, got %q", os.Getenv("POLL_INTERVAL"))
@@ -293,7 +294,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	// as often as commits are asked for.
 	p.PreviewEvery = every
 	if gh.Local(baseURL) {
-		go (&platform.Vigia{P: p, Every: every, Branches: holder.Branches}).Run(ctx)
+		go (&platform.Vigia{P: p, Every: every, Branches: p.Repos().Branches}).Run(ctx)
 	}
 
 	errc := make(chan error, 2)

@@ -230,11 +230,19 @@ Lo que el clúster todavía necesita:
 curl -fsSL https://rendimiento.ai/instalar | sh
 ```
 
-Usa el motor que tiene la computadora (containerd, o Docker cuando su usuario puede usarlo), o instala containerd para su usuario, sin root (pregunta antes, y usa `sudo` una sola vez: `/usr/local`, `uidmap`, y un perfil de AppArmor para `rootlesskit` en Ubuntu reciente). Con cualquiera de los dos motores enciende el *linger* de su usuario, para que rendimiento siga corriendo aunque usted no haya entrado (un servidor al que se llega por SSH) y arranque con la computadora; cuando no puede, lo dice y cómo hacerlo después. Descarga el programa de la última versión (publicado para amd64 y arm64 con sus `SHA256SUMS`, que revisa) a `~/.local/bin`, pregunta su usuario de GitHub y lo deja como servicio de su usuario (`systemctl --user status rendimiento`) que arranca con la computadora. `RENDIMIENTO_GITHUB`, `RENDIMIENTO_VERSION` y `RENDIMIENTO_SI=1` contestan sus preguntas por adelantado. A mano, es:
+Usa el motor que tiene la computadora (containerd, o Docker cuando su usuario puede usarlo), o instala containerd para su usuario, sin root (pregunta antes, y usa `sudo` una sola vez: `/usr/local`, `uidmap`, y un perfil de AppArmor para `rootlesskit` en Ubuntu reciente). Con cualquiera de los dos motores enciende el *linger* de su usuario, para que rendimiento siga corriendo aunque usted no haya entrado (un servidor al que se llega por SSH) y arranque con la computadora; cuando no puede, lo dice y cómo hacerlo después. Descarga el programa de la última versión (publicado para amd64 y arm64 con sus `SHA256SUMS`, que revisa) a `~/.local/bin`, y lo deja como servicio de su usuario (`systemctl --user status rendimiento`) que arranca con la computadora. No pregunta quién administra: termina abriendo la [página de configuración](#installing) con la ficha de configuración en su dirección (también la imprime cuando la terminal es suya), donde usted elige dónde vive su código y, al autorizarlo, regresa como primer administrador. Con una terminal pregunta antes dónde vive su código, solo para abrir la página en esa opción: GitHub, GitLab (su dirección, `https://gitlab.com` por omisión), Bitbucket o «Lo elijo en la página de configuración». `--forja github|gitlab|bitbucket` y `--gitlab <dirección>` (o `RENDIMIENTO_FORJA` y `RENDIMIENTO_GITLAB`) la contestan por adelantado:
 
 ```bash
-MODE=local ALLOWED_USERS=su-usuario-de-github ./rendimiento
+curl -fsSL https://rendimiento.ai/instalar | sh -s -- --forja gitlab --gitlab https://git.example.com
 ```
+
+Los guiones todavía pueden nombrar por adelantado a los primeros administradores con `RENDIMIENTO_ADMINS` (o con su nombre anterior, `RENDIMIENTO_GITHUB`), con los nombres de [Miembros](../guide/members.md#adding-someone): `ana` en GitHub, `ana@gitlab.com` o `ana@git.example.com`, `ana@bitbucket.org`, separados por comas. Van al `ALLOWED_USERS` del servicio, que solo cuenta mientras no haya miembros. `RENDIMIENTO_VERSION` y `RENDIMIENTO_SI=1` (sí a todas las preguntas, y ninguna pregunta sobre la forja) completan la lista. A mano, es:
+
+```bash
+MODE=local ./rendimiento
+```
+
+y luego `http://localhost:8080`, con la ficha de configuración de `~/.config/rendimiento/ficha-configuracion`.
 
 Para quitarlo de la computadora:
 
@@ -248,7 +256,9 @@ La primera vez crea, en `DATA_DIR` (por omisión `~/.config/rendimiento`, que so
 
 Sus ajustes son variables de entorno, y el servicio lee las suyas de `DATA_DIR/env` (`~/.config/rendimiento/env`), un `NOMBRE=valor` por línea: el instalador hace ese archivo la primera vez y nunca lo vuelve a escribir, mientras que la unidad del servicio la escribe de nuevo cada vez que corre. Después de un cambio, `systemctl --user restart rendimiento`. La página **Entorno** (para los administradores de la plataforma) muestra el archivo y ese comando; [Ajustes](../reference/config.md#on-one-computer) tiene todas las variables.
 
-GitHub no puede mandar avisos web a `localhost`, así que la aplicación de GitHub que crea la página de configuración no tiene ninguno: cada `POLL_INTERVAL` (1 minuto) rendimiento le pregunta a GitHub por las ramas de cada aplicación y corre la rama cuya punta cambió, como lo haría un push.
+Ninguna forja puede mandar avisos web a `localhost`, así que la aplicación de GitHub que crea la página de configuración no tiene ninguno, y una aplicación de GitLab o de Bitbucket tampoco (gitlab.com se niega a agregarlo): cada `POLL_INTERVAL` (1 minuto) rendimiento le pregunta a la forja de cada aplicación por sus ramas y corre la rama cuya punta cambió, como lo haría un push.
+
+GitLab y Bitbucket funcionan en una computadora igual que en un clúster: la página de configuración muestra el URI de redirección que se copia en la aplicación OAuth (`http://localhost:8080/api/forjas/gitlab/callback`, o `/api/forjas/bitbucket/callback` para el consumidor OAuth del espacio de trabajo), y ahí se acepta una dirección `http://localhost` sin https, porque es su navegador el que la sigue: nada en internet tiene que llegar a la computadora. El instalador imprime la de la forja elegida.
 
 Las versiones corren en la computadora con el **destino local**: cada servicio de una versión es un contenedor en la red propia de la aplicación, publicado en `127.0.0.1` y al que se llega por el proxy de rendimiento en **`http://<app>.localhost:8000`** (el primer servicio de la aplicación) o `http://<servicio>.<app>.localhost:8000` (`PROXY_LISTEN` lo cambia). Una versión nueva arranca junto a la que corre; cuando responde (su ruta `health`, o su puerto), el proxy pasa a ella y se quitan los contenedores viejos; una que nunca responde se quita y deja la que corría, como lo informa luego la verificación de la versión. Su puerto debe responder de verdad: una conexión que el puerto publicado acepta y cierra al instante (sin nada que escuche detrás) no cuenta. La falla dice por qué: dónde escucha el servicio dentro de su contenedor cuando no es su `port` (o solo en `127.0.0.1`), cuando busca Redis o Postgres en `localhost` (dentro de un contenedor, ese es el propio contenedor: use `REDIS_URL` o `DATABASE_URL`), y sus últimas líneas. Una aplicación que necesita Postgres o Redis recibe un contenedor de cada uno, con una contraseña creada una vez y sellada; sus secretos (Ajustes → Secretos) también se sellan. Los contenedores arrancan de nuevo con la computadora. Un servicio llega a otro servicio de su aplicación **por su nombre**, como en el clúster: cada contenedor responde en la red de la aplicación al nombre de su servicio (su *hostname* con containerd, un alias de red con Docker), así que `http://api:8000` o un `proxy_pass http://wellness-api` de nginx funcionan sin cambios, y una necesidad inyecta esa dirección (`API_URL`). Postgres y Redis responden a `postgres` y `redis`. Después de un despliegue con más de un servicio, los contenedores nuevos arrancan otra vez una sola vez, para que ninguno se quede con una dirección de la versión vieja. Los servicios de otra aplicación no se alcanzan ahí. Todavía falta: los certificados del dominio propio de una aplicación y el túnel que la pone en internet; luego una aplicación nativa para cada sistema (la de Windows es [una versión previa](#on-windows)).
 
@@ -263,20 +273,20 @@ La primera vez, un asistente hace lo que falta, paso por paso:
 
 1. **WSL2.** Si Windows no lo tiene activo, el asistente lo activa: Windows pide el permiso de un administrador y luego reiniciar. Después abra la aplicación otra vez.
 2. **La distribución.** Descarga el `rendimiento-wsl-amd64.tar.gz` de la última versión (unos 174 MB), lo revisa contra las `SHA256SUMS` de esa versión y lo importa como la distribución de WSL `rendimiento`. No toca las otras distribuciones que tenga.
-3. **Quién entra primero.** Pregunta su usuario de GitHub (`ALLOWED_USERS`).
-4. **Arranque.** Arranca rendimiento, mantiene despierta la distribución (WSL detiene la que no tiene nada conectado) y abre la página de configuración, que crea la aplicación de GitHub, con la ficha de configuración ya en la mano.
+3. **Arranque.** Justo después de importarla arranca rendimiento y mantiene despierta la distribución (WSL detiene la que no tiene nada conectado). No hay que nombrar a nadie antes: no se escribe ningún usuario.
+4. **Configuración.** **Abrir la página de configuración** lleva la ventana a la [página de configuración](#installing) de rendimiento con la ficha de configuración ya en la mano, donde usted elige dónde vive su código (GitHub, GitLab o Bitbucket) y, al autorizarlo, regresa como primer administrador. GitHub crea la aplicación de rendimiento con un clic. Para GitLab o Bitbucket, cree la aplicación OAuth en su navegador (la ventana no tiene barra de direcciones; la página de configuración muestra el URI de redirección, uno `http://localhost:8080` sin https, que las dos aceptan) y pegue su identificador y su secreto en la ventana.
 
 Cuando un paso no puede seguir, el asistente dice por qué y qué hacer: la virtualización apagada en el BIOS/UEFI de la computadora (`HCS_E_HYPERV_NOT_INSTALLED`, `ERROR_NOT_SUPPORTED`), una descarga que no coincide con su suma de verificación, o un reloj mal puesto, que hace que GitHub rechace la firma de rendimiento. El primero y el último se explican [abajo](#on-windows-by-hand).
 
 Desde entonces la aplicación es una ventana propia que muestra rendimiento (`http://localhost:8080`) y un icono junto al reloj. Sus aplicaciones responden en `http://<app>.localhost:8000`, como en Linux. Al cerrar la ventana el icono se queda ahí, con este menú:
 
 - **Abrir**: la ventana otra vez.
-- **Volver al inicio**: saca la ventana del sitio donde se haya quedado (el inicio de sesión de GitHub, por ejemplo) y la regresa al asistente, o a rendimiento cuando ya todo está listo.
+- **Volver al inicio**: saca la ventana del sitio donde se haya quedado (el inicio de sesión de una forja, por ejemplo) y la regresa al asistente, o a rendimiento cuando ya todo está listo.
 - **Abrir en el navegador**: rendimiento en su navegador.
 - **Dormir**: detiene la distribución, y con ella sus aplicaciones, las construcciones y la memoria que ocupaba. Los datos se quedan. **Despertar** la arranca de nuevo.
 - **Salir**: cierra la aplicación; sin nada que la mantenga despierta, WSL detiene la distribución poco después.
 
-La ventana tiene su propio menú, **Navegar**, para las páginas que no son de rendimiento (las de GitHub, y aquellas a las que GitHub lo manda para iniciar sesión): **Atrás** va a la página anterior, como en un navegador, y **Volver al inicio** hace lo mismo que en el menú del icono.
+La ventana tiene su propio menú, **Navegar**, para las páginas que no son de rendimiento (las de la forja, y aquellas a las que esta lo manda para iniciar sesión): **Atrás** va a la página anterior, como en un navegador, y **Volver al inicio** hace lo mismo que en el menú del icono.
 
 Dónde queda cada cosa:
 
@@ -299,10 +309,9 @@ Los mismos pasos, para quien prefiera darlos. La distribución es el `rendimient
 wsl --install --no-distribution   # solo si WSL aún no está activo; puede pedir reiniciar
 curl.exe -LO https://github.com/rendimiento-ai/rendimiento/releases/latest/download/rendimiento-wsl-amd64.tar.gz
 wsl --import rendimiento $env:LOCALAPPDATA\rendimiento rendimiento-wsl-amd64.tar.gz
-wsl -d rendimiento -- sh -c "echo ALLOWED_USERS=su-usuario-de-github > /etc/rendimiento/env && systemctl restart rendimiento"
 ```
 
-Luego abra `http://localhost:8080`; la ficha de configuración está en `/root/.config/rendimiento` (`wsl -d rendimiento -- ls /root/.config/rendimiento`). Sus aplicaciones responden en `http://<app>.localhost:8000`, como en Linux. No toca las otras distribuciones que tenga. WSL detiene una distribución cuando ningún `wsl.exe` está conectado a ella, así que deje abierta una ventana con `wsl -d rendimiento` mientras la usa (la aplicación lo hace por usted). `wsl --unregister rendimiento` la quita con todos sus datos.
+No hay que nombrar a nadie antes. Arránquela (`wsl -d rendimiento`, y deje esa ventana abierta) y, cuando `http://localhost:8080` responda, lea la ficha de configuración con `wsl -d rendimiento -- cat /root/.config/rendimiento/ficha-configuracion`. Abra `http://localhost:8080`, péguela y elija dónde vive su código: quien lo autorice ahí queda como primer administrador. Para nombrar administradores por adelantado (`ana`, `ana@gitlab.com`, `ana@bitbucket.org`), escriba `ALLOWED_USERS=...` en `/etc/rendimiento/env` y luego `wsl -d rendimiento -- systemctl restart rendimiento`. Sus aplicaciones responden en `http://<app>.localhost:8000`, como en Linux. No toca las otras distribuciones que tenga. WSL detiene una distribución cuando ningún `wsl.exe` está conectado a ella, así que deje abierta una ventana con `wsl -d rendimiento` mientras la usa (la aplicación lo hace por usted). `wsl --unregister rendimiento` la quita con todos sus datos.
 
 Si `wsl --import` falla con `HCS_E_HYPERV_NOT_INSTALLED` o `ERROR_NOT_SUPPORTED`, WSL2 todavía no puede arrancar su máquina virtual: reinicie Windows después de `wsl --install --no-distribution` (sus componentes solo funcionan después de reiniciar) y revise que la virtualización esté encendida (Administrador de tareas → Rendimiento → CPU dice «Virtualización: Habilitado»; si no, encienda SVM Mode en AMD o Intel Virtualization Technology en Intel, en el BIOS/UEFI de la computadora).
 

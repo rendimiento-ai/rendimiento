@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -24,21 +23,14 @@ func (d *Distro) Despertar(ctx context.Context) error {
 	if err := d.velar(ctx); err != nil {
 		return err
 	}
-	// Reading who may sign in starts the distribution, so wsl.exe says at
-	// once why it cannot; and without ALLOWED_USERS rendimiento would
-	// never answer, however long the wait.
-	env, err := d.dentro(ctx, nil, "sh", "-c", leerEnv)
-	if err != nil {
+	// A command inside starts the distribution, so wsl.exe says at once
+	// why it cannot (virtualization off, a restart pending) instead of
+	// the wait running out. Nobody has to be named first: whoever opens
+	// the setup page with its token becomes the first administrator.
+	if _, err := d.dentro(ctx, nil, "true"); err != nil {
 		d.Soltar()
 		return err
 	}
-	usuario := usuarioDe(env)
-	if usuario == "" {
-		d.Soltar()
-		_ = os.Remove(d.marca())
-		return &Problema{Clave: Arranque, Detalle: "nobody may sign in yet: /etc/rendimiento/env has no ALLOWED_USERS"}
-	}
-	d.marcar(usuario)
 
 	limite := time.NewTimer(paciencia)
 	defer limite.Stop()
@@ -123,8 +115,9 @@ func (d *Distro) Soltar() {
 	}
 }
 
-// Configurado says whether rendimiento already has its GitHub App (GET
-// /api/setup/status): until then the app opens the setup page.
+// Configurado says whether rendimiento is installed (GET
+// /api/setup/status): a forja connected and its first administrator. Until
+// then the app opens the setup page.
 func (d *Distro) Configurado(ctx context.Context) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, esperaHTTP)
 	defer cancel()

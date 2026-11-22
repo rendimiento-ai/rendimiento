@@ -61,8 +61,8 @@ func main() {
 	mensajes.PressOKToInstall = T(idioma, "webview.instalar")
 	mensajes.FailedToInstall = T(idioma, "webview.fallo")
 
-	// The window is lent to other sites (GitHub, and whoever GitHub sends
-	// the person to for signing in), and a web page in a window has no
+	// The window is lent to other sites (the forja the setup page connects,
+	// and whoever it sends the person to for signing in), and a web page in a window has no
 	// Back button: the window's menu has it. Windows makes every entry of
 	// the bar a menu, so the two live inside one.
 	navegar := menu.NewMenu()

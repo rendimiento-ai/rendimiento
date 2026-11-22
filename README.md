@@ -16,8 +16,7 @@ curl -fsSL https://rendimiento.ai/instalar | sh
 # On a Kubernetes cluster:
 helm install rendimiento oci://ghcr.io/rendimiento-ai/charts/rendimiento \
   -n rendimiento-system --create-namespace \
-  --set baseURL=https://rendimiento.example.com --set firstAdmins=your-github-login \
-  --set registry.host=registry.example.com
+  --set baseURL=https://rendimiento.example.com --set registry.host=registry.example.com
 ```
 
 The [quickstart](https://learn.rendimiento.ai/start/quickstart/) goes from that first command to an example app with an address in under ten minutes ([en español](https://aprende.rendimiento.ai/start/quickstart/)).

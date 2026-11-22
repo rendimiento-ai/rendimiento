@@ -230,11 +230,19 @@ What the cluster still needs:
 curl -fsSL https://rendimiento.ai/instalar | sh
 ```
 
-It uses the engine the computer has (containerd, or Docker when your user can use it), or installs containerd for your user, without root (it asks before, and uses `sudo` once: `/usr/local`, `uidmap`, and an AppArmor profile for `rootlesskit` on recent Ubuntu). With either engine it turns on lingering for your user, so rendimiento keeps running while you are signed out (a server reached over SSH) and starts with the computer; when it cannot, it says so and how to do it later. It downloads the program of the latest release (published for amd64 and arm64 with its `SHA256SUMS`, which it checks) to `~/.local/bin`, asks for your GitHub login, and leaves it as a service of your user (`systemctl --user status rendimiento`) that starts with the computer. `RENDIMIENTO_GITHUB`, `RENDIMIENTO_VERSION` and `RENDIMIENTO_SI=1` answer its questions ahead. By hand, it is:
+It uses the engine the computer has (containerd, or Docker when your user can use it), or installs containerd for your user, without root (it asks before, and uses `sudo` once: `/usr/local`, `uidmap`, and an AppArmor profile for `rootlesskit` on recent Ubuntu). With either engine it turns on lingering for your user, so rendimiento keeps running while you are signed out (a server reached over SSH) and starts with the computer; when it cannot, it says so and how to do it later. It downloads the program of the latest release (published for amd64 and arm64 with its `SHA256SUMS`, which it checks) to `~/.local/bin`, and leaves it as a service of your user (`systemctl --user status rendimiento`) that starts with the computer. It does not ask who administers: it ends by opening the [setup page](#installing) with the setup token in its address (printed too when the terminal is yours), where you pick where your code lives and, by authorizing it, come back as the first administrator. With a terminal it asks first where your code lives, only to open the page on it: GitHub, GitLab (its address, `https://gitlab.com` by default), Bitbucket, or "I will choose on the setup page". `--forja github|gitlab|bitbucket` and `--gitlab <address>` (or `RENDIMIENTO_FORJA` and `RENDIMIENTO_GITLAB`) answer it ahead:
 
 ```bash
-MODE=local ALLOWED_USERS=your-github-login ./rendimiento
+curl -fsSL https://rendimiento.ai/instalar | sh -s -- --forja gitlab --gitlab https://git.example.com
 ```
+
+Scripts can still name the first administrators ahead with `RENDIMIENTO_ADMINS` (or by its old name, `RENDIMIENTO_GITHUB`), in the names of [Members](../guide/members.md#adding-someone): `ana` on GitHub, `ana@gitlab.com` or `ana@git.example.com`, `ana@bitbucket.org`, comma-separated. They go in the service's `ALLOWED_USERS`, which only counts while there are no members. `RENDIMIENTO_VERSION` and `RENDIMIENTO_SI=1` (yes to every question, and no question about the forja) complete the list. By hand, it is:
+
+```bash
+MODE=local ./rendimiento
+```
+
+and then `http://localhost:8080`, with the setup token from `~/.config/rendimiento/ficha-configuracion`.
 
 To take it off the computer again:
 
@@ -248,7 +256,9 @@ On its first start it makes, in `DATA_DIR` (by default `~/.config/rendimiento`, 
 
 Its settings are environment variables, and the service reads yours from `DATA_DIR/env` (`~/.config/rendimiento/env`), one `NAME=value` per line: the installer makes that file the first time and never writes it again, while it writes the service's unit anew on every run. After a change, `systemctl --user restart rendimiento`. The **Environment** page (for the platform's administrators) shows the file and that command; [Settings](../reference/config.md#on-one-computer) lists every variable.
 
-GitHub cannot send webhooks to `localhost`, so the GitHub App made by the setup page has none: every `POLL_INTERVAL` (1 minute) rendimiento asks GitHub for each app's branches and runs a branch whose head moved, as a push would.
+No forja can send webhooks to `localhost`, so the GitHub App made by the setup page has none, and a GitLab or Bitbucket app gets none either (gitlab.com refuses to add one): every `POLL_INTERVAL` (1 minute) rendimiento asks each app's forja for its branches and runs a branch whose head moved, as a push would.
+
+GitLab and Bitbucket work on one computer as they do on a cluster: the setup page shows the redirect URI to copy into the OAuth application (`http://localhost:8080/api/forjas/gitlab/callback`, or `/api/forjas/bitbucket/callback` for the workspace's OAuth consumer), and a plain `http://localhost` address is accepted there, because it is your browser that follows it: nothing on the internet has to reach the computer. The installer prints the one for the forja chosen.
 
 Releases run on the computer, through the **local destination**: each service of a release is a container on the app's own network, published on `127.0.0.1` and reached through rendimiento's proxy at **`http://<app>.localhost:8000`** (the app's first service) or `http://<service>.<app>.localhost:8000` (`PROXY_LISTEN` moves it). A new release starts beside the running one; once it answers (its `health` path, or its port), the proxy goes to it and the old containers are removed, and one that never answers is removed and leaves the running one in place, as release verification then reports. Its port must really answer: a connection that the published port accepts and closes at once (nothing listening behind it) does not count. The failure says why: where the service listens inside its container when that is not its `port` (or only on `127.0.0.1`), when it looks for Redis or Postgres on `localhost` (inside a container that is the container itself: use `REDIS_URL` or `DATABASE_URL`), and its last lines. An app that needs Postgres or Redis gets a container of each, with a password made once and sealed; its secrets (Settings → Secrets) are sealed too. The containers restart with the computer. A service reaches another service of its app **by its name**, as in the cluster: each container answers on the app's network to its service's name (its hostname under containerd, a network alias under Docker), so `http://api:8000` or an nginx `proxy_pass http://wellness-api` work unchanged, and a need injects that address (`API_URL`). Postgres and Redis answer to `postgres` and `redis`. After a rollout with more than one service, the new containers start again once, so none keeps an address of the old release. Another app's services are not reachable there. Not there yet: certificates for an app's own domain, and the tunnel that puts it on the internet; then a native app for each system (the one for Windows is [a preview](#on-windows)).
 
@@ -263,20 +273,20 @@ The first time, an assistant does what is missing, one step at a time:
 
 1. **WSL2.** If Windows does not have it on, the assistant turns it on: Windows asks for an administrator's permission, and then to restart. Open the app again after that.
 2. **The distribution.** It downloads the latest release's `rendimiento-wsl-amd64.tar.gz` (about 174 MB), checks it against that release's `SHA256SUMS`, and imports it as the WSL distribution `rendimiento`. It does not touch other distributions you have.
-3. **Who signs in first.** It asks for your GitHub login (`ALLOWED_USERS`).
-4. **Start.** It starts rendimiento, keeps the distribution awake (WSL stops one that nothing is attached to), and opens the setup page, which makes the GitHub App, with the setup token already in hand.
+3. **Start.** Right after the import it starts rendimiento and keeps the distribution awake (WSL stops one that nothing is attached to). Nobody is named before: there is no login to type.
+4. **Setup.** **Open the setup page** takes the window to rendimiento's [setup page](#installing) with the setup token already in hand, where you pick where your code lives (GitHub, GitLab or Bitbucket) and, by authorizing it, come back as the first administrator. GitHub makes rendimiento's app with one click. For GitLab or Bitbucket, create the OAuth application in your browser (the window has no address bar; the setup page shows the redirect URI, a plain `http://localhost:8080` one, which both accept) and paste its ID and secret in the window.
 
 When a step cannot go on, the assistant says why and what to do: virtualization that is off in the computer's BIOS/UEFI (`HCS_E_HYPERV_NOT_INSTALLED`, `ERROR_NOT_SUPPORTED`), a download that does not match its checksum, or a clock that is off, which makes GitHub refuse rendimiento's signature. The first and the last are explained [below](#on-windows-by-hand).
 
 From then on the app is a window of its own showing rendimiento (`http://localhost:8080`), and an icon next to the clock. Your apps answer on `http://<app>.localhost:8000`, as on Linux. Closing the window leaves the icon there, with this menu:
 
 - **Open**: the window again.
-- **Back to the start**: takes the window off whatever site it was left on (GitHub's sign-in, say) and back to the assistant, or to rendimiento when everything is ready.
+- **Back to the start**: takes the window off whatever site it was left on (a forja's sign-in, say) and back to the assistant, or to rendimiento when everything is ready.
 - **Open in the browser**: rendimiento in your browser.
 - **Sleep**: stops the distribution, and with it your apps, the builds and the memory it held. The data stays. **Wake up** starts it again.
 - **Quit**: closes the app; with nothing keeping it awake, WSL stops the distribution soon after.
 
-The window has a menu of its own, **Navigate**, for the pages that are not rendimiento's (GitHub's, and those GitHub sends you to for signing in): **Back** goes to the page before, as in a browser, and **Back to the start** does the same as in the icon's menu.
+The window has a menu of its own, **Navigate**, for the pages that are not rendimiento's (the forja's, and those it sends you to for signing in): **Back** goes to the page before, as in a browser, and **Back to the start** does the same as in the icon's menu.
 
 Where things live:
 
@@ -299,10 +309,9 @@ The same steps, for those who prefer to run them. The distribution is the `rendi
 wsl --install --no-distribution   # only if WSL is not on yet; it may ask to restart
 curl.exe -LO https://github.com/rendimiento-ai/rendimiento/releases/latest/download/rendimiento-wsl-amd64.tar.gz
 wsl --import rendimiento $env:LOCALAPPDATA\rendimiento rendimiento-wsl-amd64.tar.gz
-wsl -d rendimiento -- sh -c "echo ALLOWED_USERS=your-github-login > /etc/rendimiento/env && systemctl restart rendimiento"
 ```
 
-Then open `http://localhost:8080`; the setup token is in `/root/.config/rendimiento` (`wsl -d rendimiento -- ls /root/.config/rendimiento`). Your apps answer on `http://<app>.localhost:8000`, as on Linux. It does not touch other distributions you have. WSL stops a distribution when no `wsl.exe` is attached to it, so keep a `wsl -d rendimiento` window open while you use it (the app does that for you). `wsl --unregister rendimiento` removes it with all its data.
+Nothing has to be named first. Start it (`wsl -d rendimiento`, and keep that window open) and, once `http://localhost:8080` answers, read the setup token with `wsl -d rendimiento -- cat /root/.config/rendimiento/ficha-configuracion`. Open `http://localhost:8080`, paste it, and pick where your code lives: whoever authorizes it there becomes the first administrator. To name administrators ahead instead (`ana`, `ana@gitlab.com`, `ana@bitbucket.org`), write `ALLOWED_USERS=...` in `/etc/rendimiento/env` and `wsl -d rendimiento -- systemctl restart rendimiento`. Your apps answer on `http://<app>.localhost:8000`, as on Linux. It does not touch other distributions you have. WSL stops a distribution when no `wsl.exe` is attached to it, so keep a `wsl -d rendimiento` window open while you use it (the app does that for you). `wsl --unregister rendimiento` removes it with all its data.
 
 If `wsl --import` fails with `HCS_E_HYPERV_NOT_INSTALLED` or `ERROR_NOT_SUPPORTED`, WSL2 cannot start its virtual machine yet: restart Windows after `wsl --install --no-distribution` (its components only work after a restart), and check that virtualization is on (Task Manager → Performance → CPU says "Virtualization: Enabled"; if not, turn on SVM Mode on AMD or Intel Virtualization Technology on Intel in the computer's BIOS/UEFI).
 

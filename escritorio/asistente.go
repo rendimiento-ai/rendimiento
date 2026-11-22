@@ -20,7 +20,6 @@ type distro interface {
 	Estado(ctx context.Context) (wsl.Estado, error)
 	InstalarWSL(ctx context.Context) error
 	Importar(ctx context.Context, avance func(hecho, total int64)) error
-	Configurar(ctx context.Context, usuario string) error
 	Despertar(ctx context.Context) error
 	Dormir(ctx context.Context) error
 	Soltar()
@@ -85,11 +84,12 @@ func (a *Asistente) Vista() Vista {
 // Instalar turns WSL on.
 func (a *Asistente) Instalar() { a.hacer("instalar", a.d.InstalarWSL) }
 
-// Importar downloads and imports the distribution.
+// Importar downloads and imports the distribution, and wakes it: nothing
+// is asked in between (who administers is chosen on the setup page).
 func (a *Asistente) Importar() {
 	a.hacer("importar", func(ctx context.Context) error {
 		var ultimo time.Time
-		return a.d.Importar(ctx, func(hecho, total int64) {
+		err := a.d.Importar(ctx, func(hecho, total int64) {
 			// A download reports every few kilobytes; the page needs a
 			// few times a second, and the end.
 			if hecho < total && time.Since(ultimo) < a.cada {
@@ -98,16 +98,10 @@ func (a *Asistente) Importar() {
 			ultimo = time.Now()
 			a.cambiar(func(s *situacion) { s.hecho, s.total = hecho, total })
 		})
-	})
-}
-
-// Configurar writes who signs in and wakes rendimiento up.
-func (a *Asistente) Configurar(usuario string) {
-	a.hacer("configurar", func(ctx context.Context) error {
-		if err := a.d.Configurar(ctx, usuario); err != nil {
+		if err != nil {
 			return err
 		}
-		a.cambiar(func(s *situacion) { s.tarea = "despertar" })
+		a.cambiar(func(s *situacion) { s.tarea, s.hecho, s.total = "despertar", 0, 0 })
 		return a.despertar(ctx)
 	})
 }
@@ -125,15 +119,17 @@ func (a *Asistente) despertar(ctx context.Context) error {
 	return err
 }
 
-// Conectar takes the window to rendimiento's page that creates its GitHub
-// App. The setup token goes in the address and nowhere else.
+// Conectar takes the window to rendimiento's setup page, with the setup
+// token in hand: there the person picks where their code lives (GitHub,
+// GitLab or Bitbucket) and, by authorizing it, comes back as the first
+// administrator. The token goes in the address and nowhere else.
 func (a *Asistente) Conectar() {
 	a.hacer("conectar", func(ctx context.Context) error {
 		ficha, err := a.d.Ficha(ctx)
 		if err != nil {
 			return err
 		}
-		a.salirA(a.direccion + "/api/setup/github?token=" + url.QueryEscape(ficha))
+		a.salirA(a.direccion + "/?token=" + url.QueryEscape(ficha))
 		return nil
 	})
 }
@@ -171,9 +167,9 @@ func (a *Asistente) empezar(v ventana) {
 	go a.vigilar(30 * time.Second)
 }
 
-// abrir shows the window. When it was left on GitHub's pages and GitHub
-// is already connected, it goes to rendimiento's: GitHub does not send
-// the person back after choosing repositories.
+// abrir shows the window. When it was left on a forja's pages and
+// rendimiento is already installed, it goes to rendimiento's: GitHub does
+// not send the person back after choosing repositories.
 func (a *Asistente) abrir() {
 	a.mu.Lock()
 	v, s, fuera := a.v, a.s, a.fuera
@@ -198,7 +194,7 @@ func (a *Asistente) abrir() {
 
 // inicio is "Back to the start", in the icon's menu and in the window's:
 // it shows the window and takes
-// it off whatever site it was left on (GitHub's sign-in, another
+// it off whatever site it was left on (a forja's sign-in, another
 // account's). The assistant's page loads again, and sends the window on to
 // rendimiento's own pages when nothing is left to ask.
 func (a *Asistente) inicio() {
@@ -215,7 +211,7 @@ func (a *Asistente) inicio() {
 }
 
 // atras is the window's "Back": the page before this one, as in a
-// browser. A site the window was lent to (GitHub, and whoever GitHub sends
+// browser. A site the window was lent to (the forja, and whoever it sends
 // the person to for signing in) has no button for it.
 func (a *Asistente) atras() {
 	if v := a.laVentana(); v != nil {
@@ -343,7 +339,7 @@ func (a *Asistente) medir() {
 }
 
 // vigilar notices what happens without the app: rendimiento stopped from
-// outside, or GitHub connected in the window while the assistant waits.
+// outside, or the setup finished in the window while the assistant waits.
 func (a *Asistente) vigilar(cada time.Duration) {
 	reloj := time.NewTicker(cada)
 	defer reloj.Stop()
@@ -411,7 +407,7 @@ func (a *Asistente) cambiar(f func(*situacion)) {
 	case entra:
 		v.Ir(a.direccion)
 	case fuera && s.afuera():
-		// The person is in rendimiento's pages, or GitHub's: leave them.
+		// The person is in rendimiento's pages, or the forja's: leave them.
 	case fuera:
 		// Stays "fuera" until the page asks for its Vista.
 		v.Volver()

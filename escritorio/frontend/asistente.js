@@ -27,8 +27,6 @@
     poner("detalle", v.detalle);
     el("problema").hidden = !v.problema;
     poner("reloj", v.reloj);
-    poner("rotulo", v.campo);
-    el("campo").hidden = !v.campo;
     poner("boton", v.boton);
     poner("revisar", v.revisar);
     poner("version", v.version);
@@ -37,22 +35,19 @@
     el("avance").hidden = !v.ocupado;
     if (v.avance >= 0) el("avance").value = v.avance;
     else el("avance").removeAttribute("value");
-    if (v.campo && document.activeElement !== el("valor")) el("valor").focus();
   }
 
-  function llamar(metodo, valor) {
+  function llamar(metodo) {
     var a = window.go && window.go.main && window.go.main.Asistente;
     if (!a || !a[metodo]) return;
-    var hecho = valor === undefined ? a[metodo]() : a[metodo](valor);
+    var hecho = a[metodo]();
     if (hecho && hecho.catch) hecho.catch(function () {});
     return hecho;
   }
 
   el("forma").addEventListener("submit", function (e) {
     e.preventDefault();
-    if (!accion) return;
-    if (el("campo").hidden) llamar(accion);
-    else if (el("valor").value.trim()) llamar(accion, el("valor").value.trim());
+    if (accion) llamar(accion);
   });
   el("revisar").addEventListener("click", function () { llamar("Revisar"); });
 

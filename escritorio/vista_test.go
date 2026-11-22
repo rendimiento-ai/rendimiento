@@ -16,29 +16,26 @@ func TestVer(t *testing.T) {
 		actual string // the step that is marked, in English
 		titulo string
 		accion string
-		campo  bool
 		avance int
 		dice   string // somewhere in the text or the problem
 	}{
-		{"first look", situacion{tarea: "mirar"}, "", "Looking at this computer…", "", false, -1, ""},
-		{"look failed", situacion{problema: &wsl.Problema{Clave: wsl.Otro, Detalle: "wsl.exe did not answer"}}, "", "This computer could not be checked", "", false, -1, "Something did not work"},
-		{"no wsl", situacion{estado: wsl.SinWSL}, "WSL", "Turn on WSL", "Instalar", false, -1, "WSL 2"},
-		{"installing", situacion{estado: wsl.SinWSL, tarea: "instalar"}, "WSL", "Turn on WSL", "", false, -1, "answer Yes"},
-		{"restart", situacion{estado: wsl.SinWSL, problema: &wsl.Problema{Clave: wsl.Reinicio}}, "WSL", "Restart Windows", "", false, -1, "open rendimiento again"},
-		{"said no", situacion{estado: wsl.SinWSL, problema: &wsl.Problema{Clave: wsl.Cancelado}}, "WSL", "Turn on WSL", "Instalar", false, -1, "answered no"},
-		{"virtualization", situacion{estado: wsl.SinDistro, problema: &wsl.Problema{Clave: wsl.Virtualizacion, Detalle: "HCS_E_HYPERV_NOT_INSTALLED"}}, "Download", "Download rendimiento", "Importar", false, -1, "SVM Mode"},
-		{"no distro", situacion{estado: wsl.SinDistro}, "Download", "Download rendimiento", "Importar", false, -1, "174 MB"},
-		{"download starts", situacion{estado: wsl.SinDistro, tarea: "importar"}, "Download", "Download rendimiento", "", false, -1, "Starting the download"},
-		{"downloading", situacion{estado: wsl.SinDistro, tarea: "importar", hecho: 87 * mb, total: 174 * mb}, "Download", "Download rendimiento", "", false, 50, "87 of 174 MB"},
-		{"importing", situacion{estado: wsl.SinDistro, tarea: "importar", hecho: 174 * mb, total: 174 * mb}, "Download", "Download rendimiento", "", false, -1, "importing"},
-		{"who signs in", situacion{estado: wsl.SinUsuario}, "Who signs in", "Who signs in", "Configurar", true, -1, "GitHub user name"},
-		{"not a login", situacion{estado: wsl.SinUsuario, problema: &wsl.Problema{Clave: wsl.Usuario}}, "Who signs in", "Who signs in", "Configurar", true, -1, "not a GitHub user name"},
-		{"waking after the login", situacion{estado: wsl.SinUsuario, tarea: "despertar"}, "Start", "Start rendimiento", "", false, -1, "first time takes a few minutes"},
-		{"asleep", situacion{estado: wsl.Dormida}, "Start", "Start rendimiento", "Despertar", false, -1, "asleep"},
-		{"going to sleep", situacion{estado: wsl.Despierta, configurado: true, tarea: "dormir"}, "Start", "Going to sleep…", "", false, -1, "data stays"},
-		{"connect", situacion{estado: wsl.Despierta}, "GitHub", "Connect GitHub", "Conectar", false, -1, "top of the window"},
-		{"ready", situacion{estado: wsl.Despierta, configurado: true}, "", "rendimiento is ready", "Entrar", false, -1, ""},
-		{"unknown problem", situacion{estado: wsl.Dormida, problema: &wsl.Problema{Clave: "nueva", Detalle: "x"}}, "Start", "Start rendimiento", "Despertar", false, -1, "Something did not work"},
+		{"first look", situacion{tarea: "mirar"}, "", "Looking at this computer…", "", -1, ""},
+		{"look failed", situacion{problema: &wsl.Problema{Clave: wsl.Otro, Detalle: "wsl.exe did not answer"}}, "", "This computer could not be checked", "", -1, "Something did not work"},
+		{"no wsl", situacion{estado: wsl.SinWSL}, "WSL", "Turn on WSL", "Instalar", -1, "WSL 2"},
+		{"installing", situacion{estado: wsl.SinWSL, tarea: "instalar"}, "WSL", "Turn on WSL", "", -1, "answer Yes"},
+		{"restart", situacion{estado: wsl.SinWSL, problema: &wsl.Problema{Clave: wsl.Reinicio}}, "WSL", "Restart Windows", "", -1, "open rendimiento again"},
+		{"said no", situacion{estado: wsl.SinWSL, problema: &wsl.Problema{Clave: wsl.Cancelado}}, "WSL", "Turn on WSL", "Instalar", -1, "answered no"},
+		{"virtualization", situacion{estado: wsl.SinDistro, problema: &wsl.Problema{Clave: wsl.Virtualizacion, Detalle: "HCS_E_HYPERV_NOT_INSTALLED"}}, "Download", "Download rendimiento", "Importar", -1, "SVM Mode"},
+		{"no distro", situacion{estado: wsl.SinDistro}, "Download", "Download rendimiento", "Importar", -1, "174 MB"},
+		{"download starts", situacion{estado: wsl.SinDistro, tarea: "importar"}, "Download", "Download rendimiento", "", -1, "Starting the download"},
+		{"downloading", situacion{estado: wsl.SinDistro, tarea: "importar", hecho: 87 * mb, total: 174 * mb}, "Download", "Download rendimiento", "", 50, "87 of 174 MB"},
+		{"importing", situacion{estado: wsl.SinDistro, tarea: "importar", hecho: 174 * mb, total: 174 * mb}, "Download", "Download rendimiento", "", -1, "importing"},
+		{"waking after the download", situacion{estado: wsl.SinDistro, tarea: "despertar"}, "Start", "Start rendimiento", "", -1, "first time takes a few minutes"},
+		{"asleep", situacion{estado: wsl.Dormida}, "Start", "Start rendimiento", "Despertar", -1, "asleep"},
+		{"going to sleep", situacion{estado: wsl.Despierta, configurado: true, tarea: "dormir"}, "Start", "Going to sleep…", "", -1, "data stays"},
+		{"setup", situacion{estado: wsl.Despierta}, "Setup", "Connect where your code lives", "Conectar", -1, "GitHub, GitLab or Bitbucket"},
+		{"ready", situacion{estado: wsl.Despierta, configurado: true}, "", "rendimiento is ready", "Entrar", -1, ""},
+		{"unknown problem", situacion{estado: wsl.Dormida, problema: &wsl.Problema{Clave: "nueva", Detalle: "x"}}, "Start", "Start rendimiento", "Despertar", -1, "Something did not work"},
 	} {
 		v := ver(c.s, "en", "v1")
 		actual := ""
@@ -47,10 +44,10 @@ func TestVer(t *testing.T) {
 				actual = p.Nombre
 			}
 		}
-		if actual != c.actual || v.Titulo != c.titulo || v.Accion != c.accion || (v.Campo != "") != c.campo || v.Avance != c.avance {
-			t.Errorf("%s: step %q, title %q, action %q, field %q, progress %d", c.nombre, actual, v.Titulo, v.Accion, v.Campo, v.Avance)
+		if actual != c.actual || v.Titulo != c.titulo || v.Accion != c.accion || v.Avance != c.avance {
+			t.Errorf("%s: step %q, title %q, action %q, progress %d", c.nombre, actual, v.Titulo, v.Accion, v.Avance)
 		}
-		if !strings.Contains(v.Texto+v.Problema+v.Campo, c.dice) {
+		if !strings.Contains(v.Texto+v.Problema, c.dice) {
 			t.Errorf("%s: says %q %q, without %q", c.nombre, v.Texto, v.Problema, c.dice)
 		}
 		if (v.Boton == "") != (v.Accion == "") || v.Ocupado != (c.s.tarea != "") || (v.Revisar == "") != v.Ocupado {
@@ -61,9 +58,9 @@ func TestVer(t *testing.T) {
 
 // No situation, in either language, asks for a text the catalog lacks.
 func TestVerSinHuecos(t *testing.T) {
-	estados := []wsl.Estado{"", wsl.SinWSL, wsl.SinDistro, wsl.SinUsuario, wsl.Dormida, wsl.Despierta}
-	tareas := []string{"", "mirar", "instalar", "importar", "configurar", "despertar", "dormir", "conectar"}
-	claves := []string{"", wsl.Reinicio, wsl.Virtualizacion, wsl.Descarga, wsl.Suma, wsl.Usuario, wsl.Arranque, wsl.Cancelado, wsl.Otro}
+	estados := []wsl.Estado{"", wsl.SinWSL, wsl.SinDistro, wsl.Dormida, wsl.Despierta}
+	tareas := []string{"", "mirar", "instalar", "importar", "despertar", "dormir", "conectar"}
+	claves := []string{"", wsl.Reinicio, wsl.Virtualizacion, wsl.Descarga, wsl.Suma, wsl.Arranque, wsl.Cancelado, wsl.Otro}
 	for _, idioma := range []string{"en", "es"} {
 		for _, e := range estados {
 			for _, tarea := range tareas {
@@ -75,7 +72,7 @@ func TestVerSinHuecos(t *testing.T) {
 						}
 						v := ver(s, idioma, "v1")
 						m := menuDe(s, idioma)
-						todo := []string{v.Titulo, v.Texto, v.Boton, v.Campo, v.Problema, v.Reloj, v.Revisar, m.Estado, m.Alternar}
+						todo := []string{v.Titulo, v.Texto, v.Boton, v.Problema, v.Reloj, v.Revisar, m.Estado, m.Alternar}
 						for _, p := range v.Pasos {
 							todo = append(todo, p.Nombre)
 						}
