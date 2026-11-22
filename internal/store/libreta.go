@@ -78,9 +78,7 @@ func (s *Store) EncargosOfApp(ctx context.Context, orgID int64, app string) ([]A
 	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (AppEncargo, error) {
 		var a AppEncargo
 		e := &a.Encargo
-		err := r.Scan(&e.ID, &e.Title, &e.Body, &e.App, &e.RunID, &e.Status, &e.CreatedBy, &e.ByAgent, &e.KeyID, &e.KeyName,
-			&e.CargoID, &e.WaitingRun, &e.Result, &e.Links, &e.Comment, &e.CreatedAt, &e.UpdatedAt, &e.OrgID,
-			&e.Difficulty, &e.EstimateMicros, &e.EstimateReason, &e.Route, &e.DoNow, &e.SpentMicros, &e.RunBranch, &a.CancelNote)
+		err := r.Scan(encargoFields(e, &a.CancelNote)...)
 		return a, err
 	})
 }

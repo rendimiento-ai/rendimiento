@@ -87,11 +87,17 @@ const encargoCols = `e.id, e.title, e.body, e.app, e.run_id, e.status, e.created
 
 const encargoFrom = ` FROM encargos e LEFT JOIN agent_keys k ON k.id = e.key_id`
 
+// encargoFields are where encargoCols are scanned to, in their order; a
+// query that selects more after them appends its own.
+func encargoFields(e *Encargo, more ...any) []any {
+	return append([]any{&e.ID, &e.Title, &e.Body, &e.App, &e.RunID, &e.Status, &e.CreatedBy, &e.ByAgent, &e.KeyID, &e.KeyName,
+		&e.CargoID, &e.WaitingRun, &e.Result, &e.Links, &e.Comment, &e.CreatedAt, &e.UpdatedAt, &e.OrgID,
+		&e.Difficulty, &e.EstimateMicros, &e.EstimateReason, &e.Route, &e.DoNow, &e.SpentMicros, &e.QueuePos, &e.Doing, &e.StopAsked, &e.RouteChosen, &e.RunBranch}, more...)
+}
+
 func scanEncargo(row pgx.Row) (Encargo, error) {
 	var e Encargo
-	err := row.Scan(&e.ID, &e.Title, &e.Body, &e.App, &e.RunID, &e.Status, &e.CreatedBy, &e.ByAgent, &e.KeyID, &e.KeyName,
-		&e.CargoID, &e.WaitingRun, &e.Result, &e.Links, &e.Comment, &e.CreatedAt, &e.UpdatedAt, &e.OrgID,
-		&e.Difficulty, &e.EstimateMicros, &e.EstimateReason, &e.Route, &e.DoNow, &e.SpentMicros, &e.QueuePos, &e.Doing, &e.StopAsked, &e.RouteChosen, &e.RunBranch)
+	err := row.Scan(encargoFields(&e)...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return e, ErrNotFound
 	}

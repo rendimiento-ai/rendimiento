@@ -20,7 +20,7 @@ test("without a connection the page opens with what was kept, and switches order
   await expect(page.locator("main h1").first()).toBeVisible();
   await expect(page.locator(".conexion-aviso")).toHaveCount(0);
   const ruta = page.waitForResponse((r) => new URL(r.url()).pathname === "/api/ruta" && r.status() === 200);
-  await page.goto("/ruta");
+  await page.goto("/ruta?tab=ruta");
   await ruta;
   await expect(page.getByRole("button", { name: es ? "Entrada nueva" : "New entry" })).toBeVisible();
 
@@ -34,7 +34,7 @@ test("without a connection the page opens with what was kept, and switches order
   await expect(page.locator('main [data-falla="unreachable"]'), "kept data, not 'does not answer'").toHaveCount(0);
 
   // An order is switched off and says why; what is being written is kept as a draft.
-  await page.goto("/ruta");
+  await page.goto("/ruta?tab=ruta");
   await expect(aviso).toBeVisible();
   await page.getByRole("button", { name: es ? "Entrada nueva" : "New entry" }).click();
   const titulo = `sin conexión ${info.project.name} ${Date.now()}`;
