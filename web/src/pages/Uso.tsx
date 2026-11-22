@@ -29,6 +29,7 @@ function accion(a: string): string {
     dismiss_problem: t("Dismiss a problem"), ask_agent: t("Ask the agent why it failed"), select_step: t("Open a step"),
     switch_theme: t("Switch day and night"), switch_language: t("Switch the language"), rollback: t("Roll back"),
     customize_home: t("Open Customize home"), save_home: t("Save the home page"),
+    talk_entry: t("Talk an entry over"), make_encargos: t("Make encargos from a conversation"),
   };
   return n[a as Accion] ?? a;
 }

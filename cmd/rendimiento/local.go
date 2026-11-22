@@ -252,6 +252,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	rutaSrv.AlEntregar = p.PullsForDelivery // a delivered branch gets its pull request
 	rutaSrv.Comentarios = st
 	rutaSrv.Produccion = produccionMCP{Store: st, p: p}
+	rutaSrv.Platicas = st // «Mi agente»: conversations about entries a person's own agent answers
 	srv.MCP = rutaSrv.Handler()
 	notifier := &notify.Notifier{To: splitList(os.Getenv("NOTIFY_EMAIL_TO")), Log: log.With("component", "notify"), Lang: i18n.Parse(env("NOTIFY_LANG", "en"))}
 	if key := os.Getenv("RESEND_API_KEY"); key != "" {

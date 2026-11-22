@@ -15,6 +15,7 @@ import { apagado, PorQueApagado } from "../components/conexion-aviso";
 import { BorradorGuardado, borradorDe, guardarBorrador, soltarBorrador } from "../components/borrador";
 import { TextoConFormato } from "../components/texto";
 import { EsqCuaderno, EsqRenglones } from "../components/esqueleto";
+import { Platica, usePlatica } from "../components/platica";
 
 /**
  * The Ruta's views (?tab=): the front page «Para usted» (the default), the encargos, the coding agent's
@@ -155,7 +156,7 @@ const kindColor: Record<RutaKind, string> = {
  * The Ruta tab, as a notebook's index: the entries by kind, each a line with its date at the end of a dotted leader
  * (to-dos with a box to tick), and a search; an entry opens as its own page.
  */
-function Entries({ kind }: { kind?: RutaKind }) {
+function Entries({ kind, me = "" }: { kind?: RutaKind; me?: string }) {
   // ?entrada=N opens that entry (an app's libreta links to its requests so); ?nueva=1 starts one.
   const [params] = useSearchParams();
   const [q, setQ] = useState(() => params.get("q") ?? "");
@@ -164,7 +165,7 @@ function Entries({ kind }: { kind?: RutaKind }) {
   const { data, error, reload } = usePoll(() => api.ruta({ q, kind }), [q, kind], 30000);
   const list = (data ?? []).filter((e) => e.kind !== "vivido");
   const shown = list.find((e) => e.id === open);
-  if (shown) return <Pagina e={shown} onBack={() => setOpen(undefined)} onChange={reload} />;
+  if (shown) return <Pagina e={shown} me={me} onBack={() => setOpen(undefined)} onChange={reload} />;
   const toggleDone = (e: RutaEntry) => api.updateRuta(e.id, { ...e, done: !e.done }).then(reload, (x) => alert(x.message));
   return (
     <div className="hoja-vista">
@@ -206,31 +207,58 @@ function Entries({ kind }: { kind?: RutaKind }) {
   );
 }
 
-/** One entry as a page of the notebook: its text, who wrote it and when, to edit or archive. */
-function Pagina({ e, onBack, onChange }: { e: RutaEntry; onBack: () => void; onChange: () => void }) {
+/**
+ * One entry as a page of the notebook, in two tabs: «La entrada» (its text, who wrote it and when, to edit or
+ * archive) and «Platicarla · N», the conversation about it (components/platica). ?platica=1 opens the second.
+ * Lo vivido is never talked over with an AI.
+ */
+function Pagina({ e, me, onBack, onChange }: { e: RutaEntry; me: string; onBack: () => void; onChange: () => void }) {
   const [editing, setEditing] = useState(false);
+  const [params] = useSearchParams();
+  const platicable = e.kind !== "vivido";
+  const [tab, setTab] = useState<"entrada" | "platica">(() => (platicable && params.get("platica") === "1" ? "platica" : "entrada"));
+  const { data: platica, error: platicaError, reload: reloadPlatica, setData: setPlatica } = usePlatica(e.id, tab === "platica");
+  const n = platica?.mensajes.filter((m) => m.tipo !== "aviso").length ?? 0;
+  const tabs = [{ id: "entrada" as const, label: t("The entry") }, { id: "platica" as const, label: t("Talk it over · {n}", { n }) }];
   return (
     <div className="hoja-vista">
       <div className="hoja-cabeza">
         <div className="row">
           <button onClick={onBack}>{t("← Index")}</button>
           <span className="indice-grupo" style={{ color: kindColor[e.kind] }}>{t(kindLabel[e.kind])}</span>
+          {e.app && <span className="ruta-tag">{e.app}</span>}
         </div>
       </div>
       {editing ? <EntryForm initial={e} kind={e.kind} onDone={() => { setEditing(false); onChange(); }} onCancel={() => setEditing(false)} /> : (
         <>
           <h2 className="mano pagina-titulo">{e.title}</h2>
-          {e.body && <TextoConFormato text={e.body} className="renglon-texto ruta-body" />}
-          <div className="renglon-texto"><Tags tags={e.tags} /> <Author e={e} /></div>
-          {e.app && (
-            <p className="renglon-texto small">
-              {t("About {app}:", { app: e.app })} <Link to={`/apps/${e.app}/libreta`}>{t("see it in its libreta")}</Link>
-              {e.discarded && <> · {t("set aside: {why}", { why: e.discarded })}</>}
-            </p>
+          {platicable && (
+            <div className="pl-pestanas" role="tablist" aria-label={t("Views of the entry")}>
+              {tabs.map((x) => (
+                <button key={x.id} type="button" role="tab" id={`pl-tab-${x.id}-${e.id}`} aria-selected={tab === x.id} aria-controls={`pl-panel-${e.id}`}
+                  className={tab === x.id ? "on" : undefined} onClick={() => setTab(x.id)}>{x.label}</button>
+              ))}
+            </div>
           )}
-          <div className="row">
-            <button onClick={() => setEditing(true)}>{t("Edit")}</button>
-            <button onClick={() => confirm(t("Archive “{title}”? It disappears from the list but is kept.", { title: e.title })) && api.archiveRuta(e.id).then(() => { onChange(); onBack(); }, (x) => alert(x.message))}>{t("Archive")}</button>
+          <div id={`pl-panel-${e.id}`} role={platicable ? "tabpanel" : undefined} aria-labelledby={platicable ? `pl-tab-${tab}-${e.id}` : undefined}>
+            {tab === "platica" ? (
+              <Platica e={e} me={me} v={platica} error={platicaError} reload={reloadPlatica} setV={setPlatica} />
+            ) : (
+              <>
+                {e.body && <TextoConFormato text={e.body} className="renglon-texto ruta-body" />}
+                <div className="renglon-texto"><Tags tags={e.tags} /> <Author e={e} /></div>
+                {e.app && (
+                  <p className="renglon-texto small">
+                    {t("About {app}:", { app: e.app })} <Link to={`/apps/${e.app}/libreta`}>{t("see it in its libreta")}</Link>
+                    {e.discarded && <> · {t("set aside: {why}", { why: e.discarded })}</>}
+                  </p>
+                )}
+                <div className="row">
+                  <button onClick={() => setEditing(true)}>{t("Edit")}</button>
+                  <button onClick={() => confirm(t("Archive “{title}”? It disappears from the list but is kept.", { title: e.title })) && api.archiveRuta(e.id).then(() => { onChange(); onBack(); }, (x) => alert(x.message))}>{t("Archive")}</button>
+                </div>
+              </>
+            )}
           </div>
         </>
       )}
@@ -585,7 +613,7 @@ export function Ruta({ me = "" }: { me?: string }) {
               <div className="hoja">
                 <div className="anillos" aria-hidden="true">{Array.from({ length: 8 }, (_, i) => <span key={i} />)}</div>
                 <div className="vuelta">
-                  {(vista === "ruta" || kindOf[vista]) && <Entries key={vista} kind={kindOf[vista]} />}
+                  {(vista === "ruta" || kindOf[vista]) && <Entries key={vista} kind={kindOf[vista]} me={me} />}
                   {vista === "vivido" && <Vivido />}
                   {vista === "cargos" && <Cargos />}
                   {vista === "llaves" && <Keys />}

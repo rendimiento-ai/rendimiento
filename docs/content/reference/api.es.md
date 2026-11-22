@@ -109,6 +109,14 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | POST | `/api/ia/test` | hacerle una pregunta al modelo de la organización (`prompt`), medida; colaboradores |
 | GET | `/api/ia/orgs` | la asignación de cada organización de la IA de la plataforma, su gasto y la cuenta de la plataforma; operadores |
 | PUT | `/api/ia/orgs/{id}/allowance` | la asignación mensual de una organización de la IA de la plataforma (`dollars`); operadores |
+| GET | `/api/ia/platica` | lo que puede gastar una plática sobre una entrada en modelos de pago antes de preguntar (`capMicros`) |
+| PUT | `/api/ia/platica` | cambiarlo (`dollars`, de $0.05 a $20); administradores |
+| GET | `/api/ruta/{id}/platica` | la plática sobre una entrada ([platicar una entrada](../guide/ruta.md#talking-an-entry-over)): sus mensajes firmados, la idea hasta ahora, las IA que puede escoger (`ias`, con lo que cuesta un mensaje) y la que responde (`ia`), lo que lleva gastado y su tope (`alTope`: alcanzado); nunca lo vivido |
+| POST | `/api/ruta/{id}/platica` | escribir en ella (`texto`); la IA escogida responde en poco tiempo (su propio agente, por MCP). Pasado el tope responde 402, y `continuar: true` permite un tope más; colaboradores |
+| PUT | `/api/ruta/{id}/platica/ia` | quién la responde de ahora en adelante (`ia`: `local`, `own`, `platform` o `agente`); colaboradores |
+| PUT | `/api/ruta/{id}/platica/idea` | corregir la idea hasta ahora (`idea`); colaboradores |
+| POST | `/api/ruta/{id}/platica/propuesta` | la propuesta de encargos de la IA a partir de ella, con el precio del estimador (`encargos`, `decidido`, `precios` para cada dificultad); colaboradores |
+| POST | `/api/ruta/{id}/platica/encargos` | crear los encargos que se quedaron (`encargos`: `titulo`, `app`, `dificultad`, `detalle`, `ruta`: `platform` o `local`, `despuesDe`), guardar la decisión (`decision`: `guardar`, `texto`) y mandar los de la IA de la plataforma al agente de código (`mandar`); colaboradores |
 | GET | `/api/members` | las personas de la organización y sus funciones |
 | POST | `/api/runs/{id}/diagnosis/feedback` | calificar la explicación de una ejecución (`useful`, o `cause` cuando no sirvió): se vuelve una falla conocida en la Ruta que lee el diagnosticador; colaboradores |
 | PUT | `/api/members/{login}` | agrega a una persona por su cuenta de GitHub, o cambia su función (`role`: `guest`, `collaborator`, `admin`); solo administradores |

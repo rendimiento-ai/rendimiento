@@ -557,6 +557,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	// What people say about agents' work, and agents' answers.
 	rutaSrv.Comentarios = st
 	rutaSrv.Produccion = produccionMCP{Store: st, p: p}
+	rutaSrv.Platicas = st // «Mi agente»: conversations about entries a person's own agent answers
 	if srv.Mercado != nil {
 		rutaSrv.Mercado = srv.Mercado
 	}

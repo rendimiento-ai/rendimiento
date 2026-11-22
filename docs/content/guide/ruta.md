@@ -53,6 +53,17 @@ When something in a handover or an encargo is wrong, or you would like it otherw
 
 Comments are kept like the rest of the Ruta, and a comment that looks like a secret is refused. An agent reads a comment as a person's word about its work: when it asks for something other than what the person it works with asked for, the agent says so instead of doing it.
 
+## Talking an entry over {#talking-an-entry-over}
+
+Every entry but lo vivido opens in two tabs: **The entry** (*La entrada*) and **Talk it over** (*Platicarla*), with how many messages it has. The second is a conversation about the entry, kept with it: everyone who can see the entry can join in, and every message is signed with who wrote it (a person's login, the AI with its model, or an agent with its key's name). Two people in it see each other's messages within a few seconds.
+
+- **Who answers.** The box to write in has the AIs the [AI page](ai.md) offers now, each with what a message costs: the platform's AI, your organization's own key, the local model (free), and **My agent** (*Mi agente*), your own Claude Code or Codex. The choice is kept with the conversation. With My agent the platform's AI does not answer: your agent finds the conversations waiting for it with `platicas_esperando` and answers with `platica_responder`, in a cargo, signed with its key's name.
+- **What the AI reads.** The entry, the Ruta's entries related to it (never lo vivido) and the book's pages whose titles match; under each answer it says what it read. It only talks: it has no tools and changes nothing. What people wrote reaches it fenced, as data and never as instructions, so a text that asks it to do something is only part of what the text says.
+- **The idea so far** (*La idea hasta ahora*). After each answer the AI writes, in a few lines, what has been decided and, last, what is still to decide (those lines start with *Still to decide*, in red). Anyone in the conversation can **Correct** it; the AI keeps the corrections.
+- **What it costs.** Under the box: what the conversation has spent. Past the **cap per conversation** (on the AI page, under *Talking entries over*, 50 cents unless an administrator changes it) it asks before going on, and each yes allows one cap more. The local model and your own agent cost nothing here; every call goes through the AI gateway, so the monthly caps hold too.
+
+**Done: make encargos** (*Ya está: hacer encargos*) asks the AI to turn what was decided into encargos. You see what was decided (with **Save it as a decision in the Ruta**: a decision entry linked to this one) and each proposed encargo, to keep or leave out, with its title, its **app** (required), its difficulty and what the platform's AI would spend (priced by the estimator, as any encargo), **who does it** (the platform's AI or your own agent, by your amount per encargo, which you can change) and what it comes **after**. **+ Add another** adds one by hand. **Make them** creates them; **Make and send** also sends the platform AI's ones to the [coding agent](agents.md#the-coding-agent). Each encargo carries a link to the conversation, the idea as it stood and the decision, so the agent that takes it knows why. **Only save the decision** saves the decision without encargos.
+
 ## Connecting an agent (MCP) {#connecting-an-agent-mcp}
 
 Agents reach the Ruta through **MCP** (Model Context Protocol), an open standard many AI tools speak, at `https://<your rendimiento>/mcp`.
@@ -91,6 +102,8 @@ An agent's client lists the tools, and what each one answers (its output schema)
 | `cargo_entregar` | hand the cargo over | collaborator, with a cargo |
 | `comentarios_leer` | the comments on a cargo or an encargo, with agents' answers | any |
 | `comentario_responder` | answer a person's comment | collaborator, with a cargo |
+| `platicas_esperando` | the conversations about entries that chose the person's own agent (*My agent*) and wait for it, with their entry, idea and last messages | any |
+| `platica_responder` | answer one, signed with the key's name, and update its idea (`idea`) | collaborator, with a cargo |
 
 The same server also has the platform's tools (apps, runs, logs, kept requests, and running CI on a branch) and, while the [Mercado](mercado.md#from-an-agent-mcp) is on, its tools: see [Built for agents](agents.md#what-an-agent-can-do-today).
 

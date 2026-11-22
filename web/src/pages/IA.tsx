@@ -7,6 +7,7 @@ import { apagado } from "../components/conexion-aviso";
 import { VigiaIA } from "../components/vigia";
 import { EsqBloques, EsqTabla } from "../components/esqueleto";
 import { Boleta } from "../components/boleta";
+import { TopePlatica } from "../components/platica";
 
 const providerLabel: Record<AIProvider, string> = { local: "local model", own: "own key", platform: "the platform's" };
 const providerName: Record<AIProvider, string> = { local: "The local model", own: "Your own key", platform: "The platform's" };
@@ -38,6 +39,7 @@ export function IA() {
       {/* Without a local model nothing may answer: the place to connect one comes first. */}
       {data && session.operator && !data.localModel && <ModeloLocal onSaved={reload} />}
       {data && <Settings v={data} onSaved={reload} />}
+      {data && <TopePlatica />}
       {session.operator && <VigiaIA />}
       <Try onDone={reload} />
       {!data && !error && <div style={{ marginTop: 24 }}><EsqTabla filas={6} columnas={6} /></div>}
