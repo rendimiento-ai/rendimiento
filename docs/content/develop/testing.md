@@ -55,6 +55,8 @@ make itest                                       # real builds on the BuildKit p
 
 `-p 1` runs packages one after another: the store, platform and API tests share one database. On every push they do not: `CI_PARTE` splits the script into three steps, each with its own database (below).
 
+The store's tests migrate a database once (`<db>_plantilla`) and give each test a copy of it (`CREATE DATABASE … TEMPLATE`), so a new migration costs one more statement, not one more per test; and `hack/ci-test.sh` connects with `synchronous_commit=off`, since a throwaway database need not wait for its disk at each commit. Dropping the schema and migrating again for every test had made the store's tests six to eight minutes long on a busy node.
+
 ## On every push {#on-every-push}
 
 rendimiento's own repository is an app on rendimiento: its `rendimiento.yaml` lists the book (a service) and the platform's image (`builds: platform`). So every push and pull request also runs the same `hack/ci-test.sh`, as the `platform:test` step, with a throwaway Postgres (`postgres: true`) and a kept cache (`cache: true`); then `platform:build` builds the image, whose Dockerfile runs `npm run typecheck`. The result is the check on the commit in GitHub. In CI the script also fails when the generated files (deepcopy, CRDs) were not committed (`CHECK_GENERATED=1`). A pull request **from a fork** is never run by rendimiento (its code would run with the installation's token); `.github/workflows/forks.yml` runs `hack/ci-test.sh`, the book and the browser tests for it on GitHub's machines, with no secret. `make test-remote` is still the way to test **uncommitted** changes. See [How rendimiento builds itself](../environment/deploy.md#rendimiento-builds-itself).

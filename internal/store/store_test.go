@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 )
@@ -19,6 +21,12 @@ import (
 //
 //	docker run -d --rm -e POSTGRES_PASSWORD=test -e POSTGRES_DB=rendimiento -p 127.0.0.1:55432:5432 postgres:17-alpine
 //	TEST_DATABASE_URL=postgres://postgres:test@127.0.0.1:55432/rendimiento go test ./internal/store
+//
+// Each test gets a database of its own, a copy of one migrated once for
+// the whole package (CREATE DATABASE … TEMPLATE). Dropping the schema and
+// running every migration again for each test (49 tests × 64 migrations)
+// made this package six to eight minutes long in CI (runs 1697, 1706 and
+// 1737), the longest part of platform:test.
 func open(t *testing.T) *Store {
 	t.Helper()
 	dsn := os.Getenv("TEST_DATABASE_URL")
@@ -26,22 +34,108 @@ func open(t *testing.T) *Store {
 		t.Skip("TEST_DATABASE_URL not set")
 	}
 	ctx := context.Background()
-	s, err := Open(ctx, dsn)
+	admin, base, err := migratedTemplate(ctx, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(s.Close)
-	if _, err := s.pool.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`); err != nil {
+	copias++
+	name := fmt.Sprintf("%s_prueba_%d", base, copias)
+	if _, err := admin.Exec(ctx, `DROP DATABASE IF EXISTS `+quoteIdent(name)+` WITH (FORCE)`); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Migrate(ctx); err != nil {
+	if _, err := admin.Exec(ctx, `CREATE DATABASE `+quoteIdent(name)+` TEMPLATE `+quoteIdent(base+"_plantilla")); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Migrate(ctx); err != nil {
-		t.Fatalf("migrate must be idempotent: %v", err)
+	t.Cleanup(func() {
+		_, _ = admin.Exec(context.Background(), `DROP DATABASE IF EXISTS `+quoteIdent(name)+` WITH (FORCE)`)
+	})
+	s, err := openDatabase(ctx, dsn, name)
+	if err != nil {
+		t.Fatal(err)
 	}
+	t.Cleanup(s.Close) // before the drop above: cleanups run last first
 	return s
 }
+
+// copias numbers the tests' databases (this package's tests run one at a
+// time).
+var copias int
+
+// plantilla is the package's migrated database, made by the first test.
+var plantilla struct {
+	once  sync.Once
+	admin *pgxpool.Pool
+	base  string
+	err   error
+}
+
+// migratedTemplate makes <db>_plantilla (the test database's name with a
+// suffix) with every migration applied, twice since migrating must be
+// idempotent, and returns a pool on the test database to copy it from.
+func migratedTemplate(ctx context.Context, dsn string) (*pgxpool.Pool, string, error) {
+	plantilla.once.Do(func() {
+		plantilla.admin, plantilla.base, plantilla.err = makeTemplate(ctx, dsn)
+	})
+	return plantilla.admin, plantilla.base, plantilla.err
+}
+
+func makeTemplate(ctx context.Context, dsn string) (*pgxpool.Pool, string, error) {
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, "", err
+	}
+	base := cfg.ConnConfig.Database
+	admin, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		return nil, "", err
+	}
+	name := quoteIdent(base + "_plantilla")
+	if _, err := admin.Exec(ctx, `DROP DATABASE IF EXISTS `+name+` WITH (FORCE)`); err != nil {
+		admin.Close()
+		return nil, "", err
+	}
+	if _, err := admin.Exec(ctx, `CREATE DATABASE `+name); err != nil {
+		admin.Close()
+		return nil, "", err
+	}
+	s, err := openDatabase(ctx, dsn, base+"_plantilla")
+	if err != nil {
+		admin.Close()
+		return nil, "", err
+	}
+	// A template cannot be copied while anyone is connected to it.
+	defer s.Close()
+	if err := s.Migrate(ctx); err != nil {
+		admin.Close()
+		return nil, "", err
+	}
+	if err := s.Migrate(ctx); err != nil {
+		admin.Close()
+		return nil, "", fmt.Errorf("migrate must be idempotent: %w", err)
+	}
+	return admin, base, nil
+}
+
+// openDatabase is a store on another database of the same server.
+func openDatabase(ctx context.Context, dsn, name string) (*Store, error) {
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ConnConfig.Database = name
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, err
+	}
+	return &Store{pool: pool}, nil
+}
+
+// quoteIdent quotes a database name for SQL.
+func quoteIdent(s string) string { return `"` + strings.ReplaceAll(s, `"`, `""`) + `"` }
 
 func TestAppsRunsReleases(t *testing.T) {
 	s := open(t)

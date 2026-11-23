@@ -24,6 +24,15 @@ SETUP_ENVTEST=${SETUP_ENVTEST:-v0.25.1}
 ENVTEST_K8S=${ENVTEST_K8S:-1.37.0}
 TOOLS=${TOOLS:-/cache/bin}
 export TEST_DATABASE_URL=${TEST_DATABASE_URL:-${DATABASE_URL:-}}
+# A throwaway database need not wait for its disk at each commit: the
+# tests commit thousands of times (the migrations alone), and on a node
+# busy with other steps each wait was long. pgx sends the setting when it
+# connects.
+case "$TEST_DATABASE_URL" in
+  *synchronous_commit=*) ;;
+  postgres://*\?*|postgresql://*\?*) TEST_DATABASE_URL="$TEST_DATABASE_URL&synchronous_commit=off" ;;
+  postgres://*|postgresql://*) TEST_DATABASE_URL="$TEST_DATABASE_URL?synchronous_commit=off" ;;
+esac
 export GOBIN=$TOOLS PATH=$TOOLS:$PATH
 
 cd "$(dirname "$0")/.."
