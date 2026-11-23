@@ -4,12 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
+	"github.com/rendimiento-ai/rendimiento/internal/catalog"
+	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -100,5 +105,77 @@ func TestLiveSettings(t *testing.T) {
 	}
 	if saved, _ := e.store.GetAjustes(ctx); saved["ORG_NETWORK_POLICY"].Value != "" || saved["ORG_NETWORK_POLICY_NAMESPACES"].Value != "monitoring-ajustes" {
 		t.Fatalf("saved = %+v", saved)
+	}
+}
+
+// kubeLento is a cluster slow to answer: its lists wait until suelta is
+// closed. It counts the lists of every pod in the cluster (the services
+// catalog's), which the settings page must not need.
+type kubeLento struct {
+	client.Client
+	suelta    chan struct{}
+	todosPods atomic.Int32
+}
+
+func (k *kubeLento) List(ctx context.Context, l client.ObjectList, opts ...client.ListOption) error {
+	if _, ok := l.(*corev1.PodList); ok {
+		o := (&client.ListOptions{}).ApplyOptions(opts)
+		if o.Namespace == "" {
+			k.todosPods.Add(1)
+		}
+	}
+	select {
+	case <-k.suelta:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	return k.Client.List(ctx, l, opts...)
+}
+
+// A cluster slow to answer (an update rolling out) does not hold the
+// settings up: they come at once, with the apps outside the wall to come,
+// and the next look has them. The services catalog is never read.
+func TestSettingsDoNotWaitForTheCluster(t *testing.T) {
+	e := newEnv(t, true)
+	ctx := context.Background()
+	h := &ajustes.Holder{Store: e.store, Boot: ajustes.Values{ajustes.OrgNetworkPolicy: "true"}, PlatformNS: "rendimiento-system", IngressClass: "nginx"}
+	if err := h.Start(); err != nil {
+		t.Fatal(err)
+	}
+	e.s.Settings = h
+	sp := spec.Spec{SharedNamespace: true, Services: []spec.Service{{Name: "web", Port: 8080}}}
+	sp.Default()
+	if err := e.store.CreateApp(ctx, &store.App{Name: "sin-espera-compartida", Repo: "p0dxD/sin-espera-compartida", DefaultBranch: "main", Spec: sp}); err != nil {
+		t.Fatal(err)
+	}
+	lento := &kubeLento{Client: e.kube, suelta: make(chan struct{})}
+	e.s.Kube = lento
+	e.s.Catalog = &catalog.Builder{Kube: lento}
+	admin := e.session(t, "p0dxD")
+	read := func() (SettingsView, time.Duration) {
+		t.Helper()
+		start := time.Now()
+		r, body := e.do(t, "GET", "/api/environment/settings", "", admin, nil)
+		var v SettingsView
+		if r.StatusCode != 200 || json.Unmarshal([]byte(body), &v) != nil {
+			t.Fatalf("settings: %d %s", r.StatusCode, body)
+		}
+		return v, time.Since(start)
+	}
+	v, took := read()
+	if took > fueraWait+2*time.Second || !v.OutsidePending || v.Apps != 1 || len(v.Live) != len(ajustes.Live) {
+		t.Fatalf("slow cluster: took %s, view = %+v", took, v)
+	}
+	close(lento.suelta)
+	deadline := time.Now().Add(10 * time.Second)
+	for v.OutsidePending && time.Now().Before(deadline) {
+		time.Sleep(50 * time.Millisecond)
+		v, _ = read()
+	}
+	if v.OutsidePending || v.Outside["sin-espera-compartida"] != OutsideShared {
+		t.Fatalf("after the cluster answered: %+v", v)
+	}
+	if n := lento.todosPods.Load(); n != 0 {
+		t.Fatalf("the settings listed every pod in the cluster %d times (the services catalog)", n)
 	}
 }

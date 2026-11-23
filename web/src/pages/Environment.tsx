@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { api, envApi, session, timeAgo, type BoundaryCheck, type Capacity, type EnvCheck, type EnvNode, type EnvProblem, type EnvProvider, type EnvReport, type EnvStatus, type LiveSetting, type SettingsView } from "../api";
 import { Link } from "react-router-dom";
 import { ErrorBox, usePoll } from "../components/ui";
@@ -7,7 +7,7 @@ import { lang, locale, t, tn } from "../i18n";
 import { useConexion } from "../conexion";
 import { apagado } from "../components/conexion-aviso";
 import { BotonActualizar, PlatformVersion, Publicada, useActualizar } from "./Version";
-import { EsqCosa } from "../components/esqueleto";
+import { EsqCosa, Esqueleto, Hueso } from "../components/esqueleto";
 import { Forjas } from "../components/forjas";
 
 const tone: Record<EnvStatus, string> = { ok: "ok", warning: "warn", missing: "bad", error: "bad" };
@@ -733,11 +733,19 @@ const settingHelp: Record<string, () => string> = {
  * wins over the ConfigMap's until it is taken back; every process follows it within 15 seconds, with no restart.
  */
 function Ajustes() {
-  const { data: v, setData, error } = usePoll(envApi.settings, [], 60000);
+  const { data: v, setData, error, reload } = usePoll(envApi.settings, [], 60000);
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string>();
   const [err, setErr] = useState<unknown>();
   const [check, setCheck] = useState<BoundaryCheck>();
+  // The cluster was slow to say which apps are outside the wall: the settings came without it, so ask again shortly.
+  const pending = !!v?.outsidePending;
+  useEffect(() => {
+    if (!pending) return;
+    const id = setTimeout(reload, 3000);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, v]);
   if (error) return <section className="card"><ErrorBox error={error} /></section>;
   if (!v) return null;
   const run = (key: string, p: Promise<SettingsView>) => {
@@ -778,9 +786,9 @@ function Ajustes() {
       {group("boundary", t("Boundary between organizations"), t("Which namespaces may reach each app. Public traffic comes in through {ns}; rendimiento ({platform}) is always let in.", { ns: v.ingressNamespace || "—", platform: v.platformNamespace }))}
       {session.cluster && v.apps > 0 && (
         <div className="small stack" style={{ gap: 4 }}>
-          <span>{on
+          {on && v.outsidePending ? <Esqueleto><Hueso className="esq-renglon" w="45%" /></Esqueleto> : <span>{on
             ? t("{inside} of {n} apps are inside the wall.", { inside: v.apps - Object.keys(v.outside ?? {}).length, n: v.apps })
-            : t("The wall is down: none of the {n} apps is walled.", { n: v.apps })}{" "}<Link to="/universe">{t("See it in the Universe")}</Link></span>
+            : t("The wall is down: none of the {n} apps is walled.", { n: v.apps })}{" "}<Link to="/universe">{t("See it in the Universe")}</Link></span>}
           {Object.entries(v.outside ?? {}).map(([app, why]) => <span key={app} className="muted"><Link to={`/apps/${app}`}>{app}</Link>: {outsideWhy(why, v.nodes?.[app])}</span>)}
         </div>
       )}
