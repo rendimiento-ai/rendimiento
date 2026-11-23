@@ -187,6 +187,8 @@ type Server struct {
 
 	// deliveries keeps the dashboard's delivery report a minute.
 	deliveries deliveryCache
+	// fueras keeps the apps the boundary leaves out, for the settings page.
+	fueras fueraCache
 }
 
 // Analytics is where visitor numbers come from (Umami).

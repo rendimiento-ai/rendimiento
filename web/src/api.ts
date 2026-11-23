@@ -1811,6 +1811,8 @@ export interface SettingsView {
   apps: number;
   outside?: Record<string, "shared" | "node">;
   nodes?: Record<string, string[]>;
+  /** The cluster is still being looked at for outside: ask again shortly. */
+  outsidePending?: boolean;
 }
 // Who calls apps across the boundary (api.BoundaryCheck): a guide, from
 // the workloads' environment, not from traffic.

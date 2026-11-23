@@ -2,17 +2,21 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"slices"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
+	"github.com/rendimiento-ai/rendimiento/internal/fresco"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -52,6 +56,42 @@ type SettingsView struct {
 	Apps    int                 `json:"apps"`
 	Outside map[string]string   `json:"outside,omitempty"`
 	Nodes   map[string][]string `json:"nodes,omitempty"`
+	// OutsidePending is true while the cluster is still being looked at
+	// for Outside (it is slow to answer): the page asks again shortly.
+	OutsidePending bool `json:"outsidePending,omitempty"`
+}
+
+// The apps the boundary leaves out, for the settings page, are kept a
+// little (fueraTTL): the page asks every minute, and a cluster slow to
+// answer (an update rolling out, a busy API server) must not hold the
+// settings up. A look waits for a first answer only fueraWait; an older
+// one (up to fueraStale) is given at once while a new one is read.
+const (
+	fueraTTL   = 30 * time.Second
+	fueraStale = 10 * time.Minute
+	fueraWait  = 2 * time.Second
+	fueraBuild = 20 * time.Second
+)
+
+// fueraCache keeps the apps the boundary leaves out (one key: all apps).
+type fueraCache struct {
+	once sync.Once
+	fresco.Cache[string, fuera]
+}
+
+// fueraDeTodas is which of the platform's apps the boundary leaves out,
+// from the cache: ErrSlow while a first look is still going on.
+func (s *Server) fueraDeTodas(ctx context.Context) (fuera, error) {
+	s.fueras.once.Do(func() {
+		s.fueras.TTL, s.fueras.Stale, s.fueras.Wait, s.fueras.Build, s.fueras.Parallel = fueraTTL, fueraStale, fueraWait, fueraBuild, 1
+	})
+	return s.fueras.Get(ctx, "", func(ctx context.Context) (fuera, error) {
+		apps, err := s.Store.ListApps(ctx)
+		if err != nil {
+			return fuera{}, err
+		}
+		return s.fueraDeLaBarda(ctx, apps)
+	})
 }
 
 // fixedSettings are shown with their values; fixedSecrets only as set or not.
@@ -82,10 +122,21 @@ func (s *Server) settingsView(w http.ResponseWriter, r *http.Request) {
 		v.Fixed = append(v.Fixed, FixedSetting{Key: k, Secret: true, Set: os.Getenv(k) != ""})
 	}
 	v.IngressNamespace = ajustes.IngressNamespaceOf(eff, s.Settings.IngressClass)
+	// Only what the page shows: which apps are outside the wall. Not the
+	// whole boundary (barda), whose callers read the services catalog:
+	// every workload, pod and service in the cluster.
 	if apps, err := s.Store.ListApps(r.Context()); err == nil {
 		v.Apps = len(apps)
-		if b, err := s.barda(r.Context(), store.DefaultOrg, apps); err == nil && b != nil {
-			v.Outside, v.Nodes = b.Outside, b.Nodes
+		if s.Kube != nil {
+			f, err := s.fueraDeTodas(r.Context())
+			switch {
+			case err == nil:
+				v.Outside, v.Nodes = f.Outside, f.Nodes
+			case errors.Is(err, fresco.ErrSlow):
+				v.OutsidePending = true
+			default:
+				s.Log.Warn("settings: could not tell which apps are outside the boundary", "err", err)
+			}
 		}
 	}
 	writeJSON(w, v)

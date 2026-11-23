@@ -60,8 +60,7 @@ func (s *Server) barda(ctx context.Context, orgID int64, apps []*store.App) (*Ba
 	}
 	eff, net := s.Settings.Effective(), s.Settings.Network()
 	b := &Barda{State: "off", Org: org.Slug, Ingress: ajustes.IngressNamespaceOf(eff, s.Settings.IngressClass), Platform: s.Settings.PlatformNS,
-		Namespaces: ajustes.Split(eff[ajustes.OrgNetworkNamespaces]), CIDRs: net.CIDRs,
-		Outside: map[string]string{}, Nodes: map[string][]string{}, LAN: map[string][]string{}}
+		Namespaces: ajustes.Split(eff[ajustes.OrgNetworkNamespaces]), CIDRs: net.CIDRs, LAN: map[string][]string{}}
 	if net.Enabled {
 		b.State = "on"
 	}
@@ -71,38 +70,17 @@ func (s *Server) barda(ctx context.Context, orgID int64, apps []*store.App) (*Ba
 	if b.CIDRs == nil {
 		b.CIDRs = []string{}
 	}
-	var nodes corev1.NodeList
-	if err := s.Kube.List(ctx, &nodes, client.MatchingLabels{LabelNoPolicy: "no"}); err != nil {
+	f, err := s.fueraDeLaBarda(ctx, apps)
+	if err != nil {
 		return nil, err
 	}
-	open := map[string]bool{}
-	for _, n := range nodes.Items {
-		open[n.Name] = true
-	}
+	b.Outside, b.Nodes = f.Outside, f.Nodes
 	for _, a := range apps {
 		for _, svc := range a.Spec.Services {
 			if svc.LAN != nil {
 				b.LAN[a.Name] = append(b.LAN[a.Name], svc.Name)
 			}
 		}
-		if a.Spec.SharedNamespace {
-			b.Outside[a.Name] = OutsideShared
-			continue
-		}
-		if len(open) == 0 {
-			continue
-		}
-		var pods corev1.PodList
-		if err := s.Kube.List(ctx, &pods, client.InNamespace(a.Name)); err != nil {
-			return nil, err
-		}
-		for _, p := range pods.Items {
-			if n := p.Spec.NodeName; open[n] && !slices.Contains(b.Nodes[a.Name], n) {
-				b.Nodes[a.Name] = append(b.Nodes[a.Name], n)
-				b.Outside[a.Name] = OutsideNode
-			}
-		}
-		sort.Strings(b.Nodes[a.Name])
 	}
 	all, err := s.Store.ListApps(ctx)
 	if err != nil {
@@ -112,6 +90,50 @@ func (s *Server) barda(ctx context.Context, orgID int64, apps []*store.App) (*Ba
 		return nil, err
 	}
 	return b, nil
+}
+
+// fuera is which apps the boundary leaves out (app -> OutsideShared or
+// OutsideNode) and, for OutsideNode, the nodes behind it.
+type fuera struct {
+	Outside map[string]string
+	Nodes   map[string][]string
+}
+
+// fueraDeLaBarda works out which of apps the boundary leaves out: a shared
+// namespace, or a pod on a node that does not enforce network policies.
+// It reads the nodes once, and each app's pods only when such a node
+// exists; it never reads the services catalog.
+func (s *Server) fueraDeLaBarda(ctx context.Context, apps []*store.App) (fuera, error) {
+	f := fuera{Outside: map[string]string{}, Nodes: map[string][]string{}}
+	var nodes corev1.NodeList
+	if err := s.Kube.List(ctx, &nodes, client.MatchingLabels{LabelNoPolicy: "no"}); err != nil {
+		return f, err
+	}
+	open := map[string]bool{}
+	for _, n := range nodes.Items {
+		open[n.Name] = true
+	}
+	for _, a := range apps {
+		if a.Spec.SharedNamespace {
+			f.Outside[a.Name] = OutsideShared
+			continue
+		}
+		if len(open) == 0 {
+			continue
+		}
+		var pods corev1.PodList
+		if err := s.Kube.List(ctx, &pods, client.InNamespace(a.Name)); err != nil {
+			return f, err
+		}
+		for _, p := range pods.Items {
+			if n := p.Spec.NodeName; open[n] && !slices.Contains(f.Nodes[a.Name], n) {
+				f.Nodes[a.Name] = append(f.Nodes[a.Name], n)
+				f.Outside[a.Name] = OutsideNode
+			}
+		}
+		sort.Strings(f.Nodes[a.Name])
+	}
+	return f, nil
 }
 
 // AppBarda is one app's place in the boundary, for its page.
