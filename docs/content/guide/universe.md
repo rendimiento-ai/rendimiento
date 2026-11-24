@@ -47,7 +47,7 @@ Every app lands in one barrio:
 - **The panel** reads like a market board: every barrio, pueblo and service with its calls per minute, a small trend over the period and the change (▲▼) from its start to its end; **Needs attention** lists what is failing or slow. **Open app** goes to the app's page; **Open in Services** goes to the service's entry in the catalog.
 - **A service's moments.** Tap an observed service and the panel also lists what it does, from its traces: **its own moments** (what the [observa libraries](observa.md) mark with `tramo`, and the agent's own work), the **routes it serves** (`GET /api/moments`) and the **calls and queries it makes** (`SELECT wellness`), each with calls per minute, failures, p95 and a trend. Tap one to see its latency over the period.
 - **A service's recent requests.** Below its moments, the panel lists the requests through that service the [traces service](#following-one-request) kept, newest first: whether it **failed**, **was slow** or is **in the sample**, its duration and when. **Only the failed ones** narrows the list. Tap one to follow it step by step.
-- **Refresh** rebuilds the catalog from the cluster right away (otherwise it is at most 30 seconds old, and the page reloads every minute).
+- **Refresh** rebuilds the catalog from the cluster right away. Otherwise the page reloads every minute and gets the catalog there is at once: when it is older than 30 seconds, a new one is read behind it for the next look (one at a time). A cluster slow to answer, during an update for example, does not hold the map up: what runs there and parts of the wall show as grey placeholders until it answers, and the page asks again every few seconds.
 
 ## The wall {#the-wall}
 

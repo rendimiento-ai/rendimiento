@@ -746,6 +746,13 @@ function Ajustes() {
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending, v]);
+  // Who calls in comes from the services catalog, still being read: ask again shortly (unless the check was put away).
+  const checkPending = !!check?.pending;
+  useEffect(() => {
+    if (!checkPending) return;
+    const id = setTimeout(() => envApi.boundaryCheck().then((c) => setCheck((was) => was && c), setErr), 3000);
+    return () => clearTimeout(id);
+  }, [checkPending, check]);
   if (error) return <section className="card"><ErrorBox error={error} /></section>;
   if (!v) return null;
   const run = (key: string, p: Promise<SettingsView>) => {
@@ -797,15 +804,17 @@ function Ajustes() {
           <strong>{t("Before turning it on")}</strong>
           {!check.ingressFound && <span className="badge warn" style={{ whiteSpace: "normal" }}>{t("The ingress namespace {ns} does not exist: public traffic would be stopped.", { ns: check.ingressNamespace || "—" })}</span>}
           <p className="small muted" style={{ margin: 0 }}>{t("Namespaces whose workloads point at an app's service in their environment. rendimiento does not see traffic, so this is a guide, not a proof: something that calls an app without saying so in its environment is not listed.")}</p>
-          {check.callers.length === 0 && <span className="small">{t("Nothing outside an app's organization points at its services.")}</span>}
-          {check.callers.map((c) => (
-            <div key={c.namespace} className="row between" style={{ gap: 8 }}>
-              <span><strong className="mono">{c.namespace}</strong> <span className="small muted">{t("calls {what}", { what: c.calls.join(", ") })}</span></span>
-              {c.in ? <span className="badge ok">{t("let in")}</span> : <button disabled={!!busy} onClick={() => letIn(c.namespace)}>{t("Let it in")}</button>}
-            </div>
-          ))}
+          {check.pending ? <Esqueleto><Hueso className="esq-renglon" w="60%" /></Esqueleto> : <>
+            {check.callers.length === 0 && <span className="small">{t("Nothing outside an app's organization points at its services.")}</span>}
+            {check.callers.map((c) => (
+              <div key={c.namespace} className="row between" style={{ gap: 8 }}>
+                <span><strong className="mono">{c.namespace}</strong> <span className="small muted">{t("calls {what}", { what: c.calls.join(", ") })}</span></span>
+                {c.in ? <span className="badge ok">{t("let in")}</span> : <button disabled={!!busy} onClick={() => letIn(c.namespace)}>{t("Let it in")}</button>}
+              </div>
+            ))}
+          </>}
           <div className="row" style={{ gap: 8 }}>
-            <button className="primary" disabled={!!busy || !check.ingressFound} onClick={() => { setCheck(undefined); save("ORG_NETWORK_POLICY", "true"); }}>
+            <button className="primary" disabled={!!busy || !check.ingressFound || !!check.pending} onClick={() => { setCheck(undefined); save("ORG_NETWORK_POLICY", "true"); }}>
               {blocked.length ? t("Turn it on anyway") : t("Turn it on")}
             </button>
             <button disabled={!!busy} onClick={() => setCheck(undefined)}>{t("Cancel")}</button>

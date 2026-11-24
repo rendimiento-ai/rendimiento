@@ -1820,6 +1820,8 @@ export interface BoundaryCheck {
   callers: { namespace: string; calls: string[]; in: boolean }[];
   ingressNamespace: string;
   ingressFound: boolean;
+  /** The services catalog is still being read: callers is empty, ask again shortly. */
+  pending?: boolean;
 }
 
 export interface EnvProblem {
@@ -2110,6 +2112,8 @@ export interface CatalogEntry {
 export interface Catalog {
   entries: CatalogEntry[];
   generated: string;
+  /** The cluster is still being read for the first time: entries is empty, ask again shortly. */
+  pending?: boolean;
 }
 
 // ---- universe ----
@@ -2175,6 +2179,9 @@ export interface UniverseBarda {
   nodes: Record<string, string[]>;
   lan: Record<string, string[]>;
   callers: { namespace: string; calls: string[]; in: boolean }[];
+  /** The cluster is still being looked at: which apps run on a node outside the wall, and who calls in. Ask again shortly. */
+  outsidePending?: boolean;
+  callersPending?: boolean;
 }
 /** One app's place in the boundary, for its page (api.AppBarda). */
 export interface AppBarda extends UniverseBarda {
@@ -2194,6 +2201,8 @@ export interface Universe {
   // metricsError says why it could not this time.
   traces: boolean;
   metricsError?: string;
+  /** What runs in the cluster is still being read: the map shows what the apps declare; ask again shortly. */
+  catalogPending?: boolean;
 }
 
 export type UniverseWindow = "15m" | "1h" | "24h";

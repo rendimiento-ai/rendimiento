@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
+	"github.com/rendimiento-ai/rendimiento/internal/fresco"
 	"github.com/rendimiento-ai/rendimiento/internal/render"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 
@@ -129,33 +130,57 @@ type Catalog struct {
 var DefaultInfra = []string{"kube-system", "kube-public", "kube-node-lease", "default", "cert-manager", "ingress-nginx",
 	"longhorn-system", "metallb-system", "argocd", "monitoring", "devops-tools", "rendimiento-system", "rendimiento-builds"}
 
-// Builder assembles the catalog from the cluster and caches it for TTL.
+// Builder assembles the catalog from the cluster and keeps it: one look is
+// eight lists across the whole cluster, slow when the API server is busy
+// (an update rolling out), and every page that asks must not wait for it.
+// A catalog newer than TTL is given as is; an older one (up to Stale) is
+// given at once while one new one is built behind it, never more than one
+// at a time; a first one is waited for only Wait (then Get says
+// fresco.ErrSlow, and the next look will likely have it); and a build
+// gives up after Build.
 type Builder struct {
 	Kube  client.Client
 	Infra []string
-	TTL   time.Duration
+	// TTL is how long a catalog is new (0: 30 seconds).
+	TTL time.Duration
+	// Stale is how old a catalog may be and still be given (0: 10 minutes).
+	Stale time.Duration
+	// Wait is how long a look waits for a catalog it does not have (0: 2 seconds).
+	Wait time.Duration
+	// Build bounds one look at the cluster (0: 30 seconds).
+	Build time.Duration
 
-	mu     sync.Mutex
-	cached *Catalog
+	once  sync.Once
+	cache fresco.Cache[struct{}, *Catalog]
 }
 
-// Get returns a cached catalog unless it is older than TTL or refresh is set.
+// Defaults for Builder.
+const (
+	DefaultTTL   = 30 * time.Second
+	DefaultStale = 10 * time.Minute
+	DefaultWait  = 2 * time.Second
+	DefaultBuild = 30 * time.Second
+)
+
+// Get returns the catalog it has, building a new one behind it when it is
+// older than TTL. refresh waits for a new one instead (joining a build in
+// flight), for a person who asked to look again, as long as ctx lets it.
+// Without a catalog yet, it waits up to Wait and then returns fresco.ErrSlow.
 func (b *Builder) Get(ctx context.Context, refresh bool) (*Catalog, error) {
-	ttl := b.TTL
-	if ttl == 0 {
-		ttl = 30 * time.Second
+	b.once.Do(func() {
+		or := func(d, def time.Duration) time.Duration {
+			if d > 0 {
+				return d
+			}
+			return def
+		}
+		b.cache.TTL, b.cache.Stale = or(b.TTL, DefaultTTL), or(b.Stale, DefaultStale)
+		b.cache.Wait, b.cache.Build, b.cache.Parallel = or(b.Wait, DefaultWait), or(b.Build, DefaultBuild), 1
+	})
+	if refresh {
+		return b.cache.Refresh(ctx, struct{}{}, b.build)
 	}
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if !refresh && b.cached != nil && time.Since(b.cached.Generated) < ttl {
-		return b.cached, nil
-	}
-	c, err := b.build(ctx)
-	if err != nil {
-		return nil, err
-	}
-	b.cached = c
-	return c, nil
+	return b.cache.Get(ctx, struct{}{}, b.build)
 }
 
 type snapshot struct {
