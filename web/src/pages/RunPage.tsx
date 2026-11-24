@@ -358,7 +358,7 @@ function EnSecoCopia({ run }: { run: Run }) {
       <section className={`en-seco${c.failed ? " bad" : ""}`} id="en-seco-copia" aria-labelledby="en-seco-copia-titulo">
         <div className="en-seco-cabeza">
           <h2 id="en-seco-copia-titulo">
-            {c.kind === "pull" ? t("En seco, against the copy of pull request #{n}", { n: c.pull })
+            {c.kind === "pull" ? t("En seco, against the copy of pull request #{n}", { n: c.pull ?? 0 })
               : c.kind === "short" ? t("En seco, against a short copy of this branch")
               : t("En seco")}
           </h2>
@@ -378,7 +378,7 @@ function EnSecoCopia({ run }: { run: Run }) {
   const vive = !!c.url && !c.gone;
   const host = c.url?.replace(/^https?:\/\//, "").replace(/\/$/, "");
   const titulo = c.kind === "pull"
-    ? (fallo ? t("En seco: a check did not pass against the copy of pull request #{n}", { n: c.pull }) : t("En seco, against the copy of pull request #{n}", { n: c.pull }))
+    ? (fallo ? t("En seco: a check did not pass against the copy of pull request #{n}", { n: c.pull ?? 0 }) : t("En seco, against the copy of pull request #{n}", { n: c.pull ?? 0 }))
     : (fallo ? t("En seco: a check did not pass against a short copy of this branch") : t("En seco, against a short copy of this branch"));
   const como = c.kind === "pull"
     ? t("The checks ran against the branch itself, live: rendimiento waited until its pull request's copy ran this commit, and ran them there, with the copy's own database, never production's.")
