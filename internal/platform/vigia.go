@@ -42,6 +42,9 @@ func (v *Vigia) Run(ctx context.Context) {
 
 // Mirar looks once at every app's branches.
 func (v *Vigia) Mirar(ctx context.Context) {
+	if v.P.Dormido() {
+		return // asleep: the first look after waking finds what moved
+	}
 	if v.seen == nil {
 		v.seen, v.repos = map[string]string{}, map[string]bool{}
 	}

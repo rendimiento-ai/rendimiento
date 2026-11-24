@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -59,6 +60,8 @@ type Local struct {
 	// Responde checks a service once (nil: an HTTP or TCP check of its
 	// port); tests replace it.
 	Responde func(ctx context.Context, addr string, h *spec.Health) bool
+
+	dormido atomic.Bool // rendimiento sleeps: the proxy answers «Volvemos pronto»
 
 	mu      sync.Mutex
 	estados map[string]estadoLocal // app → its latest release's rollout

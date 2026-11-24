@@ -43,6 +43,9 @@ func (p *Platform) mergeLoop(ctx context.Context) {
 			return
 		case <-tick.C:
 		}
+		if p.Dormido() {
+			continue // asleep: nothing is merged until it wakes
+		}
 		apps, err := p.Store.ListApps(ctx)
 		if err != nil {
 			continue

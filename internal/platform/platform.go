@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -121,7 +122,13 @@ type Platform struct {
 
 	mu        sync.Mutex
 	cancels   map[int64]context.CancelFunc      // running run → cancel
+	vivas     map[int64]*store.Run              // running run → the run
+	cortes    map[int64]bool                    // runs sleep cut: repeated on waking, never failed
 	verifying map[int64]context.CancelCauseFunc // app → its running verification
+
+	// dormido: rendimiento sleeps on a computer (Sueno), and no run is
+	// claimed until it wakes.
+	dormido atomic.Bool
 }
 
 // ---- onboarding ----
@@ -705,6 +712,14 @@ func (p *Platform) busy() store.Busy {
 // deploys, and each branch's runs, keep their order) until ctx ends.
 func (p *Platform) work(ctx context.Context) {
 	for ctx.Err() == nil {
+		if p.dormido.Load() {
+			// Asleep: the queue waits for the wake (Sueno).
+			select {
+			case <-ctx.Done():
+			case <-time.After(2 * time.Second):
+			}
+			continue
+		}
 		p.claimMu.Lock()
 		going := 0
 		for _, g := range p.going {
@@ -839,11 +854,17 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 		p.cancels = map[int64]context.CancelFunc{}
 	}
 	p.cancels[run.ID] = cancel
+	if p.vivas == nil {
+		p.vivas = map[int64]*store.Run{}
+	}
+	p.vivas[run.ID] = run
 	p.mu.Unlock()
 	defer func() {
 		cancel()
 		p.mu.Lock()
 		delete(p.cancels, run.ID)
+		delete(p.vivas, run.ID)
+		delete(p.cortes, run.ID)
 		p.mu.Unlock()
 	}()
 
@@ -917,6 +938,12 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 			results = map[string]pipeline.StepResult{}
 		}
 		results[id] = r
+	}
+	if p.cortada(run.ID) && ctx.Err() == nil {
+		// Sleep cut it: it goes back to the queue, from its first step, and
+		// runs again on waking; it did not fail (dormir.go).
+		p.repetirAlDespertar(ctx, app, run, checkID)
+		return
 	}
 	p.noteStumbles(ctx, app, run, toRun, results, tried)
 

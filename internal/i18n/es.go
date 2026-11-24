@@ -966,4 +966,9 @@ var catalog = map[string]string{
 
 	// How the coding agent is doing, on the AI page (internal/api/ia_cuentas.go).
 	"the period is 7, 30 or 90 days, or 0 for all of it": "el periodo es de 7, 30 o 90 días, o 0 para todo",
+
+	// Dormir and Despertar, on a computer (platform/dormir.go, api/dormir.go).
+	"only rendimiento on a computer can sleep: a cluster stays awake": "solo rendimiento en una computadora puede dormir: un clúster se queda despierto",
+	"the hour to wake at must be HH:MM, such as 08:00":                "la hora de despertar debe ser HH:MM, como 08:00",
+	"rendimiento slept; it runs again on waking":                      "rendimiento se durmió; se repite al despertar",
 }

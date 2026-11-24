@@ -2503,3 +2503,49 @@ export const installedApi = {
     request<{ commit: string }>("PATCH", `/api/installed/${name}`, body),
   remove: (name: string, uninstall: boolean) => request<{ commit: string }>("DELETE", `/api/installed/${name}?uninstall=${uninstall}`),
 };
+
+/** A publish going on (platform.Publicacion): what Dormir waits for, or cuts. */
+export interface Publicacion {
+  app: string;
+  run?: number; // the deploying run (none: its release starts or is watched)
+  paso?: number; // steps done
+  pasos?: number; // of these
+  actual?: number; // the release the app runs now, the one it stays on when cut
+}
+
+/** What a wake did (store.Despertar), for the summary after it. */
+export interface ResumenDespertar {
+  desde: string;
+  hasta: string;
+  por?: string; // who woke it ("reloj": its hour; "": it started again)
+  apps: string[]; // the apps whose containers started again
+  esperada?: string; // the publish it waited for before sleeping
+  avisos: number; // webhooks handled, in the order they came
+  fallidos?: number; // of them, those that could not be
+  repetidas: number[]; // the runs sleep cut, which run again
+  problema?: string; // what could not start again
+}
+
+/** rendimiento's sleep on a computer (platform.EstadoSueno). */
+export interface Sueno {
+  estado: "despierto" | "durmiendose" | "dormido";
+  apagar: boolean; // «Apagar del todo» was asked
+  desde?: string;
+  por?: string;
+  esperada?: string;
+  despertarA: string; // the hour it wakes by itself ("08:00"; "" off)
+  alArrancar: boolean;
+  tapa: boolean; // «Dormir al cerrar la tapa» (the desktop app's)
+  resumen?: ResumenDespertar;
+  avisos: number; // webhooks waiting for the wake
+  corriendo: number; // runs going now
+  publicando: Publicacion[];
+  despiertaA?: string; // when it wakes by itself
+}
+
+export const suenoApi = {
+  estado: () => request<Sueno>("GET", "/api/dormir"),
+  dormir: (ya: boolean, apagar: boolean) => request<Sueno>("POST", "/api/dormir", { ya, apagar }),
+  despertar: () => request<Sueno>("POST", "/api/despertar"),
+  opciones: (despertarA: string, tapa: boolean) => request<Sueno>("PUT", "/api/dormir/opciones", { despertarA, tapa }),
+};

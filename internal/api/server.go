@@ -175,6 +175,9 @@ type Server struct {
 	// here), and UltimoCambio says what its last update did.
 	Programa     *actualizar.Programa
 	UltimoCambio *actualizar.Marca
+	// Sueno puts rendimiento on a computer to sleep and wakes it (nil in a
+	// cluster, which stays awake): internal/api/dormir.go.
+	Sueno *platform.Sueno
 	// Ajustes is where a computer keeps its settings, for the Environment
 	// page (zero: none known, as when it was started by hand or in a
 	// container, whose settings are the environment it started with).
@@ -363,6 +366,11 @@ func (s *Server) Handler() http.Handler {
 	plat(store.MemberAdmin, "POST /api/platform/back", s.platformBack)
 	plat(store.MemberAdmin, "PUT /api/platform/auto-update", s.platformAutoUpdate)
 	plat(store.MemberAdmin, "POST /api/platform/update", s.updatePlatform)
+	// Dormir and Despertar, on a computer (internal/api/dormir.go).
+	plat(store.MemberGuest, "GET /api/dormir", s.getDormir)
+	plat(store.MemberAdmin, "POST /api/dormir", s.postDormir)
+	plat(store.MemberAdmin, "POST /api/despertar", s.postDespertar)
+	plat(store.MemberAdmin, "PUT /api/dormir/opciones", s.putDormirOpciones)
 	plat(store.MemberGuest, "GET /api/services", s.services)
 	plat(store.MemberGuest, "GET /api/stats/delivery", s.delivery)
 	auth(store.MemberGuest, "GET /api/stats/visits", s.visitsSummary)
@@ -1044,6 +1052,34 @@ func (s *Server) webhookFrom(w http.ResponseWriter, r *http.Request, f forja.For
 		httpError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
+	// rendimiento sleeps on its computer: the event is kept, already
+	// checked, and handled on waking, in the order it came (dormir.go).
+	if s.Sueno != nil && s.Platform.Dormido() && (ev.Push != nil || ev.Change != nil) {
+		if err := s.Store.GuardarAviso(r.Context(), f.Name(), ev); err != nil {
+			s.Log.Error("webhook: could not keep it while asleep", "event", ev.Kind, "err", err)
+			httpError(w, http.StatusInternalServerError, "could not keep the event")
+			return
+		}
+		s.Log.Info("webhook kept until rendimiento wakes", "event", ev.Kind)
+		w.WriteHeader(http.StatusAccepted)
+		return
+	}
+	queued, acted, err := s.atenderEvento(r.Context(), f, *ev)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, "could not queue run")
+		return
+	}
+	if !acted {
+		w.WriteHeader(http.StatusAccepted)
+		return
+	}
+	writeJSON(w, map[string]int{"queued": queued})
+}
+
+// atenderEvento acts on a forja's event: a pull request opened or closed,
+// and a push, which queues runs. acted is false when it carried no push to
+// run (or one from an account rendimiento does not use).
+func (s *Server) atenderEvento(ctx context.Context, f forja.Forja, ev forja.Event) (queued int, acted bool, err error) {
 	event, push := ev.Kind, ev.Push
 	more := ev.More
 	// Pull requests need no run of their own: the branch push already ran
@@ -1053,50 +1089,46 @@ func (s *Server) webhookFrom(w http.ResponseWriter, r *http.Request, f forja.For
 	if c := ev.Change; c != nil && f.Allows(strings.Split(c.Repo, "/")[0]) {
 		switch c.Action {
 		case "closed":
-			s.Platform.ClosePreview(r.Context(), c.Repo, c.Number)
+			s.Platform.ClosePreview(ctx, c.Repo, c.Number)
 			// A merge, by a person or by rendimiento: the libreta keeps it.
 			if c.Merged && (c.HeadRepo == "" || strings.EqualFold(c.HeadRepo, c.Repo)) {
 				at := time.Now()
 				if c.MergedAt != nil {
 					at = *c.MergedAt
 				}
-				s.Platform.PullMerged(r.Context(), c.Repo, c.HeadRef, c.HeadSHA, at)
+				s.Platform.PullMerged(ctx, c.Repo, c.HeadRef, c.HeadSHA, at)
 			}
 		case "opened", "reopened":
 			// A branch that already passed gets its copy now, not on its next push.
 			if c.HeadRef != "" {
-				go s.Platform.OpenedPreview(context.WithoutCancel(r.Context()), c.Repo, c.Number, c.HeadRef, c.HeadRepo)
+				go s.Platform.OpenedPreview(context.WithoutCancel(ctx), c.Repo, c.Number, c.HeadRef, c.HeadRepo)
 			}
 		}
 	}
 	if push == nil {
-		w.WriteHeader(http.StatusAccepted)
-		return
+		return 0, false, nil
 	}
 	// An installation on an account rendimiento does not use (a public App
 	// can be installed by anyone): acknowledged, never acted on.
 	if owner, _, _ := strings.Cut(push.Repo, "/"); !f.Allows(owner) {
 		s.Log.Info("webhook from an account not in GITHUB_ACCOUNTS: ignored", "repo", push.Repo)
-		w.WriteHeader(http.StatusAccepted)
-		return
+		return 0, false, nil
 	}
 	if s.Addons != nil && strings.EqualFold(push.Repo, s.Addons.Repo) {
 		s.Addons.Trigger() // add-on definitions (or their manifests) may have changed
 	}
 	// A push of several branches (Bitbucket sends them in one delivery)
 	// runs each.
-	queued := 0
 	for _, p := range append([]*forja.Push{push}, more...) {
-		runs, err := s.Platform.HandlePush(r.Context(), *p)
+		runs, err := s.Platform.HandlePush(ctx, *p)
 		if err != nil {
 			s.Log.Error("webhook", "event", event, "err", err)
-			httpError(w, http.StatusInternalServerError, "could not queue run")
-			return
+			return queued, true, err
 		}
 		s.Log.Info("webhook", "event", event, "repo", p.Repo, "branch", p.Branch, "runs", len(runs))
 		queued += len(runs)
 	}
-	writeJSON(w, map[string]int{"queued": queued})
+	return queued, true, nil
 }
 
 // ---- GitHub browsing for the wizard ----
