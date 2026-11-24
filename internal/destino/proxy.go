@@ -8,9 +8,14 @@ import (
 
 // Proxy sends each request to the app running at its host on this computer
 // (<app>.localhost, <service>.<app>.localhost, or a service's domain), as
-// the cluster's ingress does.
+// the cluster's ingress does. While rendimiento sleeps it answers «Volvemos
+// pronto» (Back soon) instead.
 func (l *Local) Proxy() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if l.Dormido() {
+			volvemosPronto(w, r) // rendimiento sleeps: the apps are resting, not gone
+			return
+		}
 		addr := l.Ruta(r.Host)
 		if addr == "" {
 			http.Error(w, "nothing runs at "+r.Host+" on this computer", http.StatusNotFound)

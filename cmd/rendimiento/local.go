@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -220,6 +221,11 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	if apps, err := st.ListApps(ctx); err == nil {
 		loc.Recargar(ctx, apps)
 	}
+	// Dormir and Despertar (Ruta 92): asleep, the apps' containers and the
+	// CI stop; a restart stays asleep, and after «Apagar del todo» it
+	// wakes. It is looked at before the queue is claimed.
+	apagado := make(chan struct{})
+	sueno := &platform.Sueno{P: p, Cama: loc, Apagar: func() { apagarse(log, apagado) }}
 
 	srv := &api.Server{
 		Platform: p, Store: st, GitHub: holder, GitLab: gitlabForja, Bitbucket: bitbucketForja, Credentials: creds, DNS: dns.Noop{}, Log: log,
@@ -265,6 +271,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	}
 	srv.Senales = enviadorDeSenales(st, "local", motorSenal, log)
 	srv.Version, srv.Modo = version, "local"
+	srv.Sueno, sueno.Avisos = sueno, srv.AtenderAvisos
 	srv.Ajustes = archivoDeAjustes(os.Getenv("SETTINGS_FILE"), "/etc/rendimiento/env")
 	// rendimiento changes its own program here (decision 138): a release
 	// installed from the Version card, checked, kept or put back.
@@ -316,6 +323,10 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 		go srv.Vigia.Run(ctx) // the weekly review
 		diag.Run(ctx)
 	}()
+	if err := sueno.Arrancar(ctx); err != nil {
+		log.Error("could not read whether rendimiento sleeps", "err", err)
+	}
+	go sueno.Run(ctx) // it wakes at its hour, when one is set
 	go func() {
 		release, err := st.LockQueue(ctx, 5*time.Second)
 		if err != nil {
@@ -351,6 +362,8 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	}()
 	select {
 	case <-ctx.Done():
+	case <-apagado:
+		log.Info("shut down: rendimiento starts again with the computer, and wakes")
 	case err := <-errc:
 		return err
 	}
@@ -364,6 +377,31 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	}
 	log.Info("stopped")
 	return nil
+}
+
+// apagarse stops rendimiento for «Apagar del todo». Under its service
+// (systemd: the installer's user service, or the WSL distribution's system
+// one) the service is stopped, so it is not started again until the
+// computer starts; by hand, the process ends (apagado), with no error.
+func apagarse(log *slog.Logger, apagado chan struct{}) {
+	if os.Getenv("INVOCATION_ID") != "" {
+		args := []string{"--user", "stop", "--no-block", "rendimiento"}
+		if os.Geteuid() == 0 {
+			args = args[1:]
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		out, err := exec.CommandContext(ctx, "systemctl", args...).CombinedOutput()
+		if err == nil {
+			return // systemd stops it (SIGTERM)
+		}
+		log.Warn("shut down: the service did not stop, so the process ends", "err", err, "out", strings.TrimSpace(string(out)))
+	}
+	select {
+	case <-apagado:
+	default:
+		close(apagado)
+	}
 }
 
 // localBuildkit is the BuildKit daemon builds use: BUILDKIT_ADDR, or the

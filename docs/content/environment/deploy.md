@@ -254,6 +254,8 @@ It stops and removes the service, its own containers (`rendimiento-postgres`, `r
 
 On its first start it makes, in `DATA_DIR` (by default `~/.config/rendimiento`, readable only by you), the key that seals its secrets in Postgres, the database's password and the setup token. It starts and keeps two containers of its own: `rendimiento-postgres` (on `127.0.0.1:55433`) and `rendimiento-registro` (an image registry on `localhost:5000`, or the one already answering there). Builds use BuildKit: the one containerd's tools set up (`containerd-rootless-setuptool.sh install-buildkit`), or, under Docker, a container of its own.
 
+When you do not need it, rendimiento can [sleep](../guide/dormir.md): the apps and the CI stop, and it wakes as it was; **Shut down completely** also stops it until the computer starts.
+
 Its settings are environment variables, and the service reads yours from `DATA_DIR/env` (`~/.config/rendimiento/env`), one `NAME=value` per line: the installer makes that file the first time and never writes it again, while it writes the service's unit anew on every run. After a change, `systemctl --user restart rendimiento`. The **Environment** page (for the platform's administrators) shows the file and that command; [Settings](../reference/config.md#on-one-computer) lists every variable.
 
 No forja can send webhooks to `localhost`, so the GitHub App made by the setup page has none, and a GitLab or Bitbucket app gets none either (gitlab.com refuses to add one): every `POLL_INTERVAL` (1 minute) rendimiento asks each app's forja for its branches and runs a branch whose head moved, as a push would.

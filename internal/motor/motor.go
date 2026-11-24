@@ -359,6 +359,25 @@ func (m *Motor) Reiniciar(ctx context.Context, nombre string) error {
 	return nil
 }
 
+// Detener stops a container and keeps it, to start it again later (while
+// rendimiento sleeps); one that is not there or not running is stopped.
+func (m *Motor) Detener(ctx context.Context, nombre string) error {
+	var out bytes.Buffer
+	if err := m.run(ctx, []string{"stop", nombre}, &out); err != nil && !strings.Contains(strings.ToLower(out.String()), "no such") {
+		return fmt.Errorf("%s stop %s: %v: %s", m.Bin, nombre, err, strings.TrimSpace(out.String()))
+	}
+	return nil
+}
+
+// Arrancar starts a stopped container again.
+func (m *Motor) Arrancar(ctx context.Context, nombre string) error {
+	var out bytes.Buffer
+	if err := m.run(ctx, []string{"start", nombre}, &out); err != nil {
+		return fmt.Errorf("%s start %s: %v: %s", m.Bin, nombre, err, strings.TrimSpace(out.String()))
+	}
+	return nil
+}
+
 // QuitarVolumen removes a named volume; one that is not there is gone already.
 func (m *Motor) QuitarVolumen(ctx context.Context, nombre string) error {
 	_ = m.run(ctx, []string{"volume", "rm", "-f", nombre}, io.Discard)

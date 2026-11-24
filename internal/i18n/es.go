@@ -939,4 +939,9 @@ var catalog = map[string]string{
 	"these settings change here only on a cluster; on a computer they are in its settings file": "estos ajustes se cambian aquí solo en un clúster; en una computadora están en su archivo de ajustes",
 	"test it first: a change is saved only with a test that passed, for the same values, in the last 15 minutes": "pruébelo primero: un cambio se guarda solo con una prueba que pasó, de los mismos valores, en los últimos 15 minutos",
 	"the platform restarts now to use it (%s): a minute or two; a run that is going may have to run again":       "la plataforma se reinicia ahora para usarlo (%s): un minuto o dos; una ejecución en curso quizá tenga que volver a correr",
+
+	// Dormir and Despertar, on a computer (platform/dormir.go, api/dormir.go).
+	"only rendimiento on a computer can sleep: a cluster stays awake": "solo rendimiento en una computadora puede dormir: un clúster se queda despierto",
+	"the hour to wake at must be HH:MM, such as 08:00":                "la hora de despertar debe ser HH:MM, como 08:00",
+	"rendimiento slept; it runs again on waking":                      "rendimiento se durmió; se repite al despertar",
 }

@@ -402,8 +402,10 @@ func (p *Platform) PreviewLoop(ctx context.Context) {
 	tick := time.NewTicker(every)
 	defer tick.Stop()
 	for {
-		p.sweepPreviews(ctx, time.Now())
-		p.catchUpPreviews(ctx)
+		if !p.Dormido() { // asleep, no copy starts nor goes
+			p.sweepPreviews(ctx, time.Now())
+			p.catchUpPreviews(ctx)
+		}
 		select {
 		case <-ctx.Done():
 			return
