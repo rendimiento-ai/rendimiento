@@ -725,6 +725,8 @@ export interface AISettings {
   codeAgent: CodeAgent;
   /** How many encargos the coding agent may do at once (1 to 3), never two of one app. */
   codeConcurrency: number;
+  /** The coding agent may run commands in a sandbox (its run tool); absent from a platform older than it. */
+  codeRun?: boolean;
   /** The estimator corrects its table by what the coding agent spent (false: the fixed table). */
   estimateLearn: boolean;
   autoEncargo: AutoEncargo;
@@ -777,6 +779,8 @@ export interface IAView {
   usage: AIUsage[];
   /** The coding agent's record; absent until it took an encargo. */
   coder?: CoderBoleta;
+  /** The platform has the coding agent's sandbox, where its run tool runs commands. */
+  coderSandbox?: boolean;
 }
 
 // What the estimator learned from the coding agent (internal/agentes.Learned).
@@ -1547,7 +1551,7 @@ export const api = {
   fixLog: (run: number, fix: number) => request<string>("GET", `/api/runs/${run}/fixes/${fix}/log`),
   judgeDiagnosis: (run: number, useful: boolean, cause = "") =>
     request<{ feedback: string; rutaEntry: number }>("POST", `/api/runs/${run}/diagnosis/feedback`, { useful, cause }),
-  saveIA: (v: { provider: AIProvider; kind?: string; baseUrl?: string; model?: string; capDollars: number; key?: string; removeKey?: boolean; autoDiagnose?: boolean; escalateTo?: string; escalateLimit?: number; encargoAutoDollars?: number; codeAgent?: CodeAgent; codeConcurrency?: number; estimateLearn?: boolean; autoEncargo?: AutoEncargo }) =>
+  saveIA: (v: { provider: AIProvider; kind?: string; baseUrl?: string; model?: string; capDollars: number; key?: string; removeKey?: boolean; autoDiagnose?: boolean; escalateTo?: string; escalateLimit?: number; encargoAutoDollars?: number; codeAgent?: CodeAgent; codeConcurrency?: number; codeRun?: boolean; estimateLearn?: boolean; autoEncargo?: AutoEncargo }) =>
     request<IAView>("PUT", "/api/ia", v),
   testIA: (prompt: string) => request<IAAnswer>("POST", "/api/ia/test", { prompt }),
   iaOrgs: () => request<IAOrgs>("GET", "/api/ia/orgs"),

@@ -47,6 +47,9 @@ type AISettings struct {
 	// CodeConcurrency is how many encargos the coding agent may do at
 	// once (1, the default, to MaxCodeConcurrency), never two of one app.
 	CodeConcurrency int `json:"codeConcurrency"`
+	// CodeRun lets the coding agent run commands (tests, installs, linters)
+	// in a sandbox pod with its run tool (on by default).
+	CodeRun bool `json:"codeRun"`
 	// EstimateLearn: the estimator corrects its price table by what the
 	// coding agent really spent (agentes.Learned); false keeps the table.
 	EstimateLearn bool `json:"estimateLearn"`
@@ -76,11 +79,11 @@ type AIUsage struct {
 // none yet: the local model, a $1 cap, no allowance).
 func (s *Store) AISettingsOf(ctx context.Context, orgID int64) (AISettings, error) {
 	a := AISettings{OrgID: orgID}
-	err := s.pool.QueryRow(ctx, `SELECT provider, kind, base_url, model, cap_micros, allowance_micros, auto_diagnose, escalate_to, escalate_limit, encargo_auto_micros, code_agent, code_concurrency, auto_encargo, estimate_learn, updated_by, updated_at
+	err := s.pool.QueryRow(ctx, `SELECT provider, kind, base_url, model, cap_micros, allowance_micros, auto_diagnose, escalate_to, escalate_limit, encargo_auto_micros, code_agent, code_concurrency, code_run, auto_encargo, estimate_learn, updated_by, updated_at
 		FROM ai_settings WHERE org_id = $1`, orgID).Scan(&a.Provider, &a.Kind, &a.BaseURL, &a.Model, &a.CapMicros, &a.AllowanceMicros, &a.AutoDiagnose,
-		&a.EscalateTo, &a.EscalateLimit, &a.EncargoAutoMicros, &a.CodeAgent, &a.CodeConcurrency, &a.AutoEncargo, &a.EstimateLearn, &a.UpdatedBy, &a.UpdatedAt)
+		&a.EscalateTo, &a.EscalateLimit, &a.EncargoAutoMicros, &a.CodeAgent, &a.CodeConcurrency, &a.CodeRun, &a.AutoEncargo, &a.EstimateLearn, &a.UpdatedBy, &a.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return AISettings{OrgID: orgID, Provider: AILocal, CapMicros: 1_000_000, AutoDiagnose: true, EscalateLimit: 10, EncargoAutoMicros: DefaultEncargoAuto, CodeAgent: CodeAgentOff, CodeConcurrency: 1, AutoEncargo: AutoEncargoOff, EstimateLearn: true}, nil
+		return AISettings{OrgID: orgID, Provider: AILocal, CapMicros: 1_000_000, AutoDiagnose: true, EscalateLimit: 10, EncargoAutoMicros: DefaultEncargoAuto, CodeAgent: CodeAgentOff, CodeConcurrency: 1, CodeRun: true, AutoEncargo: AutoEncargoOff, EstimateLearn: true}, nil
 	}
 	return a, err
 }

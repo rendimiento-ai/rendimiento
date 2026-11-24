@@ -78,8 +78,8 @@ type Repos interface {
 
 // Coder is the platform's coding agent: it does encargos on a branch of the
 // app's repository, through its forja's API, and tests them with the platform's own
-// CI, the way a person's agent does; it never runs code itself, and never
-// touches the default branch. It stops at twice the encargo's estimate and
+// CI, the way a person's agent does; it runs code only in its sandbox (run)
+// and the app's declared fixes, and never touches the default branch. It stops at twice the encargo's estimate and
 // gives it to the person's own agent with what it did and what is left.
 type Coder struct {
 	Store CoderStore
@@ -102,6 +102,9 @@ type Coder struct {
 	// Fixes runs the app's declared fixes for run_fix (nil: the tool is
 	// not offered).
 	Fixes Fixes
+	// Terminal runs commands in a sandbox for run (nil: the tool is not
+	// offered; see terminal.go).
+	Terminal *Terminal
 	// Plataforma is what slow_requests and app_status read (nil: they are
 	// not offered); PlatformApp the app that is rendimiento itself
 	// (SELF_APP), whose slow requests are the platform's own.
@@ -620,7 +623,7 @@ func (j *job) fixList() string {
 // tools are the agent's tools: run_fix only when the app declares fixes,
 // with them in its description.
 func (j *job) tools() []ia.Tool {
-	tools := append(append([]ia.Tool{}, coderTools...), j.moreTools()...)
+	tools := append(j.withTerminal(coderTools), j.moreTools()...)
 	if len(j.fixes) == 0 {
 		return tools
 	}
@@ -669,11 +672,11 @@ func (j *job) system() string {
 How to work:
 - Read before you change: find the files involved (search, list_files, read_file) and follow the repository's conventions and its AGENTS.md or CLAUDE.md, if it has them.
 - Make the smallest change that does what was asked, in the style of the code around it. Change or add tests when behavior changes.
-- You cannot run code. commit_and_test commits your changes to your branch and waits for the platform's CI run on it, then tells you how it ended and, if it failed, the end of the failed steps' logs. Fix and test again until it passes.
+- commit_and_test commits your changes to your branch and waits for the platform's CI run on it, then tells you how it ended and, if it failed, the end of the failed steps' logs. Fix and test again until it passes.
 - Never write secrets (passwords, tokens, keys) into files. Never touch any branch but yours.
 - When the run passed, call deliver with a short summary for the person, in %s: what you changed and why, how it was tested, and what they should look at. If you cannot finish (the encargo is unclear, needs a decision, or keeps failing), call give_up with the reason and what is left, in %s.
 - Work efficiently: this encargo was estimated at about %s, and you stop at %s, before a turn that would pass it, even in the middle of a change (what you have is then committed untested). Commit and test as soon as a change is whole; prefer search and reading parts of files over reading everything.`,
-		lang, lang, ia.Dollars(j.budget/2), ia.Dollars(j.budget)) + j.fixRule() + j.seeRule()
+		lang, lang, ia.Dollars(j.budget/2), ia.Dollars(j.budget)) + j.fixRule() + j.terminalRule() + j.seeRule()
 }
 
 // fixRule tells the model of run_fix, when the app declares fixes.
@@ -705,6 +708,7 @@ var coderTools = []ia.Tool{
 		InputSchema: schema(map[string]any{"summary": str("what you changed and why, how it was tested, what to look at")}, "summary")},
 	{Name: "give_up", Description: "Give the encargo back to the person's own agent, when you cannot finish it.",
 		InputSchema: schema(map[string]any{"reason": str("why, and what is left"), "cause": giveUpCause}, "reason")},
+	runTool,
 }
 
 func schema(props map[string]any, required ...string) map[string]any {
@@ -788,6 +792,8 @@ func (j *job) tool(ctx context.Context, call ia.ToolCall) (string, bool) {
 		return "deleted " + in.Path, false
 	case "run_fix":
 		return j.runFix(ctx, in.Name)
+	case "run":
+		return j.run(ctx, call.Input)
 	case "commit_and_test":
 		return j.commitAndTest(ctx, in.Message)
 	case "deliver":

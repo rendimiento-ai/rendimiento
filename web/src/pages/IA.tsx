@@ -167,6 +167,7 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
   const [codeAgent, setCodeAgent] = useState<CodeAgent>(s.codeAgent);
   const [aLaVez, setALaVez] = useState(s.codeConcurrency || 1);
   const [learn, setLearn] = useState(s.estimateLearn);
+  const [codeRun, setCodeRun] = useState(s.codeRun ?? true);
   const [autoEncargo, setAutoEncargo] = useState<AutoEncargo>(s.autoEncargo);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -174,7 +175,7 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
   const reset = () => {
     setProvider(s.provider); setKind(s.kind ?? "anthropic"); setBaseUrl(s.baseUrl ?? "");
     setModel(s.model ?? ""); setCap(s.capMicros / 1e6); setAuto(s.autoDiagnose);
-    setEscalateTo(s.escalateTo); setEscalateLimit(s.escalateLimit); setEncargoAuto(s.encargoAutoMicros / 1e6); setCodeAgent(s.codeAgent); setALaVez(s.codeConcurrency || 1); setLearn(s.estimateLearn); setAutoEncargo(s.autoEncargo); setKey("");
+    setEscalateTo(s.escalateTo); setEscalateLimit(s.escalateLimit); setEncargoAuto(s.encargoAutoMicros / 1e6); setCodeAgent(s.codeAgent); setALaVez(s.codeConcurrency || 1); setCodeRun(s.codeRun ?? true); setLearn(s.estimateLearn); setAutoEncargo(s.autoEncargo); setKey("");
   };
   // Polling brings a new object every time: reset only when the saved settings change.
   useEffect(reset, [JSON.stringify(s)]);
@@ -199,12 +200,13 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
   if (auto && autoEncargo !== s.autoEncargo) changes.push([t("Encargos for failures"), t(autoEncargoName[s.autoEncargo]), t(autoEncargoName[autoEncargo])]);
   if (codeAgent !== s.codeAgent) changes.push([t("The coding agent"), t(codeAgentName[s.codeAgent]), t(codeAgentName[codeAgent])]);
   if (aLaVez !== (s.codeConcurrency || 1)) changes.push([t("Encargos at once"), String(s.codeConcurrency || 1), String(aLaVez)]);
+  if (codeRun !== (s.codeRun ?? true)) changes.push([t("Run commands in a sandbox"), onOff(s.codeRun ?? true), onOff(codeRun)]);
   if (learn !== s.estimateLearn) changes.push([t("Estimates"), t(s.estimateLearn ? "corrects the estimates" : "the fixed table"), t(learn ? "corrects the estimates" : "the fixed table")]);
   if (Math.round(cap * 1e6) !== s.capMicros) changes.push([t("Monthly cap"), dollars(s.capMicros), dollars(Math.round(cap * 1e6))]);
 
   const save = (extra: { removeKey?: boolean } = {}) => {
     setBusy(true); setErr(undefined);
-    api.saveIA({ provider, kind, baseUrl, model, capDollars: cap, key: key || undefined, autoDiagnose: auto, escalateTo, escalateLimit, encargoAutoDollars: encargoAuto, codeAgent, codeConcurrency: aLaVez, estimateLearn: learn, autoEncargo, ...extra })
+    api.saveIA({ provider, kind, baseUrl, model, capDollars: cap, key: key || undefined, autoDiagnose: auto, escalateTo, escalateLimit, encargoAutoDollars: encargoAuto, codeAgent, codeConcurrency: aLaVez, codeRun, estimateLearn: learn, autoEncargo, ...extra })
       .then(() => { setBusy(false); setKey(""); setSaved(true); onSaved(); }, (e) => { setBusy(false); setErr(e); });
   };
   const allowance = Math.min(s.allowanceMicros, s.capMicros);
@@ -333,6 +335,14 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
             ))}
           </div>
         </fieldset>
+        <div className="stack" style={{ gap: 4 }}>
+          <div className="row between">
+            <strong>{t("Run commands in a sandbox")}</strong>
+            <Switch checked={codeRun} disabled={!admin || codeAgent === "off"} onChange={setCodeRun} label={t("Let the coding agent run commands")} />
+          </div>
+          <p className="small muted" style={{ margin: 0 }}>{t("With it on, the coding agent can install dependencies and run the tests, linters and builds touching its change before it commits, in a pod of its own: your branch with its changes, the app's test image, no secrets, not root, and only the public internet (never the cluster or your network). Each command stops after 15 minutes; the pod goes when the encargo ends. Commands cost no AI money, only time; the platform's CI run is still the proof.")}</p>
+          {v.coderSandbox === false && <p className="small" style={{ margin: 0 }}><span className="badge warn">{t("not on this platform")}</span> {t("This platform has no sandbox for it (it needs Kubernetes and CODER_SANDBOX not off), so the coding agent cannot run code here.")}</p>}
+        </div>
         {v.coder && <Boleta b={v.coder} learn={learn} onLearn={setLearn} admin={admin} />}
         {v.coder && <ComoLeVa />}
       </section>

@@ -1,7 +1,9 @@
 # CI steps run code from the repos being built (tests, Dockerfile RUN lines).
 # Keep them away from everything else: they may reach DNS, the shared
 # BuildKit daemon and the public internet (git, package registries), but
-# not other apps, databases, the Kubernetes API or the home network.
+# not other apps, databases, the Kubernetes API or the home network. The
+# coding agent's sandboxes (pods labelled rendimiento.ai/sandbox) are left
+# to isolate-sandbox, below, which does not let them reach BuildKit either.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -10,7 +12,9 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: rendimiento
 spec:
-  podSelector: {}
+  podSelector:
+    matchExpressions:
+      - { key: rendimiento.ai/sandbox, operator: DoesNotExist }
   policyTypes: [Ingress, Egress]
   ingress: []   # nothing connects to build pods
   egress:
@@ -36,5 +40,43 @@ spec:
               - 10.0.0.0/8       # cluster pods and services (10.42/16, 10.43/16)
               - 172.16.0.0/12
               - 192.168.0.0/16   # home network, including the router
+              - 169.254.0.0/16   # link-local / cloud metadata
+              - 100.64.0.0/10    # carrier-grade NAT
+---
+# The coding agent's sandboxes (its run tool) run commands a model chose
+# after reading the repository: DNS and the public internet (package
+# registries, git) only. No BuildKit, no cluster, no nodes, no home network,
+# no link-local (cloud metadata). rendimiento also creates this policy, and
+# puts it back if it changed, before it starts any sandbox
+# (pipeline.SandboxNetworkPolicy): keep both the same.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: isolate-sandbox
+  namespace: rendimiento-builds
+  labels:
+    app.kubernetes.io/managed-by: rendimiento
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: rendimiento.ai/sandbox, operator: Exists }
+  policyTypes: [Ingress, Egress]
+  ingress: []   # nothing connects to a sandbox
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+          podSelector:
+            matchLabels: { k8s-app: kube-dns }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8       # cluster pods and services
+              - 172.16.0.0/12
+              - 192.168.0.0/16   # home network and the nodes
               - 169.254.0.0/16   # link-local / cloud metadata
               - 100.64.0.0/10    # carrier-grade NAT

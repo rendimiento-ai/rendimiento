@@ -1212,6 +1212,18 @@ func TestIAAPI(t *testing.T) {
 	if _, body := e.do(t, "GET", "/api/ia", "", me, nil); !strings.Contains(body, `"provider":"local"`) || !strings.Contains(body, `"localModel":"qwen"`) {
 		t.Fatalf("defaults: %s", body)
 	}
+	// The coding agent's run tool: on by default, off by the setting, and
+	// the page says whether the platform has a sandbox at all.
+	e.s.CoderSandbox = true
+	if _, body := e.do(t, "GET", "/api/ia", "", me, nil); !strings.Contains(body, `"codeRun":true`) || !strings.Contains(body, `"coderSandbox":true`) {
+		t.Fatalf("run tool defaults: %s", body)
+	}
+	if _, body := e.do(t, "PUT", "/api/ia", `{"provider":"local","capDollars":1,"codeRun":false}`, me, nil); !strings.Contains(body, `"codeRun":false`) {
+		t.Fatalf("run tool off: %s", body)
+	}
+	if _, body := e.do(t, "PUT", "/api/ia", `{"provider":"local","capDollars":1,"codeRun":true}`, me, nil); !strings.Contains(body, `"codeRun":true`) {
+		t.Fatalf("run tool on again: %s", body)
+	}
 	for _, bad := range []string{`{"provider":"gratis"}`, `{"provider":"own","kind":"otro"}`, `{"provider":"own","kind":"openai","baseUrl":"http://x"}`, `{"provider":"local","capDollars":5000}`} {
 		if r, _ := e.do(t, "PUT", "/api/ia", bad, me, nil); r.StatusCode != 400 {
 			t.Errorf("%s: %d, want 400", bad, r.StatusCode)

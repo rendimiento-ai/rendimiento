@@ -39,6 +39,9 @@ type IAView struct {
 	Usage       []store.AIUsage `json:"usage"`
 	// Coder is the coding agent's record (nil when it never took one).
 	Coder *CoderBoleta `json:"coder,omitempty"`
+	// CoderSandbox says the platform can run the coding agent's commands
+	// in a sandbox (Settings.CodeRun lets it).
+	CoderSandbox bool `json:"coderSandbox"`
 }
 
 // CoderBoleta is the coding agent's record: the encargos it took, how many
@@ -91,7 +94,7 @@ func (s *Server) iaView(w http.ResponseWriter, r *http.Request, _ string) {
 		return
 	}
 	ctx, org := r.Context(), orgOf(r)
-	v := IAView{LocalModel: "", PlatformAvailable: s.IA.PlatformKeyNow() != ""}
+	v := IAView{LocalModel: "", PlatformAvailable: s.IA.PlatformKeyNow() != "", CoderSandbox: s.CoderSandbox}
 	var err error
 	if v.Settings, err = s.Store.AISettingsOf(ctx, org); err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
@@ -155,6 +158,9 @@ type IAInput struct {
 	// CodeConcurrency is how many encargos the coding agent may do at
 	// once, 1 to store.MaxCodeConcurrency (nil: unchanged).
 	CodeConcurrency *int `json:"codeConcurrency"`
+	// CodeRun lets the coding agent run commands in a sandbox (nil:
+	// unchanged).
+	CodeRun *bool `json:"codeRun"`
 	// EstimateLearn: the estimator corrects its table by what the coding
 	// agent spent, or keeps the fixed table (nil: unchanged).
 	EstimateLearn *bool `json:"estimateLearn"`
@@ -279,6 +285,12 @@ func (s *Server) putIA(w http.ResponseWriter, r *http.Request, login string) {
 			return
 		}
 		if err := s.Store.SetAutoEncargo(ctx, org, *in.AutoEncargo, login); err != nil {
+			httpError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	if in.CodeRun != nil {
+		if err := s.Store.SetCodeRun(ctx, org, *in.CodeRun, login); err != nil {
 			httpError(w, http.StatusInternalServerError, err.Error())
 			return
 		}

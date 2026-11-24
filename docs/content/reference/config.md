@@ -180,6 +180,10 @@ Days and hours are counted in `PUBLIC_STATS_TZ`.
 | `AI_PLATFORM_KEY` | *(empty: none)* | from Secret `rendimiento-ia` | the platform's Anthropic key, which organizations use only within the allowance operators give them |
 | `AI_PLATFORM_MODEL` | `claude-haiku-5-5` | | the model of the platform's key |
 | `AI_PLATFORM_CAP` | `5` | | dollars a month the platform's key may spend, across every organization |
+| `CODER_SANDBOX` | `on` | `off` | `off`: the coding agent never runs commands, whatever organizations choose ([its sandbox](../guide/agents.md#the-sandbox)) |
+| `CODER_SANDBOX_IMAGE` | `golang:1.27-bookworm` | `registry.example.lan:5000/toolbox:1` | the sandbox's image when the app has no test or build-task image for the folder |
+| `CODER_SANDBOX_RUNTIME_CLASS` | *(empty: the cluster's default runtime)* | `gvisor` | the sandbox pods' `runtimeClassName`, for gVisor or Kata once your nodes have one |
+| `CODER_SANDBOX_CPU`, `CODER_SANDBOX_MEMORY`, `CODER_SANDBOX_DISK` | `2`, `4Gi`, `8Gi` | | the command container's CPU and memory limits, and the workspace's size |
 
 ## Log archive
 
