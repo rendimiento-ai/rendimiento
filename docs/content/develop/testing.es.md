@@ -55,7 +55,7 @@ make itest                                       # construcciones reales en el g
 
 `-p 1` corre los paquetes uno tras otro: las pruebas del almacén, de la plataforma y de la API comparten una base de datos. En cada envío no: `CI_PARTE` reparte el script en tres pasos, cada uno con su base de datos (abajo).
 
-Las pruebas del almacén migran una base de datos una sola vez (`<db>_plantilla`) y le dan a cada prueba una copia (`CREATE DATABASE … TEMPLATE`): una migración nueva cuesta una instrucción más, no una más por prueba. Además, `hack/ci-test.sh` se conecta con `synchronous_commit=off`, porque una base de datos desechable no necesita esperar a su disco al confirmar cada transacción. Borrar el esquema y migrar de nuevo en cada prueba había hecho que las pruebas del almacén tardaran de seis a ocho minutos en un nodo ocupado.
+Las pruebas del almacén, de la plataforma y de la API migran una base de datos una sola vez por paquete (`<db>_plantilla`, dos veces, porque migrar debe poder repetirse sin error) y le dan a cada prueba una copia (`CREATE DATABASE … TEMPLATE`), que se borra al terminar la prueba: `pgprueba.Base`, en `internal/pgprueba`. Una migración nueva cuesta una instrucción más, no una más por prueba, y cada prueba empieza con una base de datos vacía y migrada, escriban lo que escriban las anteriores. Además, `hack/ci-test.sh` se conecta con `synchronous_commit=off`, porque una base de datos desechable no necesita esperar a su disco al confirmar cada transacción. Borrar el esquema y migrar de nuevo en cada prueba había hecho que las pruebas del almacén tardaran de seis a ocho minutos en un nodo ocupado, y las de la API, cuatro.
 
 ## En cada envío {#on-every-push}
 

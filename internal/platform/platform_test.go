@@ -41,6 +41,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/generate"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/notify"
+	"github.com/rendimiento-ai/rendimiento/internal/pgprueba"
 	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/render"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
@@ -246,10 +247,9 @@ func (e *fakeExec) Execute(ctx context.Context, _ string, src pipeline.Source, s
 
 func setup(t *testing.T) (*Platform, *fakeGitHub, *fakeExec, client.Client) {
 	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("TEST_DATABASE_URL not set")
-	}
+	// A database of its own, a copy of one migrated once for the package
+	// (the Kubernetes objects of earlier tests stay: see kubeConfig).
+	dsn := pgprueba.Base(t, migrarStore)
 	ctrl.SetLogger(logr.Discard())
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -258,12 +258,6 @@ func setup(t *testing.T) (*Platform, *fakeGitHub, *fakeExec, client.Client) {
 		t.Fatal(err)
 	}
 	t.Cleanup(st.Close)
-	if err := resetDB(ctx, dsn); err != nil {
-		t.Fatal(err)
-	}
-	if err := st.Migrate(ctx); err != nil {
-		t.Fatal(err)
-	}
 
 	cfg := kubeConfig(t)
 	scheme := runtime.NewScheme()
@@ -300,8 +294,8 @@ func setup(t *testing.T) (*Platform, *fakeGitHub, *fakeExec, client.Client) {
 // The package's tests share one envtest: starting an API server and etcd
 // took about half of each test on the cluster's workers (the package ran
 // 409 s for 7 tests). Each test still gets its own manager, Platform and
-// freshly migrated database; the Kubernetes objects of earlier tests stay,
-// so every test that calls setup uses its own app names (hello, secplus,
+// database (a copy of one migrated once); the Kubernetes objects of
+// earlier tests stay, so every test that calls setup uses its own app names (hello, secplus,
 // shop, cambios, tareas, invalida, verifica, predespliegue, version).
 var (
 	sharedEnv     *envtest.Environment
@@ -337,13 +331,14 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func resetDB(ctx context.Context, dsn string) error {
+// migrarStore is how pgprueba makes the package's template.
+func migrarStore(ctx context.Context, dsn string) error {
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
 		return err
 	}
 	defer st.Close()
-	return st.ResetForTests(ctx)
+	return st.Migrate(ctx)
 }
 
 // testWait is how long a test waits for a run or a condition. A run on a

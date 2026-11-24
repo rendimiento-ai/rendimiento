@@ -15,7 +15,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	goruntime "runtime"
 	"slices"
 	"strings"
@@ -39,6 +38,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/events"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/ia"
+	"github.com/rendimiento-ai/rendimiento/internal/pgprueba"
 	"github.com/rendimiento-ai/rendimiento/internal/platform"
 	"github.com/rendimiento-ai/rendimiento/internal/render"
 	"github.com/rendimiento-ai/rendimiento/internal/ruta"
@@ -61,22 +61,16 @@ type testEnv struct {
 
 func newEnv(t *testing.T, withApp bool) *testEnv {
 	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("TEST_DATABASE_URL not set")
-	}
+	// A database of its own, a copy of one migrated once for the package:
+	// dropping the schema and migrating again for each of some 60 tests
+	// had made this package four minutes long (run 1786).
+	dsn := pgprueba.Base(t, migrarStore)
 	ctx := context.Background()
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(st.Close)
-	if err := st.ResetForTests(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if err := st.Migrate(ctx); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := st.SeedAdmins(ctx, []string{"p0dxD"}); err != nil {
 		t.Fatal(err)
 	}
@@ -105,6 +99,16 @@ func newEnv(t *testing.T, withApp bool) *testEnv {
 	srv := httptest.NewServer(s.Handler())
 	t.Cleanup(srv.Close)
 	return &testEnv{srv: srv, s: s, kube: kube, store: st}
+}
+
+// migrarStore is how pgprueba makes the package's template.
+func migrarStore(ctx context.Context, dsn string) error {
+	st, err := store.Open(ctx, dsn)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	return st.Migrate(ctx)
 }
 
 // session creates a logged-in cookie for login directly in the store.
