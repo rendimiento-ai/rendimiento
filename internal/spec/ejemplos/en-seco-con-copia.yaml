@@ -1,0 +1,27 @@
+# An app with previews whose checks run en seco against a copy of the
+# branch: on a branch that changes the app (a dependency update), its
+# smoke test and its own tests run against the branch's pull request copy,
+# or a short copy made only for them when it has none, and a failure only
+# warns. The smoke test also runs against the published release when only
+# the checks change (dryRunOn: both).
+services:
+  - name: web
+    port: 3000
+    domain: reservas.example.com
+    needs: [postgres]
+builds:
+  - name: e2e
+    path: e2e
+tasks:
+  - name: humo
+    stage: post-deploy
+    image: curlimages/curl:8.17.0
+    command: curl -fsS http://web:3000/salud
+    dryRun: true
+    dryRunOn: both
+tests:
+  build: e2e
+  dryRun: true
+  dryRunOn: preview
+previews:
+  max: 2

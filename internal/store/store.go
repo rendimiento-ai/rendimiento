@@ -249,22 +249,50 @@ type Run struct {
 	// person's yes.
 	Untested []string `json:"untested,omitempty"`
 	// Dry is what the branch's run checked en seco, against the published
-	// release (nil when nothing was to run).
+	// release or a copy of the branch (nil when nothing was to run).
 	Dry *DryRun `json:"dry,omitempty"`
 }
 
 // DryRun is what a branch's run checked en seco: its new post-deploy
-// checks, against the release already published. It only warns: a failure
-// keeps the run from being merged by itself, nothing more.
+// checks, against the release already published, and against a copy of
+// the branch (Copy). It only warns: a failure keeps the run from being
+// merged by itself, nothing more.
 type DryRun struct {
 	// Release is the published release they ran against (0: none ran).
 	Release int64 `json:"release,omitempty"`
 	// Note says why none ran (no release is published yet).
-	Note   string `json:"note,omitempty"`
-	Failed bool   `json:"failed,omitempty"`
+	Note string `json:"note,omitempty"`
+	// Failed says a check failed en seco, against either.
+	Failed bool `json:"failed,omitempty"`
 	// Tasks are each check's result (filled in by GetRun).
 	Tasks []ReleaseTask `json:"tasks,omitempty"`
+	// Copy is what ran against a copy of the branch (filled in by GetRun).
+	Copy *DryCopy `json:"copy,omitempty"`
 }
+
+// DryCopy is what a branch's run checked en seco against a copy of the
+// branch: its pull request's, or a short copy made only for the checks.
+type DryCopy struct {
+	// Kind is pull (the pull request's copy), short, off (the app has no
+	// previews) or "" (none ran: Note says why).
+	Kind string `json:"kind,omitempty"`
+	// Pull is the pull request whose copy it was.
+	Pull int `json:"pull,omitempty"`
+	// URL is where the copy answers, while it lives (Gone once deleted).
+	URL    string `json:"url,omitempty"`
+	Gone   bool   `json:"gone,omitempty"`
+	Note   string `json:"note,omitempty"`
+	Failed bool   `json:"failed,omitempty"`
+	// Tasks are each check's result against the copy.
+	Tasks []ReleaseTask `json:"tasks,omitempty"`
+}
+
+// The kinds of copy a branch's checks ran against en seco.
+const (
+	DryCopyPull  = "pull"
+	DryCopyShort = "short"
+	DryCopyOff   = "off"
+)
 
 // DryFailed says whether a check run en seco failed: the run is not
 // merged by itself, and its check asks a person.
@@ -317,7 +345,7 @@ func scanRun(row pgx.Row) (*Run, error) {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
-	if dryRelease != nil || dryNote != "" {
+	if dryRelease != nil || dryNote != "" || dryFailed {
 		r.Dry = &DryRun{Note: dryNote, Failed: dryFailed}
 		if dryRelease != nil {
 			r.Dry.Release = *dryRelease
@@ -540,6 +568,16 @@ func (s *Store) GetRun(ctx context.Context, id int64) (*Run, error) {
 		if r.Dry.Tasks, err = s.RunDryTasks(ctx, id); err != nil {
 			return nil, err
 		}
+	}
+	dc, err := s.RunDryCopy(ctx, id)
+	switch {
+	case err == nil:
+		if r.Dry == nil {
+			r.Dry = &DryRun{}
+		}
+		r.Dry.Copy = dc
+	case !errors.Is(err, ErrNotFound):
+		return nil, err
 	}
 	return r, nil
 }

@@ -22,6 +22,7 @@ type coderStore struct {
 	delivered string
 	links     []string
 	gaveBack  string
+	cause     string // the cause it gave back with
 	spent     int64
 	handover  string
 	waited    []int64
@@ -73,6 +74,10 @@ func (s *coderStore) DeliverEncargo(_ context.Context, _, _ int64, _, result str
 func (s *coderStore) GiveBackEncargo(_ context.Context, _, _ int64, _, note string) (store.Encargo, error) {
 	s.gaveBack = note
 	return store.Encargo{}, nil
+}
+func (s *coderStore) GiveBackEncargoCause(ctx context.Context, id, key int64, who, note, cause string) (store.Encargo, error) {
+	s.cause = cause
+	return s.GiveBackEncargo(ctx, id, key, who, note)
 }
 func (s *coderStore) AddEncargoSpent(_ context.Context, _, micros int64) error {
 	s.spent += micros

@@ -7,6 +7,7 @@ import { apagado } from "../components/conexion-aviso";
 import { VigiaIA } from "../components/vigia";
 import { EsqBloques, EsqTabla } from "../components/esqueleto";
 import { Boleta } from "../components/boleta";
+import { ComoLeVa } from "../components/agente-cuentas";
 import { TopePlatica } from "../components/platica";
 
 const providerLabel: Record<AIProvider, string> = { local: "local model", own: "own key", platform: "the platform's" };
@@ -343,6 +344,7 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
           {v.coderSandbox === false && <p className="small" style={{ margin: 0 }}><span className="badge warn">{t("not on this platform")}</span> {t("This platform has no sandbox for it (it needs Kubernetes and CODER_SANDBOX not off), so the coding agent cannot run code here.")}</p>}
         </div>
         {v.coder && <Boleta b={v.coder} learn={learn} onLearn={setLearn} admin={admin} />}
+        {v.coder && <ComoLeVa />}
       </section>
 
       <ErrorBox error={err} />

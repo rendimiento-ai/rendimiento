@@ -45,6 +45,7 @@ type CoderStore interface {
 	ResumeEncargo(ctx context.Context, id, keyID int64, who, note string) (store.Encargo, error)
 	DeliverEncargo(ctx context.Context, id, keyID int64, who, result string, links []string) (store.Encargo, error)
 	GiveBackEncargo(ctx context.Context, id, keyID int64, who, note string) (store.Encargo, error)
+	GiveBackEncargoCause(ctx context.Context, id, keyID int64, who, note, cause string) (store.Encargo, error)
 	AddEncargoSpent(ctx context.Context, id, micros int64) error
 	GetApp(ctx context.Context, name string) (*store.App, error)
 	ListRuns(ctx context.Context, appID int64, limit int) ([]*store.Run, error)
@@ -77,8 +78,8 @@ type Repos interface {
 
 // Coder is the platform's coding agent: it does encargos on a branch of the
 // app's repository, through its forja's API, and tests them with the platform's own
-// CI, the way a person's agent does; it never runs code itself, and never
-// touches the default branch. It stops at twice the encargo's estimate and
+// CI, the way a person's agent does; it runs code only in its sandbox (run)
+// and the app's declared fixes, and never touches the default branch. It stops at twice the encargo's estimate and
 // gives it to the person's own agent with what it did and what is left.
 type Coder struct {
 	Store CoderStore
@@ -104,6 +105,18 @@ type Coder struct {
 	// Terminal runs commands in a sandbox for run (nil: the tool is not
 	// offered; see terminal.go).
 	Terminal *Terminal
+	// Plataforma is what slow_requests and app_status read (nil: they are
+	// not offered); PlatformApp the app that is rendimiento itself
+	// (SELF_APP), whose slow requests are the platform's own.
+	Plataforma  CoderPlataforma
+	PlatformApp string
+	// RetryRun runs again what failed in a run the cluster failed (nil: an
+	// empty commit runs it again).
+	RetryRun func(ctx context.Context, id int64) (*store.Run, error)
+
+	// wrap makes Repos try a call once more when the forja's failure passes.
+	wrap      sync.Once
+	lastSweep time.Time
 
 	// The encargos it does now, and the cargo each organization's key has
 	// open while it does them (several at once share it, see Pick).
@@ -121,11 +134,17 @@ type sharedCargo struct {
 	entregas []string
 }
 
-// Limits on the work: the turns, the most a run is waited for, and what a
-// file, a read and a search may be.
+// runWait is how long runs usually take at most: past it the agent keeps
+// waiting, spending nothing, up to runWaitMax (variables for tests).
+var (
+	runWait    = 50 * time.Minute
+	runWaitMax = 6 * time.Hour
+)
+
+// Limits on the work: the turns, the wait for a push to start a run, and
+// what a file, a read and a search may be.
 const (
 	maxTurns    = 80
-	runWait     = 50 * time.Minute
 	noRunWait   = 5 * time.Minute // for the push to start a run
 	maxFileSize = 256 << 10       // a file in the branch's snapshot (listed and searched)
 	maxBigFile  = 8 << 20         // a bigger one (a lockfile), read only when a tool names it
@@ -150,6 +169,10 @@ func (c *Coder) Run(ctx context.Context) {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 	for {
+		if time.Since(c.lastSweep) > 5*time.Minute {
+			c.lastSweep = time.Now()
+			c.passUnanswered(ctx, c.lastSweep)
+		}
 		cands, err := c.Store.CoderCandidates(ctx, 200)
 		switch {
 		case err == nil:
@@ -166,7 +189,8 @@ func (c *Coder) Run(ctx context.Context) {
 				wg.Add(1)
 				go func(e store.Encargo) {
 					defer wg.Done()
-					wctx, cancel := context.WithTimeout(ctx, 3*time.Hour)
+					// maxWork bounds the work (job.work); this, the waits for runs too.
+					wctx, cancel := context.WithTimeout(ctx, maxWork+2*runWaitMax)
 					if err := c.Do(wctx, e); err != nil {
 						c.Log.Warn("coder: an encargo", "encargo", e.ID, "err", err)
 					}
@@ -299,7 +323,7 @@ func (c *Coder) recover(ctx context.Context) {
 	for _, e := range list {
 		note := c.say("La plataforma se reinició mientras lo hacía; lo que alcanzó a probar está en la rama %s.",
 			"The platform restarted while it worked on it; what it got to test is on branch %s.", branchFor(e))
-		if _, err := c.Store.GiveBackEncargo(ctx, e.ID, *e.KeyID, CoderName, note); err == nil {
+		if _, err := c.Store.GiveBackEncargoCause(ctx, e.ID, *e.KeyID, CoderName, note, store.CauseRestart); err == nil {
 			if cg, err := c.Store.OpenCargo(ctx, *e.KeyID); err == nil {
 				_ = c.Store.HandOver(ctx, cg.ID, note, "")
 			}
@@ -342,8 +366,14 @@ type job struct {
 	lastRun            *store.Run
 	finished           bool
 	outcome            string // delivered, gave back
+	cause              string // why it gave it back (store.Cause*; "": read from the note)
 	// fixes are the app's declared fixes, from the default branch.
 	fixes []spec.Fix
+	// resumed is the answered question it goes on from (nil: a new start);
+	// start is when it began, and waited how long it waited for runs.
+	resumed *store.EncargoPregunta
+	start   time.Time
+	waited  time.Duration
 }
 
 // Do does one encargo: takes it in a cargo, works on its branch, and
@@ -352,6 +382,11 @@ func (c *Coder) Do(ctx context.Context, e store.Encargo) error {
 	if c.Poll == 0 {
 		c.Poll = 15 * time.Second
 	}
+	c.wrap.Do(func() {
+		if _, ok := c.Repos.(retryRepos); !ok && c.Repos != nil {
+			c.Repos = retryRepos{c.Repos}
+		}
+	})
 	key, err := c.Store.SystemKey(ctx, e.OrgID, CoderName)
 	if err != nil {
 		return err
@@ -377,12 +412,12 @@ func (c *Coder) Do(ctx context.Context, e store.Encargo) error {
 	if !j.finished {
 		why := c.say("No pude terminarlo", "Could not finish it")
 		if errors.Is(context.Cause(wctx), errStopped) {
-			why = c.say("Una persona lo detuvo", "A person stopped it")
+			why, j.cause = c.say("Una persona lo detuvo", "A person stopped it"), store.CauseStopped
 			if sha := j.commitLeft(context.WithoutCancel(ctx)); sha != "" {
 				why += c.say(". Lo que llevaba quedó SIN PROBAR en el commit %s", ". What I had is in commit %s, UNTESTED", sha[:min(7, len(sha))])
 			}
 		} else if err != nil {
-			why += ": " + err.Error()
+			why, j.cause = why+": "+err.Error(), j.errCause(err)
 		}
 		j.giveBack(context.WithoutCancel(ctx), why)
 	}
@@ -395,7 +430,7 @@ func (j *job) giveBack(ctx context.Context, why string) {
 	c := j.c
 	note := why + ". " + c.say("Lo que hice está en la rama %s; gasté %s de %s.", "What I did is on branch %s; spent %s of %s.",
 		j.branch, ia.Dollars(j.spent), ia.Dollars(j.budget))
-	if _, err := c.Store.GiveBackEncargo(ctx, j.e.ID, j.key.ID, CoderName, note); err != nil {
+	if _, err := c.Store.GiveBackEncargoCause(ctx, j.e.ID, j.key.ID, CoderName, note, j.cause); err != nil {
 		c.Log.Warn("coder: giving an encargo back", "encargo", j.e.ID, "err", err)
 	}
 	j.finished, j.outcome = true, c.say("lo devolvió a su agente", "gave it back to your agent")
@@ -410,6 +445,12 @@ func (j *job) work(ctx context.Context) error {
 		return fmt.Errorf("no app %q", j.e.App)
 	}
 	j.app = app
+	j.start = time.Now()
+	if st, ok := c.asks(); ok {
+		if p, err := st.ResumeAnswer(ctx, j.e.ID); err == nil {
+			j.resumed, j.spent = &p, p.SpentMicros // the brake counts what it spent before asking
+		}
+	}
 	// An encargo about a run that failed on another branch is about that
 	// branch's code: the error lives there, not on the default branch.
 	j.from = app.DefaultBranch
@@ -424,6 +465,8 @@ func (j *job) work(ctx context.Context) error {
 	// default branch gets a branch of its own, since nobody pushes to it.
 	if j.from != app.DefaultBranch {
 		j.branch, j.same = j.from, true
+	} else if head, ok := j.resumedHead(ctx); ok {
+		j.lastSHA = head // it goes on from what it committed before asking
 	} else {
 		base, err := c.Repos.BranchSHA(ctx, app.InstallationID, app.Repo, j.from)
 		if err != nil {
@@ -432,6 +475,9 @@ func (j *job) work(ctx context.Context) error {
 		if err := c.Repos.CreateBranch(ctx, app.InstallationID, app.Repo, j.branch, base); err != nil {
 			return err
 		}
+	}
+	if head, ok := j.resumedHead(ctx); ok && j.same {
+		j.lastSHA = head
 	}
 	if j.files, err = c.Repos.Files(ctx, app.InstallationID, app.Repo, j.branch, maxFileSize); err != nil {
 		return err
@@ -447,6 +493,10 @@ func (j *job) work(ctx context.Context) error {
 		if ctx.Err() != nil { // a person stopped it, or its time ran out
 			return context.Cause(ctx)
 		}
+		if time.Since(j.start)-j.waited > maxWork {
+			j.commitLeft(ctx)
+			return errors.New(c.say("se acabó su tiempo de trabajo", "its working time ran out"))
+		}
 		// The brake looks ahead (Ruta 77): it stops before a call that would
 		// take it past twice the estimate, not after, even in the middle of
 		// an edit; what it has is kept as an untested commit.
@@ -458,15 +508,13 @@ func (j *job) work(ctx context.Context) error {
 			if sha != "" {
 				why += c.say(". Lo que llevaba quedó SIN PROBAR en el commit %s", ". What I had is in commit %s, UNTESTED", sha[:min(7, len(sha))])
 			}
+			j.cause = store.CauseBudget
 			j.giveBack(context.WithoutCancel(ctx), why)
 			return nil
 		}
 		j.doing(ctx, "think", "")
-		res, err := c.Model.CompleteTools(ctx, j.e.OrgID, CoderSource, ia.ToolRequest{System: j.system(), Tools: j.tools(), Turns: turns,
+		res, err := j.complete(ctx, ia.ToolRequest{System: j.system(), Tools: j.tools(), Turns: turns,
 			Model: WorkModel, MaxTokens: 16000})
-		j.spent += res.CostMicros
-		j.costs = append(j.costs, res.CostMicros)
-		_ = c.Store.AddEncargoSpent(context.WithoutCancel(ctx), j.e.ID, res.CostMicros)
 		if err != nil {
 			return err
 		}
@@ -545,6 +593,7 @@ func (j *job) brief() string {
 	if j.e.Comment != "" {
 		fmt.Fprintf(&b, "\nA person sent it back before, saying:\n%s\n", j.e.Comment)
 	}
+	b.WriteString(j.resumeBrief())
 	for _, name := range []string{"AGENTS.md", "CLAUDE.md"} {
 		if f, ok := j.files[name]; ok {
 			fmt.Fprintf(&b, "\nThe repository's %s:\n%s\n", name, truncate(string(f), 8000))
@@ -574,7 +623,7 @@ func (j *job) fixList() string {
 // tools are the agent's tools: run_fix only when the app declares fixes,
 // with them in its description.
 func (j *job) tools() []ia.Tool {
-	tools := j.withTerminal(coderTools)
+	tools := append(j.withTerminal(coderTools), j.moreTools()...)
 	if len(j.fixes) == 0 {
 		return tools
 	}
@@ -627,7 +676,7 @@ How to work:
 - Never write secrets (passwords, tokens, keys) into files. Never touch any branch but yours.
 - When the run passed, call deliver with a short summary for the person, in %s: what you changed and why, how it was tested, and what they should look at. If you cannot finish (the encargo is unclear, needs a decision, or keeps failing), call give_up with the reason and what is left, in %s.
 - Work efficiently: this encargo was estimated at about %s, and you stop at %s, before a turn that would pass it, even in the middle of a change (what you have is then committed untested). Commit and test as soon as a change is whole; prefer search and reading parts of files over reading everything.`,
-		lang, lang, ia.Dollars(j.budget/2), ia.Dollars(j.budget)) + j.fixRule() + j.terminalRule()
+		lang, lang, ia.Dollars(j.budget/2), ia.Dollars(j.budget)) + j.fixRule() + j.terminalRule() + j.seeRule()
 }
 
 // fixRule tells the model of run_fix, when the app declares fixes.
@@ -658,7 +707,7 @@ var coderTools = []ia.Tool{
 	{Name: "deliver", Description: "Hand the encargo over to the person, once the latest run passed.",
 		InputSchema: schema(map[string]any{"summary": str("what you changed and why, how it was tested, what to look at")}, "summary")},
 	{Name: "give_up", Description: "Give the encargo back to the person's own agent, when you cannot finish it.",
-		InputSchema: schema(map[string]any{"reason": str("why, and what is left")}, "reason")},
+		InputSchema: schema(map[string]any{"reason": str("why, and what is left"), "cause": giveUpCause}, "reason")},
 	runTool,
 }
 
@@ -750,9 +799,13 @@ func (j *job) tool(ctx context.Context, call ia.ToolCall) (string, bool) {
 	case "deliver":
 		return j.deliver(ctx, in.Summary)
 	case "give_up":
+		j.cause = causeOfGiveUp(call.Input)
 		j.commitLeft(ctx)
 		j.giveBack(context.WithoutCancel(ctx), in.Reason)
 		return "given back", false
+	}
+	if out, isErr, ok := j.moreTool(ctx, call); ok {
+		return out, isErr
 	}
 	return "no such tool: " + call.Name, true
 }
@@ -1138,59 +1191,61 @@ func (j *job) commit(ctx context.Context, message string) (string, error) {
 // commitAndTest commits and waits for the platform's run on the commit.
 func (j *job) commitAndTest(ctx context.Context, message string) (string, bool) {
 	c := j.c
-	if len(j.changed) == 0 && len(j.removed) == 0 && j.merging == "" {
+	nothing := len(j.changed) == 0 && len(j.removed) == 0 && j.merging == ""
+	if nothing && (j.resumed == nil || j.lastSHA == "" || j.lastRun != nil) {
 		return "nothing changed since the last commit", true
 	}
 	if left := j.marked(); len(left) > 0 {
 		return "these files still have conflict marks; resolve them first: " + strings.Join(left, ", "), true
 	}
-	sha, err := j.commit(ctx, strings.TrimSpace(message)+"\n\n"+c.say("Encargo %d, hecho por el agente de código de rendimiento.", "Encargo %d, done by rendimiento's coding agent.", j.e.ID))
-	if err != nil {
-		return "the commit failed: " + err.Error(), true
+	sha := j.lastSHA // resumed with nothing new: the run of what it committed before asking
+	if !nothing {
+		var err error
+		if sha, err = j.commit(ctx, strings.TrimSpace(message)+"\n\n"+c.say("Encargo %d, hecho por el agente de código de rendimiento.", "Encargo %d, done by rendimiento's coding agent.", j.e.ID)); err != nil {
+			return "the commit failed: " + err.Error(), true
+		}
 	}
 	run, err := j.waitRun(ctx, sha)
 	if err != nil {
-		return fmt.Sprintf("committed %s, but: %s", sha[:7], err.Error()), true
+		return fmt.Sprintf("committed %s, but: %s", sha[:min(7, len(sha))], err.Error()), true
+	}
+	// A run the cluster failed (etcd, an evicted pod, an image pull) says
+	// nothing of the code: it runs once more before it counts.
+	again := ""
+	if run.Status == store.RunFailed {
+		if sign := j.clusterSign(ctx, run); sign != "" {
+			if nsha, nrun, err := j.rerun(ctx, sha, run); err == nil {
+				again = fmt.Sprintf("run #%d failed for the cluster (%s), not the code, so it ran again. ", run.ID, sign)
+				sha, run = nsha, nrun
+			} else {
+				again = fmt.Sprintf("run #%d seems to have failed for the cluster (%s), not the code, but it could not run again (%v). ", run.ID, sign, err)
+			}
+		}
 	}
 	j.lastRun = run
 	if run.Status == store.RunSucceeded {
-		return fmt.Sprintf("committed %s; run #%d passed. You may deliver.", sha[:7], run.ID), false
+		return again + fmt.Sprintf("committed %s; run #%d passed. You may deliver.", sha[:min(7, len(sha))], run.ID), false
 	}
-	return j.failure(ctx, sha, run), true
+	return again + j.failure(ctx, sha, run), true
 }
 
-// waitRun waits for the run on a commit to end, marking the encargo as
-// waiting on it meanwhile.
+// waitRun waits for the run on a commit to start (noRunWait) and end
+// (waitEnd), marking the encargo as waiting on it meanwhile.
 func (j *job) waitRun(ctx context.Context, sha string) (*store.Run, error) {
 	c := j.c
 	start := time.Now()
-	var run *store.Run
-	for time.Since(start) < runWait {
-		if run == nil && time.Since(start) > noRunWait {
-			break
+	for {
+		runs, err := c.Store.ListRuns(ctx, j.app.ID, 30)
+		if err != nil {
+			return nil, err
 		}
-		if run == nil {
-			runs, err := c.Store.ListRuns(ctx, j.app.ID, 30)
-			if err != nil {
-				return nil, err
+		for _, r := range runs {
+			if r.SHA == sha {
+				return j.waitEnd(ctx, r)
 			}
-			for _, r := range runs {
-				if r.SHA == sha {
-					run = r
-					_, _ = c.Store.WaitEncargo(ctx, j.e.ID, j.key.ID, r.ID, CoderName)
-					break
-				}
-			}
-		} else {
-			r, err := c.Store.GetRun(ctx, run.ID)
-			if err != nil {
-				return nil, err
-			}
-			run = r
 		}
-		if run != nil && run.Status != store.RunQueued && run.Status != store.RunRunning {
-			_, _ = c.Store.ResumeEncargo(ctx, j.e.ID, j.key.ID, CoderName, fmt.Sprintf("#%d: %s", run.ID, run.Status))
-			return run, nil
+		if time.Since(start) > noRunWait {
+			return nil, errors.New("no run started for the commit; the app may not build this branch")
 		}
 		select {
 		case <-ctx.Done():
@@ -1198,11 +1253,6 @@ func (j *job) waitRun(ctx context.Context, sha string) (*store.Run, error) {
 		case <-time.After(c.Poll):
 		}
 	}
-	if run == nil {
-		return nil, errors.New("no run started for the commit; the app may not build this branch")
-	}
-	_, _ = c.Store.ResumeEncargo(ctx, j.e.ID, j.key.ID, CoderName, "")
-	return nil, fmt.Errorf("run #%d did not end in %s", run.ID, runWait)
 }
 
 // failure is how a run failed: its failed steps with the end of their logs,

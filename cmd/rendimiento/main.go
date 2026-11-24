@@ -772,6 +772,9 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 				Memory: os.Getenv("CODER_SANDBOX_MEMORY"), Disk: os.Getenv("CODER_SANDBOX_DISK"), Log: log.With("component", "sandbox")}
 			coder.Terminal = &agentes.Terminal{Sandbox: sandboxes, Store: st}
 		}
+		// What its read-only tools see (its encargo's app only), and how it
+		// runs again a run the cluster failed.
+		coder.Plataforma, coder.PlatformApp, coder.RetryRun = st, os.Getenv("SELF_APP"), p.RetryRun
 		est := &agentes.Estimator{Store: st, Model: srv.IA, Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "agents")}
 		// Where comments are received (rendimiento.ai), the platform's AI
 		// sorts each one and drafts its answer, for a person to send.

@@ -97,6 +97,9 @@ type VigiaDatos struct {
 	Lineas    []VigiaLinea    `json:"lineas"`
 	Lentas    []VigiaRuta     `json:"lentas"`
 	Problemas []VigiaProblema `json:"problemas"`
+	// Dormido are the hours rendimiento slept on a computer: they are not
+	// downtime, and their log lines are left out.
+	Dormido []Periodo `json:"dormido,omitempty"`
 }
 
 // LeerVigia adds up the week from desde to hasta, and the three weeks before
@@ -167,7 +170,9 @@ func (s *Store) LeerVigia(ctx context.Context, desde, hasta time.Time) (VigiaDat
 		return d, err
 	}
 	// The log's warnings and errors by message: the message is the line's
-	// template (the values are attributes, which are not read).
+	// template (the values are attributes, which are not read). What was
+	// written while rendimiento slept on a computer is left out: its apps
+	// were asleep, not broken.
 	d.Lineas, err = collect(ctx, s, `
 		SELECT level, process, app, message,
 			count(*) FILTER (WHERE at >= $2)::int,
@@ -175,6 +180,7 @@ func (s *Store) LeerVigia(ctx context.Context, desde, hasta time.Time) (VigiaDat
 			count(*) FILTER (WHERE at < $2)::int,
 			min(at) FILTER (WHERE at >= $2), max(at) FILTER (WHERE at >= $2)
 		FROM registro WHERE at >= $1 AND at < $3 AND level IN ('WARN', 'ERROR')
+			AND NOT EXISTS (SELECT 1 FROM dormir_periodos z WHERE registro.at >= z.desde AND (z.hasta IS NULL OR registro.at < z.hasta))
 		GROUP BY level, process, app, message
 		HAVING count(*) FILTER (WHERE at >= $2) > 0
 		ORDER BY level = 'ERROR' DESC, 5 DESC LIMIT 40`,
@@ -197,6 +203,9 @@ func (s *Store) LeerVigia(ctx context.Context, desde, hasta time.Time) (VigiaDat
 			return v, err
 		})
 	if err != nil {
+		return d, err
+	}
+	if d.Dormido, err = s.PeriodosDormidos(ctx, desde, hasta); err != nil {
 		return d, err
 	}
 	d.Problemas, err = collect(ctx, s, `

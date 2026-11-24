@@ -40,9 +40,19 @@ The newest day is a **scoreboard**: four numbers that count up as the page opens
 
 - **At the top, how things stand:** who answers now (and, if the chosen one cannot, why the local model answers instead), whether failed runs are explained and how many new failures went to a stronger model this month, what was spent of each cap, and who changed it last.
 - **Settings, in five parts:** 1. who answers, 2. explaining failed runs (and who answers new failures), 3. the monthly cap, 4. encargos: up to how much an encargo is estimated to cost for the platform's AI to take it (above it, it is for your own agent; see [Encargos](agents.md#encargos)), 5. [the coding agent](agents.md#the-coding-agent): off, only the encargos you send it, also the cheap ones rendimiento opens (fixing a failed run, resolving a conflict), or every cheap one, how many encargos it does at once (1 by default, up to 3, never two of the same app), and whether it may run commands in [its sandbox](agents.md#the-sandbox) (on by default); under it, its record (what it took, delivered at the first try, had sent back and gave back, what it spent against the estimates) and the factor the estimator learned from it, with a switch to go back to the fixed table. Each choice is a card that says what it costs and whether it can be used now (a missing key, a $0 allowance). Administrators change them; before saving, a bar lists every change from what is saved, to save or discard.
+- **[How the coding agent is doing](#how-the-coding-agent-is-doing):** beside its settings, what it did over the last 30 days (or 7, 90, or all of it), for every member who sees the page.
 - **Try it:** ask a question and see who answered, the tokens, the cost and, if it fell back, why (collaborators).
 - **Latest calls:** every call, who asked (a feature or an agent), the model, tokens, cost, and any error.
 - **Operators** also see every organization's allowance of the platform's AI, what each spent of it, and the platform's bill; they change allowances there, each with its own Save.
+
+### How the coding agent is doing {#how-the-coding-agent-is-doing}
+
+Counted from the encargos' history, without AI, over the encargos [the coding agent](agents.md#the-coding-agent) took in the period (its own, signed with its name: not your own agent's):
+
+- **Finished by it**, at the first try or after it gave the encargo back and took it again; **given back to your agent** (and did not finish); and, of the ones it finished, how many **you accepted the first time** and how many you sent back with a comment (what you answered to its first delivery).
+- **Why it gave back**, cause by cause, with the encargos: it reached twice the estimate (its brake), it needed a decision of yours, it lacked a tool it needs, the run did not end in time, the AI failed, the forja answered with an error, it could not merge the default branch, a person stopped it, the platform restarted, or something else. The cause is recorded when it lets the encargo go: its brake, a person's stop, a restart and an error set their own, and the model says one when it gives up. Releases from before the cause was recorded are read from their note by its words, which is approximate; they are marked ≈. Under them, the encargos it gave back before taking them again.
+- **Spent against the estimate:** the middle of what it spent over what was estimated, on the encargos it finished, overall and by difficulty (1–3, 4–6, 7–10); and the factor the estimator applies today, the same one as its record above ([what it learns from](agents.md#the-coding-agent)), not counted again.
+- **A warning** when its latest releases are three or more in a row for the same cause (a delivery ends the run; a person's stop and a restart do not count): look into it before sending it more like those.
 
 ## Setting it up {#setting-it-up}
 

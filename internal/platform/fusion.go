@@ -43,6 +43,9 @@ func (p *Platform) mergeLoop(ctx context.Context) {
 			return
 		case <-tick.C:
 		}
+		if p.Dormido() {
+			continue // asleep: nothing is merged until it wakes
+		}
 		apps, err := p.Store.ListApps(ctx)
 		if err != nil {
 			continue
@@ -213,13 +216,8 @@ func (p *Platform) ApproveMerge(ctx context.Context, runID int64, who string) (*
 	if last, err := p.Store.LastRunOf(ctx, app.ID, run.Branch); err == nil && last.SHA != run.SHA {
 		return nil, &NotApprovable{Why: M("the branch has a newer commit: approve its run")}
 	}
-	title, err := p.repos(app).CommitSubject(ctx, app.InstallationID, app.Repo, run.SHA)
-	if err != nil || title == "" {
-		title = run.Branch
-	}
-	// What the change says of itself, when it follows the custom.
-	body, _ := p.repos(app).FileAt(ctx, app.InstallationID, app.Repo, "cambios/"+run.Branch+".md", run.SHA)
-	number, err := p.repos(app).CreatePull(ctx, app.InstallationID, app.Repo, app.DefaultBranch, run.Branch, title, string(body))
+	title, body := p.pullText(ctx, app, run)
+	number, err := p.repos(app).CreatePull(ctx, app.InstallationID, app.Repo, app.DefaultBranch, run.Branch, title, body)
 	if err != nil {
 		says := forja.Says(err)
 		if strings.Contains(says, "No commits between") {
@@ -241,6 +239,18 @@ func (p *Platform) ApproveMerge(ctx context.Context, runID int64, who string) (*
 		go p.MergeReady(context.WithoutCancel(ctx), app)
 	}
 	return p.Store.GetRun(ctx, run.ID)
+}
+
+// pullText is the title and body of the pull request rendimiento opens for
+// a run's branch: the commit's subject (or the branch's name), and what the
+// change says of itself in cambios/<branch>.md, when it follows the custom.
+func (p *Platform) pullText(ctx context.Context, app *store.App, run *store.Run) (title, body string) {
+	title, err := p.repos(app).CommitSubject(ctx, app.InstallationID, app.Repo, run.SHA)
+	if err != nil || title == "" {
+		title = run.Branch
+	}
+	b, _ := p.repos(app).FileAt(ctx, app.InstallationID, app.Repo, "cambios/"+run.Branch+".md", run.SHA)
+	return title, string(b)
 }
 
 // ApproveLinks approves what an accepted encargo delivered: each link to a

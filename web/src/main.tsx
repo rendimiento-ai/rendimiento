@@ -21,6 +21,7 @@ import { FallaFrontera, NoExiste, NoResponde, claseDe } from "./components/falla
 import { Cargando } from "./components/cargando";
 import { perezosa } from "./components/perezosa";
 import { AvisoConexion } from "./components/conexion-aviso";
+import { AvisoSueno, BotonDormir } from "./components/dormir";
 import { olvidarGuardado, quienEs, registrarTrabajador } from "./trabajador/registro";
 import "./styles.css";
 
@@ -174,6 +175,8 @@ function Shell() {
           {!telefono && <Buscador paginas={buscables} />}
           <div className="topbar-acciones">
             {telefono && <Buscador paginas={buscables} telefono />}
+            {/* Sleep is for rendimiento on a computer; a cluster stays awake (components/dormir). */}
+            {state.sistema?.modo === "local" && <BotonDormir operator={!!state.operator} telefono={telefono} />}
             <Campana role={state.role} operator={state.operator} buzon={state.buzon} />
             {telefono
               ? <button type="button" className="topbar-yo" title={t("Your account and preferences")} onClick={() => setAltura(altura === 2 ? 0 : 2)}>{(state.login ?? "?").slice(0, 1)}<span className="sr-only">{t("Your account and preferences")}</span></button>
@@ -188,6 +191,7 @@ function Shell() {
       {telefono && <Hoja altura={altura} poner={setAltura} paginas={paginas} cuenta={cuenta} />}
       <main>
         <AvisoConexion />
+        {state.sistema?.modo === "local" && <AvisoSueno operator={!!state.operator} />}
         <FallaFrontera version={state.sistema?.version} org={state.org?.name}>
         <Suspense fallback={<Cargando />}>
         <Routes>

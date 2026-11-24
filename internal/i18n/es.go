@@ -48,6 +48,9 @@ var catalog = map[string]string{
 	"no such encargo": "no existe ese encargo",
 	"the encargo is not in a state that allows this":                                    "el encargo no está en un estado que permita esto",
 	"say what is missing, for the agent that takes it next":                             "diga qué falta, para el agente que lo tome después",
+	"the coding agent asks nothing about this encargo now":                              "el agente de código no pregunta nada de este encargo ahora",
+	"write an answer, or choose one of the options":                                     "escriba una respuesta, o elija una de las opciones",
+	"the answer is too long: up to 4000 characters":                                     "la respuesta es muy larga: hasta 4000 caracteres",
 	"bad cargo or encargo number":                                                       "número de cargo o de encargo inválido",
 	"say which cargo or encargo the comment is about":                                   "diga de qué cargo o encargo es el comentario",
 	"the comment must be 1 to 20,000 characters":                                        "el comentario debe tener de 1 a 20,000 caracteres",
@@ -733,6 +736,18 @@ var catalog = map[string]string{
 	// En seco: a branch's checks against the published release (internal/platform/enseco.go).
 	"no release is published yet: the checks run en seco once there is one":                        "aún no hay una versión publicada: las pruebas correrán en seco cuando la haya",
 	"this branch changes the app too: its checks do not run en seco against the published release": "esta rama también cambia la aplicación: sus pruebas no corren en seco contra la versión publicada",
+	// En seco against a copy of the branch (platform/enseco.go, step 2).
+	"this branch changes the app, so its checks would run en seco against a copy of it, and the app has no previews: nothing ran": "esta rama cambia la aplicación, así que sus pruebas correrían en seco contra una copia de ella, y la aplicación no tiene vistas previas: no se corrió nada",
+	"copies of the app cannot be made here: nothing ran en seco against one":                                                 "aquí no se pueden hacer copias de la aplicación: no se corrió nada en seco contra una",
+	"the copy of pull request #%d was not made (the app needs a domain for its address): nothing ran en seco against it":   "no se hizo la copia de la solicitud #%d (la aplicación necesita un dominio para su dirección): no se corrió nada en seco contra ella",
+	"the app's copies could not be read (%v): nothing ran en seco":                                                           "no se pudieron leer las copias de la aplicación (%v): no se corrió nada en seco",
+	"no room for a short copy of this branch: the app already has %d of its %d copies (previews.max), and a pull request's copy is not deleted for one. Nothing ran en seco; opening a pull request gives the branch its copy": "no hay lugar para una copia corta de esta rama: la aplicación ya tiene %d de sus %d copias (previews.max), y no se borra la copia de una solicitud para hacerle lugar. No se corrió nada en seco; al abrir una solicitud, la rama tiene su copia",
+	"the app's organization could not be read: nothing ran en seco":                                       "no se pudo leer la organización de la aplicación: no se corrió nada en seco",
+	"the short copy could not be made (%v): nothing ran en seco":                                          "no se pudo hacer la copia corta (%v): no se corrió nada en seco",
+	"a newer push replaced the copy before it ran this commit: that push's run checks it":                 "un envío más reciente reemplazó la copia antes de que corriera este commit: la ejecución de ese envío la prueba",
+	"the run was cancelled before the copy ran this commit":                                               "la ejecución se canceló antes de que la copia corriera este commit",
+	"the copy did not come to run this commit: %s":                                                        "la copia no llegó a correr este commit: %s",
+	"its checks en seco ended long ago":                                                                   "sus pruebas en seco terminaron hace mucho",
 	"%d of %d tests failed: %s": "fallaron %d de %d pruebas: %s",
 	"%d of %d tests passed":     "pasaron %d de %d pruebas",
 
@@ -759,6 +774,15 @@ var catalog = map[string]string{
 	"merge request !%d conflicted with %s only where both sides added lines: rendimiento joined them in %s (%s), and tests it now": "el merge request !%d chocaba con %s solo donde los dos lados agregaron líneas: rendimiento las juntó en %s (%s), y ahora lo prueba",
 	"merge request !%d conflicts with %s in %s: not merged":                                                                        "el merge request !%d choca con %s en %s: no se integró",
 	"GitLab merges it when its pipeline succeeds":                                                                                  "GitLab lo integrará cuando pase su integración continua",
+
+	// Just opening the pull request, and its GitLab words (internal/platform/solo_abrir.go).
+	"a run of the default branch has no pull request to open":        "una ejecución de la rama principal no tiene solicitud de incorporación que abrir",
+	"the branch is already in %s: there is no pull request to open":  "la rama ya está en %s: no hay solicitud de incorporación que abrir",
+	"a run of the default branch has no merge request to open":       "una ejecución de la rama principal no tiene merge request que abrir",
+	"the branch is already in %s: there is no merge request to open": "la rama ya está en %s: no hay merge request que abrir",
+
+	"in this app an open pull request is the yes to merge it: Merge this branch opens it and merges it":  "en esta aplicación una solicitud de incorporación abierta es el sí para integrarla: Integrar esta rama la abre y la integra",
+	"in this app an open merge request is the yes to merge it: Merge this branch opens it and merges it": "en esta aplicación un merge request abierto es el sí para integrarlo: Integrar esta rama lo abre y lo integra",
 
 	// Forjas: Bitbucket Cloud (internal/api/bitbucket.go, Ruta 102).
 	"Bitbucket cannot be connected on this platform":                                     "en esta plataforma no se puede conectar Bitbucket",
@@ -939,4 +963,12 @@ var catalog = map[string]string{
 	"these settings change here only on a cluster; on a computer they are in its settings file": "estos ajustes se cambian aquí solo en un clúster; en una computadora están en su archivo de ajustes",
 	"test it first: a change is saved only with a test that passed, for the same values, in the last 15 minutes": "pruébelo primero: un cambio se guarda solo con una prueba que pasó, de los mismos valores, en los últimos 15 minutos",
 	"the platform restarts now to use it (%s): a minute or two; a run that is going may have to run again":       "la plataforma se reinicia ahora para usarlo (%s): un minuto o dos; una ejecución en curso quizá tenga que volver a correr",
+
+	// How the coding agent is doing, on the AI page (internal/api/ia_cuentas.go).
+	"the period is 7, 30 or 90 days, or 0 for all of it": "el periodo es de 7, 30 o 90 días, o 0 para todo",
+
+	// Dormir and Despertar, on a computer (platform/dormir.go, api/dormir.go).
+	"only rendimiento on a computer can sleep: a cluster stays awake": "solo rendimiento en una computadora puede dormir: un clúster se queda despierto",
+	"the hour to wake at must be HH:MM, such as 08:00":                "la hora de despertar debe ser HH:MM, como 08:00",
+	"rendimiento slept; it runs again on waking":                      "rendimiento se durmió; se repite al despertar",
 }

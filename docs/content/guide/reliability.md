@@ -126,7 +126,7 @@ Once the release is live they run as a post-deploy task (`pruebas`), with one re
 
 A test that fails and then passes on its retry never rolls a release back: a test that cries wolf is worse than none. Each release in the **Releases** tab lists its tests, failures first, with what each may do now. The first release has nothing to go back to: a failure there is only reported.
 
-With `dryRun: true` under `tests:`, a branch that changes only the checks (the tests in `e2e/`, say) also runs them **en seco**: the branch's image of the tests, against the release already published. There every test that fails counts (they are the new ones), but it only warns: the branch is not merged by itself, and nothing is rolled back. See [dry runs on branches](tasks.md#dry-runs-on-branches).
+With `dryRun: true` under `tests:`, a branch that changes only the checks (the tests in `e2e/`, say) also runs them **en seco**: the branch's image of the tests, against the release already published. There every test that fails counts (they are the new ones), but it only warns: the branch is not merged by itself, and nothing is rolled back. On a branch that changes the app, in an app with previews, they run against a copy of the branch instead ([against a copy](tasks.md#dry-runs-against-a-copy)). See [dry runs on branches](tasks.md#dry-runs-on-branches).
 
 ## Public stats
 

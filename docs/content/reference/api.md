@@ -106,6 +106,7 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | GET | `/api/ia` | the organization's AI: provider, model, cap, the end of its own key, this month's spending, the latest calls |
 | PUT | `/api/ia` | change it (`provider`: `local`, `own`, `platform`; `kind`, `baseUrl`, `model`, `capDollars`, `key`, `removeKey`, `autoDiagnose`, `escalateTo`: `own`, `platform` or empty, `escalateLimit`, `encargoAutoDollars`: the most an encargo may be estimated to cost for the platform's AI to take it, `codeAgent`: `off`, `asked` or `auto`, `autoEncargo`: `off`, `branches` or `all`); administrators |
 | POST | `/api/ia/test` | ask the organization's model one question (`prompt`), measured; collaborators |
+| GET | `/api/ia/cuentas` | how the coding agent is doing: what it finished, gave back and why, what you answered, spent against the estimate, the factor the estimator applies, and a warning of three releases in a row for one cause (`days`: 7, 30 by default, 90, or 0 for all of it); every member |
 | GET | `/api/ia/orgs` | every organization's allowance of the platform's AI and spending, and the platform's bill; operators |
 | PUT | `/api/ia/orgs/{id}/allowance` | an organization's monthly allowance of the platform's AI (`dollars`); operators |
 | GET | `/api/ia/platica` | what one conversation about an entry may spend on paid models before it asks (`capMicros`) |
@@ -127,6 +128,8 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | POST | `/api/encargos/{id}/cancel` | drop an encargo (optional `reason`) |
 | POST | `/api/encargos/{id}/app` | the app a pending encargo nobody has is about (`app`); collaborators of that app |
 | POST | `/api/encargos/{id}/stop` | ask the coding agent to stop the encargo it does: it gives it back with what it did |
+| POST | `/api/encargos/{id}/answer` | answer what the coding agent asks about an encargo (`answer`): it goes on on its branch with the answer; a person's session only, never an agent key |
+| POST | `/api/encargos/{id}/pass` | pass an encargo the coding agent asks about to your own agent, with the question in its history |
 | GET | `/api/encargos/cola` | the coding agent's queue: what it does now, next in order, finished for review, given back; its mode, how many at once, and what it spent today |
 | POST | `/api/encargos/cola/orden` | the queue's order (`ids`, the first done first); the rest go after |
 | GET | `/api/comentarios` | comments on agents' work, oldest first: a cargo's (`?cargo=`), an encargo's (`?encargo=`), or the organization's latest; `new` marks an agent's answer to one of yours not seen yet |
@@ -182,7 +185,7 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | GET | `/api/corriendo` | what goes on in the organization's apps the person can enter: the runs queued or running with their steps (`ahora`, the home page's *Running* card), and the last 30 that ended (`recientes`, also for the top bar's search) |
 | POST | `/api/runs/{id}/cancel` | cancel it; its build pods are deleted |
 | GET | `/api/runs/{id}/steps/{step}/log` | a step's log (stored, or live while running) |
-| GET | `/api/runs/{id}/dry/{task}/log` | the log of a check the run ran en seco, against the published release |
+| GET | `/api/runs/{id}/dry/{task}/log` | the log of a check the run ran en seco, against the published release (`?on=copy`: against a copy of the branch) |
 | GET | `/api/runs/{id}/events` | SSE: step state and log lines |
 
 ## Per-app add-ons (Renovate) 🔒

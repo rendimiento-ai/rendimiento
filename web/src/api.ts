@@ -143,7 +143,15 @@ export interface AppTests {
   resources?: { cpu?: string; memory?: string; cpuLimit?: string; memoryLimit?: string };
   /** Also run en seco, against the published release, on a branch that changes only the checks (the tests' build). */
   dryRun?: boolean;
+  /** What they run against en seco (needs dryRun; preview and both need previews). */
+  dryRunOn?: DryRunOn;
 }
+
+/**
+ * What a check runs against en seco (spec DryRunOn): published, a copy of the branch (preview), or both. Without it: the
+ * published release when only the checks changed, a copy of the branch when the app changed.
+ */
+export type DryRunOn = "published" | "preview" | "both";
 
 /** A library: nothing of it runs or is built to keep, so a run tests it and there is nothing to deploy. */
 export function isLibrary(s: Spec): boolean {
@@ -173,6 +181,8 @@ export interface Task {
   cache?: boolean;
   /** Post-deploy tasks without service: only: also run en seco, against the published release, on a branch that changes only the checks. */
   dryRun?: boolean;
+  /** What it runs against en seco (needs dryRun; preview and both need previews). */
+  dryRunOn?: DryRunOn;
 }
 
 /** Every secret an app reads: its services', jobs' and tasks'. */
@@ -229,6 +239,13 @@ export interface Step {
   tries?: number;
 }
 
+/** A branch's pull request that "Just open the pull request" opened, or found open already. */
+export interface PullOpened {
+  number: number;
+  url: string;
+  alreadyOpen?: boolean;
+}
+
 export interface Run {
   id: number;
   appId: number;
@@ -266,6 +283,24 @@ export interface Run {
 export interface DryRun {
   /** The published release they ran against; 0 (absent) when none ran, and note says why. */
   release?: number;
+  note?: string;
+  /** A check failed en seco, against the published release or the copy. */
+  failed?: boolean;
+  tasks?: ReleaseTask[];
+  /** What ran against a copy of the branch (store.DryCopy). */
+  copy?: DryCopy;
+}
+
+/**
+ * The checks a branch ran en seco against a copy of itself: its pull request's (pull), a short copy made only for them
+ * (short), or none because the app has no previews (off); without a kind none ran, and note says why.
+ */
+export interface DryCopy {
+  kind?: "pull" | "short" | "off";
+  pull?: number;
+  /** Where the copy answers, while it lives (gone once deleted). */
+  url?: string;
+  gone?: boolean;
   note?: string;
   failed?: boolean;
   tasks?: ReleaseTask[];
@@ -767,6 +802,41 @@ export interface CoderBoleta {
   }[];
 }
 
+// Why the coding agent gave an encargo back (store.Cause*).
+export type CausaAgente = "budget" | "needs_decision" | "no_tools" | "ci_timeout" | "ai_error" | "forge_error" | "conflict" | "stopped" | "restart" | "other";
+
+// One cause of its releases: how many, of which encargos, and how many of them were read from the note (approx).
+export interface CuentaCausa { cause: CausaAgente; n: number; encargos: number[]; approx: number }
+
+// Spent over estimate (the middle) of what it finished of difficulty from to to (0 and 0: all).
+export interface CuentaRazon { from: number; to: number; x: number; n: number }
+
+// How the coding agent is doing over a period (api.CuentasView, GET /api/ia/cuentas).
+export interface CuentasView {
+  days: number;
+  since?: string;
+  encargos: number;
+  finished: number;
+  firstTry: number;
+  afterRetry: number;
+  gaveBack: number;
+  working: number;
+  accepted: number;
+  returned: number;
+  toReview: number;
+  causes: CuentaCausa[];
+  retried: CuentaCausa[];
+  ratios: CuentaRazon[];
+  all: CuentaRazon;
+  /** It gave back rachaFrom or more in a row for one cause. */
+  racha?: { cause: CausaAgente; n: number; encargos: number[] };
+  /** The factor the estimator applies today, from its record. */
+  learned: { byDifficulty: Record<string, Factor>; all: Factor };
+  learnFrom: number;
+  learnOn: boolean;
+  rachaFrom: number;
+}
+
 export interface IAAnswer {
   text: string;
   provider: AIProvider;
@@ -802,7 +872,10 @@ export interface AppAccess {
   people: Member[];
 }
 
-export type EncargoStatus = "pending" | "taken" | "waiting" | "delivered" | "reviewed" | "cancelled";
+export type EncargoStatus = "pending" | "taken" | "waiting" | "asking" | "delivered" | "reviewed" | "cancelled";
+
+/** What the coding agent asks the person about an encargo while it is asking (internal/store.EncargoPregunta). */
+export interface EncargoPregunta { id: number; encargoId: number; question: string; options: string[]; askedAt: string }
 
 // When an encargo opens by itself for an explained failure.
 export type AutoEncargo = "off" | "branches" | "all";
@@ -863,6 +936,8 @@ export interface Encargo {
   stopAsked?: boolean;
   /** A person (not the estimator) chose who does it. */
   routeChosen?: boolean;
+  /** What the coding agent asks the person, while it is asking. */
+  question?: EncargoPregunta;
   createdAt: string;
   updatedAt: string;
   log?: { at: string; who: string; what: string; note?: string }[];
@@ -873,6 +948,8 @@ export interface UnconfirmedManual { id: number; title: string; runId: number; a
 
 /** The Ruta's front page (api.Portada): what needs the person, and what goes on meanwhile. */
 export interface Portada {
+  /** Encargos the coding agent stopped on to ask the person: first on the page. */
+  asking: Encargo[];
   review: Encargo[];
   decide: RutaEntry[];
   yours: RutaEntry[];
@@ -1465,6 +1542,7 @@ export const api = {
   switchOrg: (id: number) => request<void>("POST", `/api/orgs/${id}/switch`),
   members: () => request<Member[]>("GET", "/api/members"),
   ia: () => request<IAView>("GET", "/api/ia"),
+  iaCuentas: (days: number) => request<CuentasView>("GET", `/api/ia/cuentas?days=${days}`),
   diagnosis: (run: number, lang?: string) => request<Diagnosis>("GET", `/api/runs/${run}/diagnosis${lang ? `?lang=${lang}` : ""}`),
   askDiagnosis: (run: number) => request<void>("POST", `/api/runs/${run}/diagnosis`),
   runFix: (run: number) => request<FixOffer>("GET", `/api/runs/${run}/fix`),
@@ -1602,6 +1680,8 @@ export const api = {
   cancelEncargo: (id: number, reason?: string) => request<Encargo>("POST", `/api/encargos/${id}/cancel`, reason ? { reason } : undefined),
   setEncargoApp: (id: number, app: string) => request<Encargo>("POST", `/api/encargos/${id}/app`, { app }),
   stopEncargo: (id: number) => request<Encargo>("POST", `/api/encargos/${id}/stop`),
+  answerEncargo: (id: number, answer: string) => request<Encargo>("POST", `/api/encargos/${id}/answer`, { answer }),
+  passEncargo: (id: number) => request<Encargo>("POST", `/api/encargos/${id}/pass`),
   cola: () => request<Cola>("GET", `/api/encargos/cola?hoy=${hoy()}`),
   reorderCola: (ids: number[]) => request<Cola>("POST", `/api/encargos/cola/orden?hoy=${hoy()}`, { ids }),
   portada: () => request<Portada>("GET", `/api/ruta/portada?hoy=${hoy()}`),
@@ -1633,8 +1713,10 @@ export const api = {
   cancelRun: (id: number) => request<void>("POST", `/api/runs/${id}/cancel`),
   retryRun: (id: number) => request<Run>("POST", `/api/runs/${id}/retry`),
   approveMerge: (id: number) => request<Run>("POST", `/api/runs/${id}/merge`),
+  openPull: (id: number) => request<PullOpened>("POST", `/api/runs/${id}/pull`),
   stepLog: (id: number, step: string) => request<string>("GET", `/api/runs/${id}/steps/${encodeURIComponent(step)}/log`),
-  dryLog: (id: number, task: string) => request<string>("GET", `/api/runs/${id}/dry/${encodeURIComponent(task)}/log`),
+  dryLog: (id: number, task: string, onCopy = false) =>
+    request<string>("GET", `/api/runs/${id}/dry/${encodeURIComponent(task)}/log${onCopy ? "?on=copy" : ""}`),
 };
 
 /**
@@ -2424,4 +2506,50 @@ export const installedApi = {
   patch: (name: string, body: { suspend?: boolean; allowAdoptChanges?: boolean; manualSync?: boolean }) =>
     request<{ commit: string }>("PATCH", `/api/installed/${name}`, body),
   remove: (name: string, uninstall: boolean) => request<{ commit: string }>("DELETE", `/api/installed/${name}?uninstall=${uninstall}`),
+};
+
+/** A publish going on (platform.Publicacion): what Dormir waits for, or cuts. */
+export interface Publicacion {
+  app: string;
+  run?: number; // the deploying run (none: its release starts or is watched)
+  paso?: number; // steps done
+  pasos?: number; // of these
+  actual?: number; // the release the app runs now, the one it stays on when cut
+}
+
+/** What a wake did (store.Despertar), for the summary after it. */
+export interface ResumenDespertar {
+  desde: string;
+  hasta: string;
+  por?: string; // who woke it ("reloj": its hour; "": it started again)
+  apps: string[]; // the apps whose containers started again
+  esperada?: string; // the publish it waited for before sleeping
+  avisos: number; // webhooks handled, in the order they came
+  fallidos?: number; // of them, those that could not be
+  repetidas: number[]; // the runs sleep cut, which run again
+  problema?: string; // what could not start again
+}
+
+/** rendimiento's sleep on a computer (platform.EstadoSueno). */
+export interface Sueno {
+  estado: "despierto" | "durmiendose" | "dormido";
+  apagar: boolean; // «Apagar del todo» was asked
+  desde?: string;
+  por?: string;
+  esperada?: string;
+  despertarA: string; // the hour it wakes by itself ("08:00"; "" off)
+  alArrancar: boolean;
+  tapa: boolean; // «Dormir al cerrar la tapa» (the desktop app's)
+  resumen?: ResumenDespertar;
+  avisos: number; // webhooks waiting for the wake
+  corriendo: number; // runs going now
+  publicando: Publicacion[];
+  despiertaA?: string; // when it wakes by itself
+}
+
+export const suenoApi = {
+  estado: () => request<Sueno>("GET", "/api/dormir"),
+  dormir: (ya: boolean, apagar: boolean) => request<Sueno>("POST", "/api/dormir", { ya, apagar }),
+  despertar: () => request<Sueno>("POST", "/api/despertar"),
+  opciones: (despertarA: string, tapa: boolean) => request<Sueno>("PUT", "/api/dormir/opciones", { despertarA, tapa }),
 };

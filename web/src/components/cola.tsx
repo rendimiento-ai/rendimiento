@@ -40,6 +40,12 @@ export function doingText(e: Encargo): string {
     case "commit_and_test": return t("Testing its change with the platform's CI");
     case "run_fix": return t("Running the fix {x}", { x: what });
     case "run": return t("Running «{x}» in its sandbox", { x: what });
+    case "runs": return t("Looking at the app's runs");
+    case "step_log": return t("Reading a step's log");
+    case "slow_requests": return t("Looking at the app's slow requests");
+    case "app_status": return t("Looking at the app's status");
+    case "ai_retry": return t("The AI's connection dropped: trying again");
+    case "ask": return t("Asking you something");
     case "deliver": return t("Handing it over");
     case "give_up": return t("Giving it back");
   }

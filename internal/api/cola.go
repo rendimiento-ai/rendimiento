@@ -25,6 +25,9 @@ const (
 // Portada is what the Ruta's front page shows: one row for each thing that
 // needs the person, and the counts of what goes on by itself meanwhile.
 type Portada struct {
+	// Asking: encargos the coding agent stopped on to ask the person, the
+	// first thing on the page (it spends nothing until answered).
+	Asking []store.Encargo `json:"asking"`
 	// Review: encargos an agent delivered, for the person to review.
 	Review []store.Encargo `json:"review"`
 	// Decide: entries tagged por-decidir; Yours: to-dos tagged
@@ -53,7 +56,7 @@ func (s *Server) portada(w http.ResponseWriter, r *http.Request, login string) {
 	if t, err := time.Parse(time.RFC3339, r.URL.Query().Get("hoy")); err == nil && time.Since(t) < 48*time.Hour && time.Since(t) >= 0 {
 		since = t
 	}
-	out := Portada{Review: []store.Encargo{}, Decide: []store.RutaEntry{}, Yours: []store.RutaEntry{}, Rate: []store.UnconfirmedManual{},
+	out := Portada{Asking: []store.Encargo{}, Review: []store.Encargo{}, Decide: []store.RutaEntry{}, Yours: []store.RutaEntry{}, Rate: []store.UnconfirmedManual{},
 		Unanswered: []store.Comentario{}, Unowned: []store.Encargo{}, Latest: []store.RutaEntry{}}
 	encargos, err := s.Store.ListEncargos(ctx, org, true, 200)
 	if err != nil {
@@ -74,6 +77,8 @@ func (s *Server) portada(w http.ResponseWriter, r *http.Request, login string) {
 			continue
 		}
 		switch {
+		case e.Status == store.EncargoAsking && e.Question != nil:
+			out.Asking = append(out.Asking, e)
 		case e.Status == store.EncargoDelivered:
 			out.Review = append(out.Review, e)
 		case e.Status == store.EncargoPending && e.KeyID == nil && !inQueue[e.ID] && !(e.RouteChosen && e.Route == store.RouteLocal):
