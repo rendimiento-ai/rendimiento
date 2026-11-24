@@ -837,12 +837,6 @@ func IsUniqueViolation(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "SQLSTATE 23505")
 }
 
-// ResetForTests drops every table. Only for test databases.
-func (s *Store) ResetForTests(ctx context.Context) error {
-	_, err := s.pool.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public`)
-	return err
-}
-
 // Ping checks the database connection.
 func (s *Store) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 
