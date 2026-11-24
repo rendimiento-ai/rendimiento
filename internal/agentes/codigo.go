@@ -101,6 +101,9 @@ type Coder struct {
 	// Fixes runs the app's declared fixes for run_fix (nil: the tool is
 	// not offered).
 	Fixes Fixes
+	// Terminal runs commands in a sandbox for run (nil: the tool is not
+	// offered; see terminal.go).
+	Terminal *Terminal
 
 	// The encargos it does now, and the cargo each organization's key has
 	// open while it does them (several at once share it, see Pick).
@@ -571,8 +574,9 @@ func (j *job) fixList() string {
 // tools are the agent's tools: run_fix only when the app declares fixes,
 // with them in its description.
 func (j *job) tools() []ia.Tool {
+	tools := j.withTerminal(coderTools)
 	if len(j.fixes) == 0 {
-		return coderTools
+		return tools
 	}
 	names := make([]string, 0, len(j.fixes))
 	for _, f := range j.fixes {
@@ -581,8 +585,8 @@ func (j *job) tools() []ia.Tool {
 	fix := ia.Tool{Name: "run_fix", Description: "Run one of the app's declared fixes on your branch, with your uncommitted changes: a command (such as npm install --package-lock-only or go mod tidy) that regenerates files in a pod of the platform's CI. The files it writes join your changes; commit_and_test commits them. Use it when a lockfile or go.sum no longer matches. The app's fixes:\n" + j.fixList(),
 		InputSchema: map[string]any{"type": "object", "required": []string{"name"}, "properties": map[string]any{
 			"name": map[string]any{"type": "string", "enum": names, "description": "the fix's name"}}}}
-	out := make([]ia.Tool, 0, len(coderTools)+1)
-	for _, t := range coderTools {
+	out := make([]ia.Tool, 0, len(tools)+1)
+	for _, t := range tools {
 		if t.Name == "commit_and_test" {
 			out = append(out, fix)
 		}
@@ -619,11 +623,11 @@ func (j *job) system() string {
 How to work:
 - Read before you change: find the files involved (search, list_files, read_file) and follow the repository's conventions and its AGENTS.md or CLAUDE.md, if it has them.
 - Make the smallest change that does what was asked, in the style of the code around it. Change or add tests when behavior changes.
-- You cannot run code. commit_and_test commits your changes to your branch and waits for the platform's CI run on it, then tells you how it ended and, if it failed, the end of the failed steps' logs. Fix and test again until it passes.
+- commit_and_test commits your changes to your branch and waits for the platform's CI run on it, then tells you how it ended and, if it failed, the end of the failed steps' logs. Fix and test again until it passes.
 - Never write secrets (passwords, tokens, keys) into files. Never touch any branch but yours.
 - When the run passed, call deliver with a short summary for the person, in %s: what you changed and why, how it was tested, and what they should look at. If you cannot finish (the encargo is unclear, needs a decision, or keeps failing), call give_up with the reason and what is left, in %s.
 - Work efficiently: this encargo was estimated at about %s, and you stop at %s, before a turn that would pass it, even in the middle of a change (what you have is then committed untested). Commit and test as soon as a change is whole; prefer search and reading parts of files over reading everything.`,
-		lang, lang, ia.Dollars(j.budget/2), ia.Dollars(j.budget)) + j.fixRule()
+		lang, lang, ia.Dollars(j.budget/2), ia.Dollars(j.budget)) + j.fixRule() + j.terminalRule()
 }
 
 // fixRule tells the model of run_fix, when the app declares fixes.
@@ -655,6 +659,7 @@ var coderTools = []ia.Tool{
 		InputSchema: schema(map[string]any{"summary": str("what you changed and why, how it was tested, what to look at")}, "summary")},
 	{Name: "give_up", Description: "Give the encargo back to the person's own agent, when you cannot finish it.",
 		InputSchema: schema(map[string]any{"reason": str("why, and what is left")}, "reason")},
+	runTool,
 }
 
 func schema(props map[string]any, required ...string) map[string]any {
@@ -738,6 +743,8 @@ func (j *job) tool(ctx context.Context, call ia.ToolCall) (string, bool) {
 		return "deleted " + in.Path, false
 	case "run_fix":
 		return j.runFix(ctx, in.Name)
+	case "run":
+		return j.run(ctx, call.Input)
 	case "commit_and_test":
 		return j.commitAndTest(ctx, in.Message)
 	case "deliver":

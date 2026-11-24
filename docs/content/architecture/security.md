@@ -22,6 +22,8 @@ Code from repositories runs in CI: tests and Dockerfile `RUN` lines. It is conta
 4. **Limits**: a deadline per step, memory limits per test pod.
 5. **Forks**: pull requests from forks are never built.
 
+The coding agent's commands (its `run` tool) run in a sandbox with fewer rights still: no secrets at all once the clone is done, not root, no capabilities, seccomp, and their own NetworkPolicy, `isolate-sandbox`, without BuildKit. See [the security model](../guide/agents.md#the-sandbox-security).
+
 BuildKit daemons themselves run **privileged** (they create containers); build pods talk to them over TCP. A malicious `RUN` executes inside BuildKit's sandbox, not in the daemon's own container, but a BuildKit escape would reach that node. Rootless BuildKit is on the [roadmap](../future/roadmap.md).
 
 ## Organizations in the cluster {#organizations-in-the-cluster}

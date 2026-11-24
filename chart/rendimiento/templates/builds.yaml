@@ -22,6 +22,10 @@ rules:
   - apiGroups: [""]
     resources: [pods/log]
     verbs: [get]
+  # The coding agent's sandboxes: its run tool execs commands in them.
+  - apiGroups: [""]
+    resources: [pods/exec]
+    verbs: [create]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -50,7 +54,10 @@ metadata:
   labels:
     {{- include "rendimiento.labels" . | nindent 4 }}
 spec:
-  podSelector: {}
+  # The coding agent's sandboxes have isolate-sandbox, below.
+  podSelector:
+    matchExpressions:
+      - { key: rendimiento.ai/sandbox, operator: DoesNotExist }
   policyTypes: [Ingress, Egress]
   ingress: []
   egress:
@@ -74,6 +81,41 @@ spec:
               {{- end }}
       ports:
         - { protocol: TCP, port: 1234 }
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 169.254.0.0/16
+              - 100.64.0.0/10
+---
+# The coding agent's sandboxes run commands a model chose: DNS and the
+# public internet only (no BuildKit, cluster, nodes or local network).
+# rendimiento also makes this policy before it starts a sandbox.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: isolate-sandbox
+  namespace: {{ .Values.buildNamespace }}
+  labels:
+    {{- include "rendimiento.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - { key: rendimiento.ai/sandbox, operator: Exists }
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: kube-system }
+          podSelector:
+            matchLabels: { k8s-app: kube-dns }
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0

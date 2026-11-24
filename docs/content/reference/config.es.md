@@ -180,6 +180,10 @@ Los días y las horas se cuentan en `PUBLIC_STATS_TZ`.
 | `AI_PLATFORM_KEY` | *(vacío: ninguna)* | del Secret `rendimiento-ia` | la llave de Anthropic de la plataforma, que las organizaciones usan solo dentro de la asignación que les dan los operadores |
 | `AI_PLATFORM_MODEL` | `claude-haiku-5-5` | | el modelo de la llave de la plataforma |
 | `AI_PLATFORM_CAP` | `5` | | dólares al mes que puede gastar la llave de la plataforma, sumando todas las organizaciones |
+| `CODER_SANDBOX` | `on` | `off` | `off`: el agente de código nunca corre comandos, escojan lo que escojan las organizaciones ([su entorno aislado](../guide/agents.md#the-sandbox)) |
+| `CODER_SANDBOX_IMAGE` | `golang:1.27-bookworm` | `registry.example.lan:5000/toolbox:1` | la imagen del entorno aislado cuando la aplicación no tiene una imagen de pruebas o de tarea de construcción para la carpeta |
+| `CODER_SANDBOX_RUNTIME_CLASS` | *(vacío: el entorno de ejecución predeterminado del clúster)* | `gvisor` | el `runtimeClassName` de los pods del entorno aislado, para gVisor o Kata cuando sus nodos tengan uno |
+| `CODER_SANDBOX_CPU`, `CODER_SANDBOX_MEMORY`, `CODER_SANDBOX_DISK` | `2`, `4Gi`, `8Gi` | | los límites de CPU y memoria del contenedor de los comandos, y el tamaño del espacio de trabajo |
 
 ## Archivo de registros {#log-archive}
 

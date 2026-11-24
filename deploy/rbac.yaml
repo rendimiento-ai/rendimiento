@@ -94,7 +94,8 @@ subjects:
     name: rendimiento
     namespace: rendimiento-system
 ---
-# CI pods: create, watch, read logs, clean up.
+# CI pods: create, watch, read logs, clean up; and exec into the coding
+# agent's sandboxes, where its run tool runs commands.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -107,6 +108,9 @@ rules:
   - apiGroups: [""]
     resources: [pods/log]
     verbs: [get]
+  - apiGroups: [""]
+    resources: [pods/exec]
+    verbs: [create]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

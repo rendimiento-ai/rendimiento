@@ -66,7 +66,10 @@ type CredentialStore interface {
 
 // Server holds everything the HTTP API needs; Handler returns its routes.
 type Server struct {
-	Platform *platform.Platform
+	// CoderSandbox says the platform has the coding agent's sandbox (its
+	// run tool), for the AI page.
+	CoderSandbox bool
+	Platform     *platform.Platform
 	Store    *store.Store
 	Kube     client.Client
 	GitHub   *gh.Holder

@@ -22,6 +22,8 @@ El código de los repositorios se ejecuta en la integración continua: las prueb
 4. **Límites**: un plazo por paso y límites de memoria por pod de pruebas.
 5. **Bifurcaciones**: las solicitudes de incorporación desde bifurcaciones nunca se construyen.
 
+Los comandos del agente de código (su herramienta `run`) corren en un entorno aislado con todavía menos derechos: ningún secreto en cuanto termina la clonación, sin ser administrador, sin capacidades, con seccomp y con su propia política de red, `isolate-sandbox`, sin BuildKit. Vea [el modelo de seguridad](../guide/agents.md#the-sandbox-security).
+
 Los demonios de BuildKit corren en modo **privilegiado** (crean contenedores); los pods de construcción hablan con ellos por TCP. Un `RUN` malicioso se ejecuta dentro del aislamiento de BuildKit, no en el contenedor del propio demonio, pero un escape de BuildKit llegaría a ese nodo. BuildKit sin privilegios está en la [hoja de ruta](../future/roadmap.md).
 
 ## Las organizaciones en el clúster {#organizations-in-the-cluster}

@@ -635,6 +635,10 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	srv.Version, srv.Modo = version, "kubernetes"
 	srv.Publicadas = &actualizar.Consultor{API: env("GITHUB_API_URL", "")}
 	srv.SenalesRecibir = env("SENALES_RECIBIR", "") == "1"
+	// The coding agent's run tool runs commands in sandbox pods of the build
+	// namespace (CODER_SANDBOX=off: never).
+	sandboxOn := env("CODER_SANDBOX", "on") != "off"
+	srv.CoderSandbox = sandboxOn
 	// REDIRECT_HOSTS: old addresses of the platform; people visiting them
 	// go to BASE_URL, while webhooks, MCP and the public stats still answer.
 	srv.RedirectHosts = splitList(os.Getenv("REDIRECT_HOSTS"))
@@ -758,6 +762,16 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 			Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "agents")}
 		coder.AlEntregar = p.PullsForDelivery
 		coder.Fixes = fixes
+		// The run tool (Ruta 178): a sandbox pod per encargo, hardened and with
+		// its own network policy (pipeline.Sandboxes); CODER_SANDBOX_RUNTIME_CLASS
+		// puts it under gVisor or Kata once a node has one.
+		var sandboxes *pipeline.Sandboxes
+		if sandboxOn {
+			sandboxes = &pipeline.Sandboxes{K: executor, Rest: cfg, Image: os.Getenv("CODER_SANDBOX_IMAGE"),
+				RuntimeClass: os.Getenv("CODER_SANDBOX_RUNTIME_CLASS"), CPU: os.Getenv("CODER_SANDBOX_CPU"),
+				Memory: os.Getenv("CODER_SANDBOX_MEMORY"), Disk: os.Getenv("CODER_SANDBOX_DISK"), Log: log.With("component", "sandbox")}
+			coder.Terminal = &agentes.Terminal{Sandbox: sandboxes, Store: st}
+		}
 		est := &agentes.Estimator{Store: st, Model: srv.IA, Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "agents")}
 		// Where comments are received (rendimiento.ai), the platform's AI
 		// sorts each one and drafts its answer, for a person to send.
@@ -774,6 +788,9 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 			log.Info("starting the agents: the diagnostician, the estimator and the coding agent")
 			go est.Run(ctx)
 			go coder.Run(ctx)
+			if sandboxes != nil {
+				go sandboxes.Janitor(ctx) // what an earlier process left, and the idle ones
+			}
 			if clas != nil {
 				go clas.Run(ctx)
 			}

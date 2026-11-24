@@ -39,6 +39,7 @@ export function doingText(e: Encargo): string {
     case "merge_default_branch": return t("Merging the default branch into its own");
     case "commit_and_test": return t("Testing its change with the platform's CI");
     case "run_fix": return t("Running the fix {x}", { x: what });
+    case "run": return t("Running «{x}» in its sandbox", { x: what });
     case "deliver": return t("Handing it over");
     case "give_up": return t("Giving it back");
   }
