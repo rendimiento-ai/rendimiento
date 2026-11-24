@@ -229,6 +229,13 @@ export interface Step {
   tries?: number;
 }
 
+/** A branch's pull request that "Just open the pull request" opened, or found open already. */
+export interface PullOpened {
+  number: number;
+  url: string;
+  alreadyOpen?: boolean;
+}
+
 export interface Run {
   id: number;
   appId: number;
@@ -1629,6 +1636,7 @@ export const api = {
   cancelRun: (id: number) => request<void>("POST", `/api/runs/${id}/cancel`),
   retryRun: (id: number) => request<Run>("POST", `/api/runs/${id}/retry`),
   approveMerge: (id: number) => request<Run>("POST", `/api/runs/${id}/merge`),
+  openPull: (id: number) => request<PullOpened>("POST", `/api/runs/${id}/pull`),
   stepLog: (id: number, step: string) => request<string>("GET", `/api/runs/${id}/steps/${encodeURIComponent(step)}/log`),
   dryLog: (id: number, task: string) => request<string>("GET", `/api/runs/${id}/dry/${encodeURIComponent(task)}/log`),
 };

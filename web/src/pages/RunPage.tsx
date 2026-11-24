@@ -12,6 +12,7 @@ import { forjaOf } from "../forja";
 import { Pasos } from "../components/pasos";
 import { EsqCosa, EsqRenglones } from "../components/esqueleto";
 import { anotar } from "../uso";
+import { SoloAbrir } from "../components/solo-abrir";
 
 /** A run's page: why it failed, its steps with when each ran, live as they go, and the log of the step chosen. */
 export function RunPage() {
@@ -390,6 +391,7 @@ function Approve({ run, app, onApproved }: { run: Run; app: App; onApproved: (r:
           ? t("Your yes to this commit: rendimiento opens the pull request into {branch} if there is none, merges it and deletes the branch.", { branch: app.defaultBranch })
           : t("Your yes to this commit: rendimiento opens the pull request into {branch} if there is none, and merges it when this run passes.", { branch: app.defaultBranch })}
       </span>
+      <SoloAbrir run={run} app={app} />
     </div>
   );
 }
