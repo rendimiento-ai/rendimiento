@@ -297,7 +297,7 @@ func TestDormirHandlesTheKeptWebhooks(t *testing.T) {
 			t.Error(err)
 		}
 		for _, a := range avisos {
-			orden = append(orden, string(a.Evento))
+			orden = append(orden, strings.ReplaceAll(string(a.Evento), " ", "")) // jsonb writes it with spaces
 			_ = p.Store.BorrarAviso(ctx, a.ID)
 		}
 		return len(avisos), 0
