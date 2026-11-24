@@ -107,6 +107,7 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | GET | `/api/ia` | la IA de la organización: proveedor, modelo, tope, el final de su propia llave, el gasto del mes y las últimas llamadas |
 | PUT | `/api/ia` | cambiarla (`provider`: `local`, `own`, `platform`; `kind`, `baseUrl`, `model`, `capDollars`, `key`, `removeKey`, `autoDiagnose`, `escalateTo`: `own`, `platform` o vacío, `escalateLimit`, `encargoAutoDollars`: hasta cuánto puede costar, según la estimación, un encargo para que lo tome la IA de la plataforma, `codeAgent`: `off`, `asked` o `auto`, `autoEncargo`: `off`, `branches` o `all`); administradores |
 | POST | `/api/ia/test` | hacerle una pregunta al modelo de la organización (`prompt`), medida; colaboradores |
+| GET | `/api/ia/cuentas` | cómo le va al agente de código: lo que terminó, soltó y por qué, lo que usted contestó, el gasto contra lo estimado, el factor que aplica el estimador y un aviso de tres soltados seguidos por una causa (`days`: 7, 30 si no se dice, 90, o 0 para todo); todos los miembros |
 | GET | `/api/ia/orgs` | la asignación de cada organización de la IA de la plataforma, su gasto y la cuenta de la plataforma; operadores |
 | PUT | `/api/ia/orgs/{id}/allowance` | la asignación mensual de una organización de la IA de la plataforma (`dollars`); operadores |
 | GET | `/api/ia/platica` | lo que puede gastar una plática sobre una entrada en modelos de pago antes de preguntar (`capMicros`) |

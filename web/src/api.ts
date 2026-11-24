@@ -770,6 +770,41 @@ export interface CoderBoleta {
   }[];
 }
 
+// Why the coding agent gave an encargo back (store.Cause*).
+export type CausaAgente = "budget" | "needs_decision" | "no_tools" | "ci_timeout" | "ai_error" | "forge_error" | "conflict" | "stopped" | "restart" | "other";
+
+// One cause of its releases: how many, of which encargos, and how many of them were read from the note (approx).
+export interface CuentaCausa { cause: CausaAgente; n: number; encargos: number[]; approx: number }
+
+// Spent over estimate (the middle) of what it finished of difficulty from to to (0 and 0: all).
+export interface CuentaRazon { from: number; to: number; x: number; n: number }
+
+// How the coding agent is doing over a period (api.CuentasView, GET /api/ia/cuentas).
+export interface CuentasView {
+  days: number;
+  since?: string;
+  encargos: number;
+  finished: number;
+  firstTry: number;
+  afterRetry: number;
+  gaveBack: number;
+  working: number;
+  accepted: number;
+  returned: number;
+  toReview: number;
+  causes: CuentaCausa[];
+  retried: CuentaCausa[];
+  ratios: CuentaRazon[];
+  all: CuentaRazon;
+  /** It gave back rachaFrom or more in a row for one cause. */
+  racha?: { cause: CausaAgente; n: number; encargos: number[] };
+  /** The factor the estimator applies today, from its record. */
+  learned: { byDifficulty: Record<string, Factor>; all: Factor };
+  learnFrom: number;
+  learnOn: boolean;
+  rachaFrom: number;
+}
+
 export interface IAAnswer {
   text: string;
   provider: AIProvider;
@@ -1468,6 +1503,7 @@ export const api = {
   switchOrg: (id: number) => request<void>("POST", `/api/orgs/${id}/switch`),
   members: () => request<Member[]>("GET", "/api/members"),
   ia: () => request<IAView>("GET", "/api/ia"),
+  iaCuentas: (days: number) => request<CuentasView>("GET", `/api/ia/cuentas?days=${days}`),
   diagnosis: (run: number, lang?: string) => request<Diagnosis>("GET", `/api/runs/${run}/diagnosis${lang ? `?lang=${lang}` : ""}`),
   askDiagnosis: (run: number) => request<void>("POST", `/api/runs/${run}/diagnosis`),
   runFix: (run: number) => request<FixOffer>("GET", `/api/runs/${run}/fix`),
