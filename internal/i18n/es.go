@@ -733,6 +733,18 @@ var catalog = map[string]string{
 	// En seco: a branch's checks against the published release (internal/platform/enseco.go).
 	"no release is published yet: the checks run en seco once there is one":                        "aún no hay una versión publicada: las pruebas correrán en seco cuando la haya",
 	"this branch changes the app too: its checks do not run en seco against the published release": "esta rama también cambia la aplicación: sus pruebas no corren en seco contra la versión publicada",
+	// En seco against a copy of the branch (platform/enseco.go, step 2).
+	"this branch changes the app, so its checks would run en seco against a copy of it, and the app has no previews: nothing ran": "esta rama cambia la aplicación, así que sus pruebas correrían en seco contra una copia de ella, y la aplicación no tiene vistas previas: no se corrió nada",
+	"copies of the app cannot be made here: nothing ran en seco against one":                                                 "aquí no se pueden hacer copias de la aplicación: no se corrió nada en seco contra una",
+	"the copy of pull request #%d was not made (the app needs a domain for its address): nothing ran en seco against it":   "no se hizo la copia de la solicitud #%d (la aplicación necesita un dominio para su dirección): no se corrió nada en seco contra ella",
+	"the app's copies could not be read (%v): nothing ran en seco":                                                           "no se pudieron leer las copias de la aplicación (%v): no se corrió nada en seco",
+	"no room for a short copy of this branch: the app already has %d of its %d copies (previews.max), and a pull request's copy is not deleted for one. Nothing ran en seco; opening a pull request gives the branch its copy": "no hay lugar para una copia corta de esta rama: la aplicación ya tiene %d de sus %d copias (previews.max), y no se borra la copia de una solicitud para hacerle lugar. No se corrió nada en seco; al abrir una solicitud, la rama tiene su copia",
+	"the app's organization could not be read: nothing ran en seco":                                       "no se pudo leer la organización de la aplicación: no se corrió nada en seco",
+	"the short copy could not be made (%v): nothing ran en seco":                                          "no se pudo hacer la copia corta (%v): no se corrió nada en seco",
+	"a newer push replaced the copy before it ran this commit: that push's run checks it":                 "un envío más reciente reemplazó la copia antes de que corriera este commit: la ejecución de ese envío la prueba",
+	"the run was cancelled before the copy ran this commit":                                               "la ejecución se canceló antes de que la copia corriera este commit",
+	"the copy did not come to run this commit: %s":                                                        "la copia no llegó a correr este commit: %s",
+	"its checks en seco ended long ago":                                                                   "sus pruebas en seco terminaron hace mucho",
 	"%d of %d tests failed: %s": "fallaron %d de %d pruebas: %s",
 	"%d of %d tests passed":     "pasaron %d de %d pruebas",
 

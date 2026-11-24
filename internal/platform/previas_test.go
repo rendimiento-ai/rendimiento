@@ -43,7 +43,7 @@ func TestPreviewCopies(t *testing.T) {
 	images := map[string]string{"web": "registry.example.lan:5000/copias-web@sha256:1"}
 	sha := strings.Repeat("a", 40)
 
-	p.deployPreview(ctx, app, &store.Run{ID: 41, SHA: sha, Branch: "propina"}, *sp, images)
+	p.deployPreview(ctx, app, &store.Run{ID: 41, SHA: sha, Branch: "propina"}, *sp, images, false)
 	var cr v1alpha1.App
 	if err := kube.Get(ctx, client.ObjectKey{Name: "copias-pr-7"}, &cr); err != nil {
 		t.Fatal(err)
@@ -64,19 +64,19 @@ func TestPreviewCopies(t *testing.T) {
 	if len(fake.said) != 1 || !strings.Contains(fake.said[1], "#7 **Preview of #7:** https://copias-pr-7.example.com") || cr.Annotations[annotationComment] != "1" {
 		t.Fatalf("comments %v, annotation %q", fake.said, cr.Annotations[annotationComment])
 	}
-	p.deployPreview(ctx, app, &store.Run{ID: 45, SHA: sha, Branch: "propina"}, *sp, images)
+	p.deployPreview(ctx, app, &store.Run{ID: 45, SHA: sha, Branch: "propina"}, *sp, images, false)
 	if len(fake.said) != 1 || !strings.Contains(fake.said[1], "run [#45]") {
 		t.Fatalf("after a second push: %v", fake.said)
 	}
 
 	// A branch with no open pull request gets no copy.
-	p.deployPreview(ctx, app, &store.Run{ID: 42, SHA: sha, Branch: "sin-copia"}, *sp, images)
+	p.deployPreview(ctx, app, &store.Run{ID: 42, SHA: sha, Branch: "sin-copia"}, *sp, images, false)
 	if err := kube.Get(ctx, client.ObjectKey{Name: "copias-pr-6"}, &cr); !apierrors.IsNotFound(err) {
 		t.Fatalf("a closed pull request got a copy: %v", err)
 	}
 
 	// max 1: the next pull request's copy replaces the idle one.
-	p.deployPreview(ctx, app, &store.Run{ID: 43, SHA: sha, Branch: "otra"}, *sp, images)
+	p.deployPreview(ctx, app, &store.Run{ID: 43, SHA: sha, Branch: "otra"}, *sp, images, false)
 	if !gone(ctx, kube, "copias-pr-7") {
 		t.Fatal("the older copy stayed past max")
 	}
@@ -92,7 +92,7 @@ func TestPreviewCopies(t *testing.T) {
 	}
 
 	// The sweep deletes a copy whose pull request closed meanwhile.
-	p.deployPreview(ctx, app, &store.Run{ID: 44, SHA: sha, Branch: "propina"}, *sp, images)
+	p.deployPreview(ctx, app, &store.Run{ID: 44, SHA: sha, Branch: "propina"}, *sp, images, false)
 	fake.recent[1].State = "closed"
 	p.branchPullsCache.mu.Lock()
 	delete(p.branchPullsCache.byApp, app.ID)
@@ -171,7 +171,7 @@ func TestPreviewRunsTheAppsTests(t *testing.T) {
 			Log: "@@prueba\texpected\trepartir.spec.js › abre\n@@prueba\tunexpected\trepartir.spec.js › paga\n"}
 	}
 	images := map[string]string{"web": "registry.example.lan:5000/probadas-web@sha256:1", "build:e2e": "registry.example.lan:5000/probadas-e2e@sha256:2"}
-	p.deployPreview(ctx, app, &store.Run{ID: 51, SHA: strings.Repeat("c", 40), Branch: "con-pruebas"}, *sp, images)
+	p.deployPreview(ctx, app, &store.Run{ID: 51, SHA: strings.Repeat("c", 40), Branch: "con-pruebas"}, *sp, images, false)
 	select {
 	case <-done:
 	case <-time.After(30 * time.Second):
@@ -221,6 +221,15 @@ func (f *fakeCopias) Get(_ context.Context, app string, number int) (copia, bool
 	return c, ok
 }
 
+func (f *fakeCopias) PutShort(_ context.Context, a *store.App, _ string, _ spec.Spec, images map[string]string, run *store.Run) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	c := copia{App: a.Name, Run: run.ID, PushedAt: time.Now()}
+	f.copies[c.name()] = c
+	f.images[c.name()] = images
+	return nil
+}
+
 func (f *fakeCopias) Put(_ context.Context, a *store.App, _ string, _ spec.Spec, images map[string]string, _ *store.Run, number int, commentID int64) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -232,12 +241,12 @@ func (f *fakeCopias) Put(_ context.Context, a *store.App, _ string, _ spec.Spec,
 func (f *fakeCopias) Delete(_ context.Context, c copia) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	delete(f.copies, PreviewName(c.App, c.Number))
+	delete(f.copies, c.name())
 	return nil
 }
 
-func (f *fakeCopias) URL(_ spec.Spec, app string, number int) string {
-	return "http://" + PreviewName(app, number) + ".localhost:8000/"
+func (f *fakeCopias) URL(_ spec.Spec, c copia) string {
+	return "http://" + c.name() + ".localhost:8000/"
 }
 
 func (f *fakeCopias) TestURL(spec.Spec) string { return "http://web:3000" }

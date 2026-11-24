@@ -27,6 +27,7 @@ import (
 // Labels and annotations of a copy's App object.
 const (
 	labelPreviewOf    = "rendimiento.ai/preview-of" // the app it copies
+	labelShortCopy    = "rendimiento.ai/seco-run"   // a short copy's run, for its checks en seco
 	annotationPushed  = "rendimiento.ai/pushed-at"  // when its branch last ran
 	annotationComment = "rendimiento.ai/comment"    // the pull request's comment kept for it
 )
@@ -37,6 +38,10 @@ const previewSweep = 10 * time.Minute
 
 // PreviewName is the App object of pull request number's copy.
 func PreviewName(app string, number int) string { return fmt.Sprintf("%s-pr-%d", app, number) }
+
+// ShortCopyName is the App object of the short copy run makes for its
+// checks en seco, when its branch has no pull request.
+func ShortCopyName(app string, run int64) string { return fmt.Sprintf("%s-seco-%d", app, run) }
 
 // previewURL is the copy's address: its first service with a domain.
 func previewURL(copy spec.Spec) string {
@@ -67,17 +72,19 @@ func (p *Platform) openPullOf(ctx context.Context, a *store.App, branch string) 
 // branch's run passed: the App object is written (made the first time) with
 // the run's images, the oldest copy goes first when the app has its most,
 // and a "preview" check on the commit links to the copy's address.
-func (p *Platform) deployPreview(ctx context.Context, app *store.App, run *store.Run, sp spec.Spec, images map[string]string) {
+// testsEnSeco says the branch's tests run en seco against the copy
+// (dryOnCopy, after this): the copy's own run of them is left to those.
+func (p *Platform) deployPreview(ctx context.Context, app *store.App, run *store.Run, sp spec.Spec, images map[string]string, testsEnSeco bool) {
 	if sp.Previews == nil || p.copias() == nil || run.Deploy {
 		return
 	}
 	if number := p.openPullOf(ctx, app, run.Branch); number != 0 {
-		p.deployPreviewOf(ctx, app, run, sp, images, number)
+		p.deployPreviewOf(ctx, app, run, sp, images, number, testsEnSeco)
 	}
 }
 
 // deployPreviewOf writes pull request number's copy from a run that passed.
-func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *store.Run, sp spec.Spec, images map[string]string, number int) {
+func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *store.Run, sp spec.Spec, images map[string]string, number int, testsEnSeco bool) {
 	copias := p.copias()
 	if copias == nil {
 		return
@@ -94,7 +101,7 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 	}
 	// One comment on the pull request, edited on each push: the address,
 	// the commit and when the copy goes.
-	url := copias.URL(copy, app.Name, number)
+	url := copias.URL(copy, copia{App: app.Name, Number: number})
 	if url == "" {
 		// In a cluster a copy is reached at its domain's pr-<number> host.
 		log.Info("preview: not made, the app has no domain for the copy's address")
@@ -125,7 +132,7 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 			log.Warn("preview: its check", "err", err)
 		}
 	}
-	if sp.Tests != nil {
+	if sp.Tests != nil && !testsEnSeco {
 		// The copy's tests run once it answers, without holding the run up.
 		go p.testPreview(context.WithoutCancel(ctx), app, run, sp, copy, images, number, commentID)
 	}
@@ -139,16 +146,8 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 func (p *Platform) testPreview(ctx context.Context, app *store.App, run *store.Run, sp, copy spec.Spec, images map[string]string, number int, commentID int64) {
 	name := PreviewName(app.Name, number)
 	log := p.Log.With("app", app.Name, "pull", number)
-	url := p.copias().URL(copy, app.Name, number)
-	say := func(section string) {
-		if commentID == 0 || p.Forja == nil {
-			return
-		}
-		body := previewComment(number, url, run, p.Config.BaseURL, app.Name, time.Now().AddDate(0, 0, sp.Previews.KeepDays())) + "\n\n" + section
-		if _, err := p.repos(app).Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err != nil {
-			log.Warn("preview: its comment", "err", err)
-		}
-	}
+	url := p.copias().URL(copy, copia{App: app.Name, Number: number})
+	say := func(section string) { p.sayOnPull(ctx, app, run, sp, url, number, commentID, section) }
 	if ok, why := p.waitRollout(ctx, name, run.ID); !ok {
 		say(M("**Tests:** not run, the copy did not become healthy: %s.", why))
 		return
@@ -176,6 +175,18 @@ func (p *Platform) testPreview(ctx context.Context, app *store.App, run *store.R
 	}
 	say(previewTests(got))
 	log.Info("preview tested", "run", run.ID, "tests", len(got))
+}
+
+// sayOnPull adds a section (the tests' results) to the pull request's
+// comment about its copy.
+func (p *Platform) sayOnPull(ctx context.Context, app *store.App, run *store.Run, sp spec.Spec, url string, number int, commentID int64, section string) {
+	if commentID == 0 || p.Forja == nil {
+		return
+	}
+	body := previewComment(number, url, run, p.Config.BaseURL, app.Name, time.Now().AddDate(0, 0, sp.Previews.KeepDays())) + "\n\n" + section
+	if _, err := p.repos(app).Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err != nil {
+		p.Log.Warn("preview: its comment", "app", app.Name, "pull", number, "err", err)
+	}
 }
 
 // previewTests is the comment's section of the copy's tests: how many
@@ -219,16 +230,22 @@ func (p *Platform) deletePreview(ctx context.Context, c copia, why string) error
 	if err := copias.Delete(ctx, c); err != nil {
 		return err
 	}
-	if c.CommentID == 0 || p.Forja == nil {
-		return nil
-	}
 	app, err := p.Store.GetApp(ctx, c.App)
 	if err != nil {
 		return nil
 	}
+	if c.Number != 0 {
+		// The runs whose checks ran against it en seco stop linking to it.
+		if err := p.Store.DryCopyGone(ctx, app.ID, c.Number); err != nil {
+			p.Log.Warn("preview: marking it gone on its runs", "copy", c.name(), "err", err)
+		}
+	}
+	if c.CommentID == 0 || p.Forja == nil {
+		return nil
+	}
 	body := inForjaWords(app, M("**Preview of #%d:** deleted, %s.", c.Number, why))
 	if _, err := p.repos(app).Comment(ctx, app.InstallationID, app.Repo, c.Number, c.CommentID, body); err != nil {
-		p.Log.Warn("preview: its comment", "copy", PreviewName(c.App, c.Number), "err", err)
+		p.Log.Warn("preview: its comment", "copy", c.name(), "err", err)
 	}
 	return nil
 }
@@ -241,9 +258,11 @@ func (p *Platform) makeRoom(ctx context.Context, app *store.App, keep, max int) 
 	if err != nil {
 		return err
 	}
+	// A short copy (en seco) lives minutes and is not a pull request's:
+	// it is never made room for, nor taken out to make room.
 	others := copies[:0]
 	for _, c := range copies {
-		if c.Number != keep {
+		if c.Number != keep && c.Run == 0 {
 			others = append(others, c)
 		}
 	}
@@ -252,7 +271,7 @@ func (p *Platform) makeRoom(ctx context.Context, app *store.App, keep, max int) 
 		if err := p.deletePreview(ctx, others[0], M("to make room for a newer pull request's copy")); err != nil {
 			return err
 		}
-		p.Log.Info("preview deleted to make room", "app", app.Name, "copy", PreviewName(app.Name, others[0].Number))
+		p.Log.Info("preview deleted to make room", "app", app.Name, "copy", others[0].name())
 		others = others[1:]
 	}
 	return nil
@@ -299,7 +318,7 @@ func (p *Platform) previewFromLastRun(ctx context.Context, a *store.App, number 
 	if sp.Previews == nil {
 		return
 	}
-	p.deployPreviewOf(ctx, a, run, sp, p.imagesOfRun(ctx, a, run, sp), number)
+	p.deployPreviewOf(ctx, a, run, sp, p.imagesOfRun(ctx, a, run, sp), number, false)
 }
 
 // catchUpPreviews makes the copies a lost "opened" event left out: an open
@@ -420,7 +439,7 @@ func (p *Platform) sweepPreviews(ctx context.Context, now time.Time) {
 	}
 	for _, c := range copies {
 		if why := p.previewGone(ctx, c, now); why != "" {
-			name := PreviewName(c.App, c.Number)
+			name := c.name()
 			if err := p.deletePreview(ctx, c, why); err != nil {
 				p.Log.Warn("previews: deleting", "copy", name, "err", err)
 				continue
@@ -435,6 +454,14 @@ func (p *Platform) previewGone(ctx context.Context, c copia, now time.Time) stri
 	app, err := p.Store.GetApp(ctx, c.App)
 	if err != nil {
 		return M("its app is gone")
+	}
+	if c.Run != 0 {
+		// Its run deletes it once the checks end; one left behind (the
+		// platform restarted meanwhile) goes here.
+		if now.Sub(c.PushedAt) > shortCopyLife {
+			return M("its checks en seco ended long ago")
+		}
+		return ""
 	}
 	if app.Spec.Previews == nil {
 		return M("the app no longer asks for previews")

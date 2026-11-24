@@ -176,12 +176,14 @@ func TestEnSeco(t *testing.T) {
 		t.Fatalf("the note in the Ruta: %+v %v", notes, err)
 	}
 
-	// A branch that changes the app as well: nothing runs against production.
+	// A branch that changes the app as well: nothing runs against
+	// production, and without previews there is no copy to run them on
+	// (seco_copia_test.go has an app with them).
 	mu.Lock()
 	before := len(ran)
 	mu.Unlock()
 	app2 := push("p0dxD/ensecos", 32, "renovate/react-19.x", strings.Repeat("c", 40), enSecoYAML, []string{"e2e/compra.spec.ts", "web/package.json"})
-	if d := app2.Dry; d == nil || d.Release != 0 || !strings.Contains(d.Note, "changes the app too") {
+	if d := app2.Dry; d == nil || d.Release != 0 || d.Copy == nil || d.Copy.Kind != store.DryCopyOff || !strings.Contains(d.Copy.Note, "has no previews") {
 		t.Fatalf("a branch that changes the app: %+v", d)
 	}
 	mu.Lock()
