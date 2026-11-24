@@ -75,9 +75,9 @@ func (f *fakePulls) seen() ([]string, int) {
 func TestOpenPullOnly(t *testing.T) {
 	e := newEnv(t, false)
 	ctx := context.Background()
-	fake := &fakePulls{}
+	fake, glFake := &fakePulls{}, &fakePulls{} // GitHub's and a GitLab's
 	e.s.Platform.Forja = fake
-	e.s.Platform.Forjas = map[string]forja.Repos{forja.GitLab: fake}
+	e.s.Platform.Forjas = map[string]forja.Repos{forja.GitLab: glFake}
 	sp := spec.Spec{Services: []spec.Service{{Name: "web", Port: 8080}}}
 	sp.Default()
 	gh := &store.App{Name: "soloabre", Repo: "p0dxD/soloabre", DefaultBranch: "main", Spec: sp}
@@ -153,7 +153,7 @@ func TestOpenPullOnly(t *testing.T) {
 
 	// GitLab: the merge request, at its address.
 	glRun := run(gl, "probar", false)
-	if code, body, got = open(glRun, admin, nil); code != 200 || got.URL != "https://git.example.com/grupo/soloabre/-/merge_requests/42" {
+	if code, body, got = open(glRun, admin, nil); code != 200 || got.AlreadyOpen || got.URL != "https://git.example.com/grupo/soloabre/-/merge_requests/40" {
 		t.Fatalf("on GitLab: %d %s", code, body)
 	}
 	if code, body, _ = open(run(gl, "main", true), admin, nil); code != 409 || !strings.Contains(body, "no merge request to open") {
@@ -172,7 +172,7 @@ func TestOpenPullOnly(t *testing.T) {
 	if err := e.store.SetRunUntested(ctx, cualquiera.ID, []string{"mobile/"}); err != nil {
 		t.Fatal(err)
 	}
-	if code, body, got = open(cualquiera, admin, nil); code != 200 || got.Number != 43 {
+	if code, body, got = open(cualquiera, admin, nil); code != 200 || got.Number != 42 {
 		t.Fatalf("a run that waits for a person anyway: %d %s", code, body)
 	}
 	if err := e.store.SetAppAutoMerge(ctx, gh.ID, true, false); err != nil {
@@ -194,7 +194,8 @@ func TestOpenPullOnly(t *testing.T) {
 	if code, body, _ = open(otra, nil, map[string]string{"Authorization": "Bearer " + key.Token}); code != 401 {
 		t.Fatalf("an agent key opened it: %d %s", code, body)
 	}
-	if opened, merged = fake.seen(); len(opened) != 4 || merged != 0 {
-		t.Fatalf("opened %q (merged %d), want four and none merged", opened, merged)
+	glOpened, glMerged := glFake.seen()
+	if opened, merged = fake.seen(); len(opened) != 3 || len(glOpened) != 1 || merged+glMerged != 0 {
+		t.Fatalf("opened %q and %q (merged %d), want three, one and none merged", opened, glOpened, merged+glMerged)
 	}
 }
