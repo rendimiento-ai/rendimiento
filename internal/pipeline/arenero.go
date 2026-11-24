@@ -246,6 +246,7 @@ func (s *Sandboxes) Run(ctx context.Context, req SandboxRun) (SandboxResult, err
 	start := time.Now()
 	code, err := s.execFn()(rctx, s.K.Namespace, box.pod, "work",
 		[]string{"sh", "-c", sandboxRunScript, "run", workdir, strconv.Itoa(secs), req.Command}, nil, out, errOut)
+	expired := rctx.Err() == context.DeadlineExceeded // before cancel, which sets it too
 	cancel()
 	res.Took = time.Since(start).Round(100 * time.Millisecond)
 	res.Stdout, res.Stderr, res.StdoutBytes, res.StderrBytes = out.String(), errOut.String(), out.total, errOut.total
@@ -254,7 +255,7 @@ func (s *Sandboxes) Run(ctx context.Context, req SandboxRun) (SandboxResult, err
 	case ctx.Err() != nil:
 		s.drop(box) // the caller gave up: nothing it ran is left running
 		return res, ctx.Err()
-	case rctx.Err() != nil || (code == 137 && res.Took >= s.Timeout-time.Second):
+	case expired || (code == 137 && res.Took >= s.Timeout-time.Second):
 		// The command ran out of time: its processes may still run, so the
 		// sandbox goes, and what it changed with it.
 		res.TimedOut, res.ExitCode = true, -1
