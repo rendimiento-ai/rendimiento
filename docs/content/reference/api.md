@@ -106,6 +106,7 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | GET | `/api/ia` | the organization's AI: provider, model, cap, the end of its own key, this month's spending, the latest calls |
 | PUT | `/api/ia` | change it (`provider`: `local`, `own`, `platform`; `kind`, `baseUrl`, `model`, `capDollars`, `key`, `removeKey`, `autoDiagnose`, `escalateTo`: `own`, `platform` or empty, `escalateLimit`, `encargoAutoDollars`: the most an encargo may be estimated to cost for the platform's AI to take it, `codeAgent`: `off`, `asked` or `auto`, `autoEncargo`: `off`, `branches` or `all`); administrators |
 | POST | `/api/ia/test` | ask the organization's model one question (`prompt`), measured; collaborators |
+| GET | `/api/ia/cuentas` | how the coding agent is doing: what it finished, gave back and why, what you answered, spent against the estimate, the factor the estimator applies, and a warning of three releases in a row for one cause (`days`: 7, 30 by default, 90, or 0 for all of it); every member |
 | GET | `/api/ia/orgs` | every organization's allowance of the platform's AI and spending, and the platform's bill; operators |
 | PUT | `/api/ia/orgs/{id}/allowance` | an organization's monthly allowance of the platform's AI (`dollars`); operators |
 | GET | `/api/ia/platica` | what one conversation about an entry may spend on paid models before it asks (`capMicros`) |

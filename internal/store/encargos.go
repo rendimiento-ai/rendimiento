@@ -131,7 +131,13 @@ func (s *Store) CreateEncargo(ctx context.Context, e Encargo) (Encargo, error) {
 }
 
 func logEncargo(ctx context.Context, tx pgx.Tx, id int64, who, what, note string) error {
-	_, err := tx.Exec(ctx, `INSERT INTO encargo_log (encargo_id, who, what, note) VALUES ($1, $2, $3, $4)`, id, who, what, note)
+	return logEncargoCause(ctx, tx, id, who, what, note, "")
+}
+
+// logEncargoCause logs with the cause of a release (Cause*; "" keeps it
+// NULL, to be classified by its note when read).
+func logEncargoCause(ctx context.Context, tx pgx.Tx, id int64, who, what, note, cause string) error {
+	_, err := tx.Exec(ctx, `INSERT INTO encargo_log (encargo_id, who, what, note, cause) VALUES ($1, $2, $3, $4, NULLIF($5, ''))`, id, who, what, note, cause)
 	return err
 }
 
@@ -170,6 +176,11 @@ func (s *Store) ListEncargos(ctx context.Context, orgID int64, openOnly bool, li
 // change applies one state change in a transaction: the update must touch
 // the row (else ErrEncargoState), and it is logged.
 func (s *Store) change(ctx context.Context, id int64, who, what, note, sql string, args ...any) (Encargo, error) {
+	return s.changeCause(ctx, id, who, what, note, "", sql, args...)
+}
+
+// changeCause is change, logging a release's cause too.
+func (s *Store) changeCause(ctx context.Context, id int64, who, what, note, cause, sql string, args ...any) (Encargo, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Encargo{}, err
@@ -185,7 +196,7 @@ func (s *Store) change(ctx context.Context, id int64, who, what, note, sql strin
 		}
 		return Encargo{}, ErrEncargoState
 	}
-	if err := logEncargo(ctx, tx, id, who, what, note); err != nil {
+	if err := logEncargoCause(ctx, tx, id, who, what, note, cause); err != nil {
 		return Encargo{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -390,7 +401,14 @@ func (s *Store) DoEncargos(ctx context.Context, orgID int64, ids []int64, who st
 // own agent, with what it did and what is left: pending again, for their
 // agent, and no longer in its queue.
 func (s *Store) GiveBackEncargo(ctx context.Context, id, keyID int64, who, note string) (Encargo, error) {
-	return s.change(ctx, id, who, "released", note,
+	return s.GiveBackEncargoCause(ctx, id, keyID, who, note, "")
+}
+
+// GiveBackEncargoCause is GiveBackEncargo with why, as a short code
+// (Cause*; one it does not know, or "", is left for ClassifyCause to read
+// from the note).
+func (s *Store) GiveBackEncargoCause(ctx context.Context, id, keyID int64, who, note, cause string) (Encargo, error) {
+	return s.changeCause(ctx, id, who, "released", note, KnownCause(cause),
 		`UPDATE encargos SET status = 'pending', key_id = NULL, cargo_id = NULL, waiting_run = NULL, do_now = false, route = 'local', doing = '', stop_asked = false, queue_pos = NULL, updated_at = now()
 		 WHERE id = $1 AND key_id = $2 AND status IN ('taken', 'waiting')`, id, keyID)
 }

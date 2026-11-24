@@ -1624,13 +1624,21 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 .ia-settings section + section { border-top: 1px solid var(--border); padding-top: 16px; }
 .ia-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
 /* The coding agent's record (boleta) on the AI page, and each encargo's estimate against what it spent. */
-.boleta { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; background: var(--surface); }
-.boleta .cab { font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: 11px; }
+.boleta, .cuentas-agente { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; background: var(--surface); }
+.boleta .cab, .cuentas-agente .cab { font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: 11px; }
 .boleta-cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
 .boleta-cifras > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .boleta-cifras strong { font-size: 20px; font-variant-numeric: tabular-nums; }
 .boleta-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .boleta-lista a { overflow-wrap: anywhere; }
+/* How the coding agent is doing (components/agente-cuentas.tsx): its warning, and why it gave back, cause by cause. */
+.cuentas-agente .rel-filters { margin: 0; }
+.cuentas-aviso { margin: 0; padding: 8px 12px; border-radius: var(--radius); background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
+.cuentas-causas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.cuentas-causas li { display: grid; grid-template-columns: minmax(0, 1fr) auto 2.5em; gap: 4px 12px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--border); }
+.cuentas-causas li strong { text-align: right; font-variant-numeric: tabular-nums; }
+.cuentas-encargos a { font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) { .cuentas-causas li { grid-template-columns: minmax(0, 1fr) auto; } .cuentas-causas li > :nth-child(2) { grid-column: 1; grid-row: 2; } }
 .estimado-gastado { display: flex; flex-direction: column; gap: 3px; margin: 2px 0 0; max-width: 520px; }
 .eg-pista { position: relative; height: 14px; border-radius: 4px; background: var(--surface-2); }
 .eg-estimado, .eg-gastado { position: absolute; left: 0; border-radius: 3px; }
