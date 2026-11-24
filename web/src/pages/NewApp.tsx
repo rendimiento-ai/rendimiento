@@ -472,7 +472,16 @@ function Needs({ needs, onChange }: { needs: Need[]; onChange: (n: Need[]) => vo
   const toggle = (w: string) => onChange(has(w) ? needs.filter((n) => n !== w) : [...needs, w]);
   const services = needs.filter((n): n is { service: string; env?: string } => typeof n === "object" && "service" in n);
   useEffect(() => {
-    if (picking === "open" && !catalog) catalogApi.list().then((c) => setCatalog(c.entries.filter((e) => e.group !== "infrastructure")), () => setCatalog([]));
+    if (picking !== "open" || catalog) return;
+    // The cluster is still being read for the first time: ask again shortly.
+    let gone = false, again: ReturnType<typeof setTimeout> | undefined;
+    const ask = () => catalogApi.list().then((c) => {
+      if (gone) return;
+      if (c.pending) again = setTimeout(ask, 3000);
+      else setCatalog(c.entries.filter((e) => e.group !== "infrastructure"));
+    }, () => !gone && setCatalog([]));
+    ask();
+    return () => { gone = true; clearTimeout(again); };
   }, [picking, catalog]);
   return (
     <div className="stack">

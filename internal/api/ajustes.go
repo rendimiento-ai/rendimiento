@@ -278,6 +278,9 @@ type BoundaryCheck struct {
 	// whether that namespace exists.
 	IngressNamespace string `json:"ingressNamespace"`
 	IngressFound     bool   `json:"ingressFound"`
+	// Pending is set while the services catalog is still being read (the
+	// cluster is slow to answer): Callers is empty, and the page asks again.
+	Pending bool `json:"pending,omitempty"`
 }
 
 // boundaryCheck lists the likely callers of apps from outside their
@@ -301,16 +304,23 @@ func (s *Server) boundaryCheck(w http.ResponseWriter, r *http.Request, _ string)
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	if out.Callers, err = s.boundaryCallers(ctx, apps, 0); err != nil {
+	callers, err := s.boundaryCallers(ctx, apps, 0)
+	switch {
+	case errors.Is(err, fresco.ErrSlow):
+		out.Pending = true
+	case err != nil:
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
+	default:
+		out.Callers = callers
 	}
 	writeJSON(w, out)
 }
 
 // boundaryCallers are the namespaces whose workloads point at the apps'
 // services from outside each app's organization (only those of org, when
-// it is not 0), from the services catalog.
+// it is not 0), from the services catalog: fresco.ErrSlow while a first
+// catalog is still being read.
 func (s *Server) boundaryCallers(ctx context.Context, apps []*store.App, org int64) ([]BoundaryCaller, error) {
 	out := []BoundaryCaller{}
 	if s.Settings == nil || s.Catalog == nil {

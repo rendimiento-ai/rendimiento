@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { catalogApi, timeAgo, type CatalogEntry, type CatalogGroup } from "../api";
 import { ErrorBox, usePoll } from "../components/ui";
@@ -44,7 +44,15 @@ export function Services() {
   const [group, setGroup] = useState<CatalogGroup>("apps");
   const [q, setQ] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const { data, error, setData } = usePoll(() => catalogApi.list(), [], 60000);
+  const { data, error, setData, reload } = usePoll(() => catalogApi.list(), [], 60000);
+  // The cluster is still being read for the first time: ask again shortly.
+  const pending = !!data?.pending;
+  useEffect(() => {
+    if (!pending) return;
+    const id = setTimeout(reload, 3000);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, data]);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
@@ -76,7 +84,7 @@ export function Services() {
   };
 
   if (error) return <ErrorBox error={error} />;
-  if (!data) return <EsqListaDetalle acciones />;
+  if (!data || data.pending) return <EsqListaDetalle acciones />;
   const focus = ns && name ? `${ns}/${name}` : undefined;
   const chosen = data.entries.find((e) => e.id === focus) ?? shown[0];
   // A link to a service of another group shows that group.

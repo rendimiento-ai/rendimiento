@@ -18,7 +18,7 @@ import { Falla, NoExiste } from "../components/falla";
 import { outsideWhy } from "../components/barda";
 import { Flor, LluviaDePetalos } from "../components/ambiente";
 import { t, tn } from "../i18n";
-import { EsqCosa } from "../components/esqueleto";
+import { EsqCosa, Esqueleto, Hueso } from "../components/esqueleto";
 import { useConexion } from "../conexion";
 import { apagado, PorQueApagado } from "../components/conexion-aviso";
 import { BuildNow, puedeConstruir } from "../components/construir";
@@ -228,22 +228,34 @@ function Overview({ name, app }: { name: string; app: Awaited<ReturnType<typeof 
  * why it is outside when it is. The same as the Universe draws.
  */
 function Barda({ name }: { name: string }) {
-  const { data: b } = usePoll(() => universeApi.barda(name), [name], 60000);
+  const { data: b, reload } = usePoll(() => universeApi.barda(name), [name], 60000);
+  // The cluster was slow to say where the app runs or who calls it: ask again shortly.
+  const pending = !!b?.outsidePending || !!b?.callersPending;
+  useEffect(() => {
+    if (!pending) return;
+    const id = setTimeout(reload, 3000);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, b]);
   if (!b) return null;
   const blocked = b.callers.filter((c) => !c.in);
   const lan = b.lan[name] ?? [];
+  const unknown = b.outsidePending && !b.why;
   return (
     <div className="card stack" style={{ gap: 8 }}>
       <div className="row between">
         <strong>{t("The wall")}</strong>
-        <span className={`badge ${b.inside ? "ok" : b.why === "off" ? "" : "warn"}`}>{b.inside ? t("inside the wall of {org}", { org: b.org }) : t("outside the wall")}</span>
+        {unknown
+          ? <Esqueleto><Hueso className="esq-renglon" w={140} /></Esqueleto>
+          : <span className={`badge ${b.inside ? "ok" : b.why === "off" ? "" : "warn"}`}>{b.inside ? t("inside the wall of {org}", { org: b.org }) : t("outside the wall")}</span>}
       </div>
-      {b.inside
+      {unknown ? <Esqueleto><Hueso className="esq-renglon" w="70%" /></Esqueleto> : b.inside
         ? <span className="small muted">{t("Only {org}'s apps reach it, besides the ingress ({ingress}), rendimiento ({platform}){more}.", {
           org: b.org, ingress: b.ingress || "—", platform: b.platform, more: b.namespaces.length || b.cidrs.length ? t(" and {list}", { list: [...b.namespaces, ...b.cidrs].join(", ") }) : "",
         })}</span>
         : <span className="small muted">{outsideWhy(b.why, b.nodes[name])}</span>}
       {lan.length > 0 && <span className="small muted">{t("Open to the local network: {list}.", { list: lan.join(", ") })}</span>}
+      {b.callersPending && <Esqueleto><Hueso className="esq-renglon" w="50%" /></Esqueleto>}
       {blocked.map((c) => (
         <span key={c.namespace} className="small" style={{ color: "var(--bad)" }}>
           {b.state === "on" ? t("{ns} calls it from outside and is stopped.", { ns: c.namespace }) : t("{ns} calls it from outside and would be stopped.", { ns: c.namespace })}

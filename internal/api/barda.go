@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"slices"
 	"sort"
@@ -11,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
+	"github.com/rendimiento-ai/rendimiento/internal/fresco"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -46,6 +48,12 @@ type Barda struct {
 	// Callers point at the apps from outside the organization: with the
 	// boundary on, those not In are stopped.
 	Callers []BoundaryCaller `json:"callers"`
+	// OutsidePending is set while the cluster has not said yet which apps
+	// run on a node outside the boundary, and CallersPending while the
+	// services catalog (where Callers come from) is still being read: the
+	// cluster is slow to answer, and the page asks again shortly.
+	OutsidePending bool `json:"outsidePending,omitempty"`
+	CallersPending bool `json:"callersPending,omitempty"`
 }
 
 // barda works out the boundary for an organization's apps (nil when there
@@ -70,24 +78,49 @@ func (s *Server) barda(ctx context.Context, orgID int64, apps []*store.App) (*Ba
 	if b.CIDRs == nil {
 		b.CIDRs = []string{}
 	}
-	f, err := s.fueraDeLaBarda(ctx, apps)
+	// Which apps run on a node outside the boundary, and who calls them,
+	// both kept a little (fueraDeTodas, the services catalog), looked for
+	// together so their waits overlap: a cluster slow to answer leaves them
+	// pending, and the rest is given at once.
+	var f fuera
+	var fErr error
+	looked := make(chan struct{})
+	go func() {
+		defer close(looked)
+		f, fErr = s.fueraDeTodas(ctx)
+	}()
+	defer func() { <-looked }()
+	all, err := s.Store.ListApps(ctx)
 	if err != nil {
 		return nil, err
 	}
-	b.Outside, b.Nodes = f.Outside, f.Nodes
+	b.Callers, err = s.boundaryCallers(ctx, all, orgID)
+	switch {
+	case errors.Is(err, fresco.ErrSlow):
+		b.Callers, b.CallersPending = []BoundaryCaller{}, true
+	case err != nil:
+		return nil, err
+	}
+	<-looked
+	switch err := fErr; {
+	case errors.Is(err, fresco.ErrSlow):
+		b.OutsidePending = true
+	case err != nil:
+		return nil, err
+	}
+	b.Outside, b.Nodes = map[string]string{}, map[string][]string{}
 	for _, a := range apps {
+		switch {
+		case a.Spec.SharedNamespace:
+			b.Outside[a.Name] = OutsideShared
+		case f.Outside[a.Name] == OutsideNode:
+			b.Outside[a.Name], b.Nodes[a.Name] = OutsideNode, f.Nodes[a.Name]
+		}
 		for _, svc := range a.Spec.Services {
 			if svc.LAN != nil {
 				b.LAN[a.Name] = append(b.LAN[a.Name], svc.Name)
 			}
 		}
-	}
-	all, err := s.Store.ListApps(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if b.Callers, err = s.boundaryCallers(ctx, all, orgID); err != nil {
-		return nil, err
 	}
 	return b, nil
 }
@@ -139,7 +172,8 @@ func (s *Server) fueraDeLaBarda(ctx context.Context, apps []*store.App) (fuera, 
 // AppBarda is one app's place in the boundary, for its page.
 type AppBarda struct {
 	Barda
-	// Inside is false when the boundary does not cover the app (or is off).
+	// Inside is false when the boundary does not cover the app (or is off,
+	// or it is not known yet: OutsidePending).
 	Inside bool `json:"inside"`
 	// Why it is outside: OutsideShared, OutsideNode, or "off".
 	Why string `json:"why,omitempty"`
@@ -166,9 +200,11 @@ func (s *Server) appBarda(w http.ResponseWriter, r *http.Request, _ string) {
 	case out.Why != "":
 	case b.State != "on":
 		out.Why = "off"
+	case b.OutsidePending: // not known yet: neither inside nor out
 	default:
 		out.Inside = true
 	}
+	out.OutsidePending = b.OutsidePending && out.Why == ""
 	writeJSON(w, out)
 }
 

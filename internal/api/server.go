@@ -40,6 +40,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/environment"
 	"github.com/rendimiento-ai/rendimiento/internal/events"
 	"github.com/rendimiento-ai/rendimiento/internal/forja"
+	"github.com/rendimiento-ai/rendimiento/internal/fresco"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
 	"github.com/rendimiento-ai/rendimiento/internal/gitlab"
 	"github.com/rendimiento-ai/rendimiento/internal/i18n"
@@ -1226,18 +1227,27 @@ func (s *Server) propose(w http.ResponseWriter, r *http.Request, login string) {
 // ---- services catalog ----
 
 // services is the Services page: everything running in the cluster, apps
-// and not, with what calls what (cached; ?refresh=1 rebuilds it).
+// and not, with what calls what (cached; ?refresh=1 rebuilds it). While a
+// first catalog is still being read it is empty, with pending set: the page
+// asks again shortly.
 func (s *Server) services(w http.ResponseWriter, r *http.Request, _ string) {
 	if s.Catalog == nil {
 		httpError(w, http.StatusServiceUnavailable, "the services catalog is not enabled")
 		return
 	}
 	c, err := s.Catalog.Get(r.Context(), r.URL.Query().Get("refresh") == "1")
-	if err != nil {
-		httpError(w, http.StatusBadGateway, err.Error())
-		return
+	type view struct {
+		*catalog.Catalog
+		Pending bool `json:"pending,omitempty"`
 	}
-	writeJSON(w, c)
+	switch {
+	case errors.Is(err, fresco.ErrSlow):
+		writeJSON(w, view{Catalog: &catalog.Catalog{Entries: []catalog.Entry{}}, Pending: true})
+	case err != nil:
+		httpError(w, http.StatusBadGateway, err.Error())
+	default:
+		writeJSON(w, view{Catalog: c})
+	}
 }
 
 // universe is the Universe page: every app from above, with its services,
@@ -1245,7 +1255,9 @@ func (s *Server) services(w http.ResponseWriter, r *http.Request, _ string) {
 // Without the catalog it still shows what each rendimiento.yaml declares.
 // With metrics, lines measured from traces carry their calls per minute,
 // errors and latency over ?window= (15m, 1h or 24h; 1h by default). The
-// map is still served when the metrics store does not answer.
+// map is still served when the metrics store does not answer, and while
+// the services catalog is still being read (catalogPending: the page asks
+// again shortly).
 func (s *Server) universe(w http.ResponseWriter, r *http.Request, _ string) {
 	ctx := r.Context()
 	all, err := s.Store.ListAppsInOrg(ctx, orgOf(r))
@@ -1265,11 +1277,38 @@ func (s *Server) universe(w http.ResponseWriter, r *http.Request, _ string) {
 		return
 	}
 	in := universe.Input{Apps: apps, Now: time.Now()}
+	// The boundary between organizations, drawn as a wall around them. It
+	// reads the services catalog too: looked for alongside it, so their
+	// waits overlap, unless a new catalog was asked for (then after it).
+	refresh := r.URL.Query().Get("refresh") == "1"
+	type wall struct {
+		b   *Barda
+		err error
+	}
+	walls := make(chan wall, 1)
+	org := orgOf(r)
+	lookAtTheWall := func() {
+		go func() {
+			b, err := s.barda(ctx, org, apps)
+			walls <- wall{b, err}
+		}()
+	}
+	if !refresh {
+		lookAtTheWall()
+	}
+	catalogPending := false
 	if s.Catalog != nil {
-		if in.Catalog, err = s.Catalog.Get(ctx, r.URL.Query().Get("refresh") == "1"); err != nil {
+		in.Catalog, err = s.Catalog.Get(ctx, refresh)
+		switch {
+		case errors.Is(err, fresco.ErrSlow):
+			in.Catalog, catalogPending = nil, true
+		case err != nil:
 			httpError(w, http.StatusBadGateway, err.Error())
 			return
 		}
+	}
+	if refresh {
+		lookAtTheWall()
 	}
 	if in.Probes, err = s.Store.LatestProbes(ctx, in.Now.Add(-15*time.Minute)); err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
@@ -1287,10 +1326,10 @@ func (s *Server) universe(w http.ResponseWriter, r *http.Request, _ string) {
 		}
 	}
 	visibleUniverse(&in, hidden)
-	// The boundary between organizations, drawn as a wall around them.
-	b, err := s.barda(ctx, orgOf(r), apps)
-	if err != nil {
-		s.Log.Info("universe: the boundary could not be worked out", "err", err)
+	got := <-walls
+	b := got.b
+	if got.err != nil {
+		s.Log.Info("universe: the boundary could not be worked out", "err", got.err)
 		b = nil
 	}
 	if b != nil {
@@ -1304,7 +1343,9 @@ func (s *Server) universe(w http.ResponseWriter, r *http.Request, _ string) {
 		Traces       bool   `json:"traces"`
 		MetricsError string `json:"metricsError,omitempty"`
 		Barda        *Barda `json:"barda,omitempty"`
-	}{universe.Build(in), window, s.Metrics != nil, metricsErr, b})
+		// CatalogPending: what runs in the cluster is still being read.
+		CatalogPending bool `json:"catalogPending,omitempty"`
+	}{universe.Build(in), window, s.Metrics != nil, metricsErr, b, catalogPending})
 }
 
 // universeSpans lists what one observed service does, from its traces:

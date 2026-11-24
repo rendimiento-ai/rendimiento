@@ -294,6 +294,14 @@ export function Universe() {
     return () => window.removeEventListener("keydown", key);
   }, [sel, barrio, pueblo]);
 
+  // The cluster was slow to answer: what runs there, or parts of the wall, are still being read. Ask again shortly.
+  const pending = !!data?.catalogPending || !!data?.barda?.outsidePending || !!data?.barda?.callersPending;
+  useEffect(() => {
+    if (!pending) return;
+    const id = setTimeout(() => universeApi.get(win).then(setData, () => undefined), 3000);
+    return () => clearTimeout(id);
+  }, [pending, data, win]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (error && !data) return <ErrorBox error={error} />;
   if (!data || !world) return <EsqPueblo />;
 
@@ -367,6 +375,7 @@ export function Universe() {
               {here && <><span className="muted">›</span>{level === "barrio" && !sel ? <span>{barrioTitle(here)}</span> : <button className="link" onClick={() => go({ barrio })}>{barrioTitle(here)}</button>}</>}
               {town && <><span className="muted">›</span>{sel ? <button className="link" onClick={() => setSel(undefined)}>{systemTitle(town)}</button> : <span>{systemTitle(town)}</span>}</>}
             </nav>
+            {data.catalogPending && <Esqueleto><Hueso className="esq-renglon" w={160} /></Esqueleto>}
             <span className="u-hint small">{no3d ? t("3D needs WebGL, which this browser does not have; the map stays in 2.5D.") : hint}</span>
           </div>
         </div>
@@ -628,7 +637,8 @@ function BardaPanel({ b, world, sel, goApp, reload }: { b: UniverseBarda; world:
       </div>
       <div>
         <h3 className="u-h">{t("Trancas: calls from outside")}</h3>
-        {blocked.length === 0 && <p className="small muted" style={{ margin: 0 }}>{t("Nothing outside points at these apps. rendimiento reads it from the workloads' environment, not from traffic.")}</p>}
+        {b.callersPending && <Esqueleto><Hueso className="esq-renglon" w="70%" /></Esqueleto>}
+        {!b.callersPending && blocked.length === 0 && <p className="small muted" style={{ margin: 0 }}>{t("Nothing outside points at these apps. rendimiento reads it from the workloads' environment, not from traffic.")}</p>}
         <div className="u-ticks">
           {blocked.map((c) => (
             <div key={c.namespace} className={sel?.kind === "tranca" && sel.id === c.namespace ? "u-pick" : undefined}>
@@ -640,9 +650,10 @@ function BardaPanel({ b, world, sel, goApp, reload }: { b: UniverseBarda; world:
         </div>
         <ErrorBox error={err} />
       </div>
-      {outside.length > 0 && (
+      {(outside.length > 0 || b.outsidePending) && (
         <div>
           <h3 className="u-h">{t("Outside the wall")}</h3>
+          {b.outsidePending && <Esqueleto><Hueso className="esq-renglon" w="60%" /></Esqueleto>}
           <div className="u-ticks">
             {outside.map(([app, why]) => (
               <div key={app}><button className="link" onClick={() => goApp(appOf(app))}>{app}</button> <span className="small muted">{outsideWhy(why, b.nodes[app])}</span></div>
