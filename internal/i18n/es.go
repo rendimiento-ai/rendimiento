@@ -760,6 +760,15 @@ var catalog = map[string]string{
 	"merge request !%d conflicts with %s in %s: not merged":                                                                        "el merge request !%d choca con %s en %s: no se integró",
 	"GitLab merges it when its pipeline succeeds":                                                                                  "GitLab lo integrará cuando pase su integración continua",
 
+	// Just opening the pull request, and its GitLab words (internal/platform/solo_abrir.go).
+	"a run of the default branch has no pull request to open":        "una ejecución de la rama principal no tiene solicitud de incorporación que abrir",
+	"the branch is already in %s: there is no pull request to open":  "la rama ya está en %s: no hay solicitud de incorporación que abrir",
+	"a run of the default branch has no merge request to open":       "una ejecución de la rama principal no tiene merge request que abrir",
+	"the branch is already in %s: there is no merge request to open": "la rama ya está en %s: no hay merge request que abrir",
+
+	"in this app an open pull request is the yes to merge it: Merge this branch opens it and merges it":  "en esta aplicación una solicitud de incorporación abierta es el sí para integrarla: Integrar esta rama la abre y la integra",
+	"in this app an open merge request is the yes to merge it: Merge this branch opens it and merges it": "en esta aplicación un merge request abierto es el sí para integrarlo: Integrar esta rama lo abre y lo integra",
+
 	// Forjas: Bitbucket Cloud (internal/api/bitbucket.go, Ruta 102).
 	"Bitbucket cannot be connected on this platform":                                     "en esta plataforma no se puede conectar Bitbucket",
 	"%s is not a Bitbucket workspace like bitbucket.org/my-team":                         "%s no es un espacio de trabajo de Bitbucket como bitbucket.org/mi-equipo",
@@ -939,6 +948,9 @@ var catalog = map[string]string{
 	"these settings change here only on a cluster; on a computer they are in its settings file": "estos ajustes se cambian aquí solo en un clúster; en una computadora están en su archivo de ajustes",
 	"test it first: a change is saved only with a test that passed, for the same values, in the last 15 minutes": "pruébelo primero: un cambio se guarda solo con una prueba que pasó, de los mismos valores, en los últimos 15 minutos",
 	"the platform restarts now to use it (%s): a minute or two; a run that is going may have to run again":       "la plataforma se reinicia ahora para usarlo (%s): un minuto o dos; una ejecución en curso quizá tenga que volver a correr",
+
+	// How the coding agent is doing, on the AI page (internal/api/ia_cuentas.go).
+	"the period is 7, 30 or 90 days, or 0 for all of it": "el periodo es de 7, 30 o 90 días, o 0 para todo",
 
 	// Dormir and Despertar, on a computer (platform/dormir.go, api/dormir.go).
 	"only rendimiento on a computer can sleep: a cluster stays awake": "solo rendimiento en una computadora puede dormir: un clúster se queda despierto",

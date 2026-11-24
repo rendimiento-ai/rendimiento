@@ -45,6 +45,7 @@ type CoderStore interface {
 	ResumeEncargo(ctx context.Context, id, keyID int64, who, note string) (store.Encargo, error)
 	DeliverEncargo(ctx context.Context, id, keyID int64, who, result string, links []string) (store.Encargo, error)
 	GiveBackEncargo(ctx context.Context, id, keyID int64, who, note string) (store.Encargo, error)
+	GiveBackEncargoCause(ctx context.Context, id, keyID int64, who, note, cause string) (store.Encargo, error)
 	AddEncargoSpent(ctx context.Context, id, micros int64) error
 	GetApp(ctx context.Context, name string) (*store.App, error)
 	ListRuns(ctx context.Context, appID int64, limit int) ([]*store.Run, error)
@@ -296,7 +297,7 @@ func (c *Coder) recover(ctx context.Context) {
 	for _, e := range list {
 		note := c.say("La plataforma se reinició mientras lo hacía; lo que alcanzó a probar está en la rama %s.",
 			"The platform restarted while it worked on it; what it got to test is on branch %s.", branchFor(e))
-		if _, err := c.Store.GiveBackEncargo(ctx, e.ID, *e.KeyID, CoderName, note); err == nil {
+		if _, err := c.Store.GiveBackEncargoCause(ctx, e.ID, *e.KeyID, CoderName, note, store.CauseRestart); err == nil {
 			if cg, err := c.Store.OpenCargo(ctx, *e.KeyID); err == nil {
 				_ = c.Store.HandOver(ctx, cg.ID, note, "")
 			}
@@ -339,6 +340,7 @@ type job struct {
 	lastRun            *store.Run
 	finished           bool
 	outcome            string // delivered, gave back
+	cause              string // why it gave it back (store.Cause*; "": read from the note)
 	// fixes are the app's declared fixes, from the default branch.
 	fixes []spec.Fix
 }
@@ -374,12 +376,12 @@ func (c *Coder) Do(ctx context.Context, e store.Encargo) error {
 	if !j.finished {
 		why := c.say("No pude terminarlo", "Could not finish it")
 		if errors.Is(context.Cause(wctx), errStopped) {
-			why = c.say("Una persona lo detuvo", "A person stopped it")
+			why, j.cause = c.say("Una persona lo detuvo", "A person stopped it"), store.CauseStopped
 			if sha := j.commitLeft(context.WithoutCancel(ctx)); sha != "" {
 				why += c.say(". Lo que llevaba quedó SIN PROBAR en el commit %s", ". What I had is in commit %s, UNTESTED", sha[:min(7, len(sha))])
 			}
 		} else if err != nil {
-			why += ": " + err.Error()
+			why, j.cause = why+": "+err.Error(), j.errCause(err)
 		}
 		j.giveBack(context.WithoutCancel(ctx), why)
 	}
@@ -392,7 +394,7 @@ func (j *job) giveBack(ctx context.Context, why string) {
 	c := j.c
 	note := why + ". " + c.say("Lo que hice está en la rama %s; gasté %s de %s.", "What I did is on branch %s; spent %s of %s.",
 		j.branch, ia.Dollars(j.spent), ia.Dollars(j.budget))
-	if _, err := c.Store.GiveBackEncargo(ctx, j.e.ID, j.key.ID, CoderName, note); err != nil {
+	if _, err := c.Store.GiveBackEncargoCause(ctx, j.e.ID, j.key.ID, CoderName, note, j.cause); err != nil {
 		c.Log.Warn("coder: giving an encargo back", "encargo", j.e.ID, "err", err)
 	}
 	j.finished, j.outcome = true, c.say("lo devolvió a su agente", "gave it back to your agent")
@@ -455,6 +457,7 @@ func (j *job) work(ctx context.Context) error {
 			if sha != "" {
 				why += c.say(". Lo que llevaba quedó SIN PROBAR en el commit %s", ". What I had is in commit %s, UNTESTED", sha[:min(7, len(sha))])
 			}
+			j.cause = store.CauseBudget
 			j.giveBack(context.WithoutCancel(ctx), why)
 			return nil
 		}
@@ -654,7 +657,7 @@ var coderTools = []ia.Tool{
 	{Name: "deliver", Description: "Hand the encargo over to the person, once the latest run passed.",
 		InputSchema: schema(map[string]any{"summary": str("what you changed and why, how it was tested, what to look at")}, "summary")},
 	{Name: "give_up", Description: "Give the encargo back to the person's own agent, when you cannot finish it.",
-		InputSchema: schema(map[string]any{"reason": str("why, and what is left")}, "reason")},
+		InputSchema: schema(map[string]any{"reason": str("why, and what is left"), "cause": giveUpCause}, "reason")},
 }
 
 func schema(props map[string]any, required ...string) map[string]any {
@@ -743,6 +746,7 @@ func (j *job) tool(ctx context.Context, call ia.ToolCall) (string, bool) {
 	case "deliver":
 		return j.deliver(ctx, in.Summary)
 	case "give_up":
+		j.cause = causeOfGiveUp(call.Input)
 		j.commitLeft(ctx)
 		j.giveBack(context.WithoutCancel(ctx), in.Reason)
 		return "given back", false
