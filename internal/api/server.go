@@ -494,6 +494,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberCollaborator, "POST /api/runs/{id}/cancel", s.cancelRun)
 	auth(store.MemberCollaborator, "POST /api/runs/{id}/retry", s.retryRun)
 	auth(store.MemberCollaborator, "POST /api/runs/{id}/merge", s.approveMerge)
+	auth(store.MemberCollaborator, "POST /api/runs/{id}/pull", s.openPull)
 	auth(store.MemberGuest, "GET /api/runs/{id}/fix", s.getRunFix)
 	auth(store.MemberCollaborator, "POST /api/runs/{id}/fix", s.runFix)
 	auth(store.MemberCollaborator, "POST /api/runs/{id}/fix/add", s.addFix)
@@ -2075,6 +2076,28 @@ func (s *Server) approveMerge(w http.ResponseWriter, r *http.Request, login stri
 		httpError(w, http.StatusInternalServerError, err.Error())
 	default:
 		writeJSON(w, run)
+	}
+}
+
+// openPull opens a run's branch's pull request without merging it: the
+// person's "Just open the pull request", beside "Merge this branch", and
+// taken by the same people. One already open is answered, not opened again.
+func (s *Server) openPull(w http.ResponseWriter, r *http.Request, login string) {
+	id, ok := s.runID(w, r)
+	if !ok {
+		return
+	}
+	opened, err := s.Platform.OpenPull(r.Context(), id, login)
+	var no *platform.NotApprovable
+	switch {
+	case errors.As(err, &no):
+		httpError(w, http.StatusConflict, no.Why)
+	case errors.Is(err, store.ErrNotFound):
+		httpError(w, http.StatusNotFound, "no such run")
+	case err != nil:
+		httpError(w, http.StatusInternalServerError, err.Error())
+	default:
+		writeJSON(w, opened)
 	}
 }
 

@@ -760,6 +760,15 @@ var catalog = map[string]string{
 	"merge request !%d conflicts with %s in %s: not merged":                                                                        "el merge request !%d choca con %s en %s: no se integró",
 	"GitLab merges it when its pipeline succeeds":                                                                                  "GitLab lo integrará cuando pase su integración continua",
 
+	// Just opening the pull request, and its GitLab words (internal/platform/solo_abrir.go).
+	"a run of the default branch has no pull request to open":        "una ejecución de la rama principal no tiene solicitud de incorporación que abrir",
+	"the branch is already in %s: there is no pull request to open":  "la rama ya está en %s: no hay solicitud de incorporación que abrir",
+	"a run of the default branch has no merge request to open":       "una ejecución de la rama principal no tiene merge request que abrir",
+	"the branch is already in %s: there is no merge request to open": "la rama ya está en %s: no hay merge request que abrir",
+
+	"in this app an open pull request is the yes to merge it: Merge this branch opens it and merges it":  "en esta aplicación una solicitud de incorporación abierta es el sí para integrarla: Integrar esta rama la abre y la integra",
+	"in this app an open merge request is the yes to merge it: Merge this branch opens it and merges it": "en esta aplicación un merge request abierto es el sí para integrarlo: Integrar esta rama lo abre y lo integra",
+
 	// Forjas: Bitbucket Cloud (internal/api/bitbucket.go, Ruta 102).
 	"Bitbucket cannot be connected on this platform":                                     "en esta plataforma no se puede conectar Bitbucket",
 	"%s is not a Bitbucket workspace like bitbucket.org/my-team":                         "%s no es un espacio de trabajo de Bitbucket como bitbucket.org/mi-equipo",
