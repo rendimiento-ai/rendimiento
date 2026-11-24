@@ -40,9 +40,19 @@ El día más reciente es un **marcador**: cuatro números que cuentan al abrir l
 
 - **Arriba, cómo está todo:** quién contesta ahora (y, si el elegido no puede, por qué contesta el modelo local), si se explican las fallas y cuántas fallas nuevas fueron este mes a un modelo más fuerte, lo gastado de cada tope y quién hizo el último cambio.
 - **La configuración, en cinco partes:** 1. quién contesta, 2. explicar las fallas (y quién contesta las nuevas), 3. el tope mensual, 4. encargos: hasta cuánto puede costar, según la estimación, un encargo para que lo tome la IA de la plataforma (arriba de eso, es para su propio agente; vea [Encargos](agents.md#encargos)), 5. [el agente de código](agents.md#the-coding-agent): apagado, solo los encargos que usted le mande, también los baratos que abre rendimiento (arreglar una ejecución fallida, resolver un conflicto), o todo lo barato, y cuántos encargos hace a la vez (1 si no se cambia, hasta 3, nunca dos de la misma aplicación); debajo, su boleta (lo que tomó, entregó a la primera, le devolvieron y soltó, lo que gastó contra lo estimado) y el factor que el estimador aprendió de él, con un interruptor para volver a la tabla fija. Cada opción es una tarjeta que dice cuánto cuesta y si se puede usar ahora (falta la llave, asignación de $0). Los administradores la cambian; antes de guardar, una barra enumera cada cambio respecto a lo guardado, para guardarlo o descartarlo.
+- **[Cómo le va al agente](#how-the-coding-agent-is-doing):** junto a su configuración, lo que hizo en los últimos 30 días (o 7, 90, o todo), para todos los miembros que ven la página.
 - **Pruébela:** haga una pregunta y vea quién contestó, los tokens, el costo y, si cayó al modelo local, por qué (los colaboradores).
 - **Últimas llamadas:** cada llamada, quién preguntó (una función o un agente), el modelo, los tokens, el costo y cualquier error.
 - **Los operadores** ven además la asignación de cada organización de la IA de la plataforma, lo que gastó cada una y la cuenta de la plataforma; ahí cambian las asignaciones, cada una con su botón Guardar.
+
+### Cómo le va al agente {#how-the-coding-agent-is-doing}
+
+Se cuenta con la historia de los encargos, sin IA, sobre los encargos que tomó [el agente de código](agents.md#the-coding-agent) en el periodo (los suyos, firmados con su nombre: no los de su propio agente):
+
+- **Los terminó él**, a la primera o después de soltar el encargo y volver a tomarlo; **los soltó a su agente** (y no los terminó); y, de los que terminó, cuántos **aceptó usted a la primera** y cuántos le devolvió con comentario (lo que usted contestó a su primera entrega).
+- **Por qué los soltó**, causa por causa, con los encargos: llegó al doble de lo estimado (su freno), necesitaba una decisión de usted, le faltaba una herramienta que necesita, la ejecución no terminó a tiempo, falló la IA, la forja respondió con un error, no pudo integrar la rama principal, una persona lo detuvo, la plataforma se reinició, u otra cosa. La causa se anota cuando suelta el encargo: su freno, una detención, un reinicio y un error ponen la suya, y el modelo dice una cuando se rinde. Las veces que soltó un encargo antes de que se anotara la causa se leen de su nota por sus palabras, lo cual es aproximado; se marcan con ≈. Debajo, los encargos que soltó antes de volver a tomarlos.
+- **Gasto contra lo estimado:** la mediana de lo que gastó entre lo estimado, en los encargos que terminó, en total y por dificultad (1–3, 4–6, 7–10); y el factor que el estimador aplica hoy, el mismo de su boleta de arriba ([de qué aprende](agents.md#the-coding-agent)), sin volver a contarlo.
+- **Un aviso** cuando lo último que hizo fue soltar tres o más seguidos por la misma causa (un encargo terminado corta la racha; una detención y un reinicio no cuentan): revíselo antes de mandarle más como esos.
 
 ## Cómo configurarla {#setting-it-up}
 

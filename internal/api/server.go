@@ -320,6 +320,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/ia", s.iaView)
 	auth(store.MemberAdmin, "PUT /api/ia", s.putIA)
 	auth(store.MemberCollaborator, "POST /api/ia/test", s.testIA)
+	auth(store.MemberGuest, "GET /api/ia/cuentas", s.iaCuentas)
 	plat(store.MemberAdmin, "GET /api/ia/orgs", s.iaOrgs)
 	plat(store.MemberAdmin, "GET /api/ia/local", s.getLocalModel)
 	plat(store.MemberAdmin, "PUT /api/ia/local", s.putLocalModel)
