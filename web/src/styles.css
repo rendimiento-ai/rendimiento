@@ -3234,6 +3234,20 @@ button.ajuste-probado:hover, button.ajuste-probado:focus-visible { border-style:
 .pu-meta.falta { color: var(--bad); font-weight: 700; }
 .pu-falta { flex: none; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; color: var(--bad); font-weight: 900; }
 .pu-ver-todos { align-self: flex-start; display: inline-flex; align-items: center; min-height: 44px; font-weight: 800; }
+/* What the coding agent asks (Ruta 178): first on «Para usted», answered right there. */
+.pu-pregunta { animation: latido 2.4s ease-in-out 3; }
+@keyframes latido { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--anil) 18%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .pu-pregunta { animation: none; } }
+.pu-pregunta-texto { margin: 0; font-size: 15px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pu-opciones { display: flex; flex-direction: column; gap: 8px; }
+.pu-opcion { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; padding: 10px 12px; border-radius: 14px; cursor: pointer;
+  background: color-mix(in srgb, var(--anil) 8%, var(--surface)); border: 2px solid transparent; overflow-wrap: anywhere; }
+.pu-opcion.elegida { border-color: var(--anil); background: color-mix(in srgb, var(--anil) 14%, var(--surface)); }
+.pu-opcion input { margin-top: 3px; accent-color: var(--anil); }
+.pu-mas { display: flex; flex-direction: column; gap: 4px; }
+.pu-mas textarea { width: 100%; box-sizing: border-box; min-height: 44px; border-radius: 12px; }
+.pu-acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+.pu-acciones .et-boton { flex: 1 1 180px; }
 .et-app.compacto { display: flex; gap: 6px; align-items: center; }
 .pu-lado { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 .pu-lado-caja { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border); }

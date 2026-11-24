@@ -72,6 +72,11 @@ export function Campana({ role, operator, buzon }: { role?: string; operator?: b
       texto: t("{agent} asks to roll {app} back to release #{n}", { agent: a.pedidaPor, app: a.app, n: a.version }),
       a: "/bitacora",
     })),
+    ...(encargos ?? []).filter((e) => e.status === "asking").map((e) => ({
+      clave: `pregunta-${e.id}`,
+      texto: t("The coding agent asks you about encargo #{n}: answer it", { n: e.id }),
+      a: "/ruta",
+    })),
     ...(encargos ?? []).filter((e) => e.status === "delivered").map((e) => ({
       clave: `encargo-${e.id}`,
       texto: t("Encargo #{n} was delivered: review it", { n: e.id }),

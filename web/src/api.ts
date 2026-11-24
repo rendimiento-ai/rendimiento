@@ -868,7 +868,10 @@ export interface AppAccess {
   people: Member[];
 }
 
-export type EncargoStatus = "pending" | "taken" | "waiting" | "delivered" | "reviewed" | "cancelled";
+export type EncargoStatus = "pending" | "taken" | "waiting" | "asking" | "delivered" | "reviewed" | "cancelled";
+
+/** What the coding agent asks the person about an encargo while it is asking (internal/store.EncargoPregunta). */
+export interface EncargoPregunta { id: number; encargoId: number; question: string; options: string[]; askedAt: string }
 
 // When an encargo opens by itself for an explained failure.
 export type AutoEncargo = "off" | "branches" | "all";
@@ -929,6 +932,8 @@ export interface Encargo {
   stopAsked?: boolean;
   /** A person (not the estimator) chose who does it. */
   routeChosen?: boolean;
+  /** What the coding agent asks the person, while it is asking. */
+  question?: EncargoPregunta;
   createdAt: string;
   updatedAt: string;
   log?: { at: string; who: string; what: string; note?: string }[];
@@ -939,6 +944,8 @@ export interface UnconfirmedManual { id: number; title: string; runId: number; a
 
 /** The Ruta's front page (api.Portada): what needs the person, and what goes on meanwhile. */
 export interface Portada {
+  /** Encargos the coding agent stopped on to ask the person: first on the page. */
+  asking: Encargo[];
   review: Encargo[];
   decide: RutaEntry[];
   yours: RutaEntry[];
@@ -1669,6 +1676,8 @@ export const api = {
   cancelEncargo: (id: number, reason?: string) => request<Encargo>("POST", `/api/encargos/${id}/cancel`, reason ? { reason } : undefined),
   setEncargoApp: (id: number, app: string) => request<Encargo>("POST", `/api/encargos/${id}/app`, { app }),
   stopEncargo: (id: number) => request<Encargo>("POST", `/api/encargos/${id}/stop`),
+  answerEncargo: (id: number, answer: string) => request<Encargo>("POST", `/api/encargos/${id}/answer`, { answer }),
+  passEncargo: (id: number) => request<Encargo>("POST", `/api/encargos/${id}/pass`),
   cola: () => request<Cola>("GET", `/api/encargos/cola?hoy=${hoy()}`),
   reorderCola: (ids: number[]) => request<Cola>("POST", `/api/encargos/cola/orden?hoy=${hoy()}`, { ids }),
   portada: () => request<Portada>("GET", `/api/ruta/portada?hoy=${hoy()}`),

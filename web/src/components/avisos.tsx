@@ -58,6 +58,8 @@ function aviso(x: Actividad): Omit<Aviso, "id"> | undefined {
     case "released": return { tono: "warn", titulo: t("{who} gave encargo #{n} back", { who: x.who ?? "", n }), detalle, a };
     case "returned": return { tono: "warn", titulo: t("Encargo #{n} was sent back", { n }), detalle, a };
     case "reviewed": return { tono: "ok", titulo: t("Encargo #{n} reviewed", { n }), detalle, a };
+    case "asked": return { tono: "warn", titulo: t("The coding agent asks you about encargo #{n}", { n }), detalle, a: "/ruta" };
+    case "answered": return { tono: "info", titulo: t("Encargo #{n} was answered: the coding agent goes on", { n }), detalle, a };
   }
   return undefined;
 }

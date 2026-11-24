@@ -128,6 +128,8 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | POST | `/api/encargos/{id}/cancel` | drop an encargo (optional `reason`) |
 | POST | `/api/encargos/{id}/app` | the app a pending encargo nobody has is about (`app`); collaborators of that app |
 | POST | `/api/encargos/{id}/stop` | ask the coding agent to stop the encargo it does: it gives it back with what it did |
+| POST | `/api/encargos/{id}/answer` | answer what the coding agent asks about an encargo (`answer`): it goes on on its branch with the answer; a person's session only, never an agent key |
+| POST | `/api/encargos/{id}/pass` | pass an encargo the coding agent asks about to your own agent, with the question in its history |
 | GET | `/api/encargos/cola` | the coding agent's queue: what it does now, next in order, finished for review, given back; its mode, how many at once, and what it spent today |
 | POST | `/api/encargos/cola/orden` | the queue's order (`ids`, the first done first); the rest go after |
 | GET | `/api/comentarios` | comments on agents' work, oldest first: a cargo's (`?cargo=`), an encargo's (`?encargo=`), or the organization's latest; `new` marks an agent's answer to one of yours not seen yet |
