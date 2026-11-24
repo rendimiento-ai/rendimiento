@@ -45,6 +45,10 @@ test("the Ruta on a phone: For you, an encargo without its app, the agent and th
 
     // Dropping it asks on the page, not with the browser's confirm().
     await card.getByRole("button", { name: es ? /^Más del encargo/ : /^More for encargo/ }).click();
+    // The «⋯» list stays on the screen, even when the button sits at the card's left edge.
+    const lista = (await card.getByRole("menu").boundingBox())!;
+    expect(lista.x).toBeGreaterThanOrEqual(0);
+    expect(lista.x + lista.width).toBeLessThanOrEqual(390);
     await card.getByRole("menuitem", { name: es ? "Soltarlo" : "Drop it" }).click();
     const pregunta = card.getByRole("alertdialog");
     await expect(pregunta).toBeVisible();
