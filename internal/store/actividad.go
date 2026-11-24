@@ -10,7 +10,7 @@ import (
 // a release went live or was rolled back, an encargo moved.
 type Activity struct {
 	Kind    string    `json:"kind"`  // run, release, encargo
-	Event   string    `json:"event"` // started, succeeded, failed, cancelled; live, rolledBack; created, taken, delivered, released, sent, reviewed, returned
+	Event   string    `json:"event"` // started, succeeded, failed, cancelled; live, rolledBack; created, taken, delivered, released, sent, reviewed, returned, asked, answered
 	App     string    `json:"app,omitempty"`
 	Branch  string    `json:"branch,omitempty"`
 	Deploy  bool      `json:"deploy,omitempty"`
@@ -85,7 +85,7 @@ func (s *Store) ActivitySince(ctx context.Context, orgID int64, since time.Time,
 	}
 	rows.Close()
 	rows, err = s.pool.Query(ctx, `SELECT l.id, l.encargo_id, e.title, e.app, l.what, l.who, l.at FROM encargo_log l JOIN encargos e ON e.id = l.encargo_id
-		WHERE e.org_id = $1 AND l.id > $2 AND l.id <= $3 AND l.what IN ('created', 'taken', 'delivered', 'released', 'sent', 'reviewed', 'returned')
+		WHERE e.org_id = $1 AND l.id > $2 AND l.id <= $3 AND l.what IN ('created', 'taken', 'delivered', 'released', 'sent', 'reviewed', 'returned', 'asked', 'answered')
 		ORDER BY l.id LIMIT 50`, orgOr(orgID), lastLog, top)
 	if err != nil {
 		return nil, since, lastLog, err

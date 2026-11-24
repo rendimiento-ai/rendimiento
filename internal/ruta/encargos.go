@@ -36,7 +36,7 @@ const (
 
 // estados are the encargo states as agents read them.
 var estados = map[string]string{
-	store.EncargoPending: "pendiente", store.EncargoTaken: "tomado", store.EncargoWaiting: "esperando",
+	store.EncargoPending: "pendiente", store.EncargoTaken: "tomado", store.EncargoWaiting: "esperando", store.EncargoAsking: "le pregunta a la persona",
 	store.EncargoDelivered: "entregado", store.EncargoReviewed: "revisado", store.EncargoCancelled: "cancelado",
 }
 
@@ -46,6 +46,7 @@ var rutas = map[string]string{store.RoutePlatform: "la IA de la plataforma", sto
 var sucesos = map[string]string{
 	"created": "creado", "taken": "tomado", "waiting": "esperando", "resumed": "terminó la espera", "delivered": "entregado",
 	"reviewed": "revisado", "routed": "encaminado", "estimate": "pidió estimarlo otra vez", "sent": "lo mandó al agente de código", "returned": "devuelto", "released": "soltado", "cancelled": "cancelado",
+	"asked": "preguntó a la persona", "answered": "la persona contestó",
 }
 
 // EncargoOut is an encargo as agents see it.

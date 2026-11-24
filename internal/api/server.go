@@ -416,6 +416,9 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberCollaborator, "POST /api/encargos/cola/orden", s.reorderCola)
 	auth(store.MemberCollaborator, "POST /api/encargos/{id}/app", s.setEncargoApp)
 	auth(store.MemberCollaborator, "POST /api/encargos/{id}/stop", s.stopEncargo)
+	// What the coding agent asks: a person answers, or passes it to their agent (preguntas.go).
+	auth(store.MemberCollaborator, "POST /api/encargos/{id}/answer", s.answerEncargo)
+	auth(store.MemberCollaborator, "POST /api/encargos/{id}/pass", s.passEncargo)
 	// What people say about agents' work (a cargo, an encargo), and agents'
 	// answers, which reach the person who commented in the bell.
 	auth(store.MemberGuest, "GET /api/comentarios", s.listComentarios)

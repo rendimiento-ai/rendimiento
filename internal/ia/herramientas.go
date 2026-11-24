@@ -198,6 +198,10 @@ var retryPause = 2 * time.Second
 
 var busyStatus = regexp.MustCompile(`answered (429|5\d\d)`)
 
+// Passing is passing, for callers that try again on their own after the
+// gateway's tries (the coding agent, with longer pauses).
+func Passing(err error) bool { return passing(err) }
+
 // passing says whether an error is one that goes away by itself: the
 // connection dropped or timed out, or the API answered that it is busy
 // (429, 5xx, 529 overloaded).

@@ -16,15 +16,16 @@ import { useConexion } from "../conexion";
 import { apagado } from "./conexion-aviso";
 
 export const statusLabel: Record<EncargoStatus, string> = {
-  pending: "Pending", taken: "Taken", waiting: "Waiting", delivered: "Delivered", reviewed: "Reviewed", cancelled: "Dropped",
+  pending: "Pending", taken: "Taken", waiting: "Waiting", asking: "Asks you", delivered: "Delivered", reviewed: "Reviewed", cancelled: "Dropped",
 };
 export const statusClass: Record<EncargoStatus, string> = {
-  pending: "", taken: "live", waiting: "warn live", delivered: "warn", reviewed: "ok", cancelled: "",
+  pending: "", taken: "live", waiting: "warn live", asking: "warn", delivered: "warn", reviewed: "ok", cancelled: "",
 };
 export const eventLabel: Record<string, string> = {
   created: "created", taken: "taken", waiting: "waiting", resumed: "done waiting", delivered: "delivered",
   reviewed: "reviewed", routed: "routed", estimate: "asked to estimate it again", sent: "sent it to the coding agent", returned: "sent back", released: "let go", cancelled: "dropped",
   noted: "added to it", fixed: "ran a fix", app: "chose its app", stop: "asked the coding agent to stop",
+  asked: "asked a question", answered: "answered the question",
 };
 
 export const routeLabel = { platform: "For the platform's AI", local: "For your own agent" };
@@ -52,6 +53,7 @@ export const enFila = (e: Encargo, cola?: Cola) => !!cola?.next.some((x) => x.id
  * shows for pending ones; when it is off, this is said beside it.
  */
 export function porQueNo(e: Encargo, cola?: Cola): string {
+  if (e.status === "asking") return t("the coding agent asks you something");
   if (e.status !== "pending") return e.status === "taken" || e.status === "waiting" ? t("{agent} has it", { agent: e.keyName || t("an agent") }) : "";
   if (!e.app) return t("its app is missing");
   if (enFila(e, cola)) return t("it is in the queue already");
@@ -263,6 +265,7 @@ export function EncargoCard({ e, cola, onChange, chosen, onChoose, comentarios }
       {e.result && <div className="encargo-result"><TextoConFormato text={e.result} />
         {e.links.map((l) => <div key={l}><a className="small" href={l} target="_blank" rel="noreferrer">{l}</a></div>)}</div>}
       {e.comment && pending && <p className="small"><strong>{t("Sent back:")}</strong> {e.comment}</p>}
+      {e.question && <p className="small"><strong>{t("The coding agent asks:")}</strong> {e.question.question} <Link to="/ruta">{t("Answer it")}</Link></p>}
       <ErrorBox error={err} />
       {confirma === "soltar" ? (
         <Confirmar pregunta={t("Drop encargo #{n}?", { n: e.id })} si={t("Drop it")} motivo={t("Why (optional): whoever reads it later knows")}
@@ -389,7 +392,7 @@ function Cifras({ list }: { list: Encargo[] }) {
 }
 
 const grupos: { id: string; label: string; de: (e: Encargo) => boolean }[] = [
-  { id: "revisar", label: "To review", de: (e) => e.status === "delivered" },
+  { id: "revisar", label: "To review", de: (e) => e.status === "delivered" || e.status === "asking" },
   { id: "hacer", label: "Still to do", de: (e) => e.status === "pending" },
   { id: "agentes", label: "With agents", de: (e) => e.status === "taken" || e.status === "waiting" },
   { id: "cerrados", label: "Reviewed and dropped", de: (e) => e.status === "reviewed" || e.status === "cancelled" },

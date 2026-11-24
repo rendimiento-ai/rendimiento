@@ -9,7 +9,8 @@ import (
 )
 
 // Encargo states: pending (nobody has it), taken (an agent works on it),
-// waiting (the agent waits on a run), delivered (handed over, to review),
+// waiting (the agent waits on a run), asking (the coding agent waits for a
+// person's answer, EncargoAsking), delivered (handed over, to review),
 // reviewed (the person accepted it), cancelled.
 const (
 	EncargoPending   = "pending"
@@ -64,11 +65,14 @@ type Encargo struct {
 	Doing     string `json:"doing,omitempty"`
 	StopAsked bool   `json:"stopAsked,omitempty"`
 	// RouteChosen: a person (not the estimator) chose who does it.
-	RouteChosen bool         `json:"routeChosen,omitempty"`
-	OrgID       int64        `json:"orgId"`
-	CreatedAt   time.Time    `json:"createdAt"`
-	UpdatedAt   time.Time    `json:"updatedAt"`
-	Log         []EncargoLog `json:"log,omitempty"`
+	RouteChosen bool `json:"routeChosen,omitempty"`
+	// Question is what the coding agent asks the person while it is
+	// asking (nil otherwise; see EncargoAsking).
+	Question  *EncargoPregunta `json:"question,omitempty"`
+	OrgID     int64            `json:"orgId"`
+	CreatedAt time.Time        `json:"createdAt"`
+	UpdatedAt time.Time        `json:"updatedAt"`
+	Log       []EncargoLog     `json:"log,omitempty"`
 }
 
 // EncargoLog is one thing that happened to an encargo.
@@ -83,7 +87,8 @@ const encargoCols = `e.id, e.title, e.body, e.app, e.run_id, e.status, e.created
 	e.cargo_id, e.waiting_run, e.result, e.links, e.comment, e.created_at, e.updated_at, e.org_id,
 	e.difficulty, e.estimate_micros, e.estimate_reason, e.route, e.do_now, e.spent_micros, e.queue_pos, e.doing, e.stop_asked,
 	EXISTS (SELECT 1 FROM encargo_log rl WHERE rl.encargo_id = e.id AND rl.what = 'routed'),
-	COALESCE((SELECT r.branch FROM runs r JOIN apps a ON a.id = r.app_id WHERE r.id = e.run_id AND r.branch <> a.default_branch), '')`
+	COALESCE((SELECT r.branch FROM runs r JOIN apps a ON a.id = r.app_id WHERE r.id = e.run_id AND r.branch <> a.default_branch), ''),
+	` + openQuestionCol
 
 const encargoFrom = ` FROM encargos e LEFT JOIN agent_keys k ON k.id = e.key_id`
 
@@ -92,7 +97,7 @@ const encargoFrom = ` FROM encargos e LEFT JOIN agent_keys k ON k.id = e.key_id`
 func encargoFields(e *Encargo, more ...any) []any {
 	return append([]any{&e.ID, &e.Title, &e.Body, &e.App, &e.RunID, &e.Status, &e.CreatedBy, &e.ByAgent, &e.KeyID, &e.KeyName,
 		&e.CargoID, &e.WaitingRun, &e.Result, &e.Links, &e.Comment, &e.CreatedAt, &e.UpdatedAt, &e.OrgID,
-		&e.Difficulty, &e.EstimateMicros, &e.EstimateReason, &e.Route, &e.DoNow, &e.SpentMicros, &e.QueuePos, &e.Doing, &e.StopAsked, &e.RouteChosen, &e.RunBranch}, more...)
+		&e.Difficulty, &e.EstimateMicros, &e.EstimateReason, &e.Route, &e.DoNow, &e.SpentMicros, &e.QueuePos, &e.Doing, &e.StopAsked, &e.RouteChosen, &e.RunBranch, &e.Question}, more...)
 }
 
 func scanEncargo(row pgx.Row) (Encargo, error) {

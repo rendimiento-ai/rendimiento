@@ -1,5 +1,6 @@
 // The Ruta's front page, «Para usted» (la Ruta nueva, C1 on a phone, C3 on a computer): how many things
-// wait for the person's word, the coding agent live, then one row for each of those things with ONE
+// wait for the person's word, the coding agent live, first what the coding agent asks (answered there, or
+// passed to the person's own agent), then one row for each of those things with ONE
 // action (review a delivered encargo, decide, rate a known failure, do what only they can, read a
 // comment nobody answered), the encargos nobody has yet (chosen right there, their app too), and
 // what goes on meanwhile.
@@ -79,6 +80,77 @@ function SinQuien({ list, cola, chosen, setChosen, onChange }: { list: Encargo[]
   );
 }
 
+/** A letter for an option: A, B, C, D. */
+const letra = (i: number) => String.fromCharCode(65 + i);
+
+/**
+ * What the coding agent asks (Ruta 178): the question, its options and a line more, answered right here
+ * («Answer and let it go on»: it resumes on its branch with the answer) or passed to the person's own agent.
+ */
+function Pregunta({ e, onDone }: { e: Encargo; onDone: (msg: string) => void }) {
+  const q = e.question!;
+  const [opcion, setOpcion] = useState<number>();
+  const [mas, setMas] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>();
+  const puede = session.role !== "guest";
+  const respuesta = [opcion !== undefined ? `${letra(opcion)}. ${q.options[opcion]}` : "", mas.trim()].filter(Boolean).join("\n");
+  const hacer = async (f: () => Promise<unknown>, msg: string) => {
+    setBusy(true);
+    setError(undefined);
+    try {
+      await f();
+      onDone(msg);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="pu-grupo tono-anil pu-pregunta" aria-labelledby={`pu-pregunta-${e.id}`}>
+      <div className="pu-grupo-cabeza">
+        <span className="pu-signo" aria-hidden="true">?</span>
+        <span className="pu-texto">
+          <strong id={`pu-pregunta-${e.id}`}>{t("The agent asks you · encargo #{n}", { n: e.id })}</strong>
+          <span>{e.title}{e.app ? ` · ${e.app}` : ""} · {timeAgo(q.askedAt)} · {t("it stopped to wait, spending nothing")}</span>
+        </span>
+      </div>
+      <p className="pu-pregunta-texto">{q.question}</p>
+      {q.options.length > 0 && (
+        <div className="pu-opciones" role="radiogroup" aria-label={t("The options")}>
+          {q.options.map((o, i) => (
+            <label key={i} className={`pu-opcion${opcion === i ? " elegida" : ""}`}>
+              <input type="radio" name={`pregunta-${e.id}`} checked={opcion === i} disabled={!puede} onChange={() => setOpcion(i)} />
+              <span><strong>{letra(i)}.</strong> {o}</span>
+            </label>
+          ))}
+        </div>
+      )}
+      {puede && (
+        <label className="pu-mas">
+          <span className="small muted">{q.options.length ? t("Something more (optional)") : t("Your answer")}</span>
+          <textarea rows={2} value={mas} maxLength={4000} onChange={(ev) => setMas(ev.target.value)} />
+        </label>
+      )}
+      <ErrorBox error={error} />
+      {puede && (
+        <div className="pu-acciones">
+          <button type="button" className="et-boton principal anil" disabled={busy || !respuesta}
+            onClick={() => hacer(() => api.answerEncargo(e.id, respuesta), t("Answered: the coding agent goes on with encargo #{n}.", { n: e.id }))}>
+            {t("Answer and let it go on")}
+          </button>
+          <button type="button" className="et-boton" disabled={busy}
+            onClick={() => hacer(() => api.passEncargo(e.id), t("Encargo #{n} went to your agent, with the question.", { n: e.id }))}>
+            {t("Pass it to my agent")}
+          </button>
+        </div>
+      )}
+      <p className="small muted">{t("It spends nothing while it waits. If nobody answers in 3 days, it goes to your agent with the question. Answered, it goes on on the same branch, with what it had.")}</p>
+    </section>
+  );
+}
+
 /** A count of what goes on meanwhile, as a link to where it is. */
 function Cuenta({ n, que, a, tono }: { n: number; que: string; a: string; tono: string }) {
   return <Link className={`pu-cuenta tono-${tono}`} to={a}><strong>{n}</strong><span>{que}</span></Link>;
@@ -116,7 +188,7 @@ export function ParaUsted({ me, cola, onCola }: { me: string; cola?: Cola; onCol
   const [sent, setSent] = useState<string>();
   const change = () => { reload(); onCola(); };
   const p: Portada | undefined = data;
-  const cuantas = p ? p.review.length + p.decide.length + p.yours.length + p.rate.length + p.unanswered.length + p.unowned.length : 0;
+  const cuantas = p ? (p.asking?.length ?? 0) + p.review.length + p.decide.length + p.yours.length + p.rate.length + p.unanswered.length + p.unowned.length : 0;
   const activas = (llaves ?? []).filter((k) => !k.revokedAt && new Date(k.expiresAt).getTime() > Date.now()).length;
   const encargoDe = (id?: number) => `/ruta?tab=encargos#encargo-${id}`;
   return (
@@ -139,6 +211,7 @@ export function ParaUsted({ me, cola, onCola }: { me: string; cola?: Cola; onCol
           <div className="pu-principal">
             <h2>{t("For you")}</h2>
             {sent && <p className="small" role="status">{sent}</p>}
+            {(p.asking ?? []).map((e) => <Pregunta key={`q${e.id}`} e={e} onDone={(msg) => { setSent(msg); change(); }} />)}
             {cuantas === 0 && <p className="pu-nada">{t("Nothing needs you now. When an agent delivers something, or something waits for your word, it shows here.")}</p>}
             {p.review.map((e) => (
               <Fila key={`r${e.id}`} tono="verde" signo="✓" que={t("Review: encargo #{n} delivered", { n: e.id })}
