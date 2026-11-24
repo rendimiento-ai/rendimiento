@@ -31,11 +31,15 @@ Tres opciones, en este orden, una por aplicación en `previews.data`:
 
 Los secretos de la copia son los secretos de **vista previa** de la aplicación, nunca los de producción: una aplicación que necesita una llave de pagos usa ahí su llave de prueba. Redis (`needs: [redis]`) siempre está vacío. Los volúmenes no se copian.
 
+## Las pruebas en seco {#en-seco}
+
+Una rama que cambia la aplicación corre sus pruebas con `dryRun: true` (sus pruebas de humo, sus pruebas propias) **en seco** contra su copia, así que una actualización de dependencias se prueba contra la propia rama antes de que alguien la integre ([en seco contra una copia](../guide/tasks.md#dry-runs-against-a-copy)): la copia de la solicitud en cuanto corre el commit de la rama, o, si la rama aún no tiene solicitud, una **copia corta** hecha solo para esas pruebas (`<app>-seco-<ejecución>`, en `seco-<ejecución>` donde la de una solicitud tiene `pr-<número>`) que se borra cuando terminan. Una copia corta sigue las mismas reglas que la de una solicitud (una cuarta parte de los recursos, una base de datos propia, nunca los datos de producción) y cuenta para `max`, pero nunca hace que se vaya otra copia: si no hay lugar, no se hace, y la ejecución dice por qué. El barrido borra a las dos horas una que su ejecución dejó olvidada (porque la plataforma se reinició mientras tanto). Una falla ahí solo avisa. Una aplicación sin vistas previas no corre nada en seco en una rama así; la página de su ejecución enlaza aquí, para encenderlas.
+
 ## Cuándo se borran {#when-deleted}
 
 - Al **cerrar o integrar** la solicitud, de inmediato (el espacio de nombres y el registro DNS).
 - A los **7 días sin envíos** (`previews.keep`, hasta 30), para que una solicitud abandonada no conserve una copia para siempre.
-- Como máximo **3 copias vivas por aplicación** (`previews.max`): la siguiente reemplaza a la más inactiva y lo dice en su comentario.
+- Como máximo **3 copias vivas por aplicación** (`previews.max`): la siguiente reemplaza a la más inactiva y lo dice en su comentario. Una copia corta para las pruebas en seco cuenta, pero nunca se reemplaza ni reemplaza a otra.
 - Un ciclo en `platform`, como `mergeLoop`, borra todo espacio de nombres con la etiqueta de vista previa cuya solicitud esté cerrada o ya no exista, para que un webhook perdido no deje una copia olvidada.
 
 ## Qué hace el agente {#what-the-agent-does}

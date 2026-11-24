@@ -22,12 +22,17 @@ const (
 	etCopia      = "rendimiento.ai/preview"
 	etEmpujada   = "rendimiento.ai/pushed-at"
 	etComentario = "rendimiento.ai/comment"
+	// etSeco marks a short copy, made only to run a branch's checks en
+	// seco (the run's number): its branch has no pull request.
+	etSeco = "rendimiento.ai/seco-run"
 )
 
-// Copia is a pull request's copy running on this computer.
+// Copia is a pull request's copy running on this computer, or a short
+// copy of a branch for its checks en seco (Seco).
 type Copia struct {
 	App        string // the app it copies
-	Numero     int    // its pull request
+	Numero     int    // its pull request (0 for a short copy)
+	Seco       int64  // the run a short copy is for (0 for a pull request's)
 	Empujada   time.Time
 	Comentario int64
 }
@@ -35,12 +40,38 @@ type Copia struct {
 // NombreCopia is the name of pull request numero's copy of app.
 func NombreCopia(app string, numero int) string { return fmt.Sprintf("%s-pr-%d", app, numero) }
 
+// NombreCopiaSeco is the name of the short copy of app for run's checks.
+func NombreCopiaSeco(app string, run int64) string { return fmt.Sprintf("%s-seco-%d", app, run) }
+
+// nombre is the copy's name.
+func (c Copia) nombre() string {
+	if c.Seco != 0 {
+		return NombreCopiaSeco(c.App, c.Seco)
+	}
+	return NombreCopia(c.App, c.Numero)
+}
+
 // Copiar starts pull request numero's copy of app from rel (the copy's spec
 // and the images its branch's run built), beside the copy it replaces, as
 // a release starts beside the running one. Its domains are the cluster's:
 // here it answers at <app>-pr-<n>.localhost.
 func (l *Local) Copiar(ctx context.Context, app string, numero int, rel *store.Release, comentario int64) error {
-	nombre := NombreCopia(app, numero)
+	et := map[string]string{etCopiaDe: app, etCopia: strconv.Itoa(numero), etEmpujada: time.Now().UTC().Format(time.RFC3339)}
+	if comentario != 0 {
+		et[etComentario] = strconv.FormatInt(comentario, 10)
+	}
+	return l.copiar(ctx, NombreCopia(app, numero), app, rel, et)
+}
+
+// CopiarSeco starts the short copy of app for run's checks en seco, as a
+// pull request's copy (Copiar), at <app>-seco-<run>.localhost.
+func (l *Local) CopiarSeco(ctx context.Context, app string, run int64, rel *store.Release) error {
+	et := map[string]string{etCopiaDe: app, etCopia: fmt.Sprintf("seco-%d", run), etSeco: strconv.FormatInt(run, 10),
+		etEmpujada: time.Now().UTC().Format(time.RFC3339)}
+	return l.copiar(ctx, NombreCopiaSeco(app, run), app, rel, et)
+}
+
+func (l *Local) copiar(ctx context.Context, nombre, app string, rel *store.Release, et map[string]string) error {
 	sp := rel.Spec
 	sp.Services = append([]spec.Service(nil), sp.Services...)
 	for i := range sp.Services {
@@ -52,10 +83,6 @@ func (l *Local) Copiar(ctx context.Context, app string, numero int, rel *store.R
 		if svc.Image == "" && copia.Images[svc.Name] == "" {
 			return fmt.Errorf("service %s has no image in run %d", svc.Name, rel.Number)
 		}
-	}
-	et := map[string]string{etCopiaDe: app, etCopia: strconv.Itoa(numero), etEmpujada: time.Now().UTC().Format(time.RFC3339)}
-	if comentario != 0 {
-		et[etComentario] = strconv.FormatInt(comentario, 10)
 	}
 	l.poner(nombre, estadoLocal{version: rel.Number, estado: Pendiente, mensaje: "starting"})
 	go l.desplegar(context.WithoutCancel(ctx), nombre, &copia, despliegue{secretosDe: app, etiquetas: et})
@@ -80,10 +107,10 @@ func (l *Local) Copias(ctx context.Context, app string) ([]Copia, error) {
 			continue
 		}
 		c := copiaDe(info.Etiquetas)
-		if c.Numero == 0 {
+		if c.Numero == 0 && c.Seco == 0 {
 			continue
 		}
-		k := NombreCopia(c.App, c.Numero)
+		k := c.nombre()
 		if cur, ok := por[k]; !ok || c.Empujada.After(cur.Empujada) {
 			por[k] = c
 		}
@@ -99,7 +126,11 @@ func copiaDe(et map[string]string) Copia {
 	n, _ := strconv.Atoi(et[etCopia])
 	at, _ := time.Parse(time.RFC3339, et[etEmpujada])
 	id, _ := strconv.ParseInt(et[etComentario], 10, 64)
-	return Copia{App: et[etCopiaDe], Numero: n, Empujada: at, Comentario: id}
+	seco, _ := strconv.ParseInt(et[etSeco], 10, 64)
+	if seco != 0 {
+		n = 0
+	}
+	return Copia{App: et[etCopiaDe], Numero: n, Seco: seco, Empujada: at, Comentario: id}
 }
 
 // QuitarCopia removes a copy: its containers, its data and its network.
@@ -107,8 +138,18 @@ func (l *Local) QuitarCopia(ctx context.Context, app string, numero int) error {
 	return l.Quitar(ctx, NombreCopia(app, numero))
 }
 
+// QuitarCopiaSeco removes the short copy of app for run's checks.
+func (l *Local) QuitarCopiaSeco(ctx context.Context, app string, run int64) error {
+	return l.Quitar(ctx, NombreCopiaSeco(app, run))
+}
+
 // DireccionCopia is where a copy answers: its first service, through the
 // proxy.
 func (l *Local) DireccionCopia(app string, numero int) string {
 	return l.url(NombreCopia(app, numero) + ".localhost")
+}
+
+// DireccionCopiaSeco is where the short copy for run's checks answers.
+func (l *Local) DireccionCopiaSeco(app string, run int64) string {
+	return l.url(NombreCopiaSeco(app, run) + ".localhost")
 }

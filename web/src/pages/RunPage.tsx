@@ -290,16 +290,33 @@ function Untested({ run, app }: { run: Run; app?: App }) {
   );
 }
 
+/** The book's page on previews, where the "Turn on previews" link of a run en seco leads. */
+const LIBRO_VISTAS = lang === "es" ? "https://aprende.rendimiento.ai/future/previews/#en-seco" : "https://learn.rendimiento.ai/future/previews/#en-seco";
+
 /**
- * On a branch's run that changed only its checks: the new post-deploy tasks and tests with dryRun, run en seco against
- * the release already published, in a dashed section of their own. It only warns: when one fails, the run passed with a
- * warning, rendimiento does not merge it by itself and Renovate's automerge waits; a person can still merge it.
+ * On a branch's run: its post-deploy tasks and tests with dryRun, run en seco, each target in a dashed section of its
+ * own: against the release already published (a branch that changes only its checks), and against a copy of the
+ * branch (its pull request's, or a short one made for them) when it changes the app or the checks ask for it. It only
+ * warns: when one fails, the run passed with a warning, rendimiento does not merge it by itself and Renovate's
+ * automerge waits; a person can still merge it.
  */
 function EnSeco({ run }: { run: Run }) {
   const d = run.dry;
-  const [abierto, setAbierto] = useState<string>();
-  const [registros, setRegistros] = useState<Record<string, string>>({});
   if (!d) return null;
+  return (
+    <>
+      {(d.release || d.note) && <EnSecoPublicada run={run} />}
+      {d.copy && <EnSecoCopia run={run} />}
+    </>
+  );
+}
+
+/** Whether a dry run's checks did not all pass (a skipped one did not run because another failed). */
+const noPasaron = (tareas: ReleaseTask[]) => tareas.some((x) => x.status === "failed" || x.status === "skipped");
+
+/** Against the published release (step 1). */
+function EnSecoPublicada({ run }: { run: Run }) {
+  const d = run.dry!;
   if (!d.release) {
     return (
       <section className="en-seco" id="en-seco" aria-labelledby="en-seco-titulo">
@@ -311,25 +328,98 @@ function EnSeco({ run }: { run: Run }) {
     );
   }
   const tareas = d.tasks ?? [];
-  const andando = !d.failed && (run.status === "running" || tareas.some((x) => x.status === "running"));
-  const ver = (x: ReleaseTask) => {
-    if (abierto === x.name) return setAbierto(undefined);
-    setAbierto(x.name);
-    api.dryLog(run.id, x.name).then((text) => setRegistros((cur) => ({ ...cur, [x.name]: text })), () => {});
-  };
+  const fallo = noPasaron(tareas);
+  const andando = !fallo && (run.status === "running" || tareas.some((x) => x.status === "running"));
   return (
-    <section className={`en-seco${d.failed ? " bad" : ""}`} id="en-seco" aria-labelledby="en-seco-titulo">
+    <section className={`en-seco${fallo ? " bad" : ""}`} id="en-seco" aria-labelledby="en-seco-titulo">
       <div className="en-seco-cabeza">
         <h2 id="en-seco-titulo">
-          {d.failed ? t("En seco: a check did not pass against the published release #{n}", { n: d.release }) : t("En seco, against the published release #{n}", { n: d.release })}
+          {fallo ? t("En seco: a check did not pass against the published release #{n}", { n: d.release }) : t("En seco, against the published release #{n}", { n: d.release })}
         </h2>
         <p>
-          {d.failed
+          {fallo
             ? t("This branch changes only the checks, so their new version ran against what is already published. One did not pass: nothing was rolled back and the release was not touched, but rendimiento does not merge it by itself, and Renovate's automerge waits.")
             : t("This branch changes only the checks, so their new version ran against what is already published. It only warns: nothing is rolled back and the release is not touched.")}
         </p>
       </div>
-      {tareas.length === 0 && <p className="en-seco-fila muted">{andando ? t("Starting…") : t("No output yet.")}</p>}
+      <Revisiones run={run} tareas={tareas} andando={andando} />
+    </section>
+  );
+}
+
+/** Against a copy of the branch (step 2): its pull request's, or a short one; or why none ran. */
+function EnSecoCopia({ run }: { run: Run }) {
+  const c = run.dry!.copy!;
+  const tareas = c.tasks ?? [];
+  const sinCopia = c.kind !== "pull" && c.kind !== "short";
+  const ocurrio = tareas.length > 0 || !c.note;
+  if (sinCopia || !ocurrio) {
+    return (
+      <section className={`en-seco${c.failed ? " bad" : ""}`} id="en-seco-copia" aria-labelledby="en-seco-copia-titulo">
+        <div className="en-seco-cabeza">
+          <h2 id="en-seco-copia-titulo">
+            {c.kind === "pull" ? t("En seco, against the copy of pull request #{n}", { n: c.pull })
+              : c.kind === "short" ? t("En seco, against a short copy of this branch")
+              : t("En seco")}
+          </h2>
+          <p>{c.note}</p>
+          {c.kind === "off" && (
+            <p className="en-seco-accion">
+              <a className="btn" href={LIBRO_VISTAS} target="_blank" rel="noreferrer">{t("Turn on previews")}</a>
+              <span className="small muted">{t("With previews, a branch that changes the app runs its checks en seco against a copy of itself.")}</span>
+            </p>
+          )}
+        </div>
+      </section>
+    );
+  }
+  const fallo = !!c.failed;
+  const andando = !fallo && (run.status === "running" || tareas.some((x) => x.status === "running"));
+  const vive = !!c.url && !c.gone;
+  const host = c.url?.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const titulo = c.kind === "pull"
+    ? (fallo ? t("En seco: a check did not pass against the copy of pull request #{n}", { n: c.pull }) : t("En seco, against the copy of pull request #{n}", { n: c.pull }))
+    : (fallo ? t("En seco: a check did not pass against a short copy of this branch") : t("En seco, against a short copy of this branch"));
+  const como = c.kind === "pull"
+    ? t("The checks ran against the branch itself, live: rendimiento waited until its pull request's copy ran this commit, and ran them there, with the copy's own database, never production's.")
+    : t("The branch has no pull request yet, so rendimiento made a short copy of it only for these checks, with a database of its own, never production's, and deletes it when they end.");
+  return (
+    <section className={`en-seco${fallo ? " bad" : ""}`} id="en-seco-copia" aria-labelledby="en-seco-copia-titulo">
+      <div className="en-seco-cabeza">
+        <h2 id="en-seco-copia-titulo">{titulo}</h2>
+        {vive && <p className="small"><a href={c.url} target="_blank" rel="noreferrer">{host}</a></p>}
+        <p>
+          {como}{" "}
+          {fallo
+            ? t("One did not pass: nothing was rolled back and the release was not touched, but rendimiento does not merge it by itself, and Renovate's automerge waits.")
+            : t("It only warns: nothing is rolled back and the release is not touched.")}
+        </p>
+        {c.note && <p className="small">{c.note}</p>}
+      </div>
+      <Revisiones run={run} tareas={tareas} andando={andando} copia />
+      <p className="en-seco-fila small muted">
+        {c.kind === "pull"
+          ? (vive ? t("The copy stays live for you to open; it is deleted when the pull request is closed or merged.") : t("The copy was deleted with its pull request."))
+          : (vive ? t("The short copy lives only while the checks run.") : t("The short copy was deleted when the checks ended."))}
+      </p>
+    </section>
+  );
+}
+
+/** A dry run's checks, each with its log (copia: the ones against the copy). */
+function Revisiones({ run, tareas, andando, copia = false }: { run: Run; tareas: ReleaseTask[]; andando: boolean; copia?: boolean }) {
+  const [abierto, setAbierto] = useState<string>();
+  const [registros, setRegistros] = useState<Record<string, string>>({});
+  const ver = (x: ReleaseTask) => {
+    if (abierto === x.name) return setAbierto(undefined);
+    setAbierto(x.name);
+    api.dryLog(run.id, x.name, copia).then((text) => setRegistros((cur) => ({ ...cur, [x.name]: text })), () => {});
+  };
+  return (
+    <>
+      {tareas.length === 0 && (
+        <p className="en-seco-fila muted">{andando ? (copia ? t("Waiting for the copy to run this commit…") : t("Starting…")) : t("No output yet.")}</p>
+      )}
       {tareas.map((x) => (
         <div className="en-seco-fila" key={x.name}>
           <div className="row">
@@ -345,7 +435,7 @@ function EnSeco({ run }: { run: Run }) {
           {abierto === x.name && (registros[x.name] === undefined ? <EsqRenglones n={4} /> : <pre className="en-seco-registro">{registros[x.name]}</pre>)}
         </div>
       ))}
-    </section>
+    </>
   );
 }
 

@@ -16,12 +16,22 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
-// copia is a pull request's copy wherever it runs.
+// copia is a pull request's copy wherever it runs, or a short copy of a
+// branch made only to run its checks en seco (Run).
 type copia struct {
 	App       string // the app it copies
-	Number    int    // its pull request
+	Number    int    // its pull request (0 for a short copy)
+	Run       int64  // the run a short copy is for (0 for a pull request's)
 	PushedAt  time.Time
 	CommentID int64
+}
+
+// name is the copy's App object (or containers' name).
+func (c copia) name() string {
+	if c.Run != 0 {
+		return ShortCopyName(c.App, c.Run)
+	}
+	return PreviewName(c.App, c.Number)
 }
 
 // Copias keeps the copies of pull requests: App objects in the cluster
@@ -35,10 +45,13 @@ type Copias interface {
 	Get(ctx context.Context, app string, number int) (copia, bool)
 	// Put makes or replaces the copy from a run that passed.
 	Put(ctx context.Context, a *store.App, org string, copy spec.Spec, images map[string]string, run *store.Run, number int, commentID int64) error
+	// PutShort makes the short copy of a run that passed, for its checks
+	// en seco (spec.ShortCopyOf).
+	PutShort(ctx context.Context, a *store.App, org string, copy spec.Spec, images map[string]string, run *store.Run) error
 	// Delete removes the copy; a copy already gone is no error.
 	Delete(ctx context.Context, c copia) error
 	// URL is where the copy answers.
-	URL(copy spec.Spec, app string, number int) string
+	URL(copy spec.Spec, c copia) string
 	// TestURL is where the app's tests reach the copy from where they run
 	// ("": its domain, as for a release).
 	TestURL(copy spec.Spec) string
@@ -70,7 +83,9 @@ func (k kubeCopias) List(ctx context.Context, app string) ([]copia, error) {
 	}
 	var out []copia
 	for _, a := range list.Items {
-		if a.Spec.Preview > 0 {
+		// A copy being deleted no longer counts (its namespace may take a
+		// while to go).
+		if a.Spec.Preview > 0 && a.DeletionTimestamp.IsZero() {
 			out = append(out, copiaOf(a))
 		}
 	}
@@ -82,6 +97,9 @@ func copiaOf(a v1alpha1.App) copia {
 	at, err := time.Parse(time.RFC3339, a.Annotations[annotationPushed])
 	if err != nil {
 		at = a.CreationTimestamp.Time
+	}
+	if run, _ := strconv.ParseInt(a.Labels[labelShortCopy], 10, 64); run != 0 {
+		return copia{App: a.Labels[labelPreviewOf], Run: run, PushedAt: at}
 	}
 	return copia{App: a.Labels[labelPreviewOf], Number: a.Spec.Preview, PushedAt: at, CommentID: id}
 }
@@ -95,7 +113,24 @@ func (k kubeCopias) Get(ctx context.Context, app string, number int) (copia, boo
 }
 
 func (k kubeCopias) Put(ctx context.Context, a *store.App, org string, copy spec.Spec, images map[string]string, run *store.Run, number int, commentID int64) error {
-	name := PreviewName(a.Name, number)
+	labels := map[string]string{render.LabelPreview: strconv.Itoa(number)}
+	annotations := map[string]string{}
+	if commentID != 0 {
+		annotations[annotationComment] = strconv.FormatInt(commentID, 10)
+	}
+	return k.put(ctx, PreviewName(a.Name, number), a, org, copy, images, run, number, labels, annotations)
+}
+
+// PutShort writes the short copy as an App object of its own,
+// <app>-seco-<run>, marked a copy as a pull request's is (spec.preview is
+// the run's number, so the controller treats it as one), and labeled with
+// its run.
+func (k kubeCopias) PutShort(ctx context.Context, a *store.App, org string, copy spec.Spec, images map[string]string, run *store.Run) error {
+	labels := map[string]string{render.LabelPreview: fmt.Sprintf("seco-%d", run.ID), labelShortCopy: strconv.FormatInt(run.ID, 10)}
+	return k.put(ctx, ShortCopyName(a.Name, run.ID), a, org, copy, images, run, int(run.ID), labels, map[string]string{})
+}
+
+func (k kubeCopias) put(ctx context.Context, name string, a *store.App, org string, copy spec.Spec, images map[string]string, run *store.Run, preview int, labels, annotations map[string]string) error {
 	for attempt := 0; ; attempt++ {
 		var cr v1alpha1.App
 		err := k.kube.Get(ctx, client.ObjectKey{Name: name}, &cr)
@@ -104,14 +139,16 @@ func (k kubeCopias) Put(ctx context.Context, a *store.App, org string, copy spec
 			return err
 		}
 		cr.Name = name
-		cr.Labels = map[string]string{"rendimiento.ai/app-id": strconv.FormatInt(a.ID, 10), render.LabelOrg: org,
-			render.LabelPreview: strconv.Itoa(number), labelPreviewOf: a.Name}
+		cr.Labels = map[string]string{"rendimiento.ai/app-id": strconv.FormatInt(a.ID, 10), render.LabelOrg: org, labelPreviewOf: a.Name}
+		for k, v := range labels {
+			cr.Labels[k] = v
+		}
 		cr.Annotations = map[string]string{annotationPushed: time.Now().UTC().Format(time.RFC3339)}
-		if commentID != 0 {
-			cr.Annotations[annotationComment] = strconv.FormatInt(commentID, 10)
+		for k, v := range annotations {
+			cr.Annotations[k] = v
 		}
 		cr.Spec = v1alpha1.AppSpec{Repo: a.Repo, Services: copy.Services, Postgres: copy.Postgres, Redis: copy.Redis,
-			Observe: copy.Observe, Images: images, Release: run.ID, Preview: number}
+			Observe: copy.Observe, Images: images, Release: run.ID, Preview: preview}
 		if creating {
 			err = k.kube.Create(ctx, &cr)
 		} else {
@@ -126,14 +163,14 @@ func (k kubeCopias) Put(ctx context.Context, a *store.App, org string, copy spec
 
 func (k kubeCopias) Delete(ctx context.Context, c copia) error {
 	cr := &v1alpha1.App{}
-	cr.Name = PreviewName(c.App, c.Number)
+	cr.Name = c.name()
 	if err := k.kube.Delete(ctx, cr); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 	return nil
 }
 
-func (k kubeCopias) URL(copy spec.Spec, _ string, _ int) string { return previewURL(copy) }
+func (k kubeCopias) URL(copy spec.Spec, _ copia) string { return previewURL(copy) }
 
 func (k kubeCopias) TestURL(spec.Spec) string { return "" }
 
@@ -148,7 +185,7 @@ func (l LocalCopias) List(ctx context.Context, app string) ([]copia, error) {
 	}
 	out := make([]copia, 0, len(got))
 	for _, c := range got {
-		out = append(out, copia{App: c.App, Number: c.Numero, PushedAt: c.Empujada, CommentID: c.Comentario})
+		out = append(out, copia{App: c.App, Number: c.Numero, Run: c.Seco, PushedAt: c.Empujada, CommentID: c.Comentario})
 	}
 	return out, nil
 }
@@ -159,7 +196,7 @@ func (l LocalCopias) Get(ctx context.Context, app string, number int) (copia, bo
 		return copia{}, false
 	}
 	for _, c := range all {
-		if c.Number == number {
+		if c.Number == number && c.Run == 0 {
 			return c, true
 		}
 	}
@@ -170,12 +207,22 @@ func (l LocalCopias) Put(ctx context.Context, a *store.App, _ string, copy spec.
 	return l.Local.Copiar(ctx, a.Name, number, &store.Release{Number: run.ID, Spec: copy, Images: images}, commentID)
 }
 
+func (l LocalCopias) PutShort(ctx context.Context, a *store.App, _ string, copy spec.Spec, images map[string]string, run *store.Run) error {
+	return l.Local.CopiarSeco(ctx, a.Name, run.ID, &store.Release{Number: run.ID, Spec: copy, Images: images})
+}
+
 func (l LocalCopias) Delete(ctx context.Context, c copia) error {
+	if c.Run != 0 {
+		return l.Local.QuitarCopiaSeco(ctx, c.App, c.Run)
+	}
 	return l.Local.QuitarCopia(ctx, c.App, c.Number)
 }
 
-func (l LocalCopias) URL(_ spec.Spec, app string, number int) string {
-	return l.Local.DireccionCopia(app, number)
+func (l LocalCopias) URL(_ spec.Spec, c copia) string {
+	if c.Run != 0 {
+		return l.Local.DireccionCopiaSeco(c.App, c.Run)
+	}
+	return l.Local.DireccionCopia(c.App, c.Number)
 }
 
 // TestURL is the copy's first service with a port by its name, on the

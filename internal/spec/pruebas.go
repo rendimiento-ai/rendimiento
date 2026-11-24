@@ -39,6 +39,10 @@ type Tests struct {
 	// checks (the tests' build, say): against the release already
 	// published, where a failure only warns (see Spec.DryRunPlan).
 	DryRun bool `json:"dryRun,omitempty"`
+	// DryRunOn is what they run against en seco: published, preview or
+	// both, as for a task's (Task.DryRunOn).
+	// +kubebuilder:validation:Enum=published;preview;both
+	DryRunOn string `json:"dryRunOn,omitempty"`
 }
 
 // TestsTaskName is the post-deploy task that runs the app's tests.
@@ -94,7 +98,7 @@ func (t *Tests) Task(s *Spec) Task {
 	r := t.Requests()
 	res := &ResourceOverride{CPU: r.CPURequest, Memory: r.MemRequest, CPULimit: r.CPULimit, MemoryLimit: r.MemLimit}
 	return Task{Name: TestsTaskName, Stage: StagePostDeploy, Image: "build:" + t.Build, Command: script,
-		Optional: true, Env: env, SecretEnv: t.SecretEnv, Timeout: t.Timeout, Resources: res, DryRun: t.DryRun}
+		Optional: true, Env: env, SecretEnv: t.SecretEnv, Timeout: t.Timeout, Resources: res, DryRun: t.DryRun, DryRunOn: t.DryRunOn}
 }
 
 // Requests resolves the tests' requests and limits ("" = unset).
@@ -159,6 +163,7 @@ func (t *Tests) validate(s *Spec) []error {
 			errs = append(errs, fmt.Errorf("tests.secretEnv %s must be secret/key", k))
 		}
 	}
+	errs = append(errs, s.validateDryOn("tests", t.DryRun, t.DryRunOn)...)
 	for _, task := range s.Tasks {
 		if task.Name == TestsTaskName {
 			errs = append(errs, fmt.Errorf("tasks: %q is the name of the tests' own task", TestsTaskName))

@@ -143,7 +143,15 @@ export interface AppTests {
   resources?: { cpu?: string; memory?: string; cpuLimit?: string; memoryLimit?: string };
   /** Also run en seco, against the published release, on a branch that changes only the checks (the tests' build). */
   dryRun?: boolean;
+  /** What they run against en seco (needs dryRun; preview and both need previews). */
+  dryRunOn?: DryRunOn;
 }
+
+/**
+ * What a check runs against en seco (spec DryRunOn): published, a copy of the branch (preview), or both. Without it: the
+ * published release when only the checks changed, a copy of the branch when the app changed.
+ */
+export type DryRunOn = "published" | "preview" | "both";
 
 /** A library: nothing of it runs or is built to keep, so a run tests it and there is nothing to deploy. */
 export function isLibrary(s: Spec): boolean {
@@ -173,6 +181,8 @@ export interface Task {
   cache?: boolean;
   /** Post-deploy tasks without service: only: also run en seco, against the published release, on a branch that changes only the checks. */
   dryRun?: boolean;
+  /** What it runs against en seco (needs dryRun; preview and both need previews). */
+  dryRunOn?: DryRunOn;
 }
 
 /** Every secret an app reads: its services', jobs' and tasks'. */
@@ -266,6 +276,24 @@ export interface Run {
 export interface DryRun {
   /** The published release they ran against; 0 (absent) when none ran, and note says why. */
   release?: number;
+  note?: string;
+  /** A check failed en seco, against the published release or the copy. */
+  failed?: boolean;
+  tasks?: ReleaseTask[];
+  /** What ran against a copy of the branch (store.DryCopy). */
+  copy?: DryCopy;
+}
+
+/**
+ * The checks a branch ran en seco against a copy of itself: its pull request's (pull), a short copy made only for them
+ * (short), or none because the app has no previews (off); without a kind none ran, and note says why.
+ */
+export interface DryCopy {
+  kind?: "pull" | "short" | "off";
+  pull?: number;
+  /** Where the copy answers, while it lives (gone once deleted). */
+  url?: string;
+  gone?: boolean;
   note?: string;
   failed?: boolean;
   tasks?: ReleaseTask[];
@@ -1630,7 +1658,8 @@ export const api = {
   retryRun: (id: number) => request<Run>("POST", `/api/runs/${id}/retry`),
   approveMerge: (id: number) => request<Run>("POST", `/api/runs/${id}/merge`),
   stepLog: (id: number, step: string) => request<string>("GET", `/api/runs/${id}/steps/${encodeURIComponent(step)}/log`),
-  dryLog: (id: number, task: string) => request<string>("GET", `/api/runs/${id}/dry/${encodeURIComponent(task)}/log`),
+  dryLog: (id: number, task: string, onCopy = false) =>
+    request<string>("GET", `/api/runs/${id}/dry/${encodeURIComponent(task)}/log${onCopy ? "?on=copy" : ""}`),
 };
 
 /**

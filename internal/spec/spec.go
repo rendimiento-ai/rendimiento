@@ -185,6 +185,12 @@ type Task struct {
 	// release already published, where a failure only warns (see
 	// Spec.DryRunPlan).
 	DryRun bool `json:"dryRun,omitempty"`
+	// DryRunOn is what a dryRun task runs against: published (the release
+	// that is live), preview (a copy of the branch, with previews:) or
+	// both. Without it: published when the branch changes only the checks,
+	// a copy of the branch when it changes the app (see Spec.DryRunPlan).
+	// +kubebuilder:validation:Enum=published;preview;both
+	DryRunOn string `json:"dryRunOn,omitempty"`
 }
 
 const (
@@ -1193,7 +1199,7 @@ func (s *Spec) validateTasks() []error {
 			if t.Service != "" {
 				errs = append(errs, fmt.Errorf("%s.service only applies to pre- and post-deploy tasks", p))
 			}
-			if t.DryRun {
+			if t.DryRun || t.DryRunOn != "" {
 				errs = append(errs, fmt.Errorf("%s.dryRun only applies to post-deploy tasks", p))
 			}
 		case StagePreDeploy, StagePostDeploy:
@@ -1215,6 +1221,7 @@ func (s *Spec) validateTasks() []error {
 			if t.DryRun && t.Service != "" {
 				errs = append(errs, fmt.Errorf("%s.dryRun cannot go with service: a task in the service's environment (its database included) never runs against the published release from a branch", p))
 			}
+			errs = append(errs, s.validateDryOn(p, t.DryRun, t.DryRunOn)...)
 		default:
 			errs = append(errs, fmt.Errorf("%s.stage %q must be build, pre-deploy or post-deploy", p, t.Stage))
 		}

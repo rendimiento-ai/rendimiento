@@ -31,11 +31,15 @@ Three choices, in this order, one per app in `previews.data`:
 
 Secrets of the copy are the app's **preview** secrets, never production's: an app that needs a payment key uses its test key there. Redis (`needs: [redis]`) is always empty. Volumes are not copied.
 
+## The checks en seco {#en-seco}
+
+A branch that changes the app runs its checks with `dryRun: true` (its smoke tests, its own tests) **en seco** against its copy, so a dependency update is tried against the branch itself before anyone merges it ([dry runs against a copy](../guide/tasks.md#dry-runs-against-a-copy)): the pull request's copy once it runs the branch's commit, or, when the branch has no pull request yet, a **short copy** made only for those checks (`<app>-seco-<run>`, at `seco-<run>` where a pull request's has `pr-<number>`) and deleted when they end. A short copy follows the same rules as a pull request's (a quarter of the resources, a database of its own, never production's data) and counts toward `max`, but it never makes another copy go: with no room it is not made, and the run says why. The sweep deletes one its run left behind (the platform restarted meanwhile) after two hours. A failure there only warns. An app without previews runs nothing en seco on such a branch; its run's page links here, to turn them on.
+
 ## When they are deleted {#when-deleted}
 
 - On **closing or merging** the pull request, at once (the namespace and the DNS record).
 - After **7 days with no push** (`previews.keep`, up to 30), so an abandoned pull request does not hold a copy for ever.
-- At most **3 live copies per app** (`previews.max`): the next one replaces the one idle longest, and says so in its comment.
+- At most **3 live copies per app** (`previews.max`): the next one replaces the one idle longest, and says so in its comment. A short copy for checks en seco counts, but is never replaced, nor replaces one.
 - A loop in `platform`, like `mergeLoop`, deletes any namespace with the preview label whose pull request is closed or gone, so a missed webhook does not leave a copy behind.
 
 ## What the agent does {#what-the-agent-does}

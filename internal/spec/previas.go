@@ -101,16 +101,23 @@ func (p *Previews) validate(s *Spec) []error {
 // label (tienda.example.com → tienda-pr-7.example.com), so the copy stays
 // one level under the zone: a proxy's wildcard certificate (Cloudflare's
 // *.example.com) covers it, where pr-7.tienda.example.com would not.
-func PreviewHost(number int, host string) string {
+func PreviewHost(number int, host string) string { return copyHost(fmt.Sprintf("pr-%d", number), host) }
+
+// ShortCopyHost is a host of the short copy run's checks use en seco, as
+// PreviewHost with seco-<run> for pr-<number>.
+func ShortCopyHost(run int64, host string) string { return copyHost(fmt.Sprintf("seco-%d", run), host) }
+
+// copyHost puts a copy's label (pr-7, seco-1802) in a host.
+func copyHost(label, host string) string {
 	name, path, cut := strings.Cut(host, "/")
 	if cut {
 		path = "/" + path
 	}
 	first, rest, ok := strings.Cut(name, ".")
 	if !ok || !strings.Contains(rest, ".") {
-		return fmt.Sprintf("pr-%d.%s%s", number, name, path)
+		return fmt.Sprintf("%s.%s%s", label, name, path)
 	}
-	return fmt.Sprintf("%s-pr-%d.%s%s", first, number, rest, path)
+	return fmt.Sprintf("%s-%s.%s%s", first, label, rest, path)
 }
 
 // PreviewOf is the spec of the copy for pull request number: every service
@@ -119,19 +126,34 @@ func PreviewHost(number int, host string) string {
 // production's, and no verification or rollback (a copy is never a
 // release). It leaves s alone.
 func PreviewOf(s Spec, number int) Spec {
+	return copyOf(s, func(h string) string { return PreviewHost(number, h) })
+}
+
+// ShortCopyOf is the spec of the short copy a branch's run makes only to
+// run its checks en seco when the branch has no pull request: the same as
+// a pull request's (PreviewOf), at seco-<run>.<its domain>.
+func ShortCopyOf(s Spec, run int64) Spec {
+	return copyOf(s, func(h string) string { return ShortCopyHost(run, h) })
+}
+
+func copyOf(s Spec, host func(string) string) Spec {
 	out := s
 	out.Jobs, out.SharedNamespace, out.Previews = nil, false, nil
 	out.Verify = &Verify{Disabled: true}
 	out.Services = make([]Service, len(s.Services))
+	hosts := map[string]string{} // the app's hosts, and the copy's for each
 	for i, svc := range s.Services {
 		svc.Replicas = 1
 		if svc.Domain != "" {
-			svc.Domain = PreviewHost(number, svc.Domain)
+			hosts[svc.Domain] = host(svc.Domain)
+			svc.Domain = host(svc.Domain)
 		}
 		svc.Aliases = nil
 		routes := make([]string, 0, len(svc.Routes))
 		for _, r := range svc.Routes {
-			routes = append(routes, PreviewHost(number, r))
+			name, _, _ := strings.Cut(r, "/")
+			hosts[name] = host(name)
+			routes = append(routes, host(r))
 		}
 		svc.Routes = routes
 		if svc.Ingress != nil {
@@ -151,7 +173,43 @@ func PreviewOf(s Spec, number int) Spec {
 		svc.Resources = quarter(ResourcesFor(svc.Size, svc.Resources), svc.Resources)
 		out.Services[i] = svc
 	}
+	// The tests reach the copy, never what is live: a url at one of the
+	// app's hosts points at the copy's, and any other is dropped for the
+	// copy's first domain. What a check runs against en seco (dryRunOn)
+	// means nothing in a copy, which has no previews of its own.
+	if s.Tests != nil {
+		t := *s.Tests
+		if t.URL != "" {
+			t.URL = copyURL(t.URL, hosts)
+		}
+		t.DryRunOn = ""
+		out.Tests = &t
+	}
+	if s.Tasks != nil {
+		out.Tasks = make([]Task, len(s.Tasks))
+		for i, t := range s.Tasks {
+			t.DryRunOn = ""
+			out.Tasks[i] = t
+		}
+	}
 	return out
+}
+
+// copyURL is url at the copy's host for its host ("" when it is not one of
+// the app's).
+func copyURL(url string, hosts map[string]string) string {
+	scheme, rest, ok := strings.Cut(url, "://")
+	if !ok {
+		return ""
+	}
+	name, path, _ := strings.Cut(rest, "/")
+	if to, ok := hosts[name]; ok {
+		if path != "" {
+			return scheme + "://" + to + "/" + path
+		}
+		return scheme + "://" + to
+	}
+	return ""
 }
 
 // quarter asks for a quarter of a service's requests, keeping its limits.

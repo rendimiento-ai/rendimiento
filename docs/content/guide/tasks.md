@@ -176,7 +176,43 @@ tasks:
 - **What a failure does:** it only warns. The run still passed, and its page says **Passed, with a warning**, with the checks in a dashed section of their own (*En seco, against the published release #N*) and each one's log. rendimiento doesn't merge the branch by itself, and its GitHub check concludes `action_required` instead of success, so Renovate's automerge waits too, as for [paths no step tests](builds.md#what-no-step-tests). A person can still merge it: in an app that merges by itself, **Merge anyway** on the run's page merges it, turns the check green, and leaves a note in the Ruta; elsewhere, merge it in GitHub.
 - **Never with `service:`:** such a task runs in the service's environment, its database included, so it would write to production from a branch. `dryRun: true` with `service:` is refused, and so is `dryRun:` on a build or pre-deploy task. Even without `service:`, a post-deploy task can write (a message to Slack): ask for `dryRun` only for those that only read.
 - **Nothing published yet:** the run says the checks run en seco once there is a release.
-- **A branch that changes the app too** (a dependency update) runs nothing en seco against production; the run says so. Running the checks against a preview copy of the branch instead is the next step.
+- **A branch that changes the app too** (a dependency update) runs nothing en seco against production. With [previews](../future/previews.md), its checks run against **a copy of the branch** instead (below); without them, the run says so, with a link to turn them on.
+- **A branch that touches neither** the app nor its checks (only the book, say) runs nothing en seco.
+
+#### Against a copy of the branch {#dry-runs-against-a-copy}
+
+When the branch changes the app and the app has `previews:`, its steps passed and the checks with `dryRun: true` run against the branch itself, live:
+
+- **Its pull request's copy**, when the branch has one: rendimiento waits until the copy runs this commit (as long as a release's rollout may take, 10 minutes by default), then runs the checks against it, in its namespace, as `seco-…` Jobs. The tests reach the copy's address (`BASE_URL`), and the pull request's comment says how they went. The run's page links to the copy while it lives.
+- **A short copy**, when the branch has no pull request yet: made only for the checks, under the same rules as a pull request's (a quarter of the CPU and memory, a database of its own as `previews.data` says, never production's data), at `seco-<run>` instead of `pr-<number>` (`tienda.example.com` → `tienda-seco-1802.example.com`), and deleted when the checks end. It counts toward `previews.max`; when the app already has that many copies, no short copy is made (a pull request's copy is never deleted for one) and the run says why.
+- **Warn only**, as against the published release: a check that fails, or a copy that never comes to run the commit (its rollout failed or took too long), gives **Passed, with a warning**, `action_required`, and no merge by itself. A newer push that replaces the copy first only leaves a note: that push's run checks it.
+
+Each check can say what it runs against with `dryRunOn`:
+
+| `dryRunOn` | Runs en seco against |
+|---|---|
+| (none) | the published release when the branch changes only the checks; a copy of the branch when it changes the app |
+| `published` | only the published release (so not on a branch that changes the app) |
+| `preview` | only a copy of the branch, also when only the checks changed; needs `previews:` |
+| `both` | the published release when only the checks changed, and a copy of the branch always; needs `previews:` |
+
+```yaml
+tasks:
+  - name: smoke
+    stage: post-deploy
+    image: curlimages/curl:8.17.0
+    command: sh smoke.sh
+    dryRun: true
+    dryRunOn: both               # the release that is live, and the branch's copy
+tests:
+  build: e2e
+  dryRun: true
+  dryRunOn: preview              # only against a copy of the branch
+previews:
+  data: empty
+```
+
+`dryRunOn` without `dryRun: true` is refused, and so is `preview` or `both` in an app without `previews:`. The run's page shows each target in a dashed section of its own: *En seco, against the published release #N*, *against the copy of pull request #N*, or *against a short copy of this branch*.
 
 ## Recipes
 

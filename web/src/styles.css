@@ -277,6 +277,7 @@ tr.clickable:hover td { background: var(--surface-2); }
 .en-seco-fila .row { flex-wrap: wrap; }
 .en-seco-marca { font-weight: 800; width: 1.2em; }
 .en-seco-marca.succeeded { color: var(--ok); } .en-seco-marca.failed { color: var(--bad); } .en-seco-marca.skipped, .en-seco-marca.running { color: var(--muted); }
+.en-seco-accion { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 10px !important; }
 .en-seco-registro { margin: 8px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--code-bg); color: var(--code-text); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow: auto; }
 
 pre.log {

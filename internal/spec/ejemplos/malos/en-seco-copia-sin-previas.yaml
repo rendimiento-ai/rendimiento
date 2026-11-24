@@ -1,0 +1,12 @@
+# error: tests.dryRunOn preview runs against a copy of the branch: the app needs previews:
+services:
+  - name: web
+    port: 3000
+    domain: reservas.example.com
+builds:
+  - name: e2e
+    path: e2e
+tests:
+  build: e2e
+  dryRun: true
+  dryRunOn: preview

@@ -966,13 +966,19 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 			p.startVerification(ctx, app, rel)
 		}
 	}
+	var files []string
+	var complete, known bool
+	if status == store.RunSucceeded && !run.Deploy {
+		files, complete, known = p.branchFiles(ctx, app, run)
+	}
 	if status == store.RunSucceeded && !run.Deploy && sp.Previews != nil {
-		p.deployPreview(ctx, app, run, sp, runImages(sp, append(toRun, keptSteps...), results, reuse))
+		testsEnSeco := known && complete && p.testsOnCopy(ctx, app, sp, files)
+		p.deployPreview(ctx, app, run, sp, runImages(sp, append(toRun, keptSteps...), results, reuse), testsEnSeco)
 	}
 	if status == store.RunSucceeded && !run.Deploy {
-		files, complete, known := p.branchFiles(ctx, app, run)
-		// A branch that changes only its checks runs them en seco, against
-		// the published release: a failure only warns.
+		// A branch that changes its checks or the app runs them en seco,
+		// against the published release or a copy of the branch: a
+		// failure only warns.
 		if known && complete {
 			p.dryRun(runCtx, app, run, sp, files, runImages(sp, append(toRun, keptSteps...), results, reuse))
 		}

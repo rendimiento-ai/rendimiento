@@ -176,7 +176,43 @@ tasks:
 - **Qué hace una falla:** solo avisa. La ejecución igual pasó, y su página dice **Pasó, con un aviso**, con las pruebas en una sección punteada propia (*En seco, contra la versión publicada #N*) y el registro de cada una. rendimiento no integra la rama por sí solo, y su comprobación en GitHub termina en `action_required` en vez de éxito, así que la integración automática de Renovate también espera, como con [las rutas que ningún paso prueba](builds.md#what-no-step-tests). Una persona sí puede integrarla: en una aplicación que integra por sí sola, **Integrar de todos modos** en la página de la ejecución la integra, pone la comprobación en verde y deja una nota en la Ruta; en las demás, intégrela en GitHub.
 - **Nunca con `service:`:** una tarea así corre en el entorno del servicio, base de datos incluida, así que escribiría en producción desde una rama. Se rechaza `dryRun: true` junto con `service:`, y también `dryRun:` en una tarea de compilación o previa al despliegue. Aun sin `service:`, una tarea posterior puede escribir (un mensaje a Slack): pida `dryRun` solo para las que solo leen.
 - **Si aún no hay nada publicado:** la ejecución dice que las pruebas correrán en seco cuando haya una versión.
-- **Una rama que también cambia la aplicación** (una actualización de dependencias) no corre nada en seco contra producción; la ejecución lo dice. Correr las pruebas contra una copia de vista previa de la rama es el paso siguiente.
+- **Una rama que también cambia la aplicación** (una actualización de dependencias) no corre nada en seco contra producción. Con [vistas previas](../future/previews.md), sus pruebas corren en cambio contra **una copia de la rama** (abajo); sin ellas, la ejecución lo dice, con un enlace para encenderlas.
+- **Una rama que no toca** ni la aplicación ni sus pruebas (solo el libro, por ejemplo) no corre nada en seco.
+
+#### Contra una copia de la rama {#dry-runs-against-a-copy}
+
+Cuando la rama cambia la aplicación y la aplicación tiene `previews:`, sus pasos pasaron y las pruebas con `dryRun: true` corren contra la propia rama, en vivo:
+
+- **La copia de su solicitud de incorporación**, cuando la rama tiene una: rendimiento espera a que la copia corra este commit (lo que puede tardar el despliegue de una versión, 10 minutos si no se cambia), y luego corre las pruebas contra ella, en su espacio de nombres, como tareas `seco-…`. Las pruebas llegan a la dirección de la copia (`BASE_URL`), y el comentario de la solicitud dice cómo les fue. La página de la ejecución enlaza a la copia mientras vive.
+- **Una copia corta**, cuando la rama aún no tiene solicitud: se hace solo para las pruebas, con las mismas reglas que la de una solicitud (una cuarta parte del CPU y la memoria, una base de datos propia como diga `previews.data`, nunca los datos de producción), en `seco-<ejecución>` en vez de `pr-<número>` (`tienda.example.com` → `tienda-seco-1802.example.com`), y se borra cuando terminan las pruebas. Cuenta para `previews.max`; si la aplicación ya tiene esas copias, no se hace la copia corta (nunca se borra la copia de una solicitud para hacerle lugar) y la ejecución dice por qué.
+- **Solo avisa**, como contra la versión publicada: una prueba que falla, o una copia que nunca llega a correr el commit (su despliegue falló o tardó demasiado), da **Pasó, con un aviso**, `action_required` y ninguna integración automática. Si un envío más reciente reemplaza la copia antes, solo queda una nota: la ejecución de ese envío la prueba.
+
+Cada prueba puede decir contra qué corre con `dryRunOn`:
+
+| `dryRunOn` | Corre en seco contra |
+|---|---|
+| (ninguno) | la versión publicada si la rama cambia solo las pruebas; una copia de la rama si cambia la aplicación |
+| `published` | solo la versión publicada (así que no en una rama que cambia la aplicación) |
+| `preview` | solo una copia de la rama, también si solo cambiaron las pruebas; necesita `previews:` |
+| `both` | la versión publicada si solo cambiaron las pruebas, y siempre una copia de la rama; necesita `previews:` |
+
+```yaml
+tasks:
+  - name: smoke
+    stage: post-deploy
+    image: curlimages/curl:8.17.0
+    command: sh smoke.sh
+    dryRun: true
+    dryRunOn: both               # la versión en vivo, y la copia de la rama
+tests:
+  build: e2e
+  dryRun: true
+  dryRunOn: preview              # solo contra una copia de la rama
+previews:
+  data: empty
+```
+
+Se rechaza `dryRunOn` sin `dryRun: true`, y también `preview` o `both` en una aplicación sin `previews:`. La página de la ejecución muestra cada destino en una sección punteada propia: *En seco, contra la versión publicada #N*, *contra la copia de la solicitud #N* o *contra una copia corta de esta rama*.
 
 ## Recetas {#recipes}
 

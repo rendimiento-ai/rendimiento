@@ -63,13 +63,18 @@ func (s *Server) releaseTaskLog(w http.ResponseWriter, r *http.Request, _ string
 	io.WriteString(w, log)
 }
 
-// dryTaskLog serves the log of a check a branch's run ran en seco.
+// dryTaskLog serves the log of a check a branch's run ran en seco, against
+// the published release, or (?on=copy) against a copy of the branch.
 func (s *Server) dryTaskLog(w http.ResponseWriter, r *http.Request, _ string) {
 	id, ok := s.runID(w, r)
 	if !ok {
 		return
 	}
-	log, err := s.Store.RunDryTaskLog(r.Context(), id, r.PathValue("task"))
+	read := s.Store.RunDryTaskLog
+	if r.URL.Query().Get("on") == "copy" {
+		read = s.Store.RunDryCopyTaskLog
+	}
+	log, err := read(r.Context(), id, r.PathValue("task"))
 	if errors.Is(err, store.ErrNotFound) {
 		httpError(w, http.StatusNotFound, "no such check en seco in this run")
 		return
