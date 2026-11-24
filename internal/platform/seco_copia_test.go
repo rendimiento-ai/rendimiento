@@ -284,7 +284,7 @@ func TestEnSecoConCopia(t *testing.T) {
 	if d := lenta.Dry; d == nil || d.Copy == nil || !strings.Contains(d.Copy.Note, "the copy did not come to run this commit") || !lenta.DryFailed() {
 		t.Fatalf("a copy that never ran the commit: %+v", lenta.Dry)
 	}
-	nueva := push("p0dxD/secacopia", 44, "reemplazada", sha("g"), conCopiaYAML, []string{"web/src/App.tsx"})
+	nueva := push("p0dxD/secacopia", 44, "reemplazada", sha("7"), conCopiaYAML, []string{"web/src/App.tsx"})
 	if d := nueva.Dry; d == nil || d.Copy == nil || !strings.Contains(d.Copy.Note, "a newer push replaced the copy") || nueva.DryFailed() {
 		t.Fatalf("a copy a newer push replaced: %+v", nueva.Dry)
 	}
@@ -294,14 +294,14 @@ func TestEnSecoConCopia(t *testing.T) {
 	}
 
 	// Only the book: nothing at all.
-	libro := push("p0dxD/secacopia", 0, "libro", sha("h"), conCopiaYAML, []string{"docs/guia.md", "README.md"})
+	libro := push("p0dxD/secacopia", 0, "libro", sha("8"), conCopiaYAML, []string{"docs/guia.md", "README.md"})
 	if libro.Dry != nil {
 		t.Fatalf("a branch of documentation ran en seco: %+v", libro.Dry)
 	}
 
 	// The app changed, and it has no previews: nothing ran, and it says so.
 	before = count()
-	sin := push("p0dxD/secacopia-sola", 0, "renovate/vite-8.x", sha("i"), sola, []string{"web/package.json"})
+	sin := push("p0dxD/secacopia-sola", 0, "renovate/vite-8.x", sha("9"), sola, []string{"web/package.json"})
 	if d := sin.Dry; d == nil || d.Copy == nil || d.Copy.Kind != store.DryCopyOff || !strings.Contains(d.Copy.Note, "has no previews") || d.Failed {
 		t.Fatalf("an app without previews: %+v", sin.Dry)
 	}
