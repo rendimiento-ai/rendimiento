@@ -966,13 +966,13 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 			p.startVerification(ctx, app, rel)
 		}
 	}
-	var files []string
+	var branchChanged []string
 	var complete, known bool
 	if status == store.RunSucceeded && !run.Deploy {
-		files, complete, known = p.branchFiles(ctx, app, run)
+		branchChanged, complete, known = p.branchFiles(ctx, app, run)
 	}
 	if status == store.RunSucceeded && !run.Deploy && sp.Previews != nil {
-		testsEnSeco := known && complete && p.testsOnCopy(ctx, app, sp, files)
+		testsEnSeco := known && complete && p.testsOnCopy(ctx, app, sp, branchChanged)
 		p.deployPreview(ctx, app, run, sp, runImages(sp, append(toRun, keptSteps...), results, reuse), testsEnSeco)
 	}
 	if status == store.RunSucceeded && !run.Deploy {
@@ -980,11 +980,11 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 		// against the published release or a copy of the branch: a
 		// failure only warns.
 		if known && complete {
-			p.dryRun(runCtx, app, run, sp, files, runImages(sp, append(toRun, keptSteps...), results, reuse))
+			p.dryRun(runCtx, app, run, sp, branchChanged, runImages(sp, append(toRun, keptSteps...), results, reuse))
 		}
 		// What of the change no step looked at: the run is not merged by
 		// itself, and its check asks a person.
-		if run.Untested = p.untested(app, run, sp, files, complete, known); len(run.Untested) > 0 {
+		if run.Untested = p.untested(app, run, sp, branchChanged, complete, known); len(run.Untested) > 0 {
 			if err := p.Store.SetRunUntested(ctx, run.ID, run.Untested); err != nil {
 				log.Error("record untested paths", "err", err)
 			}
