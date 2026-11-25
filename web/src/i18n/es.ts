@@ -3424,5 +3424,5 @@ export const es: Record<string, string> = {
   "{n} events about them": "{n} eventos sobre ellos",
   "Could not be read: {what}": "No se pudo leer: {what}",
   "terminated": "terminado",
-  "What it should know when it tries again": "Lo que debe saber al volver a intentarlo",
+  "What it should know when it tries again": "Lo que quiere que sepa al volver a intentarlo",
 };
