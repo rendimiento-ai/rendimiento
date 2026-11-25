@@ -1,0 +1,1 @@
+- **Builds:** a build waits up to half a minute for BuildKit to take its connection before it builds. Before, the first build after an install could fail at once with "failed to list workers: connection refused", while the daemon was starting or the network policy had not yet let the new build pod in.
