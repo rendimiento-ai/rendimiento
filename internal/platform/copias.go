@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -144,6 +145,12 @@ func (k kubeCopias) put(ctx context.Context, name string, a *store.App, org stri
 			cr.Labels[k] = v
 		}
 		cr.Annotations = map[string]string{annotationPushed: time.Now().UTC().Format(time.RFC3339)}
+		// Every secret the copy reads, its tasks' and tests' too (the App
+		// object holds only its services): the controller gives it each
+		// one's preview variant, never production's.
+		if names := copy.SecretNames(); len(names) > 0 {
+			cr.Annotations[render.AnnotationCopySecrets] = strings.Join(names, ",")
+		}
 		for k, v := range annotations {
 			cr.Annotations[k] = v
 		}

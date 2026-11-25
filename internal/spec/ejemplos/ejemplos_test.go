@@ -60,3 +60,30 @@ func TestMalos(t *testing.T) {
 		}
 	}
 }
+
+// The secrets an app reads, whatever reads them (a service whole, by key or
+// as files, its own tests by key), are the ones its copies get from their
+// preview variants: the copy's spec reads the same names.
+func TestCopySecretNames(t *testing.T) {
+	todos, err := Todos()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range todos {
+		if e.Nombre != "vistas-previas-con-secretos" {
+			continue
+		}
+		want := "certificados,correo,pagos,usuario-prueba"
+		if got := strings.Join(e.Spec.SecretNames(), ","); got != want {
+			t.Fatalf("SecretNames = %s, want %s", got, want)
+		}
+		if got := strings.Join(spec.PreviewOf(*e.Spec, 3).SecretNames(), ","); got != want {
+			t.Fatalf("the copy's SecretNames = %s, want %s", got, want)
+		}
+		if got := strings.Join(spec.ShortCopyOf(*e.Spec, 41).SecretNames(), ","); got != want {
+			t.Fatalf("the short copy's SecretNames = %s, want %s", got, want)
+		}
+		return
+	}
+	t.Fatal("no example vistas-previas-con-secretos")
+}

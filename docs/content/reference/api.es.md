@@ -173,7 +173,8 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | POST | `/api/apps/{app}/rollback` | revierte a una versión anterior (`{"release": N}`) |
 | GET | `/api/apps/{app}/resources` | los objetos vivos de Kubernetes y su salud (el árbol de recursos) |
 | GET | `/api/apps/{app}/secrets/{secret}` | las llaves que contiene un secreto (`{"keys": [...]}`), nunca sus valores |
-| PUT | `/api/apps/{app}/secrets/{secret}` | agrega o reemplaza llaves de un secreto (`{"LLAVE": "valor"}`) y conserva las demás; `null` quita una llave. Solo escritura: los valores nunca se devuelven |
+| PUT | `/api/apps/{app}/secrets/{secret}` | agrega o reemplaza llaves de un secreto (`{"LLAVE": "valor"}`) y conserva las demás; `null` quita una llave. Solo escritura: los valores nunca se devuelven. `{secret}` es un nombre que lee la aplicación, o su variante de vista previa `<nombre>-preview` (la que reciben sus copias como `<nombre>`, vea [vistas previas](../future/previews.md#secrets)); guardar una variante de vista previa no reinicia la aplicación |
+| GET | `/api/apps/{app}/preview-secrets` | para cada secreto que lee la aplicación, si existe su variante de vista previa: `{"secrets": [{"name": "pagos", "preview": "pagos-preview", "set": true}], "missing": ["correo"]}`; `missing` nombra los secretos sin los que corren las copias de la aplicación. Solo nombres, para quien lea la aplicación |
 | GET | `/api/apps/{app}/events` | SSE: los cambios de estado de la aplicación |
 | GET | `/api/apps/{app}/addons` | los complementos por aplicación (p. ej. Renovate) y su estado |
 | PUT | `/api/apps/{app}/addons/{addon}` | enciende, apaga o configura un complemento por aplicación |

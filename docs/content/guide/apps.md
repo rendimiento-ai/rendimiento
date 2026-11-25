@@ -37,6 +37,8 @@ Declare names in `rendimiento.yaml` (`secrets`, `secretEnv`, `secretFiles`); set
 
 On the **Settings** page each secret lists the keys it holds (names only; values are never shown again). Saving `KEY=value` lines adds or replaces those keys and keeps the others; **×** on a key removes it. Either way the app restarts to pick up the change.
 
+An app with [`previews:`](../future/previews.md) shows, below each secret, its **Preview** variant `<name>-preview`: the values its copies (a pull request's, or a short one for checks en seco) get under `<name>`, never production's. It says whether the variant exists and which keys it holds, and is set the same way, by the same people; saving it does not restart the app, its copies take it. A secret with no preview variant is missing in every copy. See [Secrets of a copy](../future/previews.md#secrets).
+
 ## Volumes
 
 `volume: { size: 5Gi, mount: /data }` creates a Longhorn volume that survives restarts, rollouts and even removing the service from the file. Use `existingClaim` to keep an existing volume. Add a Longhorn backup label to include it in the nightly backups.

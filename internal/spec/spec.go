@@ -221,8 +221,9 @@ func (t Task) SecretNames() []string {
 	return secretNames(t.Secrets, t.SecretEnv, nil)
 }
 
-// SecretNames lists every secret the app's services, jobs and tasks read:
-// the ones that can be set from the app's settings.
+// SecretNames lists every secret the app's services, jobs, tasks and own
+// tests read: the ones that can be set from the app's settings, and those
+// a copy of it gets from their preview variants.
 func (s Spec) SecretNames() []string {
 	var names []string
 	for _, svc := range s.Services {
@@ -233,6 +234,9 @@ func (s Spec) SecretNames() []string {
 	}
 	for _, t := range s.Tasks {
 		names = append(names, t.SecretNames()...)
+	}
+	if s.Tests != nil {
+		names = append(names, secretNames(nil, s.Tests.SecretEnv, nil)...)
 	}
 	return secretNames(names, nil, nil)
 }

@@ -710,7 +710,13 @@ function Settings({ name, app, secrets }: { name: string; app: App; secrets: str
       {session.role === "admin" && <><h2>{t("Who enters")}</h2><WhoEnters name={name} /></>}
       <h2>{t("Secrets")}</h2>
       {secrets.length === 0 && <p className="muted">{t("This app declares no secrets. Add names under")} <code>secrets:</code> {t("in rendimiento.yaml.")}</p>}
-      {secrets.map((s) => <SecretForm key={s} app={name} secret={s} />)}
+      {secrets.length > 0 && app.spec.previews && <p className="small muted" style={{ margin: 0 }}>{t("Each secret has a preview variant below it: the values this app's copies use under the same name, never production's. A copy goes without a secret whose preview variant is not set.")}</p>}
+      {secrets.map((s) => (
+        <div key={s} className="stack">
+          <SecretForm app={name} secret={s} />
+          {app.spec.previews && <SecretForm app={name} secret={s} preview />}
+        </div>
+      ))}
       <h2>{t("Danger zone")}</h2>
       <DangerZone name={name} onGone={() => nav("/")} />
     </div>
@@ -772,19 +778,22 @@ function DangerZone({ name, onGone }: { name: string; onGone: () => void }) {
 /**
  * The form for one secret's values (KEY=value lines); they go straight to the app's namespace and are never shown again.
  * Saving adds or replaces the keys written and keeps the others; the keys already set are listed by name, each removable.
+ * With preview, the form is for its preview variant, <secret>-preview: what the app's copies get as <secret>, never
+ * production's; saving it does not restart the app.
  */
-function SecretForm({ app, secret }: { app: string; secret: string }) {
+function SecretForm({ app, secret, preview }: { app: string; secret: string; preview?: boolean }) {
+  const name = preview ? `${secret}-preview` : secret;
   const [text, setText] = useState("");
   const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
   const [error, setError] = useState<unknown>();
   const [keys, setKeys] = useState<string[]>();
-  const loadKeys = useCallback(() => api.secretKeys(app, secret).then((r) => setKeys(r.keys), () => setKeys(undefined)), [app, secret]);
+  const loadKeys = useCallback(() => api.secretKeys(app, name).then((r) => setKeys(r.keys), () => setKeys(undefined)), [app, name]);
   useEffect(() => { loadKeys(); }, [loadKeys]);
   const write = async (data: Record<string, string | null>) => {
     setState("saving");
     setError(undefined);
     try {
-      await api.putSecret(app, secret, data);
+      await api.putSecret(app, name, data);
       setState("saved");
       loadKeys();
       return true;
@@ -803,8 +812,42 @@ function SecretForm({ app, secret }: { app: string; secret: string }) {
     if (await write(data)) setText("");
   };
   const remove = (key: string) => {
-    if (confirm(t("Remove {key} from {secret}? The app restarts without it.", { key, secret }))) write({ [key]: null });
+    const ask = preview
+      ? t("Remove {key} from {secret}? The app's copies go without it.", { key, secret: name })
+      : t("Remove {key} from {secret}? The app restarts without it.", { key, secret });
+    if (confirm(ask)) write({ [key]: null });
   };
+  if (preview) {
+    return (
+      <div className="card stack" style={{ marginLeft: 16 }} data-secreto-vista={secret}>
+        <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <strong className="mono">{name}</strong>
+          <span className="badge">{t("Preview")}</span>
+          {keys && <span className={keys.length > 0 ? "badge ok" : "badge warn"}>{keys.length > 0 ? t("set") : t("not set")}</span>}
+        </div>
+        <p className="small muted" style={{ margin: 0 }}>
+          {keys && keys.length === 0
+            ? t("Not set: the app's copies run without {secret}. Production's values are never copied to them.", { secret })
+            : t("The app's copies (pull requests' and short ones en seco) read these values as {secret}, never production's.", { secret })}
+        </p>
+        {keys && keys.length > 0 && (
+          <div className="row" style={{ flexWrap: "wrap", gap: 6 }}>
+            <span className="small muted">{t("Keys set:")}</span>
+            {keys.map((k) => (
+              <button key={k} className="chip-btn mono" disabled={state === "saving"} title={t("Remove {key}", { key: k })} onClick={() => remove(k)}>{k}<span>×</span></button>
+            ))}
+          </div>
+        )}
+        <p className="small muted" style={{ margin: 0 }}>{t("Values are write-only and never shown again. Each key you write is added or replaced; the other keys stay. Saving does not restart the app; its copies take the change.")}</p>
+        <textarea rows={2} className="mono" aria-label={t("Preview values of {secret}", { secret })} value={text} onChange={(e) => { setText(e.target.value); setState("idle"); }} placeholder={t("KEY=value\nOTHER_KEY=value")} autoComplete="off" spellCheck={false} />
+        <ErrorBox error={error} />
+        <div className="row">
+          <button className="primary" disabled={!text.includes("=") || state === "saving"} onClick={save}>{state === "saving" ? t("Saving…") : t("Save preview secret")}</button>
+          {state === "saved" && <span className="badge ok">{t("saved, copies updating")}</span>}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="card stack">
       <strong className="mono">{secret}</strong>
