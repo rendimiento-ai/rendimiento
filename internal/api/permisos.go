@@ -171,7 +171,7 @@ func (s *Server) deletePermisoDado(w http.ResponseWriter, r *http.Request, login
 func (s *Server) answerPermiso(w http.ResponseWriter, r *http.Request, login string) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		httpError(w, http.StatusBadRequest, "bad request id")
+		httpError(w, http.StatusBadRequest, "bad permission request id")
 		return
 	}
 	var in struct {
@@ -187,13 +187,13 @@ func (s *Server) answerPermiso(w http.ResponseWriter, r *http.Request, login str
 	}
 	ctx, org := r.Context(), orgOf(r)
 	if old, err := s.Store.PermisoPedidoDe(ctx, id); err != nil || old.OrgID != org || !accessOf(r).Sees(old.App) {
-		httpError(w, http.StatusNotFound, "no such request")
+		httpError(w, http.StatusNotFound, "no such permission request")
 		return
 	}
 	p, dado, err := s.Store.ResponderPermiso(ctx, id, org, in.Answer, login)
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		httpError(w, http.StatusNotFound, "no such request")
+		httpError(w, http.StatusNotFound, "no such permission request")
 		return
 	case errors.Is(err, store.ErrPedidoRespondido):
 		httpError(w, http.StatusConflict, "this request was answered already")
