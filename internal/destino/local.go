@@ -22,6 +22,7 @@ import (
 
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
 	"github.com/rendimiento-ai/rendimiento/internal/motor"
+	"github.com/rendimiento-ai/rendimiento/internal/render"
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
@@ -102,9 +103,12 @@ func (l *Local) Aplicar(ctx context.Context, app string, rel *store.Release) err
 }
 
 // despliegue is what a release's containers take besides the release: whose
-// secrets they read (a copy reads its app's) and labels of their own.
+// secrets they read (a copy reads its app's), whether they are a copy's
+// (which reads each secret X from its preview variant, X-preview, never
+// production's X) and labels of their own.
 type despliegue struct {
 	secretosDe string
+	copia      bool
 	etiquetas  map[string]string
 }
 
@@ -156,7 +160,7 @@ func (l *Local) desplegar(ctx context.Context, app string, rel *store.Release, d
 		if image == "" {
 			image = svc.Image
 		}
-		env, err := l.entorno(ctx, d.secretosDe, svc, needs)
+		env, err := l.entorno(ctx, d.secretosDe, d.copia, svc, needs)
 		if err != nil {
 			fail("%s: %v", svc.Name, err)
 			l.quitar(ctx, nuevos)
@@ -508,11 +512,18 @@ func (l *Local) clave(ctx context.Context, app, need string) (string, error) {
 }
 
 // entorno is a service's environment: PORT, its env, its needs' addresses
-// and the values of the secrets it names.
-func (l *Local) entorno(ctx context.Context, app string, svc spec.Service, needs map[string]string) (map[string]string, error) {
+// and the values of the secrets it names (for a copy, their preview
+// variants: X-preview for X).
+func (l *Local) entorno(ctx context.Context, app string, copia bool, svc spec.Service, needs map[string]string) (map[string]string, error) {
 	env := map[string]string{}
+	secreto := func(name string) (map[string]string, error) {
+		if copia {
+			return l.secreto(ctx, app, render.PreviewSecret(name))
+		}
+		return l.secreto(ctx, app, name)
+	}
 	for _, name := range svc.Secrets {
-		vals, err := l.secreto(ctx, app, name)
+		vals, err := secreto(name)
 		if err != nil {
 			return nil, err
 		}
@@ -528,7 +539,7 @@ func (l *Local) entorno(ctx context.Context, app string, svc spec.Service, needs
 	}
 	for k, ref := range svc.SecretEnv {
 		name, key, _ := strings.Cut(ref, "/")
-		vals, err := l.secreto(ctx, app, name)
+		vals, err := secreto(name)
 		if err != nil {
 			return nil, err
 		}
@@ -628,7 +639,7 @@ func (l *Local) Tarea(ctx context.Context, a *store.App, rel *store.Release, t s
 				if err != nil {
 					return done(store.TaskFailed, err.Error(), "")
 				}
-				if env, err = l.entorno(ctx, a.Name, svc, needs); err != nil {
+				if env, err = l.entorno(ctx, a.Name, false, svc, needs); err != nil {
 					return done(store.TaskFailed, err.Error(), "")
 				}
 				image = rel.Images[svc.Name]

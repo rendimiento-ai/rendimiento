@@ -13,7 +13,8 @@ import (
 // A pull request's copy on this computer (decision 136, step 12): the
 // containers of a release of its own, <app>-pr-<n>, on a network of its
 // own, with a Postgres and a Redis of its own (empty), reading its app's
-// secrets, reached through the proxy at <app>-pr-<n>.localhost. What the
+// preview secrets (X-preview for each secret X, never production's X),
+// reached through the proxy at <app>-pr-<n>.localhost. What the
 // cluster keeps on the copy's App object, its labels keep here: whose copy
 // it is, of which pull request, when its branch last ran and the pull
 // request's comment about it.
@@ -85,7 +86,7 @@ func (l *Local) copiar(ctx context.Context, nombre, app string, rel *store.Relea
 		}
 	}
 	l.poner(nombre, estadoLocal{version: rel.Number, estado: Pendiente, mensaje: "starting"})
-	go l.desplegar(context.WithoutCancel(ctx), nombre, &copia, despliegue{secretosDe: app, etiquetas: et})
+	go l.desplegar(context.WithoutCancel(ctx), nombre, &copia, despliegue{secretosDe: app, copia: true, etiquetas: et})
 	return nil
 }
 

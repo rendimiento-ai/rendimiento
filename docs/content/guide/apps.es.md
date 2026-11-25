@@ -37,6 +37,8 @@ Declare los nombres en `rendimiento.yaml` (`secrets`, `secretEnv`, `secretFiles`
 
 En la página **Configuración**, cada secreto muestra las llaves que contiene (solo los nombres; los valores no se vuelven a mostrar). Al guardar líneas `LLAVE=valor` se agregan o reemplazan esas llaves y se conservan las demás; **×** en una llave la quita. En ambos casos la aplicación se reinicia para tomar el cambio.
 
+Una aplicación con [`previews:`](../future/previews.md) muestra, debajo de cada secreto, su variante de **Vista previa** `<nombre>-preview`: los valores que reciben sus copias (la de una solicitud, o una corta para las pruebas en seco) como `<nombre>`, nunca los de producción. Dice si la variante existe y qué llaves tiene, y se define igual, por las mismas personas; guardarla no reinicia la aplicación, la toman sus copias. Un secreto sin variante de vista previa falta en todas las copias. Vea [Los secretos de una copia](../future/previews.md#secrets).
+
 ## Volúmenes {#volumes}
 
 `volume: { size: 5Gi, mount: /data }` crea un volumen de Longhorn que sobrevive a los reinicios, a los despliegues e incluso a quitar el servicio del archivo. Use `existingClaim` para conservar un volumen existente. Agregue una etiqueta de respaldo de Longhorn para incluirlo en los respaldos de cada noche.

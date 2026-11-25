@@ -11,7 +11,8 @@ import (
 )
 
 // A pull request's copy runs beside its app at <app>-pr-<n>.localhost, with
-// the app's secrets and a Postgres of its own, never at the app's domain;
+// the app's preview secrets (never production's) and a Postgres of its own,
+// never at the app's domain;
 // its labels say whose copy it is; rendimiento finds it again after a
 // restart; removing it leaves the app running.
 func TestLocalCopias(t *testing.T) {
@@ -20,10 +21,17 @@ func TestLocalCopias(t *testing.T) {
 	l := &Local{Motor: &motor.Motor{Bin: "nerdctl", Exec: e.exec}, Caja: memCaja{}, Esperar: 300 * time.Millisecond, Puerto: "8000",
 		Responde: func(context.Context, string, *spec.Health) bool { return true }}
 	sp := spec.Spec{Services: []spec.Service{{Name: "web", Port: 3000, Domain: "tienda.example.com", Secrets: []string{"llaves"},
-		Needs: []spec.Need{{Kind: spec.NeedPostgres}}}}, Previews: &spec.Previews{}}
+		SecretEnv: map[string]string{"MAIL_KEY": "correo/key"}, Needs: []spec.Need{{Kind: spec.NeedPostgres}}}}, Previews: &spec.Previews{}}
 	sp.Default()
-	v := "abc"
+	v, prueba, correo := "abc", "de-prueba", "correo-real"
 	if err := l.GuardarSecreto(ctx, "tienda", "llaves", map[string]*string{"API_KEY": &v}); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.GuardarSecreto(ctx, "tienda", "llaves-preview", map[string]*string{"API_KEY": &prueba}); err != nil {
+		t.Fatal(err)
+	}
+	// correo has no preview variant: the copy goes without it.
+	if err := l.GuardarSecreto(ctx, "tienda", "correo", map[string]*string{"key": &correo}); err != nil {
 		t.Fatal(err)
 	}
 	if err := l.Aplicar(ctx, "tienda", &store.Release{Number: 1, Spec: sp, Images: map[string]string{"web": "localhost:5000/tienda-web@sha256:1"}}); err != nil {
@@ -38,8 +46,14 @@ func TestLocalCopias(t *testing.T) {
 	}
 	waitEstado(t, l, "tienda-pr-7", 41, Sana)
 	web := e.containers["tienda-pr-7-web-r41"]
-	if web == nil || web.env["API_KEY"] != "abc" || web.image != "localhost:5000/tienda-web@sha256:2" {
+	if web == nil || web.env["API_KEY"] != "de-prueba" || web.image != "localhost:5000/tienda-web@sha256:2" {
 		t.Fatalf("the copy's container: %+v", web)
+	}
+	if _, has := web.env["MAIL_KEY"]; has {
+		t.Fatalf("the copy got production's correo: %v", web.env)
+	}
+	if prod := e.containers["tienda-web-r1"]; prod == nil || prod.env["API_KEY"] != "abc" || prod.env["MAIL_KEY"] != "correo-real" {
+		t.Fatalf("the app's own container: %+v", prod)
 	}
 	if e.containers["tienda-pr-7-postgres"] == nil {
 		t.Fatal("the copy has no Postgres of its own")

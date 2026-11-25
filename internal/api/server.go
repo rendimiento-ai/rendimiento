@@ -51,6 +51,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/notify"
 	"github.com/rendimiento-ai/rendimiento/internal/platform"
 	"github.com/rendimiento-ai/rendimiento/internal/probados"
+	"github.com/rendimiento-ai/rendimiento/internal/render"
 	"github.com/rendimiento-ai/rendimiento/internal/renovate"
 	"github.com/rendimiento-ai/rendimiento/internal/selfupdate"
 	"github.com/rendimiento-ai/rendimiento/internal/senales"
@@ -504,6 +505,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/apps/{app}/resources", s.resources)
 	auth(store.MemberAdmin, "GET /api/apps/{app}/secrets/{secret}", s.getSecret)
 	auth(store.MemberAdmin, "PUT /api/apps/{app}/secrets/{secret}", s.putSecret)
+	auth(store.MemberGuest, "GET /api/apps/{app}/preview-secrets", s.previewSecrets)
 	auth(store.MemberGuest, "GET /api/apps/{app}/events", s.appEvents)
 	auth(store.MemberGuest, "GET /api/runs/{id}", s.getRun)
 	auth(store.MemberCollaborator, "POST /api/runs/{id}/cancel", s.cancelRun)
@@ -1931,25 +1933,31 @@ func (s *Server) resources(w http.ResponseWriter, r *http.Request, _ string) {
 }
 
 // secretTarget is the app and the secret named in the URL, when the name
-// is declared in rendimiento.yaml (it writes the error otherwise, and
-// returns nil).
-func (s *Server) secretTarget(w http.ResponseWriter, r *http.Request) (*store.App, string) {
-	a := s.app(w, r)
+// is declared in rendimiento.yaml, or is the preview variant (X-preview)
+// of one declared there (it writes the error otherwise, and returns nil).
+// preview says it is a preview variant: the app's copies read it, the app
+// does not.
+func (s *Server) secretTarget(w http.ResponseWriter, r *http.Request) (a *store.App, name string, preview bool) {
+	a = s.app(w, r)
 	if a == nil {
-		return nil, ""
+		return nil, "", false
 	}
-	name := r.PathValue("secret")
-	if !slices.Contains(a.Spec.SecretNames(), name) {
-		httpError(w, http.StatusBadRequest, fmt.Sprintf("secret %q is not used by any service, job or task in rendimiento.yaml (secrets, secretEnv or secretFiles)", name))
-		return nil, ""
+	name = r.PathValue("secret")
+	names := a.Spec.SecretNames()
+	if slices.Contains(names, name) {
+		return a, name, false
 	}
-	return a, name
+	if base, ok := render.IsPreviewSecret(name); ok && slices.Contains(names, base) {
+		return a, name, true
+	}
+	httpError(w, http.StatusBadRequest, fmt.Sprintf("secret %q is not used by any service, job, task or test in rendimiento.yaml (secrets, secretEnv or secretFiles), nor the preview variant of one", name))
+	return nil, "", false
 }
 
 // secretError answers a destination's error about secrets: 409 when the
-// app has no place for them yet.
+// app has no place for them yet, or this installation deploys nowhere.
 func secretError(w http.ResponseWriter, err error) {
-	if errors.Is(err, destino.ErrSinLugar) {
+	if errors.Is(err, destino.ErrSinLugar) || errors.Is(err, destino.ErrNoDespliega) {
 		httpError(w, http.StatusConflict, err.Error())
 		return
 	}
@@ -1959,7 +1967,7 @@ func secretError(w http.ResponseWriter, err error) {
 // getSecret lists the keys a secret holds, never their values, so the page
 // can show what is already set.
 func (s *Server) getSecret(w http.ResponseWriter, r *http.Request, _ string) {
-	a, name := s.secretTarget(w, r)
+	a, name, _ := s.secretTarget(w, r)
 	if a == nil {
 		return
 	}
@@ -1974,9 +1982,12 @@ func (s *Server) getSecret(w http.ResponseWriter, r *http.Request, _ string) {
 // putSecret writes app secret values straight into the app's destination;
 // they are never stored in git, in Postgres, or returned by the API. The
 // keys sent are added or replaced and the others are kept; a key sent as
-// null is removed.
+// null is removed. A preview variant (X-preview) is written beside the
+// app's secrets and does not restart the app: in a cluster its copies take
+// it at once (the controller watches it), on a computer at their next
+// refresh.
 func (s *Server) putSecret(w http.ResponseWriter, r *http.Request, login string) {
-	a, name := s.secretTarget(w, r)
+	a, name, preview := s.secretTarget(w, r)
 	if a == nil {
 		return
 	}
@@ -1989,15 +2000,65 @@ func (s *Server) putSecret(w http.ResponseWriter, r *http.Request, login string)
 		return
 	}
 	// Restart the services so the new values are picked up.
-	if err := s.Platform.Target().Reiniciar(r.Context(), a.Name); err != nil {
-		s.Log.Warn("restarting after a secret change", "app", a.Name, "err", err)
+	if !preview {
+		if err := s.Platform.Target().Reiniciar(r.Context(), a.Name); err != nil {
+			s.Log.Warn("restarting after a secret change", "app", a.Name, "err", err)
+		}
 	}
 	keys := make([]string, 0, len(data))
 	for k := range data {
 		keys = append(keys, k)
 	}
-	s.Log.Info("secret updated", "app", a.Name, "secret", name, "keys", keys, "by", login)
+	s.Log.Info("secret updated", "app", a.Name, "secret", name, "preview", preview, "keys", keys, "by", login)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// PreviewSecret is one secret the app reads and whether its preview
+// variant exists (Set): the one its copies get under the secret's name.
+type PreviewSecret struct {
+	Name    string `json:"name"`    // the secret the app reads (X)
+	Preview string `json:"preview"` // its preview variant (X-preview)
+	Set     bool   `json:"set"`     // X-preview exists and holds a key
+}
+
+// PreviewSecrets answers GET /api/apps/{app}/preview-secrets.
+type PreviewSecrets struct {
+	Secrets []PreviewSecret `json:"secrets"`
+	// Missing are the secrets the app's copies run without: those with no
+	// preview variant (names only).
+	Missing []string `json:"missing"`
+}
+
+// previewSecrets says, for each secret the app reads, whether its copies
+// have it: a copy (a pull request's, or a short one en seco) gets X-preview
+// as X, never production's X. Names only, never keys or values, so anyone
+// who reads the app may see it (the Caminos page's copies say what a copy
+// goes without). The app's spec is the main branch's: a branch's copy that
+// reads other secrets is judged by these.
+func (s *Server) previewSecrets(w http.ResponseWriter, r *http.Request, _ string) {
+	a := s.app(w, r)
+	if a == nil {
+		return
+	}
+	out := PreviewSecrets{Secrets: []PreviewSecret{}, Missing: []string{}}
+	for _, name := range a.Spec.SecretNames() {
+		ps := PreviewSecret{Name: name, Preview: render.PreviewSecret(name)}
+		keys, err := s.Platform.Target().LlavesSecreto(r.Context(), a.Name, ps.Preview)
+		switch {
+		case errors.Is(err, destino.ErrSinLugar), errors.Is(err, destino.ErrNoDespliega):
+			// The app has no place yet (or deploys nowhere): nothing is set.
+		case err != nil:
+			secretError(w, err)
+			return
+		default:
+			ps.Set = len(keys) > 0
+		}
+		if !ps.Set {
+			out.Missing = append(out.Missing, name)
+		}
+		out.Secrets = append(out.Secrets, ps)
+	}
+	writeJSON(w, out)
 }
 
 // ---- runs ----

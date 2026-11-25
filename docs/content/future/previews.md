@@ -17,7 +17,7 @@ On a pull request of an app that asked for previews (`previews:` in `rendimiento
 - **The image.** The one the branch's run already built and passed. No second build: the preview deploys after the run's steps pass, like a release, but never touches the app's real `App` object, its history, its verification or its rollbacks.
 - **The trigger.** The GitHub webhook handler (`internal/api/server.go`) hands `pull_request` events (opened, reopened, closed) to `platform`: an opened one gets its copy from the branch's last passing run, a closed one takes it away. A GitHub App made by rendimiento subscribes to them; an App made before must be subscribed by hand, on GitHub: the App's settings → *Permissions & events* → *Subscribe to events* → **Pull request**. Without them a copy is made only on the branch's next push, and is not removed when the pull request closes. The App already has the *pull requests: write* permission it needs for comments.
 - **The address.** `pr-<number>.<app host>`, under the DNS zones the app already has, checked like any address (it must not collide with another app's). Without a wildcard zone, no preview: the page of the app says why.
-- **On a computer.** rendimiento without a cluster (`MODE=local`) runs a copy as containers of its own, `<app>-pr-<number>`, on a network of its own with an empty Postgres and Redis of its own and the app's secrets, at `http://<app>-pr-<number>.localhost` through the same proxy as the apps; the pull request's comment and check link there. GitHub sends no events to a computer, so every `POLL_INTERVAL` rendimiento makes the copy of an open pull request whose branch already passed, and removes the copy of one that closed. The app's tests reach the copy at its first service's name inside that network.
+- **On a computer.** rendimiento without a cluster (`MODE=local`) runs a copy as containers of its own, `<app>-pr-<number>`, on a network of its own with an empty Postgres and Redis of its own and the app's [preview secrets](#secrets), at `http://<app>-pr-<number>.localhost` through the same proxy as the apps; the pull request's comment and check link there. GitHub sends no events to a computer, so every `POLL_INTERVAL` rendimiento makes the copy of an open pull request whose branch already passed, and removes the copy of one that closed. The app's tests reach the copy at its first service's name inside that network.
 
 ## Data {#data}
 
@@ -29,7 +29,18 @@ Three choices, in this order, one per app in `previews.data`:
 | `seed` | The same, then a task of the app (`previews.seed`) that loads sample data | Apps whose pages are empty without data (a tips app needs people, venues and a few tips) |
 | `copy` | A copy of the app's last nightly backup, with the columns the app lists in `previews.scrub` emptied | Only when an empty or seeded database cannot show the change; never without `scrub`, and the person turns it on in Settings |
 
-Secrets of the copy are the app's **preview** secrets, never production's: an app that needs a payment key uses its test key there. Redis (`needs: [redis]`) is always empty. Volumes are not copied.
+Redis (`needs: [redis]`) is always empty. Volumes are not copied. Secrets are the app's preview secrets, never production's (below).
+
+## Secrets of a copy {#secrets}
+
+**Built.** A copy reads its secrets by the app's names, but never gets production's values. For each secret `X` the app reads (`secrets`, `secretEnv` and `secretFiles` of its services, its tasks' and its own tests' `secretEnv`), the copy gets the app's **preview variant** `X-preview`: the Secret `X-preview` in the app's namespace is copied into the copy's namespace as `X`, with the same type and keys. An app that needs a payment key keeps its test key in `pagos-preview`, and every copy reads it as `pagos`.
+
+- **Without `X-preview`, the copy has no `X`.** Production's `X` is never copied. The copy's pods reference their secrets as optional, so they start without it: a variable from it is unset and a mounted folder is empty. `GET /api/apps/{app}/preview-secrets` names, for anyone who reads the app, the secrets its copies go without ([API](../reference/api.md)).
+- **Where to set them.** On the app's **Settings** page each secret has its **Preview** variant below it: whether it exists, its keys (never their values), and the same form as production's, with the same permission (an administrator). Saving a preview variant does not restart the app.
+- **When a copy takes them.** In a cluster the controller writes them on every reconcile of the copy: when it is made, on each push that refreshes it, every few minutes, and at once when an `X-preview` is saved or deleted (it watches them). The copy's pods carry a digest of which preview secrets it got and their versions, so a change rolls them, as a release does. A removed `X-preview` removes `X` from its copies.
+- **Short copies** for checks en seco (`<app>-seco-<run>`) get theirs the same way, and so do the app's tests when they run against a copy.
+- **Cleanup.** The copied secrets are labeled `rendimiento.ai/preview-secret` and owned by the copy's App object, in the copy's namespace: deleting the copy deletes them with the namespace. A Secret of the same name made by hand in a copy's namespace is left alone.
+- **On a computer** (`MODE=local`), a copy's containers read `X-preview` for each `X` from the same sealed store as the app's secrets, never production's `X`. Containers read their environment when they start, so an edit reaches a copy on its next refresh (the next push of its branch), not at once. Secret files are not mounted on a computer, for an app nor for its copies.
 
 ## The checks en seco {#en-seco}
 

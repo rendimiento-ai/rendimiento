@@ -124,6 +124,11 @@ type Input struct {
 	// labeled with it, and with Options.OrgNetwork on its NetworkPolicy
 	// lets that organization in ("": neither).
 	Org string
+	// SecretsVersion is, for a copy, a digest of the preview secrets the
+	// controller copied into its namespace: set on each of its services'
+	// pod templates (AnnotationSecretsVersion), so a change rolls them.
+	// "": none.
+	SecretsVersion string
 }
 
 // Objects returns the namespace first, then each service's objects in a stable order.
@@ -182,6 +187,9 @@ func Render(in Input, opt Options) (*Objects, error) {
 			return nil, fmt.Errorf("service %s needs a GPU but this cluster has no GPU profile configured", svc.Name)
 		}
 		d := deployment(meta(svc.Name), sel, svc, image, opt.GPU)
+		if in.SecretsVersion != "" && needKind(svc.Name, in.Spec) == "" {
+			d.Spec.Template.Annotations = map[string]string{AnnotationSecretsVersion: in.SecretsVersion}
+		}
 		if opt.Telemetry.Endpoint != "" && needKind(svc.Name, in.Spec) == "" && in.Spec.Observed(svc) {
 			observe(d, in.App, svc, opt.Telemetry)
 		}

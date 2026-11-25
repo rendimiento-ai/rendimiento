@@ -172,7 +172,8 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | POST | `/api/apps/{app}/rollback` | roll back to an earlier release (`{"release": N}`) |
 | GET | `/api/apps/{app}/resources` | the live Kubernetes objects and their health (the resource tree) |
 | GET | `/api/apps/{app}/secrets/{secret}` | the keys a secret holds (`{"keys": [...]}`), never their values |
-| PUT | `/api/apps/{app}/secrets/{secret}` | add or replace a secret's keys (`{"KEY": "value"}`), keeping the others; `null` removes a key. Write-only: values are never returned |
+| PUT | `/api/apps/{app}/secrets/{secret}` | add or replace a secret's keys (`{"KEY": "value"}`), keeping the others; `null` removes a key. Write-only: values are never returned. `{secret}` is a name the app reads, or its preview variant `<name>-preview` (what the app's copies get as `<name>`, see [previews](../future/previews.md#secrets)); saving a preview variant does not restart the app |
+| GET | `/api/apps/{app}/preview-secrets` | for each secret the app reads, whether its preview variant exists: `{"secrets": [{"name": "pagos", "preview": "pagos-preview", "set": true}], "missing": ["correo"]}`; `missing` names the secrets the app's copies run without. Names only, for anyone who reads the app |
 | GET | `/api/apps/{app}/events` | SSE: app status changes |
 | GET | `/api/apps/{app}/addons` | per-app add-ons (e.g. Renovate) and their state |
 | PUT | `/api/apps/{app}/addons/{addon}` | turn a per-app add-on on or off, or configure it |

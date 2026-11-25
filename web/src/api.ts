@@ -192,7 +192,19 @@ export function appSecretNames(s: Spec): string[] {
     (x.secrets ?? []).forEach((n) => names.add(n));
     Object.values(x.secretEnv ?? {}).forEach((ref) => names.add(ref.split("/")[0]));
   }
+  // The app's own tests read theirs as a task does (Spec.SecretNames).
+  Object.values(s.tests?.secretEnv ?? {}).forEach((ref) => names.add(ref.split("/")[0]));
   return [...names].sort();
+}
+
+/**
+ * GET /api/apps/{app}/preview-secrets: each secret the app reads (rendimiento.yaml) and whether its preview variant
+ * exists. A copy of the app (a pull request's, or a short one en seco) gets X-preview as X, never production's X;
+ * missing lists, by name, the secrets its copies run without. Names only, never keys or values.
+ */
+export interface PreviewSecrets {
+  secrets: { name: string; preview: string; set: boolean }[];
+  missing: string[];
 }
 
 export interface Detected {
@@ -1708,6 +1720,8 @@ export const api = {
   // Keys sent are added or replaced, the others stay; null removes a key.
   putSecret: (app: string, secret: string, data: Record<string, string | null>) =>
     request<void>("PUT", `/api/apps/${app}/secrets/${secret}`, data),
+  /** The secrets the app reads and whether each has its preview variant (X-preview), the one its copies get as X. Names only. */
+  previewSecrets: (app: string) => request<PreviewSecrets>("GET", `/api/apps/${app}/preview-secrets`),
   run: (id: number) => request<Run>("GET", `/api/runs/${id}`),
   corriendo: () => request<Corriendo>("GET", "/api/corriendo"),
   cancelRun: (id: number) => request<void>("POST", `/api/runs/${id}/cancel`),

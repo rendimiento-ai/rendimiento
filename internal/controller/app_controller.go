@@ -22,6 +22,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
@@ -55,7 +56,7 @@ type AppReconciler struct {
 }
 
 // +kubebuilder:rbac:groups=rendimiento.ai,resources=apps;apps/status;apps/finalizers,verbs=*
-// +kubebuilder:rbac:groups="",resources=namespaces;services;persistentvolumeclaims,verbs=*
+// +kubebuilder:rbac:groups="",resources=namespaces;services;persistentvolumeclaims;secrets,verbs=*
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=*
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=*
@@ -123,7 +124,13 @@ func (r *AppReconciler) sync(ctx context.Context, app *v1alpha1.App, st *v1alpha
 		return ctrl.Result{RequeueAfter: 5 * time.Minute}, err
 	}
 
-	in := render.Input{App: app.Name, Org: orgOf(app), Preview: app.Spec.Preview, Selectors: map[string]map[string]string{}}
+	// A copy's secrets are the app's preview variants (copias_secretos.go):
+	// read before rendering, so their version rolls the copy's pods.
+	sources, secretsVersion, err := r.previewSources(ctx, app)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	in := render.Input{App: app.Name, Org: orgOf(app), Preview: app.Spec.Preview, Selectors: map[string]map[string]string{}, SecretsVersion: secretsVersion}
 	in.Spec.Services = app.Spec.Services
 	in.Spec.Jobs = app.Spec.Jobs
 	in.Spec.Postgres, in.Spec.Redis = app.Spec.Postgres, app.Spec.Redis
@@ -159,6 +166,10 @@ func (r *AppReconciler) sync(ctx context.Context, app *v1alpha1.App, st *v1alpha
 			// The namespace exists now: create the credentials the database,
 			// cache and their users read, before any of them start.
 			if err := r.ensureNeedSecrets(ctx, app, in.Spec); err != nil {
+				return ctrl.Result{}, err
+			}
+			// And a copy's own secrets, before its pods start.
+			if err := r.syncCopySecrets(ctx, app, sources); err != nil {
 				return ctrl.Result{}, err
 			}
 			// The boundary goes in before the workloads behind it.
@@ -751,5 +762,8 @@ func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}).
 		Owns(&networkingv1.Ingress{}).
 		Owns(&batchv1.CronJob{}).
+		// An app's preview variant of a secret (X-preview) changed: its
+		// copies take it now, not at their next refresh.
+		Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(r.copiesReading)).
 		Complete(r)
 }

@@ -492,3 +492,89 @@ func TestRenderLocal(t *testing.T) {
 		t.Fatalf("without an issuer there is no certificate to wait for: %+v %+v", ing.Spec.TLS, ing.Annotations)
 	}
 }
+
+// A copy reads its secrets by the app's names, in its own namespace (where
+// the controller puts each from its preview variant): its env, its envFrom
+// and its mounted files name the same secrets, all optional, so a secret
+// with no preview variant leaves the copy without it rather than stopping
+// it; the copy's pods carry the version of those secrets, so a change
+// rolls them; the database it needs carries none.
+func TestRenderCopySecrets(t *testing.T) {
+	s, err := spec.Parse([]byte(specYAML))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Services = s.Services[:1]
+	s.Services[0].Needs = []spec.Need{{Kind: spec.NeedPostgres}}
+	copia := spec.PreviewOf(*s, 3)
+	images := map[string]string{"web": "reg/web@sha256:1"}
+	objs, err := Render(Input{App: "secplus-pr-3", Preview: 3, Spec: copia, Images: images, SecretsVersion: "abc123"}, DefaultOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var web, pg *appsv1.Deployment
+	for _, d := range objs.Deployments {
+		switch d.Name {
+		case "web":
+			web = d
+		case spec.NeedPostgres:
+			pg = d
+		}
+	}
+	if web == nil || pg == nil {
+		t.Fatalf("deployments %v", objs.Deployments)
+	}
+	if web.Namespace != "secplus-pr-3" || web.Spec.Template.Annotations[AnnotationSecretsVersion] != "abc123" {
+		t.Fatalf("the copy's web: namespace %s, annotations %v", web.Namespace, web.Spec.Template.Annotations)
+	}
+	if pg.Spec.Template.Annotations[AnnotationSecretsVersion] != "" {
+		t.Fatalf("the copy's database rolls with its secrets: %v", pg.Spec.Template.Annotations)
+	}
+	pod := web.Spec.Template.Spec
+	if len(pod.Volumes) != 1 || pod.Volumes[0].Secret == nil || pod.Volumes[0].Secret.SecretName != "secplus-practice" ||
+		pod.Volumes[0].Secret.Optional == nil || !*pod.Volumes[0].Secret.Optional {
+		t.Fatalf("the copy's mounted secret: %+v", pod.Volumes)
+	}
+	c := pod.Containers[0]
+	if len(c.VolumeMounts) != 1 || c.VolumeMounts[0].MountPath != "/private" || !c.VolumeMounts[0].ReadOnly {
+		t.Fatalf("mounts %+v", c.VolumeMounts)
+	}
+	if len(c.EnvFrom) != 1 || c.EnvFrom[0].SecretRef.Name != "secplus-practice" || !*c.EnvFrom[0].SecretRef.Optional {
+		t.Fatalf("envFrom %+v", c.EnvFrom)
+	}
+	found := false
+	for _, e := range c.Env {
+		if e.Name == "PRACTICE_TOKEN" {
+			found = e.ValueFrom.SecretKeyRef.Name == "secplus-practice" && *e.ValueFrom.SecretKeyRef.Optional
+		}
+	}
+	if !found {
+		t.Fatalf("env %+v", c.Env)
+	}
+	for _, d := range objs.Deployments {
+		for _, v := range d.Spec.Template.Spec.Volumes {
+			if v.Secret != nil && strings.HasSuffix(v.Secret.SecretName, PreviewSecretSuffix) {
+				t.Fatalf("a copy names a preview variant itself: %s", v.Secret.SecretName)
+			}
+		}
+	}
+	// Without a version (an app, not a copy) its pods carry none.
+	objs, err = Render(Input{App: "secplus", Spec: *s, Images: images}, DefaultOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range objs.Deployments {
+		if _, has := d.Spec.Template.Annotations[AnnotationSecretsVersion]; has {
+			t.Fatalf("%s carries a secrets version", d.Name)
+		}
+	}
+	if base, ok := IsPreviewSecret("pagos-preview"); !ok || base != "pagos" || PreviewSecret("pagos") != "pagos-preview" {
+		t.Fatalf("IsPreviewSecret(pagos-preview) = %q %v", base, ok)
+	}
+	if _, ok := IsPreviewSecret("-preview"); ok {
+		t.Fatal("-preview alone is no one's variant")
+	}
+	if _, ok := IsPreviewSecret("pagos"); ok {
+		t.Fatal("pagos is no variant")
+	}
+}
