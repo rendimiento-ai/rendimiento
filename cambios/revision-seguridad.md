@@ -1,1 +1,0 @@
-- **Security:** the platform-update endpoint now reads at most 1 KiB of its request body, as the other endpoints do.

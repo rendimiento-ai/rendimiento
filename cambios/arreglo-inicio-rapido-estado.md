@@ -1,1 +1,0 @@
-- **Quickstart tests:** both quickstart tests (the one-computer installer and k3d) open the setup page before its return from GitHub, as a browser does, so they pass the state the return now checks.

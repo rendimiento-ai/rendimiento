@@ -1,5 +1,0 @@
-- **Declared fixes:** a new `fixes:` section in `rendimiento.yaml` names commands that regenerate files, such as a lockfile: a recipe (`npm`, `pnpm`, `yarn`, `go`, `uv`, `poetry`, `pip-tools`) or an image, a command and the files it may write. They run in a pod of the build namespace, with no secrets, and are always read from the default branch.
-- **Coding agent:** `run_fix(name)` runs one of the app's declared fixes on its branch, with its uncommitted changes; what the fix writes joins its next commit. The encargo's history shows each one.
-- **Run page:** a failed run of a branch whose log says a lockfile is stale offers **Regenerate &lt;file&gt;** (the declared fix, committed with you as co-author; no AI) and **Ask the agent**; without a declared fix, **Add &lt;recipe&gt; fix to rendimiento.yaml** opens a branch that declares it.
-- **Renovate:** a Renovate branch whose run fails on a stale lockfile gets the declared recipe for that folder by itself, once a commit, committed to the branch.
-- **Database:** migration `0055_arreglos.sql` adds the `fix_runs` table (only adds).

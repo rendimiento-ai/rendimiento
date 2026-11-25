@@ -1,5 +1,0 @@
-- **Libreta:** a branch links itself to the Ruta entries its commits name in a `Ruta: 150` line (also `Ruta: #150` or several numbers), when GitHub's push arrives; and a branch an agent runs with `ejecucion_lanzar` links to the to-dos and decisions about that app it wrote or changed in the same cargo.
-- **Libreta:** the merge of a linked branch and the release that carried it are kept (migration `0058_libreta_firme.sql`, which only adds), so an old request still says where it went once its runs are past the 60 days the libreta reads.
-- **Libreta:** each open card from the Ruta has **Discard**, which asks for the reason in the card; a discarded one has **Take it up again**.
-- **Ruta:** the history keeps an entry's app and why it was set aside, like its other fields.
-- **MCP:** the tools' output schemas are open, so a session opened before a release that adds a field to an answer keeps working; the endpoint is stateless and cannot send `tools/list_changed`, so new tools need a new session.

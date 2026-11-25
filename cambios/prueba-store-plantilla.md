@@ -1,1 +1,0 @@
-- **CI:** the store's tests copy one migrated database for each test (`CREATE DATABASE … TEMPLATE`) instead of dropping the schema and running every migration again, and `hack/ci-test.sh` connects to the throwaway Postgres with `synchronous_commit=off`. The store's tests had grown from about a minute (8 Nov) to six to eight minutes, the longest part of `platform:test`.

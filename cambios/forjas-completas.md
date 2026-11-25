@@ -1,7 +1,0 @@
-- **Renovate:** apps on GitLab and Bitbucket with Dependency updates on are covered too: a pod per connection, with `platform` `gitlab` (and its API as `endpoint`) or `bitbucket`, and the connection's OAuth token, refreshed first when it would not last the run. Its merge requests (pull requests) are built and checked like any other, and get the app's declared fixes by themselves.
-- **Declared fixes:** they run and commit on GitLab and Bitbucket branches, and **Add … fix to rendimiento.yaml** opens its branch there, with the link to open its merge request (pull request).
-- **Coding agent:** it works on GitLab and Bitbucket apps too: its branch, its commits and the merge request (pull request) opened when the encargo is delivered go through the app's forja.
-- **Diagnostician:** the files changed since the last good run are listed for GitLab (compare) and Bitbucket (diffstat) apps too.
-- **Words:** preview comments and checks, and the work board's errors, say "merge request !7" and "GitLab" (or "Bitbucket") on those apps, in English and Spanish.
-- **Bitbucket:** a push of several branches at once runs each of them, and a merged pull request is noted in the libreta with its whole commit (the webhook gives 12 characters).
-- **GitLab and Bitbucket tokens:** refreshing a connection's token is held by a Postgres advisory lock, so two processes never refresh it at once; the second reads the new one.
