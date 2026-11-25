@@ -494,14 +494,7 @@ func (k *KubeExecutor) daemonNode(ctx context.Context, target string) string {
 // kept /cache when asked), buildctl driving a BuildKit daemon for a build,
 // or the task's command with its environment and secrets for a task.
 func (k *KubeExecutor) pod(name string, labels map[string]string, src Source, step Step, buildkit string, taskEnv ...corev1.EnvVar) (*corev1.Pod, error) {
-	cloneURL := src.Repo
-	if !strings.Contains(cloneURL, "://") {
-		cloneURL = "https://github.com/" + src.Repo + ".git"
-	}
-	ref := src.SHA
-	if ref == "" {
-		ref = src.Branch
-	}
+	cloneURL, ref := src.CloneURL(), src.Ref()
 	workdir := path.Join("/workspace/src", path.Clean(step.Path))
 	if !strings.HasPrefix(workdir, "/workspace/src") {
 		return nil, fmt.Errorf("step path %q escapes the workspace", step.Path)

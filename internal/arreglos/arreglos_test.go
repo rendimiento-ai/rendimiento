@@ -229,10 +229,16 @@ type fakeExec struct {
 	err  error
 	jobs []pipeline.FixJob
 	srcs []pipeline.Source
+	// clones are what each fix's context carried for the clone token.
+	clones []any
 }
 
-func (f *fakeExec) Fix(_ context.Context, src pipeline.Source, job pipeline.FixJob, w io.Writer) (pipeline.FixOutput, error) {
-	f.jobs, f.srcs = append(f.jobs, job), append(f.srcs, src)
+// cloneKey is what the test's Clone puts in the context, as the
+// platform's ForClone puts the app's installation.
+type cloneKey struct{}
+
+func (f *fakeExec) Fix(ctx context.Context, src pipeline.Source, job pipeline.FixJob, w io.Writer) (pipeline.FixOutput, error) {
+	f.jobs, f.srcs, f.clones = append(f.jobs, job), append(f.srcs, src), append(f.clones, ctx.Value(cloneKey{}))
 	fmt.Fprintln(w, "added 1 package, and audited 2 packages in 3s")
 	return f.out, f.err
 }
@@ -329,5 +335,29 @@ func TestRun(t *testing.T) {
 	res, err = s.Run(context.Background(), Request{App: app, Branch: "x", Fix: "candado", Commit: true})
 	if err != nil || res.Status != store.FixFailed || len(repos.commits) != 1 || st.runs[2].Message == "" {
 		t.Fatalf("failed: %+v %v", res, err)
+	}
+	if exec.srcs[0].Repo != "p0dxD/tienda" || exec.clones[0] != nil {
+		t.Fatalf("without Clone: %+v %v", exec.srcs[0], exec.clones[0])
+	}
+}
+
+// A fix's pod clones as a run's steps do (a private repository refuses a
+// clone without the token): with the app's installation in the context,
+// from its forja's address.
+func TestRunClones(t *testing.T) {
+	app := &store.App{ID: 2, Name: "catalogo", Repo: "gitlab.example.com/tienda/catalogo", Forja: "gitlab", InstallationID: 9, DefaultBranch: "main"}
+	repos := &fakeRepos{files: map[string]map[string]string{
+		"main":         {"rendimiento.yaml": "services: [{name: web, path: web}]\nfixes: [{name: candado, recipe: npm, path: web}]\n"},
+		"bbbbbbbbbbbb": {"web/.nvmrc": "20\n"},
+	}}
+	exec := &fakeExec{out: pipeline.FixOutput{Changes: []pipeline.FixChange{{Path: "web/package-lock.json", Data: []byte("{}")}}}}
+	s := &Service{Exec: exec, Repos: repos, Store: &fakeStore{}, Clone: func(ctx context.Context, a *store.App) (context.Context, string) {
+		return context.WithValue(ctx, cloneKey{}, a.InstallationID), "https://gitlab.example.com/tienda/catalogo.git"
+	}}
+	if _, err := s.Run(context.Background(), Request{App: app, Branch: "encargo-3", Fix: "candado"}); err != nil {
+		t.Fatal(err)
+	}
+	if src := exec.srcs[0]; src.Repo != "https://gitlab.example.com/tienda/catalogo.git" || src.SHA != "bbbbbbbbbbbb" || exec.clones[0] != int64(9) {
+		t.Fatalf("cloned %+v with %v", src, exec.clones[0])
 	}
 }

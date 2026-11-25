@@ -87,14 +87,7 @@ func (l *LocalExecutor) Execute(ctx context.Context, runID string, src Source, s
 	defer func() { _ = m.QuitarVolumen(context.Background(), ws) }()
 	mounts := []motor.Montaje{{Volumen: ws, Ruta: "/workspace"}}
 
-	cloneURL := src.Repo
-	if !strings.Contains(cloneURL, "://") {
-		cloneURL = "https://github.com/" + src.Repo + ".git"
-	}
-	ref := src.SHA
-	if ref == "" {
-		ref = src.Branch
-	}
+	cloneURL, ref := src.CloneURL(), src.Ref()
 	token := ""
 	if l.Token != nil {
 		t, err := l.Token(ctx, src.Repo)

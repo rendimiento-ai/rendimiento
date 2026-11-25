@@ -55,6 +55,11 @@ type Service struct {
 	MaxTimeout time.Duration
 	// Parallel is how many fixes run at once (2).
 	Parallel int
+	// Clone gives the fix's pod what it clones the app's repository with:
+	// the context its token comes from and the address (the platform's
+	// ForClone). Without it the pod clones app.Repo from GitHub, without a
+	// token.
+	Clone func(ctx context.Context, app *store.App) (context.Context, string)
 
 	once sync.Once
 	sem  chan struct{}
@@ -211,7 +216,11 @@ func (s *Service) Run(ctx context.Context, req Request) (Result, error) {
 	case <-ctx.Done():
 		return finish(store.FixFailed, i18n.M("cancelled before it started"))
 	}
-	out, err := s.Exec.Fix(ctx, pipeline.Source{Repo: app.Repo, SHA: sha, Branch: req.Branch},
+	fctx, repo := ctx, app.Repo
+	if s.Clone != nil {
+		fctx, repo = s.Clone(ctx, app)
+	}
+	out, err := s.Exec.Fix(fctx, pipeline.Source{Repo: repo, SHA: sha, Branch: req.Branch},
 		pipeline.FixJob{ID: strconv.FormatInt(rec.ID, 10), Image: plan.Image, Command: plan.Command, Path: plan.Path, Writes: plan.Writes,
 			Timeout: plan.Timeout, Pending: req.Pending, Removed: req.Removed, MaxBytes: MaxBytes}, lw)
 	<-s.sem

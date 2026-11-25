@@ -473,7 +473,9 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	// The apps' declared fixes run in the build namespace too, each in a pod
 	// of its own (the coding agent's run_fix, the run page's button, and
 	// Renovate's branches by themselves).
-	fixes := &arreglos.Service{Exec: executor, Repos: p.Repos(), Store: st, MaxTimeout: stepTimeout}
+	// Each clones the app's repository as a run's steps do: with its
+	// installation's token, from its forja's address.
+	fixes := &arreglos.Service{Exec: executor, Repos: p.Repos(), Store: st, MaxTimeout: stepTimeout, Clone: p.ForClone}
 	p.Fixes = fixes
 	// Runs of different apps go side by side (one per app, so an app's
 	// releases keep their order); MAX_PARALLEL_STEPS still bounds the load.
@@ -770,7 +772,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 			sandboxes = &pipeline.Sandboxes{K: executor, Rest: cfg, Image: os.Getenv("CODER_SANDBOX_IMAGE"),
 				RuntimeClass: os.Getenv("CODER_SANDBOX_RUNTIME_CLASS"), CPU: os.Getenv("CODER_SANDBOX_CPU"),
 				Memory: os.Getenv("CODER_SANDBOX_MEMORY"), Disk: os.Getenv("CODER_SANDBOX_DISK"), Log: log.With("component", "sandbox")}
-			coder.Terminal = &agentes.Terminal{Sandbox: sandboxes, Store: st}
+			coder.Terminal = &agentes.Terminal{Sandbox: sandboxes, Store: st, Clone: p.ForClone}
 		}
 		// What its read-only tools see (its encargo's app only), and how it
 		// runs again a run the cluster failed.

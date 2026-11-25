@@ -31,6 +31,11 @@ type Terminal struct {
 		AISettingsOf(ctx context.Context, orgID int64) (store.AISettings, error)
 		NoteEncargoRun(ctx context.Context, id int64, who, note string) error
 	}
+	// Clone gives the sandbox what it clones the app's repository with: the
+	// context its token comes from and the address (the platform's
+	// ForClone). Without it the sandbox clones app.Repo from GitHub without
+	// a token, which a private repository refuses.
+	Clone func(ctx context.Context, app *store.App) (context.Context, string)
 
 	mu       sync.Mutex
 	watching map[int64]bool
@@ -108,8 +113,12 @@ func (j *job) run(ctx context.Context, input json.RawMessage) (string, bool) {
 	}
 	sort.Strings(removed)
 	image, from := sandboxImage(j.app.Spec, folder)
-	src := pipeline.Source{Repo: j.app.Repo, Branch: j.branch, SHA: j.lastSHA}
-	res, err := t.Sandbox.Run(ctx, pipeline.SandboxRun{Key: key, Src: src, Image: image, ImageFrom: from,
+	rctx, repo := ctx, j.app.Repo
+	if t.Clone != nil {
+		rctx, repo = t.Clone(ctx, j.app)
+	}
+	src := pipeline.Source{Repo: repo, Branch: j.branch, SHA: j.at()}
+	res, err := t.Sandbox.Run(rctx, pipeline.SandboxRun{Key: key, Src: src, Image: image, ImageFrom: from,
 		Folder: folder, Command: in.Command, Pending: j.changed, Removed: removed})
 	if err != nil {
 		_ = t.Store.NoteEncargoRun(context.WithoutCancel(ctx), j.e.ID, CoderName,

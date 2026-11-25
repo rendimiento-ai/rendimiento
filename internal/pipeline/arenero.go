@@ -470,7 +470,7 @@ func (s *Sandboxes) start(ctx context.Context, req SandboxRun, box *sandbox, ima
 		var log bytes.Buffer
 		_ = k.streamLogs(ctx, name, "clone", &limited{w: &log, n: 4 << 10})
 		s.drop(box)
-		return fmt.Errorf("the sandbox could not check out %s: %s %s", req.Src.SHA, terminationSummary(p), strings.TrimSpace(log.String()))
+		return fmt.Errorf("the sandbox could not check out %s: %s %s", req.Src.Ref(), terminationSummary(p), strings.TrimSpace(log.String()))
 	}
 	// The token was only for the clone (and is gone from .git/config).
 	_ = k.Client.CoreV1().Secrets(k.Namespace).Delete(context.WithoutCancel(ctx), name, metav1.DeleteOptions{})
@@ -568,14 +568,7 @@ echo "RENDIMIENTO-FIX-END"
 // sharing the workspace.
 func (s *Sandboxes) Pod(name string, labels map[string]string, src Source, image string) (*corev1.Pod, error) {
 	k := s.K
-	cloneURL := src.Repo
-	if !strings.Contains(cloneURL, "://") {
-		cloneURL = "https://github.com/" + src.Repo + ".git"
-	}
-	ref := src.SHA
-	if ref == "" {
-		ref = src.Branch
-	}
+	cloneURL, ref := src.CloneURL(), src.Ref()
 	if ref == "" || image == "" {
 		return nil, errors.New("a sandbox needs a commit and an image")
 	}

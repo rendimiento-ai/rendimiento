@@ -5,6 +5,7 @@ package pipeline
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/rendimiento-ai/rendimiento/internal/spec"
@@ -85,11 +86,31 @@ func TaskKey(name string) string { return "task:" + name }
 
 // Source identifies the commit being built.
 type Source struct {
-	Repo   string // owner/name
+	// Repo is owner/name on GitHub, or the address another forja clones
+	// from (the platform's cloneURL: GitLab's, Bitbucket's).
+	Repo   string
 	SHA    string
 	Branch string
 	// Deploy is true for pushes to the default branch; PR runs only verify.
 	Deploy bool
+}
+
+// CloneURL is where a pod clones Repo from: Repo itself when it is an
+// address, GitHub's for owner/name.
+func (s Source) CloneURL() string {
+	if strings.Contains(s.Repo, "://") {
+		return s.Repo
+	}
+	return "https://github.com/" + s.Repo + ".git"
+}
+
+// Ref is what a pod checks out: the commit, or the branch's head when no
+// commit is given.
+func (s Source) Ref() string {
+	if s.SHA != "" {
+		return s.SHA
+	}
+	return s.Branch
 }
 
 // Plan builds the DAG for a spec: per service, its test (if configured) and

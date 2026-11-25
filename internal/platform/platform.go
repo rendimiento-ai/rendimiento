@@ -1407,3 +1407,12 @@ func (p *Platform) cloneURL(ctx context.Context, app *store.App) string {
 
 // CloneURL is the app's repository's address for build pods (see cloneURL).
 func (p *Platform) CloneURL(ctx context.Context, app *store.App) string { return p.cloneURL(ctx, app) }
+
+// ForClone is what a pod outside a run needs to clone the app's repository
+// (a declared fix, the coding agent's sandbox): the context carrying the
+// app's installation, so the executor's CloneToken mints its token, and
+// the address to clone from, for pipeline.Source's Repo. Without it a
+// private repository is cloned anonymously, and that fails.
+func (p *Platform) ForClone(ctx context.Context, app *store.App) (context.Context, string) {
+	return withInstallation(ctx, app), p.cloneURL(ctx, app)
+}
