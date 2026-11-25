@@ -422,8 +422,10 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	// through Postgres: during an update the UI may be served by one version
 	// while the other still runs a build.
 	go (&events.Bridge{Hub: p.Hub, Wire: st, Log: log}).Run(ctx)
-	if role != "api" {
-		// The GitHub App is configured through the API (setup): load it here too.
+	{
+		// The GitHub App is configured through one API process (setup): every
+		// other process loads it too, the other API replicas included, or a
+		// request they serve answers that GitHub is not configured.
 		go func() {
 			configured, stop := p.Hub.Subscribe(api.GitHubAppTopic)
 			defer stop()
