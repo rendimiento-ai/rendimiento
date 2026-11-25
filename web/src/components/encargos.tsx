@@ -3,7 +3,7 @@
 // agent, review what came back), «Comentar» and a «⋯» menu for the rest. A card that cannot be chosen
 // says why, with what fixes it right there (its app). What is chosen goes in one go from the bar at
 // the bottom. Every target is at least 44 px.
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { api, dollars, timeAgo, type Cola, type Comentario, type Encargo, type EncargoStatus } from "../api";
 import { ErrorBox, usePoll } from "./ui";
@@ -136,10 +136,22 @@ export function Confirmar({ pregunta, si, motivo, onSi, onNo }: { pregunta: stri
   );
 }
 
-/** The «⋯» menu: the rest of what can be done with an encargo. Escape, a tap outside or a choice closes it. */
+/** The «⋯» menu: the rest of what can be done with an encargo. Escape, a tap outside or a choice closes it.
+ *  It opens toward the button's left; when the button sits at the card's left edge (its row wrapped on a
+ *  phone) the list is moved back inside the screen, 8 px from its edges. */
 function Menu({ label, items }: { label: string; items: { label: string; onClick: () => void; peligro?: boolean }[] }) {
   const [open, setOpen] = useState(false);
   const caja = useRef<HTMLDivElement>(null);
+  const lista = useRef<HTMLDivElement>(null);
+  const [mover, setMover] = useState(0);
+  useLayoutEffect(() => {
+    if (!open) { setMover(0); return; }
+    const r = lista.current?.getBoundingClientRect();
+    if (!r) return;
+    const ancho = document.documentElement.clientWidth;
+    if (r.left < 8) setMover(8 - r.left);
+    else if (r.right > ancho - 8) setMover(ancho - 8 - r.right);
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const fuera = (ev: PointerEvent) => !caja.current?.contains(ev.target as Node) && setOpen(false);
@@ -154,7 +166,7 @@ function Menu({ label, items }: { label: string; items: { label: string; onClick
     <div className="et-menu" ref={caja}>
       <button type="button" className="et-boton redondo" aria-haspopup="menu" aria-expanded={open} aria-label={label} title={label} onClick={() => setOpen(!open)}>⋯</button>
       {open && (
-        <div role="menu" aria-label={label} className="et-menu-lista">
+        <div role="menu" aria-label={label} className="et-menu-lista" ref={lista} style={mover ? { transform: `translateX(${mover}px)` } : undefined}>
           {items.map((it) => (
             <button key={it.label} type="button" role="menuitem" className={it.peligro ? "peligro" : undefined} onClick={() => { setOpen(false); it.onClick(); }}>{it.label}</button>
           ))}
