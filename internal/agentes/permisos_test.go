@@ -151,7 +151,7 @@ func TestPermisoAlwaysRuns(t *testing.T) {
 // ask; with it, the encargo asks the person with the request (the ask
 // machinery: it stops without spending). Given, the next call runs.
 func TestPermisoAskAsks(t *testing.T) {
-	ps, st := newPermStore(nil) // infra_read asks by default
+	ps, st := newPermStore(nil) // infra_read asks by default; the encargo taken is of tienda (coderStore)
 	inf := &infraFake{}
 	m := &script{t: t, cost: 1_000, turns: [][]ia.ToolCall{
 		{call("infra_read", map[string]any{"what": []string{"events"}})},
@@ -171,7 +171,7 @@ func TestPermisoAskAsks(t *testing.T) {
 		t.Fatalf("pedidos %+v, asked %+v", ps.pedidos, ps.asked)
 	}
 	p, q := ps.pedidos[0], ps.asked[0]
-	if p.Permiso != store.PermInfraRead || p.App != "permask-app" || !strings.Contains(p.PorQue, "faltó memoria") || p.EncargoID == nil || *p.EncargoID != 33 ||
+	if p.Permiso != store.PermInfraRead || p.App != "tienda" || !strings.Contains(p.PorQue, "faltó memoria") || p.EncargoID == nil || *p.EncargoID != 33 ||
 		p.Ventana == "" || q.PedidoID == nil || *q.PedidoID != p.ID || !strings.Contains(q.Question, "infraestructura") {
 		t.Fatalf("the request %+v, the question %+v", p, q)
 	}
