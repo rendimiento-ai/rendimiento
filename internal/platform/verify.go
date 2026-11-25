@@ -272,10 +272,13 @@ func (p *Platform) verify(ctx context.Context, app *store.App, rel *store.Releas
 	p.verificationFailed(ctx, app, rel, reason)
 }
 
-// verificationFailed rolls back to the last good release, or only reports
-// when rollback is off or there is nothing to return to.
+// verificationFailed keeps what is seen of the release (keepEvidence), then
+// rolls back to the last good release, or only reports when rollback is
+// off or there is nothing to return to.
 func (p *Platform) verificationFailed(ctx context.Context, app *store.App, rel *store.Release, reason string) {
 	log := p.Log.With("app", app.Name, "release", rel.Number)
+	// What its pods show, before the rollback removes them (Ruta 184).
+	p.keepEvidence(ctx, app, rel)
 	kept := func(why string) {
 		p.setVerification(app, rel, store.VerifyFailedKept, M("%s (%s)", reason, why))
 		log.Warn("release failed verification; kept", "reason", reason, "why", why)

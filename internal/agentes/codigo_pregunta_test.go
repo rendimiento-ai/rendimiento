@@ -174,7 +174,18 @@ type fakePlataforma struct {
 }
 
 func (p *fakePlataforma) ListReleases(_ context.Context, appID int64, _ int) ([]*store.Release, error) {
-	return []*store.Release{{AppID: appID, Number: 7, SHA: "abcdef1234", VerifyStatus: "passed"}, {AppID: 99, Number: 8, SHA: "ajeno123456"}}, nil
+	return []*store.Release{{AppID: appID, Number: 7, SHA: "abcdef1234", VerifyStatus: "passed"}, {AppID: 99, Number: 8, SHA: "ajeno123456"},
+		{AppID: appID, Number: 6, SHA: "fedcba9876", VerifyStatus: store.VerifyFailed, VerifyMessage: "the rollout failed"}}, nil
+}
+
+// ReleaseEvidence: the app's release 6 failed with its container exiting.
+func (p *fakePlataforma) ReleaseEvidence(_ context.Context, _, number int64) (*store.ReleaseEvidence, error) {
+	if number != 6 {
+		return nil, store.ErrNotFound
+	}
+	code := int32(2)
+	return &store.ReleaseEvidence{Where: "local", Services: []store.ServiceEvidence{{Name: "web", Pods: []store.PodEvidence{{Name: "tienda-web-r6", Phase: "exited",
+		Containers: []store.ContainerEvidence{{Name: "web", State: "terminated", Reason: "exited", ExitCode: &code, Log: "listening\nerror: config.yaml not found"}}}}}}}, nil
 }
 
 func (p *fakePlataforma) ListProblems(_ context.Context, app string, _ time.Time, _ bool, _ int) ([]store.Problem, error) {
@@ -256,6 +267,10 @@ func TestCoderSeesOnlyItsApp(t *testing.T) {
 	if !strings.Contains(status, "#7 abcdef1") || !strings.Contains(status, "flaky") || !strings.Contains(status, "platform:test se alargó") ||
 		strings.Contains(status, "ajeno") || strings.Contains(status, "#8") {
 		t.Fatalf("app status: %s", status)
+	}
+	// The failed release brings what was seen when it failed.
+	if !strings.Contains(status, "#6 fedcba9") || !strings.Contains(status, "web: terminated exited (exit code 2)") || !strings.Contains(status, "| error: config.yaml not found") {
+		t.Fatalf("app status without the failed release's evidence: %s", status)
 	}
 	if !strings.Contains(st.gaveBack, "no se sostienen") {
 		t.Fatalf("gave back %q", st.gaveBack)

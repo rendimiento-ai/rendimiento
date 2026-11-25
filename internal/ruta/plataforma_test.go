@@ -62,7 +62,20 @@ func (f *fakePlataforma) GetRun(_ context.Context, id int64) (*store.Run, error)
 	return nil, store.ErrNotFound
 }
 func (f *fakePlataforma) ListReleases(context.Context, int64, int) ([]*store.Release, error) {
-	return []*store.Release{{Number: 7, SHA: "abcdef123456", VerifyStatus: store.VerifyPassed}}, nil
+	return []*store.Release{{Number: 7, SHA: "abcdef123456", VerifyStatus: store.VerifyPassed},
+		{Number: 6, SHA: "0123456789ab", VerifyStatus: store.VerifyFailed, VerifyMessage: "the rollout failed"}}, nil
+}
+
+// ReleaseEvidence: release 6 failed with a pod in a crash loop.
+func (f *fakePlataforma) ReleaseEvidence(_ context.Context, _, number int64) (*store.ReleaseEvidence, error) {
+	if number != 6 {
+		return nil, store.ErrNotFound
+	}
+	code := int32(1)
+	return &store.ReleaseEvidence{Where: "kubernetes", Services: []store.ServiceEvidence{{Name: "web", ReplicaSet: "web-6d9f",
+		Pods: []store.PodEvidence{{Name: "web-6d9f-x1", Phase: "Running", Containers: []store.ContainerEvidence{{Name: "web", State: "waiting",
+			Reason: "CrashLoopBackOff", Restarts: 4, LastExitCode: &code, LastReason: "Error", PreviousLog: "starting\npanic: no DATABASE_URL"}}}}}},
+		Events: []store.EvidenceEvent{{Type: "Warning", Reason: "BackOff", Object: "Pod/web-6d9f-x1", Message: "Back-off restarting failed container"}}}, nil
 }
 func (f *fakePlataforma) StepLog(_ context.Context, run int64, step string) (string, error) {
 	if step != "web:test" {
@@ -224,6 +237,16 @@ func TestPlataformaTools(t *testing.T) {
 	out, msg = call(t, col, "app_estado", map[string]any{"app": "shop"})
 	if msg != "" || len(out["servicios"].([]any)) != 1 || len(out["problemas"].([]any)) != 1 {
 		t.Fatalf("estado = %v %s", out, msg)
+	}
+	// A release that failed verification brings what was seen then; one
+	// that passed does not.
+	vers, _ := out["versiones"].([]any)
+	if len(vers) != 2 || vers[0].(map[string]any)["lo_que_se_vio"] != nil {
+		t.Fatalf("versiones = %v", vers)
+	}
+	if visto, _ := vers[1].(map[string]any)["lo_que_se_vio"].(string); !strings.Contains(visto, "waiting CrashLoopBackOff, 4 restarts, last exited 1 (Error)") ||
+		!strings.Contains(visto, "| panic: no DATABASE_URL") || !strings.Contains(visto, "BackOff: Back-off restarting failed container") {
+		t.Fatalf("lo que se vio = %q", visto)
 	}
 	// Its libreta: what is open, and what was done this week (not before).
 	lib, _ := out["libreta"].(map[string]any)

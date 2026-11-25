@@ -27,7 +27,7 @@ All of it over one MCP server, at `https://<your rendimiento>/mcp`:
 | Tool | Does | Role |
 |---|---|---|
 | `ruta_inicio`, `ruta_buscar`, `ruta_leer` | start from the last handovers and to-dos; search and read the Ruta | reader |
-| `apps_listar`, `app_estado` | the apps, with their last run, release (and its verification) and open problems; `app_estado` also brings the app's [libreta](libreta.md) | reader |
+| `apps_listar`, `app_estado` | the apps, with their last run, release (and its verification) and open problems; `app_estado` also brings the app's [libreta](libreta.md), and for a release that failed verification [what was seen when it failed](reliability.md#what-was-seen-when-it-failed) | reader |
 | `mesa_leer` | an app's [work board](../start/tour.md#the-app-page): each branch, how it stands and who it waits for; read it before opening a new branch | reader |
 | `ejecucion_leer`, `paso_registro` | a run with its steps, and the end of a step's log: why something failed | reader |
 | `solicitudes_listar`, `solicitud_leer` | kept requests and their [waterfall](universe.md#following-one-request): where a slow or failed request spent its time | reader |

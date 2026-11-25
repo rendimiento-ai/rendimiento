@@ -25,12 +25,13 @@ var labelKeys = map[string]bool{"name": true, "title": true, "label": true, "kin
 
 // localized translates the JSON answers of /api/ for a browser that asks
 // for Spanish (Accept-Language). Streams (live events) and logs pass as they
-// are; so does everything when the language is English.
+// are, and so does a failed release's evidence (what the cluster said, with
+// pod and container names); so does everything when the language is English.
 func localized(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		lang := i18n.FromRequest(r)
 		if lang != i18n.Spanish || !strings.HasPrefix(r.URL.Path, "/api/") ||
-			strings.HasSuffix(r.URL.Path, "/events") || strings.HasSuffix(r.URL.Path, "/log") || r.URL.Path == "/api/public/stats" ||
+			strings.HasSuffix(r.URL.Path, "/events") || strings.HasSuffix(r.URL.Path, "/log") || strings.HasSuffix(r.URL.Path, "/evidence") || r.URL.Path == "/api/public/stats" ||
 			strings.Contains(r.Header.Get("Accept"), "text/event-stream") || strings.HasSuffix(r.URL.Path, "/stream") {
 			next.ServeHTTP(w, r)
 			return

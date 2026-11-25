@@ -28,6 +28,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/rendimiento-ai/rendimiento/internal/store"
+	"github.com/rendimiento-ai/rendimiento/internal/tachar"
 )
 
 // Backend is the storage the endpoint needs; *store.Store implements it.
@@ -55,7 +56,7 @@ type Backend interface {
 }
 
 // TokenPrefix starts every agent key, so a leaked one is easy to recognise.
-const TokenPrefix = "rnd_"
+const TokenPrefix = tachar.PrefijoLlave
 
 // MaxKeyLifetime is the longest an agent key may live.
 const MaxKeyLifetime = 90 * 24 * time.Hour
@@ -343,37 +344,9 @@ func cargoOut(c store.Cargo) CargoOut {
 
 // ---- validation ----
 
-var secretPatterns = []*regexp.Regexp{
-	regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----`),
-	regexp.MustCompile(`\b(ghp|gho|ghu|ghs|ghr|github_pat)_[A-Za-z0-9_]{20,}`),
-	regexp.MustCompile(`\bAKIA[0-9A-Z]{16}\b`),
-	regexp.MustCompile(`\bsk-[A-Za-z0-9_-]{20,}`),
-	regexp.MustCompile(`\bxox[abprs]-[A-Za-z0-9-]{10,}`),
-	regexp.MustCompile(`\bre_[A-Za-z0-9]{8,}_[A-Za-z0-9]{16,}`),
-	regexp.MustCompile(`\b` + TokenPrefix + `[A-Za-z0-9_-]{40,}`),
-	regexp.MustCompile(`eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}`),
-}
-
-// assignment catches "password: …" style values; a value counts only if it
-// looks random (letters and digits, 16+ characters), so "token: the one in
-// the rendimiento-github Secret" is fine.
-var assignment = regexp.MustCompile(`(?i)\b(password|passwd|contraseña|secret|token|api[_-]?key)\s*[:=]\s*["']?([A-Za-z0-9+/_=.-]{16,})`)
-
-// LooksSecret reports whether text seems to contain a credential.
-func LooksSecret(text string) bool {
-	for _, p := range secretPatterns {
-		if p.MatchString(text) {
-			return true
-		}
-	}
-	for _, m := range assignment.FindAllStringSubmatch(text, -1) {
-		v := m[2]
-		if strings.ContainsAny(v, "0123456789") && strings.IndexFunc(v, func(r rune) bool { return r >= 'A' && r <= 'z' }) >= 0 {
-			return true
-		}
-	}
-	return false
-}
+// LooksSecret reports whether text seems to contain a credential (see
+// tachar.Parece, which what rendimiento keeps from pods also goes through).
+func LooksSecret(text string) bool { return tachar.Parece(text) }
 
 var errSecret = errors.New("esto parece contener un secreto (contraseña, token o llave); la Ruta no guarda secretos. Quítelo, o describa dónde vive (p. ej. el nombre del Secret de Kubernetes) sin su valor")
 

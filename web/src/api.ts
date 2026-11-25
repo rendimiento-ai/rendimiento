@@ -1261,6 +1261,63 @@ export interface Release {
   verifiedAt?: string;
   tasks?: ReleaseTask[];
   tests?: ReleaseTest[];
+  /** What was seen when it failed verification is kept (ReleaseEvidence, api.releaseEvidence). */
+  evidence?: boolean;
+}
+
+/**
+ * What was seen of a release when it failed verification (store.ReleaseEvidence), kept before the rollback removed
+ * its pods: each service's new pods with their containers' state and last lines, and the events about them.
+ */
+export interface ReleaseEvidence {
+  capturedAt: string;
+  /** The destination: kubernetes, or local (a computer's containers). */
+  where: string;
+  services: ServiceEvidence[];
+  events?: EvidenceEvent[];
+  notes?: string[];
+  /** Logs were shortened to fit (64 KiB a release). */
+  truncated?: boolean;
+}
+
+export interface ServiceEvidence {
+  name: string;
+  replicaSet?: string;
+  /** Why its Deployment is not progressing or available. */
+  message?: string;
+  pods: PodEvidence[];
+}
+
+export interface PodEvidence {
+  name: string;
+  phase: string;
+  node?: string;
+  conditions?: string[];
+  containers: ContainerEvidence[];
+}
+
+export interface ContainerEvidence {
+  name: string;
+  ready: boolean;
+  restarts: number;
+  state: string;
+  reason?: string;
+  message?: string;
+  exitCode?: number;
+  lastReason?: string;
+  lastExitCode?: number;
+  lastFinishedAt?: string;
+  log?: string;
+  previousLog?: string;
+}
+
+export interface EvidenceEvent {
+  at: string;
+  type: string;
+  reason: string;
+  object: string;
+  message: string;
+  count?: number;
 }
 
 /** One of the app's own tests in a release (store.ReleaseTest): its result, and what it may do now. */
@@ -1723,6 +1780,7 @@ export const api = {
   triggerRun: (app: string, branch?: string) => request<Run>("POST", `/api/apps/${app}/runs`, { branch }),
   releases: (app: string) => request<Release[]>("GET", `/api/apps/${app}/releases`),
   releaseTaskLog: (app: string, release: number, task: string) => request<string>("GET", `/api/apps/${app}/releases/${release}/tasks/${encodeURIComponent(task)}/log`),
+  releaseEvidence: (app: string, release: number) => request<ReleaseEvidence>("GET", `/api/apps/${app}/releases/${release}/evidence`),
   delivery: () => request<DeliveryReport>("GET", "/api/stats/delivery"),
   visitsSummary: () => request<VisitsSummary>("GET", "/api/stats/visits"),
   visits: (app: string, range: VisitRange, day?: string) =>

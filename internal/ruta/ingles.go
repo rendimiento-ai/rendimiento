@@ -52,7 +52,7 @@ var toolsEN = map[string]string{
 	"mercado_abrir":   "Opens a new stall: creates its public repository and publishes the page at its address. Needs an open cargo and that the person asked for it (pedido_por_la_persona). Photos are added later from the UI.",
 
 	"apps_listar":        "The apps the platform deploys, with their last run and their release in production.",
-	"app_estado":         "An app's state: its services, its last runs and releases (with their verification), its open problems and its libreta (what was asked for it and whether it is done: what is open, and what was done or set aside this week).",
+	"app_estado":         "An app's state: its services, its last runs and releases (with their verification and, for one that failed it, what was seen when it failed: its pods' state, the warnings and their last lines), its open problems and its libreta (what was asked for it and whether it is done: what is open, and what was done or set aside this week).",
 	"mesa_leer":          "An app's work board: each branch with its pull request, its last run and its encargos, and who it waits for (usted: a person; trabajando: working; sobra: can be closed; hoy: merged today). Read it before opening a new branch: if there is one for the same thing already, keep to it.",
 	"ejecucion_leer":     "A CI run with its steps and each one's state. To see why a step failed, use paso_registro.",
 	"paso_registro":      "The end of a run step's log (200 lines unless you ask for more).",
