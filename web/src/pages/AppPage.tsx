@@ -22,6 +22,7 @@ import { EsqCosa, Esqueleto, Hueso } from "../components/esqueleto";
 import { useConexion } from "../conexion";
 import { apagado, PorQueApagado } from "../components/conexion-aviso";
 import { BuildNow, puedeConstruir } from "../components/construir";
+import { EvidenciaFallo } from "../components/evidencia";
 
 const tabs = [
   { id: "", label: "At a glance", icon: "M12 3a4 4 0 0 1 4 4 4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-8 0 4 4 0 0 1-4-4 4 4 0 0 1 4-4 4 4 0 0 1 4-4zM12 12h.01" }, // labels are translated where shown
@@ -492,6 +493,7 @@ function Releases({ name, current }: { name: string; current?: number }) {
               {r.verifyMessage && r.verifyStatus !== "skipped" && r.verifyStatus !== "superseded" && (
                 <div className="small" style={{ color: r.verifyStatus === "failed" || r.verifyStatus === "failed-kept" || r.verifyStatus === "blocked" ? "var(--bad)" : "var(--muted)" }}>{r.verifyMessage}</div>
               )}
+              {r.evidence && <EvidenciaFallo app={name} release={r.number} />}
               <div className="small muted">
                 <span className="mono">{r.sha.slice(0, 7)}</span> · {timeAgo(r.createdAt)}
                 {r.runId && <> · <Link to={`/apps/${name}/runs/${r.runId}`}>{t("run #{n}", { n: r.runId })}</Link></>}

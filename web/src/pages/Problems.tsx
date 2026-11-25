@@ -11,6 +11,7 @@ import { EsqListaDetalle, Esqueleto, Hueso } from "../components/esqueleto";
 import { useConexion } from "../conexion";
 import { apagado } from "../components/conexion-aviso";
 import { anotar } from "../uso";
+import { EvidenciaFallo } from "../components/evidencia";
 
 // The top bar's link lives apart, so the shell does not carry this page.
 export { ProblemsNavLink } from "../components/enlace-problemas";
@@ -194,6 +195,13 @@ function AskAgent({ p, appKnown }: { p: Problem; appKnown: boolean }) {
   );
 }
 
+/** The release a failed verification is about (its attributes say release=N), whose evidence was kept. */
+function evidenceRelease(p: Problem): number | undefined {
+  if (!p.app || !p.message.startsWith("release failed verification")) return undefined;
+  const m = /(?:^| )release=(\d+)/.exec(p.attrs);
+  return m ? Number(m[1]) : undefined;
+}
+
 /** One problem, in full: what happened, what to do, its 30 days, the buttons and the technical detail. */
 function ProblemDetail({ p, open, appKnown, onDismiss }: { p: Problem; open: boolean; appKnown: boolean; onDismiss: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -217,6 +225,7 @@ function ProblemDetail({ p, open, appKnown, onDismiss }: { p: Problem; open: boo
         <h3>{t("What happened")}</h3>
         {hint?.what && <p>{hint.what()}</p>}
         {readable(p.detail) && <p>{p.detail}</p>}
+        {evidenceRelease(p) !== undefined && <EvidenciaFallo app={p.app} release={evidenceRelease(p)!} abierta />}
         <p className="muted">{p.count > 1
           ? t("It happened {n} times: the first {first}, the last {last}.", { n: p.count, first: timeAgo(p.firstAt), last: timeAgo(p.lastAt) })
           : t("It happened {when}.", { when: timeAgo(p.lastAt) })}</p>

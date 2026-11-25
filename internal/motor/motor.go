@@ -313,6 +313,12 @@ type Info struct {
 	Imagen    string
 	Etiquetas map[string]string
 	Estado    string // "running", "exited", ...
+	// Codigo is the exit code of its last run, Reinicios how many times
+	// its restart policy started it again, Error what the engine said when
+	// it could not start it.
+	Codigo    int
+	Reinicios int
+	Error     string
 }
 
 // Inspeccionar reads a container's state and labels.
@@ -323,9 +329,12 @@ func (m *Motor) Inspeccionar(ctx context.Context, nombre string) (Info, error) {
 	}
 	var raw struct {
 		State struct {
-			Running bool   `json:"Running"`
-			Status  string `json:"Status"`
+			Running  bool   `json:"Running"`
+			Status   string `json:"Status"`
+			ExitCode int    `json:"ExitCode"`
+			Error    string `json:"Error"`
 		} `json:"State"`
+		RestartCount int `json:"RestartCount"`
 		Config struct {
 			Image  string            `json:"Image"`
 			Labels map[string]string `json:"Labels"`
@@ -338,7 +347,8 @@ func (m *Motor) Inspeccionar(ctx context.Context, nombre string) (Info, error) {
 	if err := json.Unmarshal([]byte(line), &raw); err != nil {
 		return Info{}, fmt.Errorf("%s inspect %s: %v", m.Bin, nombre, err)
 	}
-	return Info{Nombre: nombre, Corriendo: raw.State.Running, Imagen: raw.Config.Image, Etiquetas: raw.Config.Labels, Estado: raw.State.Status}, nil
+	return Info{Nombre: nombre, Corriendo: raw.State.Running, Imagen: raw.Config.Image, Etiquetas: raw.Config.Labels, Estado: raw.State.Status,
+		Codigo: raw.State.ExitCode, Reinicios: raw.RestartCount, Error: raw.State.Error}, nil
 }
 
 // Registros is the last lines a container wrote ("" when it cannot be read).

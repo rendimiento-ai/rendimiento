@@ -92,12 +92,12 @@ func (e *engine) exec(_ context.Context, _ string, args []string, out io.Writer)
 		if args[2] == "container" && len(args) == 4 { // Asegurar's existence check
 			return nil
 		}
-		status := "running"
+		status, code, restarts := "running", 0, 0
 		if !c.running {
-			status = "exited"
+			status, code, restarts = "exited", 1, 2 // it stopped, and its restart policy tried twice
 		}
-		raw, _ := json.Marshal(map[string]any{"State": map[string]any{"Running": c.running, "Status": status},
-			"Config": map[string]any{"Image": c.image, "Labels": c.labels}})
+		raw, _ := json.Marshal(map[string]any{"State": map[string]any{"Running": c.running, "Status": status, "ExitCode": code},
+			"RestartCount": restarts, "Config": map[string]any{"Image": c.image, "Labels": c.labels}})
 		fmt.Fprintln(out, string(raw))
 	}
 	return nil

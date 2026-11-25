@@ -67,6 +67,10 @@ type Local struct {
 	mu      sync.Mutex
 	estados map[string]estadoLocal // app → its latest release's rollout
 	rutas   map[string]string      // host → 127.0.0.1:port
+
+	// evidencias: app → what its latest failed release's containers showed
+	// before they were removed (Evidencia).
+	evidencias map[string]evidenciaLocal
 }
 
 type estadoLocal struct {
@@ -128,6 +132,9 @@ func (l *Local) poner(app string, e estadoLocal) {
 // for them to answer, points the proxy at them and removes the old ones.
 func (l *Local) desplegar(ctx context.Context, app string, rel *store.Release, d despliegue) {
 	fail := func(format string, a ...any) {
+		// What its containers show is kept first: the platform asks for it
+		// once it sees the release failed, and they are removed next.
+		l.guardarEvidencia(ctx, app, rel)
 		l.poner(app, estadoLocal{version: rel.Number, estado: Fallida, mensaje: fmt.Sprintf(format, a...)})
 	}
 	if err := l.Motor.CrearRed(ctx, red(app)); err != nil {
@@ -703,6 +710,7 @@ func (l *Local) Quitar(ctx context.Context, app string) error {
 	}
 	l.mu.Lock()
 	delete(l.estados, app)
+	delete(l.evidencias, app)
 	for h := range l.rutas {
 		if strings.HasSuffix(h, "."+app+".localhost") || h == app+".localhost" {
 			delete(l.rutas, h)
