@@ -411,6 +411,15 @@ else
   set -- --frontend dockerfile.v0 --local context="$CONTEXT" --local dockerfile="$CONTEXT" \
     --opt filename="$DOCKERFILE" --opt build-arg:GIT_SHA="$GIT_SHA" "$@"
 fi
+# A daemon that just started, or a network policy that has not yet let this
+# new pod in, refuses the first connections: wait for it up to half a minute,
+# then build anyway, so a daemon that is really gone says why.
+i=0
+until buildctl --addr "$BUILDKIT_ADDR" debug workers >/dev/null 2>&1; do
+  i=$((i + 1))
+  [ "$i" -lt 30 ] || break
+  sleep 1
+done
 buildctl --addr "$BUILDKIT_ADDR" build "$@" \
   --output "type=image,name=$IMAGE:$TAG,push=true$INSECURE" \
   --import-cache "type=registry,ref=$IMAGE:buildcache$INSECURE" \
