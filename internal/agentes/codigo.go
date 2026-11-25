@@ -602,6 +602,15 @@ func (j *job) brief() string {
 	if j.e.Comment != "" {
 		fmt.Fprintf(&b, "\nA person sent it back before, saying:\n%s\n", j.e.Comment)
 	}
+	// Given back before (by this agent or another): why it stopped, and
+	// what the person said when sending it again.
+	why, told := j.e.GaveBack()
+	if why != "" {
+		fmt.Fprintf(&b, "\nIt was given back to the person before. Last time you stopped because:\n%s\n", truncate(why, 4000))
+	}
+	for _, n := range told {
+		fmt.Fprintf(&b, "\nThe person answered, sending it again:\n%s\n", truncate(n, 4000))
+	}
 	b.WriteString(j.resumeBrief())
 	for _, name := range []string{"AGENTS.md", "CLAUDE.md"} {
 		if f, ok := j.files[name]; ok {

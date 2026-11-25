@@ -9,7 +9,7 @@ import { api, dollars, timeAgo, type Cola, type Encargo } from "../api";
 import { ErrorBox, usePoll } from "./ui";
 import { locale, t, tn } from "../i18n";
 import { EstimateBar } from "./boleta";
-import { Confirmar, DevolverForm, Dificultad, eventLabel } from "./encargos";
+import { Confirmar, DevolverForm, Dificultad, eventLabel, Reenviar } from "./encargos";
 import { EsqCola } from "./esqueleto";
 import { TextoConFormato } from "./texto";
 import { useConexion } from "../conexion";
@@ -226,11 +226,10 @@ function Terminado({ e, onChange }: { e: Encargo; onChange: () => void }) {
   );
 }
 
-/** What it gave back to the person: why (its last note), and leaving it to their own agent or sending it again. */
+/** What it gave back to the person: why (its last note), and leaving it to their own agent or sending it again, with what it should know. */
 function Devuelto({ e, onChange }: { e: Encargo; onChange: () => void }) {
   const [full, setFull] = useState<Encargo>();
   const [err, setErr] = useState<unknown>();
-  const conexion = useConexion();
   useEffect(() => { api.encargo(e.id).then(setFull, () => undefined); }, [e.id]);
   const porque = full?.log?.filter((l) => l.what === "released").pop()?.note;
   return (
@@ -239,10 +238,7 @@ function Devuelto({ e, onChange }: { e: Encargo; onChange: () => void }) {
       {porque ? <TextoConFormato text={porque} className="small" /> : null}
       <span className="small muted">{e.app} · {t("spent {spent}", { spent: dollars(e.spentMicros ?? 0) })} · {timeAgo(e.updatedAt)}</span>
       <ErrorBox error={err} />
-      <div className="et-acciones">
-        <button type="button" className="et-boton principal anil" {...apagado(conexion)} onClick={() => api.routeEncargo(e.id, "local").then(onChange, setErr)}>{t("Leave it to my agent")}</button>
-        <button type="button" className="et-boton" {...apagado(conexion)} onClick={() => api.doEncargos([e.id]).then(onChange, setErr)}>{t("Send it again")}</button>
-      </div>
+      <Reenviar e={e} onChange={onChange} setErr={setErr} otraVez />
     </article>
   );
 }

@@ -46,7 +46,7 @@ var rutas = map[string]string{store.RoutePlatform: "la IA de la plataforma", sto
 var sucesos = map[string]string{
 	"created": "creado", "taken": "tomado", "waiting": "esperando", "resumed": "terminó la espera", "delivered": "entregado",
 	"reviewed": "revisado", "routed": "encaminado", "estimate": "pidió estimarlo otra vez", "sent": "lo mandó al agente de código", "returned": "devuelto", "released": "soltado", "cancelled": "cancelado",
-	"asked": "preguntó a la persona", "answered": "la persona contestó",
+	"asked": "preguntó a la persona", "answered": "la persona contestó", "told": "la persona le dijo",
 }
 
 // EncargoOut is an encargo as agents see it.
@@ -78,6 +78,10 @@ type EncargoOut struct {
 	// Comentarios: what people said about it, with agents' answers (in
 	// encargo_leer and encargo_tomar).
 	Comentarios []ComentarioOut `json:"comentarios,omitempty"`
+	// Solto is why the last agent that gave it back stopped, and LaPersonaDijo
+	// what people told it since, sending it again (store.Encargo.GaveBack).
+	Solto         string   `json:"solto,omitempty"`
+	LaPersonaDijo []string `json:"la_persona_dijo,omitempty"`
 }
 
 // SucesoOut is one step of an encargo's history.
@@ -103,6 +107,7 @@ func encargoOut(e store.Encargo, full bool) EncargoOut {
 		for _, l := range e.Log {
 			o.Historia = append(o.Historia, SucesoOut{Cuando: l.At, Quien: l.Who, Que: sucesos[l.What], Nota: l.Note})
 		}
+		o.Solto, o.LaPersonaDijo = e.GaveBack()
 	}
 	return o
 }

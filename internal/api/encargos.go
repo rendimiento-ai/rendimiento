@@ -169,6 +169,7 @@ func (s *Server) routeEncargo(w http.ResponseWriter, r *http.Request, login stri
 	}
 	var in struct {
 		Route string `json:"route"`
+		Note  string `json:"note"` // what the person tells the agent that does it (optional)
 	}
 	if !readJSON(w, r, &in) {
 		return
@@ -177,14 +178,40 @@ func (s *Server) routeEncargo(w http.ResponseWriter, r *http.Request, login stri
 		httpError(w, http.StatusBadRequest, "route must be platform or local")
 		return
 	}
+	note, ok := tellNote(w, in.Note)
+	if !ok {
+		return
+	}
 	e, err := s.Store.RouteEncargo(r.Context(), id, login, in.Route)
+	if err == nil && note != "" {
+		e, err = s.Store.TellEncargo(r.Context(), id, login, note)
+	}
 	s.encargoAnswer(w, e, err)
+}
+
+// tellNote checks what a person tells the agent when sending an encargo
+// (again): trimmed, up to 4,000 characters, no secrets. It answers 400
+// otherwise.
+func tellNote(w http.ResponseWriter, note string) (string, bool) {
+	note = strings.TrimSpace(note)
+	switch {
+	case len([]rune(note)) > 4000:
+		httpError(w, http.StatusBadRequest, "the note is too long: up to 4,000 characters")
+		return "", false
+	case ruta.LooksSecret(note):
+		httpError(w, http.StatusBadRequest, "this looks like it contains a secret; say where it lives instead of its value")
+		return "", false
+	}
+	return note, true
 }
 
 // doEncargos sends pending encargos to the platform's coding agent.
 func (s *Server) doEncargos(w http.ResponseWriter, r *http.Request, login string) {
 	var in struct {
 		IDs []int64 `json:"ids"`
+		// Notes is what the person tells the agent about each one, by id
+		// (optional): when sending again one it gave back, say.
+		Notes map[int64]string `json:"notes"`
 	}
 	if !readJSON(w, r, &in) {
 		return
@@ -192,6 +219,14 @@ func (s *Server) doEncargos(w http.ResponseWriter, r *http.Request, login string
 	if len(in.IDs) == 0 || len(in.IDs) > 100 {
 		httpError(w, http.StatusBadRequest, "send 1 to 100 encargos")
 		return
+	}
+	notes := map[int64]string{}
+	for id, n := range in.Notes {
+		note, ok := tellNote(w, n)
+		if !ok {
+			return
+		}
+		notes[id] = note
 	}
 	set, err := s.Store.AISettingsOf(r.Context(), orgOf(r))
 	if err != nil {
@@ -217,7 +252,7 @@ func (s *Server) doEncargos(w http.ResponseWriter, r *http.Request, login string
 		}
 		ids = append(ids, id)
 	}
-	n, err := s.Store.DoEncargos(r.Context(), orgOf(r), ids, login)
+	n, err := s.Store.DoEncargosTold(r.Context(), orgOf(r), ids, notes, login)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
