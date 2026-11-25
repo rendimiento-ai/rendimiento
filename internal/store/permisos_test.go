@@ -62,7 +62,7 @@ func TestPermisoSandboxFromCodeRun(t *testing.T) {
 	if p, err := s.PermisoOf(ctx, DefaultOrg, SujetoCoder, PermSandbox); err != nil || p.Modo != ModoOff || p.Set {
 		t.Fatalf("without a row, off as the switch: %+v (%v)", p, err)
 	}
-	sql, err := migrations.ReadFile("migrations/0068_permisos_de_agentes.sql")
+	sql, err := migrations.ReadFile("migrations/0069_permisos_de_agentes.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
