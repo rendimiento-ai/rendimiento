@@ -2842,6 +2842,9 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
   .topbar-acciones .cuenta-inicial { width: 38px; height: 38px; }
 }
 @media (max-width: 640px) { .topbar-fila { padding: 8px 16px; gap: 8px; } .topbar-acciones { gap: 8px; } }
+/* The bar switches to the phone's when React hears the screen change (useTelefono), a moment after the CSS does:
+   until then New app and the account's menu would push the page sideways, so on a phone they are hidden at once. */
+@media (max-width: 640px) { .topbar-acciones > .btn.primary, .topbar-acciones > .cuenta { display: none; } }
 
 /* The search (components/buscador): a box that opens what it finds under it; on a phone, over the top of the screen. */
 .buscador { position: relative; flex: 1 1 auto; min-width: 120px; }
