@@ -1,0 +1,1 @@
+- **Tests:** `TestFusionSinPruebas` waits for the run's check to be completed before reading it (the run finished a moment before its check was updated).
