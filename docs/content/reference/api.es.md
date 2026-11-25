@@ -164,6 +164,10 @@ Todas las rutas se registran en `Server.Handler` (`internal/api/server.go`). La 
 | GET | `/api/apps/{app}/runs` | las ejecuciones de integración continua |
 | GET | `/api/apps/{app}/branch-kinds` | el tipo de cada rama de las últimas 50 ejecuciones (main, fix, feature, release, deps, other) y su solicitud de incorporación ([Tipos de rama](../guide/builds.md#kinds-of-branch)) |
 | GET | `/api/apps/{app}/caminos` | las ejecuciones de los últimos 14 días por rama, con dónde salió y dónde se integró cada una ([Caminos](../guide/caminos.md)) |
+| GET | `/api/apps/{app}/copias` | las copias vivas de la aplicación (una por solicitud, y las cortas en seco), cada una con lo que tiene, su salud, sus pruebas, su memoria y el día en que se borra; la memoria que ocupan, la parte del clúster de todas las copias, las borradas en los últimos 7 días y por qué, y los secretos que le faltan a una copia (solo los nombres) ([Copias vivas](../guide/caminos.md#live-copies)) |
+| POST | `/api/apps/{app}/copias/{n}/rehacer` | rehace la copia de la solicitud n con el último commit de su rama que pasó (la reinicia si ya lo tiene); colaboradores y administradores |
+| POST | `/api/apps/{app}/copias/{n}/extender` | deja la copia 3 días más, hasta 30 después de su último envío |
+| DELETE | `/api/apps/{app}/copias/{n}` | borra la copia ya; su comentario dice quién, y el siguiente envío la vuelve a hacer |
 | POST | `/api/apps/{app}/runs` | inicia una ejecución de la rama principal (el botón **Ejecutar**) |
 | GET | `/api/apps/{app}/releases` | el historial de versiones (huella por servicio) |
 | GET | `/api/apps/{app}/releases/{number}/tasks/{task}/log` | el registro de una tarea posterior al despliegue de una versión |

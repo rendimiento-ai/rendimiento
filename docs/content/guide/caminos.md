@@ -14,10 +14,22 @@ The **Roads** tab of each app tells the last two weeks of its builds as a story.
 | A **market stall** on the camino real | a release that was deployed, with its number |
 | A vereda that ends at a **sign** | a branch that was not merged: *waiting at the gate* while it ran in the last 48 hours or its pull request is open, *left on the way* after that |
 | A dashed vereda | not merged (yet) |
+| A **little house** at the end of a vereda, with a number | its pull request's [live copy](#live-copies); a dashed one is a short copy en seco. Choose it (or Tab to it) to go to its card |
 
 Quiet stretches of time are shortened, so a busy afternoon gets more room than an empty weekend.
 
 Tap a stop or a vereda to see its story in the panel: when it left and from where, its trips, how many times it stumbled, how long it took from leaving to merging, and a link to each run. With nothing selected, the panel sums up the two weeks: how many trips arrived whole, the typical life of a branch, how many branches passed on their first trip, the branches not merged, and the latest stumbles.
+
+## Live copies {#live-copies}
+
+An app with [`previews:`](../future/previews.md) has a section above the map, **Live copies · N of max**: one live copy per pull request whose branch passed, and the short copies its runs make only to run their checks [en seco](tasks.md#dry-runs-against-a-copy) (they count toward `max`). The glance (*At a glance*) has a chip, **N live copies**, that leads here.
+
+- **Four figures:** how many copies live of the app's `max`; the memory they hold (what their pods use, from the metrics server, or what they ask for when it does not say; the figure says which); the share of the cluster's memory that **all apps'** copies hold, against the 10% cap (on a computer there is no cluster to share); and the app's `keep` and `max`, which change in `rendimiento.yaml`.
+- **A card per copy:** its pull request's number, title and author, its address, the branch, commit and run it shows, its health, its own tests' result (how many passed, and the names of those that failed) and its checks en seco, the memory it holds, and the day it is deleted (`keep` days after its last push, or when the pull request is merged or closed). A short copy's card is dashed and links to its run.
+- **Deleted lately:** the copies of the last 7 days and why each went: merged, closed, no push for `keep` days, to make room under `max`, or by a person.
+- **Secrets:** a copy reads the Secrets the app's services name in its own namespace, and nothing copies them there yet, so the section names those a copy does not have (names only, never values): it starts, but what needs them does not work. On a computer a copy reads its app's own secrets.
+
+A person who may merge (a collaborator or an administrator of the app) has a **⋯** menu on each pull request's copy: **Make it again with the last commit** (the branch's last run that passed; when the copy already runs it, its services restart), **Keep it 3 more days** (up to 30 days after its last push; the pull request's comment says the new day) and **Delete it now**, which asks on the card itself. A deleted copy's comment says who deleted it; the sweep does not make it again, the branch's next push does. Each of them is in the bitácora; an agent's key cannot do them. Each branch with a live copy has a **live copy** badge in the panel that leads to its card.
 
 ## Telling the story {#telling-the-story}
 
@@ -41,3 +53,6 @@ Drag to travel the road; zoom with the **+ / −** buttons or Ctrl and the wheel
 | GitHub calls and the cache | `platform/caminos.go` (`Platform.Caminos`), `github` (`RecentPullRequests`, `MergeBase`, `FirstParent`) |
 | The API | `GET /api/apps/{app}/caminos` |
 | The canvas and the panel | `web/src/components/caminos.ts`, `caminos-tab.tsx` |
+| The live copies: what each runs, its memory, those deleted and why | `platform/copias_vista.go` (`CopiasOf`, `RemakeCopy`, `ExtendCopy`, `DeleteCopy`), `store.Copias` (table `copias`) |
+| Their API | `GET /api/apps/{app}/copias`; `POST …/copias/{n}/rehacer`, `POST …/copias/{n}/extender`, `DELETE …/copias/{n}` |
+| Their section | `web/src/components/copias.tsx` |

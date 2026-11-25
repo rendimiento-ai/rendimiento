@@ -83,7 +83,7 @@ func TestPreviewCopies(t *testing.T) {
 	if !strings.Contains(fake.said[1], "deleted, to make room") {
 		t.Fatalf("the replaced copy's comment: %q", fake.said[1])
 	}
-	p.ClosePreview(ctx, "o/copias", 8)
+	p.ClosePreview(ctx, "o/copias", 8, false)
 	if !gone(ctx, kube, "copias-pr-8") {
 		t.Fatal("closing the pull request left its copy")
 	}

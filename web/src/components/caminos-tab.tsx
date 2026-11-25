@@ -1,10 +1,13 @@
 // The Caminos tab of an app: its last two weeks as roads (see caminos.ts),
-// with a panel that tells each branch's and each run's story.
+// with a panel that tells each branch's and each run's story. An app with
+// previews: has its live copies at the top (copias.tsx); each branch with
+// one gets a «live copy» badge, and a house at the end of its road.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, type Caminos, type CaminosBranch, type CaminosRun } from "../api";
+import { api, type App, type Caminos, type CaminosBranch, type CaminosRun, type CopiaLive } from "../api";
 import { locale, t, tn } from "../i18n";
-import { CaminosMap, Layout, type CaminosSel, type PlayState } from "./caminos";
+import { CaminosMap, Layout, type CaminosSel, type CopiaMark, type PlayState } from "./caminos";
+import { copiaAnchor, CopiasVivas, EsqCopias, goToCopia } from "./copias";
 import { ErrorBox, usePoll } from "./ui";
 import { EsqBloques } from "./esqueleto";
 
@@ -38,17 +41,44 @@ const PACES = [
   { s: 45, label: "Gallop · 45 s" },
 ];
 
-/** The Caminos tab. */
-export function CaminosTab({ name }: { name: string }) {
+/** The Caminos tab: the app's live copies first, when it asks for previews, then the roads. */
+export function CaminosTab({ name, app }: { name: string; app?: App }) {
   const { data, error } = usePoll(() => api.caminos(name), [name], 30000);
-  if (error) return <ErrorBox error={error} />;
-  if (!data) return <EsqBloques alturas={[420]} />;
-  if (data.main.length === 0 && data.branches.length === 0) return <p className="muted">{t("No runs in the last two weeks yet: the road starts with the first push.")}</p>;
-  return <CaminosView name={name} data={data} />;
+  const previews = !!app?.spec?.previews;
+  const { data: copias, error: copiasError, reload } = usePoll(() => (previews ? api.copias(name) : Promise.resolve(undefined)), [name, previews], 30000);
+  const vivas = copias?.live ?? [];
+  const copiasPart = !previews || !app ? null : copiasError ? <ErrorBox error={copiasError} /> : !copias ? <EsqCopias /> : <CopiasVivas app={app} data={copias} onChange={reload} />;
+  let road;
+  if (error) road = <ErrorBox error={error} />;
+  else if (!data) road = <EsqBloques alturas={[420]} />;
+  else if (data.main.length === 0 && data.branches.length === 0) road = <p className="muted">{t("No runs in the last two weeks yet: the road starts with the first push.")}</p>;
+  else road = <CaminosView name={name} data={data} copias={vivas} />;
+  return <>{copiasPart}{road}</>;
 }
 
-function CaminosView({ name, data }: { name: string; data: Caminos }) {
-  const canvas = useRef<HTMLCanvasElement>(null), mini = useRef<HTMLCanvasElement>(null);
+/** The live copy of each branch (a pull request's first). */
+function copiaPorRama(copias: CopiaLive[]): Map<string, CopiaLive> {
+  const m = new Map<string, CopiaLive>();
+  for (const c of copias) if (c.branch && (!m.has(c.branch) || (!c.short && m.get(c.branch)!.short))) m.set(c.branch, c);
+  return m;
+}
+
+/** Where a copy's badge or house takes the person: its card, or (a short copy) the section. */
+const irACopia = (c: CopiaLive) => goToCopia(c.short || !c.pull ? "copias" : copiaAnchor(c.pull));
+
+/** The «live copy» badge of a branch that has one: it takes the person to the copy's card. */
+function CopiaBadge({ c }: { c?: CopiaLive }) {
+  if (!c) return null;
+  const href = `#${c.short || !c.pull ? "copias" : copiaAnchor(c.pull)}`;
+  return (
+    <a className="badge copia-viva" href={href} onClick={(e) => { e.preventDefault(); e.stopPropagation(); irACopia(c); }}>
+      {c.short ? t("short copy") : t("live copy")}
+    </a>
+  );
+}
+
+function CaminosView({ name, data, copias }: { name: string; data: Caminos; copias: CopiaLive[] }) {
+  const canvas = useRef<HTMLCanvasElement>(null), mini = useRef<HTMLCanvasElement>(null), casas = useRef<HTMLDivElement>(null);
   const engine = useRef<CaminosMap>(null);
   const [sel, setSel] = useState<CaminosSel | null>(null);
   const [hint, setHint] = useState("");
@@ -66,6 +96,20 @@ function CaminosView({ name, data }: { name: string; data: Caminos }) {
   }, [name]);
   useEffect(() => { engine.current?.setData(data); }, [data]);
   useEffect(() => { engine.current?.setSpeed(pace); }, [pace]);
+  const porRama = useMemo(() => copiaPorRama(copias), [copias]);
+  const marcas = [...porRama.values()].map((c) => `${c.branch}:${c.pull ?? ""}:${c.run ?? ""}`).join(",");
+  useEffect(() => {
+    if (!engine.current || !casas.current) return;
+    const marks: CopiaMark[] = [...porRama.values()].map((c) => ({
+      branch: c.branch!,
+      short: c.short,
+      text: c.short ? t("en seco") : `#${c.pull}`,
+      label: c.short ? t("Short copy en seco of run {id}, branch {name}", { id: c.run ?? 0, name: c.branch! }) : t("Live copy of pull request #{n}, branch {name}", { n: c.pull ?? 0, name: c.branch! }),
+    }));
+    engine.current.setCopias(casas.current, marks, (m) => { const c = porRama.get(m.branch); if (c) irACopia(c); });
+    // the houses change only when the copies do
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marcas, name]);
   const choose = (s: CaminosSel | null) => { setSel(s); engine.current?.select(s, true); };
 
   const branchNames = [...data.branches].sort((a, b) => lastAt(b).localeCompare(lastAt(a)));
@@ -96,6 +140,7 @@ function CaminosView({ name, data }: { name: string; data: Caminos }) {
           <div className="caminos-stage">
             <div className="caminos-picado" aria-hidden="true">{Array.from({ length: 16 }, (_, i) => <i key={i} />)}</div>
             <canvas ref={canvas} aria-label={t("Map of the branches as roads that leave the default branch and come back to it")} />
+            <div className="caminos-casas" ref={casas} role="group" aria-label={t("Live copies on the map")} />
             <div className="caminos-tools">
               <button onClick={() => engine.current?.zoom(1.4)} aria-label={t("Zoom in")}>+</button>
               <button onClick={() => engine.current?.zoom(1 / 1.4)} aria-label={t("Zoom out")}>−</button>
@@ -106,7 +151,7 @@ function CaminosView({ name, data }: { name: string; data: Caminos }) {
           <div className="caminos-mini"><canvas ref={mini} aria-label={t("The whole two weeks; tap to go to that date")} /></div>
         </div>
         <aside className="card caminos-panel" aria-live="polite">
-          <Panel name={name} data={data} layout={layout} sel={sel} choose={choose} />
+          <Panel name={name} data={data} layout={layout} sel={sel} choose={choose} copias={porRama} />
         </aside>
       </div>
       <details className="card caminos-legend">
@@ -116,6 +161,7 @@ function CaminosView({ name, data }: { name: string; data: Caminos }) {
           <li>{t("Each vereda is a branch: it leaves the camino real at the commit it started from and, once merged, comes back by its pull request. A stacked pull request leaves its parent branch instead.")}</li>
           <li>{t("Each stop is a run. A whole crate passed; a broken crate with its maize spilled failed, and the panel says at which step; a grey one was cancelled.")}</li>
           <li>{t("The market stalls on the camino real are the releases that were deployed.")}</li>
+          <li>{t("A little house at the end of a vereda is its pull request's live copy, with its number; a dashed one is a short copy en seco. Choose it to go to its card.")}</li>
           <li>{t("A vereda that ends at a sign was not merged: waiting at the gate if it ran recently or its pull request is open, left on the way if nobody came back for it.")}</li>
           <li>{t("Tell the story walks the two weeks: a burro carries each branch's load, stumbles where a run failed, and the caravan reaches the market with each release.")}</li>
         </ul>
@@ -126,19 +172,21 @@ function CaminosView({ name, data }: { name: string; data: Caminos }) {
 
 const lastAt = (b: CaminosBranch) => b.runs[b.runs.length - 1]?.at ?? "";
 
-function Panel({ name, data, layout, sel, choose }: { name: string; data: Caminos; layout: Layout; sel: CaminosSel | null; choose: (s: CaminosSel | null) => void }) {
+type PorRama = Map<string, CopiaLive>;
+
+function Panel({ name, data, layout, sel, choose, copias }: { name: string; data: Caminos; layout: Layout; sel: CaminosSel | null; choose: (s: CaminosSel | null) => void; copias: PorRama }) {
   if (sel?.kind === "branch") {
     const b = data.branches.find((x) => x.name === sel.name);
-    if (b) return <BranchPanel b={b} choose={choose} />;
+    if (b) return <BranchPanel b={b} choose={choose} copia={copias.get(b.name)} />;
   }
   if (sel?.kind === "run") {
     const s = layout.all.find((x) => x.r.id === sel.id);
     if (s) return <RunPanel name={name} r={s.r} b={s.b?.b} def={data.defaultBranch} choose={choose} />;
   }
-  return <Summary data={data} layout={layout} choose={choose} />;
+  return <Summary data={data} layout={layout} choose={choose} copias={copias} />;
 }
 
-function Summary({ data, layout, choose }: { data: Caminos; layout: Layout; choose: (s: CaminosSel | null) => void }) {
+function Summary({ data, layout, choose, copias }: { data: Caminos; layout: Layout; choose: (s: CaminosSel | null) => void; copias: PorRama }) {
   const all = layout.all.map((s) => s.r);
   const n = all.length, ok = all.filter((r) => r.status === "succeeded").length;
   const fails = layout.all.filter((s) => s.r.status === "failed").sort((a, b) => b.at - a.at);
@@ -165,11 +213,14 @@ function Summary({ data, layout, choose }: { data: Caminos; layout: Layout; choo
           <h3>{t("Branches not merged")}</h3>
           <div className="caminos-list">
             {open.map((b) => (
-              <button key={b.name} className="caminos-item" onClick={() => choose({ kind: "branch", name: b.name })}>
-                <span className={`badge ${b.state === "open" ? "warn" : "bad"}`} />
-                <span>{b.name}<small>{b.state === "open" ? t("Waiting at the gate") : t("Left on the way")} · {when(lastAt(b))}</small></span>
-                <span className="muted small">{tn(b.runs.length, "{n} trip", "{n} trips")}</span>
-              </button>
+              <div key={b.name} className="caminos-fila">
+                <button className="caminos-item" onClick={() => choose({ kind: "branch", name: b.name })}>
+                  <span className={`badge ${b.state === "open" ? "warn" : "bad"}`} />
+                  <span>{b.name}<small>{b.state === "open" ? t("Waiting at the gate") : t("Left on the way")} · {when(lastAt(b))}</small></span>
+                  <span className="muted small">{tn(b.runs.length, "{n} trip", "{n} trips")}</span>
+                </button>
+                <CopiaBadge c={copias.get(b.name)} />
+              </div>
             ))}
           </div>
         </div>
@@ -199,7 +250,7 @@ function RunItem({ r, where, choose }: { r: CaminosRun; where: string; choose: (
   );
 }
 
-function BranchPanel({ b, choose }: { b: CaminosBranch; choose: (s: CaminosSel | null) => void }) {
+function BranchPanel({ b, choose, copia }: { b: CaminosBranch; choose: (s: CaminosSel | null) => void; copia?: CopiaLive }) {
   const fails = b.runs.filter((r) => r.status === "failed").length;
   const state = b.state === "merged" ? { cls: "ok", label: b.pr ? t("Merged by pull request #{n}", { n: b.pr }) : t("Merged") }
     : b.state === "open" ? { cls: "warn", label: t("Waiting at the gate") } : { cls: "bad", label: t("Left on the way") };
@@ -207,7 +258,10 @@ function BranchPanel({ b, choose }: { b: CaminosBranch; choose: (s: CaminosSel |
   return (
     <>
       <div>
-        <span className={`badge ${state.cls}`}>{state.label}</span>
+        <div className="row">
+          <span className={`badge ${state.cls}`}>{state.label}</span>
+          <CopiaBadge c={copia} />
+        </div>
         <h2>{b.name}</h2>
         {b.title && <p className="small">{b.title}</p>}
         <p className="muted small">

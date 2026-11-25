@@ -1425,6 +1425,82 @@ export interface Caminos {
   partial?: boolean;
 }
 
+// ---- an app's live copies (the Caminos tab's «Copias vivas») ----
+
+/** A copy's own tests against it: how many passed of how many, and those that failed. */
+export interface CopiaTests {
+  passed: number;
+  total: number;
+  failed?: string[];
+}
+
+/** What its run checked en seco against the copy. */
+export interface CopiaDry {
+  running?: boolean;
+  failed?: boolean;
+  passed: number;
+  total: number;
+  names?: string[]; // the checks that did not pass
+}
+
+/** Where a memory was read: what the pods use, what they ask for, or both among several copies. */
+export type MemoryFrom = "usage" | "requests" | "mixed";
+
+/** One live copy: a pull request's, or a short one made only for a run's checks en seco. */
+export interface CopiaLive {
+  name: string;
+  pull?: number;
+  short?: boolean;
+  title?: string;
+  author?: string;
+  bot?: boolean;
+  url?: string;
+  branch?: string;
+  sha?: string;
+  run?: number;
+  health: string; // Healthy, Progressing, Degraded, WaitingForBuild...
+  message?: string;
+  tests?: CopiaTests;
+  dry?: CopiaDry;
+  memoryMiB: number;
+  memoryFrom?: MemoryFrom;
+  madeAt: string;
+  pushedAt: string;
+  deletesOn?: string;
+  extended?: boolean;
+  canExtend?: boolean;
+  missingSecrets?: string[];
+}
+
+/** Why a copy went. */
+export type CopiaWhy = "merged" | "closed" | "idle" | "max" | "person" | "app" | "seco";
+
+/** A copy deleted lately. */
+export interface CopiaGone {
+  pull?: number;
+  secoRun?: number;
+  run?: number;
+  branch?: string;
+  madeAt: string;
+  goneAt?: string;
+  why?: CopiaWhy;
+  note?: string;
+  by?: string;
+}
+
+/** An app's copies: its previews: settings, the live ones, those deleted in the last 7 days, the memory they hold. */
+export interface Copias {
+  previews?: { keep: number; max: number; data: string; maxKeep: number; extend: number };
+  where: "cluster" | "computer";
+  live: CopiaLive[];
+  gone: CopiaGone[];
+  memoryMiB: number;
+  memoryFrom?: MemoryFrom;
+  /** All apps' copies against the cluster's memory (none on a computer). */
+  cluster?: { copiesMiB: number; clusterMiB: number; percent: number; cap: number; from?: MemoryFrom };
+  missingSecrets?: string[];
+}
+
 // ---- kinds of branch (the Runs tab) ----
 
 /** What a branch is: the default branch, a fix, a feature, a release, dependency updates, or another. */
@@ -1629,6 +1705,13 @@ export const api = {
   deleteApp: (name: string) => request<void>("DELETE", `/api/apps/${name}?confirm=${encodeURIComponent(name)}`),
   runs: (app: string) => request<Run[]>("GET", `/api/apps/${app}/runs`),
   caminos: (app: string) => request<Caminos>("GET", `/api/apps/${app}/caminos`),
+  copias: (app: string) => request<Copias>("GET", `/api/apps/${app}/copias`),
+  /** Makes the copy again with its branch's last commit whose run passed (restarts it when that is the one it runs). */
+  rehacerCopia: (app: string, pull: number) => request<{ run: number; restarted?: boolean }>("POST", `/api/apps/${app}/copias/${pull}/rehacer`),
+  /** Keeps the copy 3 more days, up to previews' most. */
+  extenderCopia: (app: string, pull: number) => request<{ deletesOn: string }>("POST", `/api/apps/${app}/copias/${pull}/extender`),
+  /** Deletes the copy now; the next push to its branch makes it again. */
+  borrarCopia: (app: string, pull: number) => request<void>("DELETE", `/api/apps/${app}/copias/${pull}`),
   branchKinds: (app: string) => request<BranchKinds>("GET", `/api/apps/${app}/branch-kinds`),
   mesa: (app: string) => request<Mesa>("GET", `/api/apps/${app}/mesa`),
   libreta: (app: string) => request<Libreta>("GET", `/api/apps/${app}/libreta`),

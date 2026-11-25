@@ -246,6 +246,9 @@ func (p *Platform) dryOnCopy(ctx context.Context, app *store.App, run *store.Run
 			return
 		}
 		log.Info("en seco: short copy made", "copy", c.name())
+		if err := p.Store.CopiaMade(ctx, app.ID, 0, run.ID, run.ID, run.Branch); err != nil {
+			log.Warn("en seco: recording the short copy", "err", err)
+		}
 		record(func(d *store.DryRun) {
 			d.Copy = &store.DryCopy{Kind: store.DryCopyShort, URL: copias.URL(copySpec, c)}
 		})
@@ -256,6 +259,9 @@ func (p *Platform) dryOnCopy(ctx context.Context, app *store.App, run *store.Run
 				return
 			}
 			log.Info("en seco: short copy deleted", "copy", c.name())
+			if err := p.Store.CopiaGone(context.WithoutCancel(ctx), app.ID, 0, run.ID, run.ID, store.CopiaSeco, "", ""); err != nil {
+				log.Warn("en seco: recording the short copy gone", "err", err)
+			}
 			record(func(d *store.DryRun) { d.Copy.Gone = true })
 		}()
 	}
@@ -313,6 +319,7 @@ func (p *Platform) dryOnCopy(ctx context.Context, app *store.App, run *store.Run
 			if live, ok := copias.Get(ctx, app.Name, c.Number); ok {
 				p.sayOnPull(ctx, app, run, sp, copias.URL(copySpec, c), c.Number, live.CommentID, previewTests(got))
 			}
+			p.recordCopyTests(ctx, app.ID, c.Number, got)
 		}
 	}
 }

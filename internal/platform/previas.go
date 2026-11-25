@@ -109,8 +109,9 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 	}
 	before, _ := copias.Get(ctx, app.Name, number)
 	commentID := before.CommentID
+	until := p.copyDeadline(ctx, app.ID, number, time.Now(), sp.Previews.KeepDays())
 	if p.Forja != nil {
-		body := inForjaWords(app, previewComment(number, url, run, p.Config.BaseURL, app.Name, time.Now().AddDate(0, 0, sp.Previews.KeepDays())))
+		body := inForjaWords(app, previewComment(number, url, run, p.Config.BaseURL, app.Name, until))
 		if id, err := p.repos(app).Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err == nil {
 			commentID = id
 		} else {
@@ -120,6 +121,9 @@ func (p *Platform) deployPreviewOf(ctx context.Context, app *store.App, run *sto
 	if err := copias.Put(ctx, app, org, copy, images, run, number, commentID); err != nil {
 		log.Warn("preview: writing it", "err", err)
 		return
+	}
+	if err := p.Store.CopiaMade(ctx, app.ID, number, 0, run.ID, run.Branch); err != nil {
+		log.Warn("preview: recording it", "err", err)
 	}
 	log.Info("preview deployed", "run", run.ID, "url", url)
 	if len(run.SHA) == 40 && p.Forja != nil {
@@ -174,6 +178,7 @@ func (p *Platform) testPreview(ctx context.Context, app *store.App, run *store.R
 		return
 	}
 	say(previewTests(got))
+	p.recordCopyTests(ctx, app.ID, number, got)
 	log.Info("preview tested", "run", run.ID, "tests", len(got))
 }
 
@@ -183,10 +188,44 @@ func (p *Platform) sayOnPull(ctx context.Context, app *store.App, run *store.Run
 	if commentID == 0 || p.Forja == nil {
 		return
 	}
-	body := previewComment(number, url, run, p.Config.BaseURL, app.Name, time.Now().AddDate(0, 0, sp.Previews.KeepDays())) + "\n\n" + section
+	until := p.copyDeadline(ctx, app.ID, number, time.Now(), sp.Previews.KeepDays())
+	body := previewComment(number, url, run, p.Config.BaseURL, app.Name, until) + "\n\n" + section
 	if _, err := p.repos(app).Comment(ctx, app.InstallationID, app.Repo, number, commentID, body); err != nil {
 		p.Log.Warn("preview: its comment", "app", app.Name, "pull", number, "err", err)
 	}
+}
+
+// copyTests counts the copy's own tests as its comment does
+// (previewTests): how many passed of how many, and those that failed.
+func copyTests(got []pruebas.Result) (passed, total int, failed []string) {
+	for _, r := range got {
+		switch r.Status {
+		case pruebas.Passed:
+			passed++
+		case pruebas.Failed, pruebas.Flaky:
+			failed = append(failed, r.Name)
+		}
+	}
+	return passed, len(got), failed
+}
+
+// recordCopyTests keeps the copy's own tests' result for its card on the
+// Caminos tab.
+func (p *Platform) recordCopyTests(ctx context.Context, appID int64, number int, got []pruebas.Result) {
+	passed, total, failed := copyTests(got)
+	if err := p.Store.SetCopiaTests(ctx, appID, number, passed, total, failed); err != nil {
+		p.Log.Warn("preview: recording its tests", "pull", number, "err", err)
+	}
+}
+
+// copyDeadline is the day pull request number's copy goes when nothing is
+// pushed after pushed: keep days later, or the day a person moved it to.
+func (p *Platform) copyDeadline(ctx context.Context, appID int64, number int, pushed time.Time, keep int) time.Time {
+	until := pushed.AddDate(0, 0, keep)
+	if row, err := p.Store.LiveCopia(ctx, appID, number, 0); err == nil && row.KeepUntil != nil && row.KeepUntil.After(until) {
+		until = *row.KeepUntil
+	}
+	return until
 }
 
 // previewTests is the comment's section of the copy's tests: how many
@@ -221,8 +260,10 @@ func previewComment(number int, url string, run *store.Run, baseURL, app string,
 		number, url, sha, run.ID, baseURL, app, run.ID, until.Format(time.DateOnly))
 }
 
-// deletePreview deletes a copy and says why in its pull request's comment.
-func (p *Platform) deletePreview(ctx context.Context, c copia, why string) error {
+// deletePreview deletes a copy and says why in its pull request's comment:
+// kind is why for the Caminos tab (store.CopiaMerged...), why in words, and
+// by the person who deleted it, when one did.
+func (p *Platform) deletePreview(ctx context.Context, c copia, kind, why, by string) error {
 	copias := p.copias()
 	if copias == nil {
 		return nil
@@ -233,6 +274,9 @@ func (p *Platform) deletePreview(ctx context.Context, c copia, why string) error
 	app, err := p.Store.GetApp(ctx, c.App)
 	if err != nil {
 		return nil
+	}
+	if err := p.Store.CopiaGone(ctx, app.ID, c.Number, c.Run, c.Release, kind, why, by); err != nil {
+		p.Log.Warn("preview: recording it gone", "copy", c.name(), "err", err)
 	}
 	if c.Number != 0 {
 		// The runs whose checks ran against it en seco stop linking to it.
@@ -268,7 +312,7 @@ func (p *Platform) makeRoom(ctx context.Context, app *store.App, keep, max int) 
 	}
 	sort.Slice(others, func(i, j int) bool { return others[i].PushedAt.Before(others[j].PushedAt) })
 	for len(others) >= max {
-		if err := p.deletePreview(ctx, others[0], M("to make room for a newer pull request's copy")); err != nil {
+		if err := p.deletePreview(ctx, others[0], store.CopiaMax, M("to make room for a newer pull request's copy"), ""); err != nil {
 			return err
 		}
 		p.Log.Info("preview deleted to make room", "app", app.Name, "copy", others[0].name())
@@ -305,9 +349,16 @@ func (p *Platform) previewFromLastRun(ctx context.Context, a *store.App, number 
 	if err != nil || last.Status != store.RunSucceeded || last.Deploy || branch == a.DefaultBranch {
 		return
 	}
-	run, err := p.Store.GetRun(ctx, last.ID)
+	p.previewFromRun(ctx, a, number, last.ID)
+}
+
+// previewFromRun writes pull request number's copy from a run that passed,
+// with the spec of its commit; false when that commit asks for no previews
+// or the run cannot be read.
+func (p *Platform) previewFromRun(ctx context.Context, a *store.App, number int, runID int64) bool {
+	run, err := p.Store.GetRun(ctx, runID)
 	if err != nil {
-		return
+		return false
 	}
 	sp := a.Spec
 	if raw, err := p.repos(a).FileAt(ctx, a.InstallationID, a.Repo, spec.FileName, run.SHA); err == nil {
@@ -316,9 +367,10 @@ func (p *Platform) previewFromLastRun(ctx context.Context, a *store.App, number 
 		}
 	}
 	if sp.Previews == nil {
-		return
+		return false
 	}
 	p.deployPreviewOf(ctx, a, run, sp, p.imagesOfRun(ctx, a, run, sp), number, false)
+	return true
 }
 
 // catchUpPreviews makes the copies a lost "opened" event left out: an open
@@ -343,11 +395,22 @@ func (p *Platform) catchUpPreviews(ctx context.Context) {
 			if pr.State != "open" || (pr.Head.Repo.FullName != "" && pr.Head.Repo.FullName != a.Repo) {
 				continue
 			}
-			if _, has := copias.Get(ctx, a.Name, pr.Number); !has {
+			if _, has := copias.Get(ctx, a.Name, pr.Number); !has && !p.deletedByPerson(ctx, a, pr.Number, pr.Head.Ref) {
 				p.previewFromLastRun(ctx, a, pr.Number, pr.Head.Ref)
 			}
 		}
 	}
+}
+
+// deletedByPerson says a person deleted pull request number's copy after
+// its branch's last run: the next push makes it again, not the sweep.
+func (p *Platform) deletedByPerson(ctx context.Context, a *store.App, number int, branch string) bool {
+	row, err := p.Store.LastCopia(ctx, a.ID, number)
+	if err != nil || row.GoneWhy != store.CopiaPerson {
+		return false
+	}
+	last, err := p.Store.LastRunOf(ctx, a.ID, branch)
+	return err == nil && last.ID <= row.RunID
 }
 
 // imagesOfRun are the images a finished run passed, from its recorded
@@ -384,7 +447,7 @@ func (p *Platform) imagesOfRun(ctx context.Context, a *store.App, run *store.Run
 
 // ClosePreview deletes the copy of a closed or merged pull request, when
 // GitHub says so; the sweep catches what a lost webhook leaves.
-func (p *Platform) ClosePreview(ctx context.Context, repo string, number int) {
+func (p *Platform) ClosePreview(ctx context.Context, repo string, number int, merged bool) {
 	copias := p.copias()
 	if copias == nil {
 		return
@@ -398,7 +461,11 @@ func (p *Platform) ClosePreview(ctx context.Context, repo string, number int) {
 		if !ok {
 			continue
 		}
-		if err := p.deletePreview(ctx, c, M("the pull request was closed")); err == nil {
+		kind, why := store.CopiaClosed, M("the pull request was closed")
+		if merged {
+			kind, why = store.CopiaMerged, M("the pull request was merged")
+		}
+		if err := p.deletePreview(ctx, c, kind, why, ""); err == nil {
 			p.Log.Info("preview deleted: its pull request closed", "app", a.Name, "pull", number)
 		} else {
 			p.Log.Warn("preview: deleting", "app", a.Name, "pull", number, "err", err)
@@ -440,9 +507,9 @@ func (p *Platform) sweepPreviews(ctx context.Context, now time.Time) {
 		return
 	}
 	for _, c := range copies {
-		if why := p.previewGone(ctx, c, now); why != "" {
+		if kind, why := p.previewGone(ctx, c, now); why != "" {
 			name := c.name()
-			if err := p.deletePreview(ctx, c, why); err != nil {
+			if err := p.deletePreview(ctx, c, kind, why, ""); err != nil {
 				p.Log.Warn("previews: deleting", "copy", name, "err", err)
 				continue
 			}
@@ -451,37 +518,41 @@ func (p *Platform) sweepPreviews(ctx context.Context, now time.Time) {
 	}
 }
 
-// previewGone says why a copy should go ("" to keep it).
-func (p *Platform) previewGone(ctx context.Context, c copia, now time.Time) string {
+// previewGone says why a copy should go (kind for the Caminos tab, and
+// why in words; "" to keep it).
+func (p *Platform) previewGone(ctx context.Context, c copia, now time.Time) (string, string) {
 	app, err := p.Store.GetApp(ctx, c.App)
 	if err != nil {
-		return M("its app is gone")
+		return store.CopiaApp, M("its app is gone")
 	}
 	if c.Run != 0 {
 		// Its run deletes it once the checks end; one left behind (the
 		// platform restarted meanwhile) goes here.
 		if now.Sub(c.PushedAt) > shortCopyLife {
-			return M("its checks en seco ended long ago")
+			return store.CopiaSeco, M("its checks en seco ended long ago")
 		}
-		return ""
+		return "", ""
 	}
 	if app.Spec.Previews == nil {
-		return M("the app no longer asks for previews")
+		return store.CopiaApp, M("the app no longer asks for previews")
 	}
-	if now.Sub(c.PushedAt) > time.Duration(app.Spec.Previews.KeepDays())*24*time.Hour {
-		return M("no push for longer than the app keeps a copy")
+	if now.After(p.copyDeadline(ctx, app.ID, c.Number, c.PushedAt, app.Spec.Previews.KeepDays())) {
+		return store.CopiaIdle, M("no push for longer than the app keeps a copy")
 	}
 	got, ok := p.recentPulls(ctx, app)
 	if !ok {
-		return "" // GitHub did not answer: keep it until it does
+		return "", "" // GitHub did not answer: keep it until it does
 	}
 	for _, pr := range got.prs {
 		if pr.Number == c.Number {
-			if pr.State != "open" {
-				return M("the pull request was closed")
+			switch {
+			case pr.State == "open":
+				return "", ""
+			case pr.MergedAt != nil:
+				return store.CopiaMerged, M("the pull request was merged")
 			}
-			return ""
+			return store.CopiaClosed, M("the pull request was closed")
 		}
 	}
-	return "" // not among the latest pull requests: the idle rule takes it in time
+	return "", "" // not among the latest pull requests: the idle rule takes it in time
 }

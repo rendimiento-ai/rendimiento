@@ -10,6 +10,8 @@ On a pull request of an app that asked for previews (`previews:` in `rendimiento
 2. One comment, **kept and edited** (never a new one per push): the address, the commit it shows, when it will be deleted, and what the agent found.
 3. When the person merges or closes the pull request, the copy goes away and the comment says so.
 
+On rendimiento, the app's [Roads tab](../guide/caminos.md#live-copies) starts with **Live copies · N of max**: a card per copy (its pull request, address, commit and run, health, its own tests and its checks en seco, memory, the day it goes), the memory they hold and the cluster's share of all apps' copies against the 10% cap, the copies deleted in the last 7 days and why, and the Secrets a copy does not have. Each branch with a copy gets a **live copy** badge, and a little house at the end of its road on the map; the glance links to the section. A person who may merge makes a copy again with the branch's last commit that passed, keeps it 3 more days (up to 30 after its last push), or deletes it now; its comment says who, and the next push makes it again.
+
 ## One copy per pull request {#one-copy}
 
 - **Where it lives.** A namespace `<app>-pr-<number>`, not containers beside the app's: `render.Render` already takes the namespace apart from the app's name (`Input.Namespace`), so the same release objects are rendered for the copy with its own namespace, a `pr-<number>` host prefix, one replica per service and the label `rendimiento.ai/preview=<number>`. A namespace gives the NetworkPolicy, quota and deletion for free: deleting it deletes everything.

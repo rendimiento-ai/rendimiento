@@ -36,6 +36,8 @@ type Copia struct {
 	Seco       int64  // the run a short copy is for (0 for a pull request's)
 	Empujada   time.Time
 	Comentario int64
+	// Version is the run whose images it runs (its release's number).
+	Version int64
 }
 
 // NombreCopia is the name of pull request numero's copy of app.
@@ -128,10 +130,11 @@ func copiaDe(et map[string]string) Copia {
 	at, _ := time.Parse(time.RFC3339, et[etEmpujada])
 	id, _ := strconv.ParseInt(et[etComentario], 10, 64)
 	seco, _ := strconv.ParseInt(et[etSeco], 10, 64)
+	version, _ := strconv.ParseInt(et[etVersion], 10, 64)
 	if seco != 0 {
 		n = 0
 	}
-	return Copia{App: et[etCopiaDe], Numero: n, Seco: seco, Empujada: at, Comentario: id}
+	return Copia{App: et[etCopiaDe], Numero: n, Seco: seco, Empujada: at, Comentario: id, Version: version}
 }
 
 // QuitarCopia removes a copy: its containers, its data and its network.
