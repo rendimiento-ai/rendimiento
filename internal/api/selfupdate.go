@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 )
 
@@ -30,7 +31,7 @@ func (s *Server) updatePlatform(w http.ResponseWriter, r *http.Request, login st
 	var body struct {
 		Release int64 `json:"release"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Release <= 0 {
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<10)).Decode(&body); err != nil || body.Release <= 0 {
 		httpError(w, http.StatusBadRequest, "release required")
 		return
 	}
