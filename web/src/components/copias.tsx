@@ -82,7 +82,7 @@ export function CopiasVivas({ app, data, onChange }: { app: App; data: Copias; o
         <Cifra label={t("Live copies")} value={t("{n} of {max}", { n, max: p.max })} note={t("one per pull request")} />
         <Cifra label={t("Memory they hold")} value={mib(data.memoryMiB)} note={memWord(data.memoryFrom)} />
         {data.cluster ? (
-          <Cifra label={t("Of the cluster, all apps")} value={t("{n}% of {cap}%", { n: data.cluster.percent < 10 ? data.cluster.percent.toFixed(1) : Math.round(data.cluster.percent), cap: data.cluster.cap })}
+          <Cifra label={t("Of the cluster, all apps")} value={t("{n}% of {cap}%", { n: (data.cluster.percent < 10 ? Number(data.cluster.percent.toFixed(1)) : Math.round(data.cluster.percent)).toLocaleString(locale), cap: data.cluster.cap })}
             note={t("{used} of {total}", { used: mib(data.cluster.copiesMiB), total: mib(data.cluster.clusterMiB) })} warn={data.cluster.percent > data.cluster.cap} />
         ) : (
           <Cifra label={t("Of the cluster, all apps")} value="—" note={data.where === "computer" ? t("On a computer: no cluster to share") : t("The nodes could not be read")} />
