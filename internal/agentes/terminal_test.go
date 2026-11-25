@@ -20,11 +20,18 @@ type fakeSandbox struct {
 	reqs    []pipeline.SandboxRun
 	results []pipeline.SandboxResult
 	closed  []string
+	// clones are what each run's context carried for the clone token.
+	clones []any
 }
 
-func (f *fakeSandbox) Run(_ context.Context, req pipeline.SandboxRun) (pipeline.SandboxResult, error) {
+// cloneKey is what the test's Clone puts in the context, as the
+// platform's ForClone puts the app's installation.
+type cloneKey struct{}
+
+func (f *fakeSandbox) Run(ctx context.Context, req pipeline.SandboxRun) (pipeline.SandboxResult, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.clones = append(f.clones, ctx.Value(cloneKey{}))
 	pending := map[string][]byte{}
 	for p, b := range req.Pending {
 		pending[p] = b
@@ -115,7 +122,9 @@ func TestCoderRunsCommands(t *testing.T) {
 	}}
 	c := newCoder(st, r, m)
 	c.Store = withSpec{st}
-	c.Terminal = &Terminal{Sandbox: box, Store: terms}
+	c.Terminal = &Terminal{Sandbox: box, Store: terms, Clone: func(ctx context.Context, app *store.App) (context.Context, string) {
+		return context.WithValue(ctx, cloneKey{}, app.InstallationID), "https://gitlab.example.com/o/tienda.git"
+	}}
 	var system string
 	var tools []string
 	c.Model = promptSeen{m, &system, &tools}
@@ -132,8 +141,15 @@ func TestCoderRunsCommands(t *testing.T) {
 	req := box.reqs[0]
 	if req.Key != "encargo-12" || req.Folder != "web" || req.Command != "npm ci && npm test" || req.Image != "node:22-bookworm-slim" ||
 		!strings.Contains(req.ImageFrom, "service web") || string(req.Pending["web/hola.ts"]) != "export const hola = 'Hola'\n" ||
-		req.Src.Repo != "o/tienda" || !strings.HasSuffix(req.Src.Branch, "encargo-12-saludar-en-espanol") {
+		!strings.HasSuffix(req.Src.Branch, "encargo-12-saludar-en-espanol") {
 		t.Fatalf("asked %+v", req)
+	}
+	// It clones as a run's steps do (Ruta 178: a private repository refused
+	// a clone without the token): with the app's installation in the
+	// context, from its forja's address, at the commit its branch started
+	// from (it has committed nothing yet).
+	if req.Src.Repo != "https://gitlab.example.com/o/tienda.git" || box.clones[0] != int64(7) || req.Src.SHA != "head-of-main" {
+		t.Fatalf("clones %s at %q with %v", req.Src.Repo, req.Src.SHA, box.clones)
 	}
 	out := m.seen[1]
 	for _, want := range []string{"$ npm ci && npm test", "exit code 1, in 12s", "the last", "1 failing", "expected 'Hola'", "npm ERR! test failed",

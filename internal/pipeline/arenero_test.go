@@ -126,6 +126,27 @@ func TestSandboxPod(t *testing.T) {
 	if pod, _ := s.Pod("x", nil, Source{Repo: "o/tienda", SHA: "abc"}, "img"); pod.Spec.RuntimeClassName != nil {
 		t.Fatal("a runtime class nobody set")
 	}
+	// GitHub's owner/name, or another forja's address as it is; the commit,
+	// or the branch's head without one.
+	for _, c := range []struct {
+		src      Source
+		url, ref string
+	}{
+		{Source{Repo: "o/tienda", SHA: "abc", Branch: "b"}, "https://github.com/o/tienda.git", "abc"},
+		{Source{Repo: "https://gitlab.example.com/g/tienda.git", Branch: "b"}, "https://gitlab.example.com/g/tienda.git", "b"},
+	} {
+		pod, err := s.Pod("x", nil, c.src, "img")
+		if err != nil {
+			t.Fatal(err)
+		}
+		env := map[string]string{}
+		for _, e := range pod.Spec.InitContainers[0].Env {
+			env[e.Name] = e.Value
+		}
+		if env["CLONE_URL"] != c.url || env["REF"] != c.ref {
+			t.Fatalf("%+v clones %q at %q", c.src, env["CLONE_URL"], env["REF"])
+		}
+	}
 }
 
 // isolate-sandbox lets a sandbox reach DNS and the public internet only,

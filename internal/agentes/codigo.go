@@ -367,6 +367,9 @@ type job struct {
 	finished           bool
 	outcome            string // delivered, gave back
 	cause              string // why it gave it back (store.Cause*; "": read from the note)
+	// base is the commit the branch stood at when the job read its files:
+	// what a sandbox or a fix starts from before its first commit.
+	base string
 	// fixes are the app's declared fixes, from the default branch.
 	fixes []spec.Fix
 	// resumed is the answered question it goes on from (nil: a new start);
@@ -475,9 +478,15 @@ func (j *job) work(ctx context.Context) error {
 		if err := c.Repos.CreateBranch(ctx, app.InstallationID, app.Repo, j.branch, base); err != nil {
 			return err
 		}
+		j.base = base
 	}
 	if head, ok := j.resumedHead(ctx); ok && j.same {
 		j.lastSHA = head
+	}
+	if j.base == "" && j.lastSHA == "" {
+		if head, err := c.Repos.BranchSHA(ctx, app.InstallationID, app.Repo, j.branch); err == nil {
+			j.base = head // the branch of another run, as it is now
+		}
 	}
 	if j.files, err = c.Repos.Files(ctx, app.InstallationID, app.Repo, j.branch, maxFileSize); err != nil {
 		return err
@@ -1096,6 +1105,15 @@ func (j *job) mergeDefault(ctx context.Context) (string, bool) {
 	return out.String(), false
 }
 
+// at is the commit the job's changes lie over: its last commit, or the
+// one its branch started from.
+func (j *job) at() string {
+	if j.lastSHA != "" {
+		return j.lastSHA
+	}
+	return j.base
+}
+
 // runFix runs a declared fix on the branch with the uncommitted changes:
 // what it writes joins them, for the next commit_and_test.
 func (j *job) runFix(ctx context.Context, name string) (string, bool) {
@@ -1116,7 +1134,7 @@ func (j *job) runFix(ctx context.Context, name string) (string, bool) {
 		}
 	}
 	sort.Strings(removed)
-	res, err := c.Fixes.Run(ctx, arreglos.Request{App: j.app, Branch: j.branch, SHA: j.lastSHA, Fix: name,
+	res, err := c.Fixes.Run(ctx, arreglos.Request{App: j.app, Branch: j.branch, SHA: j.at(), Fix: name,
 		Pending: j.changed, Removed: removed, AskedKind: store.FixByAgent, AskedBy: CoderName, Encargo: j.e.ID})
 	if err != nil {
 		return "the fix could not run: " + err.Error(), true

@@ -458,7 +458,8 @@ func TestCoderRunsAFix(t *testing.T) {
 	if len(m.seen) < 3 || !strings.Contains(m.seen[1], "no such fix") || !strings.Contains(m.seen[2], "It wrote web/package-lock.json") {
 		t.Fatalf("results %q", m.seen)
 	}
-	if len(fixes.reqs) != 1 || fixes.reqs[0].Branch != "renovate/react" || fixes.reqs[0].AskedKind != store.FixByAgent || fixes.reqs[0].Encargo != 12 ||
+	if len(fixes.reqs) != 1 || fixes.reqs[0].Branch != "renovate/react" || fixes.reqs[0].SHA != "head-of-renovate/react" ||
+		fixes.reqs[0].AskedKind != store.FixByAgent || fixes.reqs[0].Encargo != 12 ||
 		!strings.Contains(string(fixes.reqs[0].Pending["web/package.json"]), "19.3.1") {
 		t.Fatalf("asked %+v", fixes.reqs)
 	}
