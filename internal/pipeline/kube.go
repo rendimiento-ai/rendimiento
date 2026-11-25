@@ -912,16 +912,19 @@ func (k *KubeExecutor) dropCache(ctx context.Context, pod string, step Step) err
 	}
 }
 
-// DeleteCaches removes the cache volumes of an app's tests.
+// DeleteCaches removes the cache volumes of an app's tests, and its
+// coding agent's sandbox cache.
 func (k *KubeExecutor) DeleteCaches(ctx context.Context, app string) error {
 	pvcs := k.Client.CoreV1().PersistentVolumeClaims(k.Namespace)
-	l, err := pvcs.List(ctx, metav1.ListOptions{LabelSelector: CacheAppLabel + "=" + nonName.ReplaceAllString(app, "-")})
-	if err != nil {
-		return err
-	}
-	for _, c := range l.Items {
-		if err := pvcs.Delete(ctx, c.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+	for _, label := range []string{CacheAppLabel, SandboxCacheLabel} {
+		l, err := pvcs.List(ctx, metav1.ListOptions{LabelSelector: label + "=" + nonName.ReplaceAllString(app, "-")})
+		if err != nil {
 			return err
+		}
+		for _, c := range l.Items {
+			if err := pvcs.Delete(ctx, c.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+				return err
+			}
 		}
 	}
 	return nil

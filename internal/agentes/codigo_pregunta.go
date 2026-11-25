@@ -38,6 +38,9 @@ type AskStore interface {
 // its store (store.Store): only ever about the encargo's own app.
 type CoderPlataforma interface {
 	ListReleases(ctx context.Context, appID int64, limit int) ([]*store.Release, error)
+	// ReleaseEvidence is what was seen of a release when it failed
+	// verification (store.ErrNotFound: nothing was kept).
+	ReleaseEvidence(ctx context.Context, appID, number int64) (*store.ReleaseEvidence, error)
 	ListProblems(ctx context.Context, app string, since time.Time, withDismissed bool, limit int) ([]store.Problem, error)
 	SlowRequests(ctx context.Context, app string, platform bool, since time.Time, limit int) ([]store.SlowRequest, error)
 	HallazgosDeApp(ctx context.Context, app string, limit int) ([]store.VigiaHallazgo, error)
@@ -274,7 +277,7 @@ var seeTools = []ia.Tool{
 		InputSchema: schema(map[string]any{"run": num("the run's number"), "step": str("the step, like web:test"), "lines": num("how many lines from the end")}, "run", "step")},
 	{Name: "slow_requests", Description: "The app's slow requests: those the platform's log (the Registro) noted as slower than a second, with route, milliseconds, status and time, and the slow requests the traces kept for its services. Only this encargo's app.",
 		InputSchema: schema(map[string]any{"days": num("how many days back, up to 30 (7 if omitted)")})},
-	{Name: "app_status", Description: "The app's status: its latest releases (with their verification), its open problems and the lookout's (vigía) findings about it. Only this encargo's app.",
+	{Name: "app_status", Description: "The app's status: its latest releases (with their verification and, for one that failed it, what its pods showed then: their state, the warning events and their last lines), its open problems and the lookout's (vigía) findings about it. Only this encargo's app.",
 		InputSchema: schema(map[string]any{})},
 }
 
@@ -547,6 +550,13 @@ func (j *job) appStatus(ctx context.Context) (string, bool) {
 				}
 			}
 			b.WriteString("\n")
+			// A failed release brings what its pods showed then, kept
+			// before the rollback removed them.
+			if r.VerifyStatus == store.VerifyFailed || r.VerifyStatus == store.VerifyFailedKept {
+				if ev, err := p.ReleaseEvidence(ctx, j.app.ID, r.Number); err == nil {
+					b.WriteString(truncate(ev.Summary(30), 6000) + "\n")
+				}
+			}
 		}
 	}
 	if probs, err := p.ListProblems(ctx, j.app.Name, time.Now().AddDate(0, 0, -7), false, 20); err == nil {

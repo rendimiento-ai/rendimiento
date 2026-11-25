@@ -128,6 +128,21 @@ Una prueba que falla y luego pasa al reintentarla nunca revierte una versión: u
 
 Con `dryRun: true` bajo `tests:`, una rama que cambia solo las pruebas (las de `e2e/`, por ejemplo) también las corre **en seco**: la imagen de las pruebas hecha en la rama, contra la versión ya publicada. Ahí cuenta toda prueba que falle (son las nuevas), pero solo avisa: la rama no se integra sola, y no se revierte nada. En una rama que cambia la aplicación, en una aplicación con vistas previas, corren en cambio contra una copia de la rama ([contra una copia](tasks.md#dry-runs-against-a-copy)). Vea [en seco, en las ramas](tasks.md#dry-runs-on-branches).
 
+### Lo que se vio al fallar {#what-was-seen-when-it-failed}
+
+Kubernetes olvida sus eventos en más o menos una hora, y la reversión quita de inmediato los pods de la versión fallida, así que después nadie podría decir por qué falló una versión. Antes de revertirla (o de mantener una versión fallida), rendimiento guarda **lo que vio**, por cada servicio de la versión:
+
+- su conjunto de réplicas (ReplicaSet) nuevo y por qué su Deployment no avanza (`ProgressDeadlineExceeded: ReplicaSet "web-7c9d" has timed out progressing`);
+- hasta 3 de sus pods, primero los que no están listos: fase, condiciones que no se cumplen y el estado de cada contenedor (esperando, corriendo o terminado, con el motivo), sus reinicios y su último código de salida;
+- las últimas 200 líneas del registro de cada contenedor, y las 200 de antes de su último reinicio cuando se reinició;
+- los últimos 50 eventos del espacio de nombres sobre ese Deployment, su conjunto de réplicas y sus pods.
+
+En una computadora (sin clúster), es el contenedor de cada servicio: su estado, código de salida, reinicios y últimas 200 líneas, leídos antes de quitar los contenedores de la versión fallida.
+
+Las líneas que parecen un secreto (un token, una llave privada, un `password=`, una URL con contraseña) se omiten, y una versión guarda a lo más 64 KiB: primero se recortan los registros más largos, conservando su final. Se guarda **30 días** (tabla `release_evidence`).
+
+Aparece debajo de la versión fallida en la pestaña **Versiones** (**Lo que se vio al fallar**), en la entrada de la versión en **Problemas**, y para los agentes en `app_estado` (MCP, campo `lo_que_se_vio`) y en el `app_status` del agente programador, como un resumen breve con las últimas líneas. Para leerlo, el ClusterRole de la plataforma necesita `list` sobre los eventos (`deploy/rbac.yaml`; los pods, sus registros y los conjuntos de réplicas ya los lee).
+
 ## Estadísticas públicas {#public-stats}
 
 Con `PUBLIC_STATS=true`, rendimiento publica **cifras agregadas** en `GET /api/public/stats` para una página pública. Un portafolio puede mostrarlas, por ejemplo, en una sección *En vivo desde el laboratorio de casa*.
@@ -174,6 +189,7 @@ Eso queda listo para Grafana en cuanto se recolecte.
 |---|---|
 | Qué comprobar, ejecutar las comprobaciones, las interrupciones, las métricas | `internal/uptime` (`Targets`, `Checker`, `Prober`) |
 | La verificación de versiones y la reversión automática | `internal/platform/verify.go` (`startVerification`, `judge`, `rollbackTo`) |
+| Lo que se vio de una versión fallida | `internal/platform/evidencia.go` (`Evidence`, `keepEvidence`), `internal/destino/evidencia.go` y `local_evidencia.go`, `internal/store/evidencia.go`, migración `0068_evidencia.sql`, `web/src/components/evidencia.tsx` |
 | El almacenamiento, los resúmenes y las consultas de las gráficas | `internal/store/uptime.go`, migración `0005_uptime.sql` |
 | La API | `GET /api/apps/{app}/reliability` en `internal/api/reliability.go` |
 | Las gráficas | `web/src/components/reliability.tsx`: SVG simple, sin bibliotecas de gráficas |

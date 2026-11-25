@@ -313,10 +313,12 @@ type Info struct {
 	Imagen    string
 	Etiquetas map[string]string
 	Estado    string // "running", "exited", ...
-	// Salida is the exit code of its last end, Reinicios how many times the
-	// engine restarted it, and Desde when it started last.
-	Salida    int
+	// Codigo is the exit code of its last run, Reinicios how many times
+	// its restart policy started it again, Error what the engine said when
+	// it could not start it, and Desde when it started last.
+	Codigo    int
 	Reinicios int
+	Error     string
 	Desde     string
 }
 
@@ -331,6 +333,7 @@ func (m *Motor) Inspeccionar(ctx context.Context, nombre string) (Info, error) {
 			Running   bool   `json:"Running"`
 			Status    string `json:"Status"`
 			ExitCode  int    `json:"ExitCode"`
+			Error     string `json:"Error"`
 			StartedAt string `json:"StartedAt"`
 		} `json:"State"`
 		RestartCount int `json:"RestartCount"`
@@ -347,7 +350,7 @@ func (m *Motor) Inspeccionar(ctx context.Context, nombre string) (Info, error) {
 		return Info{}, fmt.Errorf("%s inspect %s: %v", m.Bin, nombre, err)
 	}
 	return Info{Nombre: nombre, Corriendo: raw.State.Running, Imagen: raw.Config.Image, Etiquetas: raw.Config.Labels, Estado: raw.State.Status,
-		Salida: raw.State.ExitCode, Reinicios: raw.RestartCount, Desde: raw.State.StartedAt}, nil
+		Codigo: raw.State.ExitCode, Reinicios: raw.RestartCount, Error: raw.State.Error, Desde: raw.State.StartedAt}, nil
 }
 
 // Registros is the last lines a container wrote ("" when it cannot be read).

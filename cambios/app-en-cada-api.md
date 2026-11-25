@@ -1,0 +1,1 @@
+- **Two API replicas:** after the setup page makes the GitHub App, every API replica loads it, not only the one that served the setup; before, a request served by the other one could answer that GitHub was not configured until it restarted.

@@ -75,6 +75,10 @@ func (r *Recorder) Run(ctx context.Context, st *store.Store, log *slog.Logger) {
 		if err := st.PruneUso(ctx, time.Now().AddDate(0, 0, -store.UsoDias)); err != nil && ctx.Err() == nil {
 			log.Warn("problems: could not delete old use of the interface", "err", err)
 		}
+		// What was seen of failed releases, kept 30 days (store.EvidenceDays).
+		if _, err := st.PruneReleaseEvidence(ctx, time.Now().AddDate(0, 0, -store.EvidenceDays)); err != nil && ctx.Err() == nil {
+			log.Warn("problems: could not delete old evidence of failed releases", "err", err)
+		}
 	}
 	resolve := func() {
 		if _, err := st.ResolveQuietProblems(ctx, Retried, time.Now().Add(-Quiet), ResolvedQuiet); err != nil && ctx.Err() == nil {

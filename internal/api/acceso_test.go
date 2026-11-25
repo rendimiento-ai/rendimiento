@@ -217,7 +217,7 @@ func TestPermisosPorApp(t *testing.T) {
 		t.Errorf("the problem count counts caja's: %s", body)
 	}
 	for _, p := range []struct{ method, path string }{
-		{"GET", "/api/apps/caja"}, {"GET", "/api/apps/caja/runs"}, {"GET", "/api/apps/caja/releases"},
+		{"GET", "/api/apps/caja"}, {"GET", "/api/apps/caja/runs"}, {"GET", "/api/apps/caja/releases"}, {"GET", "/api/apps/caja/releases/1/evidence"},
 		{"GET", fmt.Sprintf("/api/runs/%d", run.ID)}, {"GET", fmt.Sprintf("/api/runs/%d/steps/web:build/log", run.ID)},
 		{"GET", "/api/encargos/1"}, {"GET", "/api/universe/traces/1"}, {"POST", "/api/apps/caja/runs"},
 		{"POST", fmt.Sprintf("/api/runs/%d/cancel", run.ID)}, {"POST", "/api/encargos/1/cancel"}, {"POST", "/api/problems/1/dismiss"},

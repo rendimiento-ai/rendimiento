@@ -128,6 +128,21 @@ A test that fails and then passes on its retry never rolls a release back: a tes
 
 With `dryRun: true` under `tests:`, a branch that changes only the checks (the tests in `e2e/`, say) also runs them **en seco**: the branch's image of the tests, against the release already published. There every test that fails counts (they are the new ones), but it only warns: the branch is not merged by itself, and nothing is rolled back. On a branch that changes the app, in an app with previews, they run against a copy of the branch instead ([against a copy](tasks.md#dry-runs-against-a-copy)). See [dry runs on branches](tasks.md#dry-runs-on-branches).
 
+### What was seen when it failed {#what-was-seen-when-it-failed}
+
+Kubernetes forgets its events in about an hour, and the rollback removes the failed release's pods at once, so afterwards nobody could say why a release failed. Before it rolls back (or keeps a failed release), rendimiento keeps **what it saw**, for each service of the release:
+
+- its new ReplicaSet and why its Deployment isn't progressing (`ProgressDeadlineExceeded: ReplicaSet "web-7c9d" has timed out progressing`);
+- up to 3 of its pods, those not ready first: phase, conditions that aren't true, and each container's state (waiting, running or terminated, with the reason), restarts and last exit code;
+- the last 200 lines of each container's log, and the 200 before its last restart when it restarted;
+- the namespace's last 50 events about that Deployment, ReplicaSet and pods.
+
+On a computer (no cluster), it's each service's container instead: its state, exit code, restarts and last 200 lines, read before the failed release's containers are removed.
+
+Lines that look like a secret (a token, a private key, a `password=`, a URL with a password in it) are left out, and a release keeps at most 64 KiB: the longest logs are shortened first, keeping their ends. It's kept **30 days** (table `release_evidence`).
+
+It shows under the failed release in the **Releases** tab (**What was seen when it failed**), on the release's entry in **Problems**, and to agents in `app_estado` (MCP, field `lo_que_se_vio`) and in the coding agent's `app_status`, as a short summary with the last lines. Reading it needs the platform's ClusterRole to `list` events (`deploy/rbac.yaml`; it already reads pods, their logs and ReplicaSets).
+
 ## Public stats
 
 With `PUBLIC_STATS=true`, rendimiento publishes **aggregate numbers** at `GET /api/public/stats` for a public page. A portfolio can show them, for example in a *Live from the Home Lab* section.
@@ -174,6 +189,7 @@ That's ready for Grafana once it's scraped.
 |---|---|
 | What to check, running checks, outages, metrics | `internal/uptime` (`Targets`, `Checker`, `Prober`) |
 | Release verification and automatic rollback | `internal/platform/verify.go` (`startVerification`, `judge`, `rollbackTo`) |
+| What was seen of a failed release | `internal/platform/evidencia.go` (`Evidence`, `keepEvidence`), `internal/destino/evidencia.go` and `local_evidencia.go`, `internal/store/evidencia.go`, migration `0068_evidencia.sql`, `web/src/components/evidencia.tsx` |
 | Storage, summaries, chart queries | `internal/store/uptime.go`, migration `0005_uptime.sql` |
 | The API | `GET /api/apps/{app}/reliability` in `internal/api/reliability.go` |
 | The charts | `web/src/components/reliability.tsx`: plain SVG, no chart library |

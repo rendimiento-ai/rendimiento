@@ -85,7 +85,7 @@ func (k Kubernetes) Mirar(ctx context.Context, app string, q Mirar) (Mirada, err
 		if err != nil {
 			m.Notas = append(m.Notas, "the events could not be read: "+err.Error())
 		} else {
-			m.Eventos = eventosDe(evs.Items, nombres, desde)
+			m.Eventos = eventosVistos(evs.Items, nombres, desde)
 		}
 	}
 	if q.Pide(MirarLogs) {
@@ -222,9 +222,9 @@ func condicion(tipo, status, reason, msg string) string {
 	return s
 }
 
-// eventosDe are the events about the app's own objects (by name) since a
+// eventosVistos are the events about the app's own objects (by name) since a
 // time, oldest first, the newest maxEventos.
-func eventosDe(evs []corev1.Event, nombres map[string]bool, desde time.Time) []EventoVisto {
+func eventosVistos(evs []corev1.Event, nombres map[string]bool, desde time.Time) []EventoVisto {
 	var out []EventoVisto
 	for _, e := range evs {
 		if !nombres[e.InvolvedObject.Name] {

@@ -509,6 +509,7 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/apps/{app}/visits", s.visits)
 	auth(store.MemberGuest, "GET /api/apps/{app}/visits/{site}/sessions/{session}", s.visitActivity)
 	auth(store.MemberGuest, "GET /api/apps/{app}/releases/{number}/tasks/{task}/log", s.releaseTaskLog)
+	auth(store.MemberGuest, "GET /api/apps/{app}/releases/{number}/evidence", s.releaseEvidence)
 	auth(store.MemberAdmin, "POST /api/apps/{app}/rollback", s.rollback)
 	auth(store.MemberGuest, "GET /api/apps/{app}/resources", s.resources)
 	auth(store.MemberAdmin, "GET /api/apps/{app}/secrets/{secret}", s.getSecret)
@@ -1889,6 +1890,11 @@ func (s *Server) listReleases(w http.ResponseWriter, r *http.Request, _ string) 
 	if tests, err := s.Store.ReleaseTests(r.Context(), ids); err == nil {
 		for _, rel := range rels {
 			rel.Tests = tests[rel.ID]
+		}
+	}
+	if kept, err := s.Store.ReleasesWithEvidence(r.Context(), ids); err == nil {
+		for _, rel := range rels {
+			rel.Evidence = kept[rel.ID]
 		}
 	}
 	writeJSON(w, rels)

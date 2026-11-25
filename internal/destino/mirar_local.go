@@ -29,7 +29,7 @@ func (l *Local) Mirar(ctx context.Context, app string, q Mirar) (Mirada, error) 
 		if q.Pide(MirarPods) {
 			estado := info.Estado
 			if !info.Corriendo && info.Estado != "" {
-				estado = fmt.Sprintf("%s, exit code %d", info.Estado, info.Salida)
+				estado = fmt.Sprintf("%s, exit code %d", info.Estado, info.Codigo)
 			}
 			if info.Desde != "" && info.Corriendo {
 				estado += " since " + info.Desde

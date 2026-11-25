@@ -712,6 +712,9 @@ type Release struct {
 	// Tests are the app's own tests' results in this release (filled in by
 	// the API, not scanned).
 	Tests []ReleaseTest `json:"tests,omitempty"`
+	// Evidence: what was seen when it failed is kept (ReleaseEvidence;
+	// filled in by the API, not scanned).
+	Evidence bool `json:"evidence,omitempty"`
 }
 
 // Release verification states.

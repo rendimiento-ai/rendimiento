@@ -24,6 +24,9 @@ type Plataforma interface {
 	ListRuns(ctx context.Context, appID int64, limit int) ([]*store.Run, error)
 	GetRun(ctx context.Context, id int64) (*store.Run, error)
 	ListReleases(ctx context.Context, appID int64, limit int) ([]*store.Release, error)
+	// ReleaseEvidence is what was seen of a release when it failed
+	// verification (store.ErrNotFound: nothing was kept).
+	ReleaseEvidence(ctx context.Context, appID, number int64) (*store.ReleaseEvidence, error)
 	// StepLog is a step's whole log, from the database or the archive.
 	StepLog(ctx context.Context, runID int64, step string) (string, error)
 	ListTraces(ctx context.Context, q store.TraceQuery) ([]store.Trace, error)
@@ -106,6 +109,9 @@ type Version struct {
 	Verificacion string    `json:"verificacion,omitempty"`
 	MensajeVerif string    `json:"mensaje_verificacion,omitempty"`
 	Creada       time.Time `json:"creada"`
+	// LoQueSeVio: of a release that failed verification, what its pods
+	// showed then (their state, the warnings and their last lines).
+	LoQueSeVio string `json:"lo_que_se_vio,omitempty"`
 }
 
 // AppResumen is one app in apps_listar.
@@ -196,6 +202,10 @@ func corrida(r *store.Run, app string) Corrida {
 	return c
 }
 
+// evidenciaLineas is how many of a failed container's last lines app_estado
+// shows.
+const evidenciaLineas = 30
+
 func version(r *store.Release) Version {
 	return Version{Numero: r.Number, Commit: short(r.SHA), Reversion: r.RollbackOf != nil, Verificacion: r.VerifyStatus,
 		MensajeVerif: r.VerifyMessage, Creada: r.CreatedAt}
@@ -215,7 +225,7 @@ func short(sha string) string {
 // limited to some apps sees and acts on those only.
 func (s *Server) addPlataformaTools(srv herramientas, write bool) {
 	addTool(s, srv, &mcp.Tool{Name: "apps_listar", Description: "Las aplicaciones que despliega la plataforma, con su última ejecución y su versión en producción."}, s.appsListar)
-	addTool(s, srv, &mcp.Tool{Name: "app_estado", Description: "El estado de una aplicación: sus servicios, sus últimas ejecuciones y versiones (con su verificación), los problemas abiertos y su libreta (lo que se pidió para ella y si ya se hizo: lo abierto, y lo hecho o descartado esta semana)."}, s.appEstado)
+	addTool(s, srv, &mcp.Tool{Name: "app_estado", Description: "El estado de una aplicación: sus servicios, sus últimas ejecuciones y versiones (con su verificación y, de una que no la superó, lo que se vio al fallar: el estado de sus pods, los avisos y sus últimas líneas), los problemas abiertos y su libreta (lo que se pidió para ella y si ya se hizo: lo abierto, y lo hecho o descartado esta semana)."}, s.appEstado)
 	addTool(s, srv, &mcp.Tool{Name: "mesa_leer", Description: "La mesa de trabajo de una aplicación: cada rama con su solicitud de integración, su última ejecución y sus encargos, y a quién le toca (usted: una persona; trabajando; sobra: se puede cerrar; hoy: entró hoy). Léala antes de abrir una rama nueva: si ya hay una para lo mismo, siga en esa."}, s.mesaLeer)
 	addTool(s, srv, &mcp.Tool{Name: "ejecucion_leer", Description: "Una ejecución de CI con sus pasos y el estado de cada uno. Para ver por qué falló un paso, use paso_registro."}, s.ejecucionLeer)
 	addTool(s, srv, &mcp.Tool{Name: "paso_registro", Description: "El final del registro de un paso de una ejecución (200 líneas si no se piden más)."}, s.pasoRegistro)
@@ -365,7 +375,13 @@ func (s *Server) appEstado(ctx context.Context, k store.AgentKey, in appIn) (est
 		return out, err
 	}
 	for _, rel := range rels {
-		out.Versiones = append(out.Versiones, version(rel))
+		v := version(rel)
+		if rel.VerifyStatus == store.VerifyFailed || rel.VerifyStatus == store.VerifyFailedKept {
+			if ev, err := s.Plataforma.ReleaseEvidence(ctx, a.ID, rel.Number); err == nil {
+				v.LoQueSeVio = ev.Summary(evidenciaLineas)
+			}
+		}
+		out.Versiones = append(out.Versiones, v)
 	}
 	probs, err := s.Plataforma.ListProblems(ctx, a.Name, time.Now().AddDate(0, 0, -7), false, 10)
 	if err != nil {

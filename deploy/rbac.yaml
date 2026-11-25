@@ -50,11 +50,13 @@ rules:
   - apiGroups: [cert-manager.io]
     resources: [certificates]
     verbs: [get, list, watch]
+  # Events are written (the controller's) and read: what a release that
+  # failed verification showed is kept before its rollback (Ruta 184).
   # Events are written by the controller, and read (only in an app's own
   # namespace, about its own objects) by the agents' infra_read tool.
   - apiGroups: [""]
     resources: [events]
-    verbs: [get, list, create, patch]
+    verbs: [create, patch, get, list]
   # Read-only, for the environment page.
   - apiGroups: [""]
     resources: [nodes]

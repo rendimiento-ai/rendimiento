@@ -296,7 +296,7 @@ func setup(t *testing.T) (*Platform, *fakeGitHub, *fakeExec, client.Client) {
 // 409 s for 7 tests). Each test still gets its own manager, Platform and
 // database (a copy of one migrated once); the Kubernetes objects of
 // earlier tests stay, so every test that calls setup uses its own app names (hello, secplus,
-// shop, cambios, tareas, invalida, verifica, predespliegue, version).
+// shop, cambios, tareas, invalida, verifica, predespliegue, version, evidencia).
 var (
 	sharedEnv     *envtest.Environment
 	sharedCfg     *rest.Config

@@ -63,6 +63,31 @@ func (s *Server) releaseTaskLog(w http.ResponseWriter, r *http.Request, _ string
 	io.WriteString(w, log)
 }
 
+// releaseEvidence serves what was seen of a release when it failed
+// verification (store.ReleaseEvidence): its pods' states, the events about
+// them and their last lines.
+func (s *Server) releaseEvidence(w http.ResponseWriter, r *http.Request, _ string) {
+	a := s.app(w, r)
+	if a == nil {
+		return
+	}
+	number, err := strconv.ParseInt(r.PathValue("number"), 10, 64)
+	if err != nil {
+		httpError(w, http.StatusBadRequest, "bad release number")
+		return
+	}
+	ev, err := s.Store.ReleaseEvidence(r.Context(), a.ID, number)
+	if errors.Is(err, store.ErrNotFound) {
+		httpError(w, http.StatusNotFound, "nothing was kept of this release")
+		return
+	}
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, ev)
+}
+
 // dryTaskLog serves the log of a check a branch's run ran en seco, against
 // the published release, or (?on=copy) against a copy of the branch.
 func (s *Server) dryTaskLog(w http.ResponseWriter, r *http.Request, _ string) {
