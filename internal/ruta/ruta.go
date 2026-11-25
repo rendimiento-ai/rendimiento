@@ -132,6 +132,10 @@ type Server struct {
 	// Platicas adds platicas_esperando and platica_responder: a person's own
 	// agent answers the conversations about entries that chose it (nil: off).
 	Platicas Platicas
+	// Permisos checks each key's permissions (Ruta 184; nil: none are), and
+	// Infra adds infra_leer, copias_leer and the effects tools (nil: off).
+	Permisos Permisos
+	Infra    Infra
 	// Lang is the language of the tools' descriptions and the instructions
 	// when the agent's /mcp address does not ask (?lang=en or ?lang=es):
 	// "en", or Spanish by default. Tool names and the answers' fields stay
@@ -443,6 +447,7 @@ func (s *Server) newServer(write, ingles bool) *mcp.Server {
 	if s.Platicas != nil {
 		s.addPlaticaTools(srv, write)
 	}
+	s.addPermisoTools(srv, write)
 	return m
 }
 
@@ -518,6 +523,9 @@ func (s *Server) audit(ctx context.Context, k store.AgentKey, tool string, in an
 		Resultado: resultado, Detalle: map[string]any{"argumentos": argumentos}}
 	if a.CargoID != nil {
 		b.Detalle["cargo"] = *a.CargoID
+	}
+	if p, ok := toolPermiso[tool]; ok && callErr == nil {
+		b.Detalle["permiso"] = p // a use of a permission (Ruta 184)
 	}
 	if _, err := s.Store.AnotarBitacora(context.WithoutCancel(ctx), b); err != nil {
 		s.Log.Warn("bitácora", "tool", tool, "err", err)

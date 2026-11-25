@@ -37,6 +37,11 @@ Todo por un mismo servidor MCP, en `https://<su rendimiento>/mcp`:
 | `encargos_listar`, `encargo_leer` | el trabajo que se les pidió a los agentes, y un encargo con su historia | lector |
 | `encargo_crear`, `encargo_tomar`, `encargo_esperar`, `encargo_entregar`, `encargo_soltar` | dejar trabajo para después; tomar un encargo; esperar su ejecución; entregarlo; soltarlo | colaborador, con un cargo |
 | `mercado_*` | leer y editar páginas del [Mercado](mercado.md) | lector / colaborador |
+| `infra_leer`, `copias_leer` | [la infraestructura de la aplicación](#the-infrastructure-tool), solo lectura; sus copias de vista previa | lector, con el [permiso](#permissions) |
+| `servicio_reiniciar`, `copia_rehacer` | reiniciar un servicio de la aplicación; volver a hacer la copia de una solicitud de cambios: acciones con efecto, cada una el «sí» de una persona | colaborador, con un cargo y el permiso |
+| `permiso_pedir` | pedirle un permiso a una persona, o dar el motivo de un pedido que abrió una herramienta | lector |
+
+Cada herramienta más allá de la Ruta necesita además el [permiso](#permissions) de la llave para esa aplicación: las vistas de la plataforma (`platform_read`, siempre de inicio), la infraestructura (`infra_read`, preguntar), las copias (`copies_read`, siempre) y las acciones con efecto (`effects`, apagado: `ejecucion_lanzar` y `ejecucion_reintentar` están entre ellas).
 
 Un turno típico: el agente llama a `ruta_inicio`, que le muestra los encargos pendientes, toma un cargo y un encargo, lee por qué falló una ejecución (`ejecucion_leer`, `paso_registro`, `solicitud_leer`), arregla el código en una rama, corre CI en ella (`ejecucion_lanzar`), espera la ejecución (`encargo_esperar`), entrega el encargo con el enlace para que la persona integre, y entrega su cargo.
 
@@ -101,7 +106,7 @@ Con su herramienta `run` el agente de código corre cualquier comando de shell (
 - **Cuánto vive.** Un entorno aislado por encargo, que se conserva entre comandos (lo que uno instala está ahí para el siguiente), y se borra cuando termina el encargo (entregado, devuelto, detenido), tras 30 minutos sin comandos, o a las 4 horas; un conserje borra lo que deja una plataforma que se reinició. Un comando corre a lo más 15 minutos: uno que se pasa de su tiempo se lleva el entorno aislado, y nada de lo que cambió regresa.
 - **Lo que cuesta.** Nada de dinero de IA: solo tiempo, que cuenta contra el del encargo (3 horas a lo más).
 - **Su imagen.** La imagen de la prueba, o de la tarea de construcción, cuya carpeta contiene la carpeta del comando (`node:22-bookworm-slim` para `web/` si ahí corre la prueba de `web`), si no `CODER_SANDBOX_IMAGE` (`golang:1.27-bookworm`). El entorno aislado corre como el usuario 1000, sin sudo, con `HOME` en el espacio de trabajo; una herramienta que la imagen no traiga se puede descargar ahí.
-- **Apagarlo.** En la página IA, debajo del agente de código, **Correr comandos en un entorno aislado** (encendido si no se cambia); una plataforma que arranca con `CODER_SANDBOX=off` nunca lo ofrece.
+- **Apagarlo.** Es el [permiso `sandbox`](#permissions) del agente de código, en la página IA → Permisos (siempre si no se cambia; apagado, o preguntar); una plataforma que arranca con `CODER_SANDBOX=off` nunca lo ofrece.
 
 ##### El modelo de seguridad {#the-sandbox-security}
 
@@ -120,6 +125,52 @@ Los comandos los escoge un modelo que lee el repositorio: trátelos como código
 **Ponerlo en marcha.** Necesita `pods/exec` en el espacio de nombres de construcción y la política `isolate-sandbox` (que además cambia `isolate-builds` para dejar fuera a los entornos aislados): aplique `deploy/` (`make deploy`) una vez, o el chart de Helm. Mientras tanto la plataforma puede crear la política, pero un comando falla con un mensaje que dice que no se permite exec.
 
 Solo trabaja una copia de los agentes a la vez (un candado en Postgres), así que nada se hace dos veces durante una actualización.
+
+## Permisos: lo que puede hacer cada agente {#permissions}
+
+Cada agente trabaja con **permisos**, que se ponen en la [página IA → Permisos](ai.md#permissions). El sujeto de un permiso es un agente: uno de los de la plataforma (con un identificador fijo: `coder`, `diagnostician`, `estimator`, `vigia`, `clasificador`, `platica`, `resumen`, `traductor`, `aprendiz`) o **cada llave MCP por separado** (`mcp:<número de la llave>`). Sea cual sea el permiso, un agente trabaja solo en la aplicación que se le dio, nunca en otra, y nunca ve el valor de un secreto, ni integra, ni publica desde la rama principal: eso es de una persona.
+
+| Permiso | Cubre | El agente de código y las llaves MCP, de inicio |
+|---|---|---|
+| `code_read` | el código, sus ramas y su historial, y la Ruta | siempre (no se puede apagar) |
+| `platform_read` | ejecuciones, registros de pasos, solicitudes lentas, el estado de la aplicación (`runs`, `step_log`, `slow_requests`, `app_status`; `app_estado`, `mesa_leer`, `ejecucion_leer`, `paso_registro`, `solicitudes_*`) | siempre |
+| `infra_read` | [la infraestructura de la aplicación](#the-infrastructure-tool), solo lectura | preguntar |
+| `sandbox` | correr comandos en [el entorno aislado](#the-sandbox) (`run`) | siempre, o apagado donde el interruptor viejo *Correr comandos en un entorno aislado* estaba apagado |
+| `copies_read` | las [copias de vista previa](caminos.md) de la aplicación: su salud, su dirección, sus pruebas | siempre |
+| `effects` | reiniciar un servicio de la aplicación, volver a correr una rama (`rerun_branch`; `ejecucion_lanzar`, `ejecucion_reintentar`), rehacer una copia | apagado |
+
+Los demás agentes de la plataforma empiezan con lo que usan hoy: el agente diagnosticador lee la plataforma, y su `infra_read` es **siempre solo para los pods de los pasos de su ejecución que falló** (el espacio de nombres de construcción, sus eventos y la presión de los nodos; nunca los datos ni los registros de una aplicación), mientras que el espacio de nombres de una aplicación pregunta; el vigía lee la plataforma; el estimador, el clasificador de comentarios, las pláticas, el que resume, el traductor y el que aprende leen solo la Ruta y lo que se les da. Cada agente revisa su permiso antes de leer (el punto de control `agentes.Permite`); el agente de código y las llaves MCP son los que hoy tienen cada herramienta conectada.
+
+Cada permiso tiene uno de tres **modos**, y se puede limitar a algunas aplicaciones (si no escoge ninguna: todas):
+
+- **Apagado.** La herramienta no se le ofrece al agente de código (la de una llave MCP contesta que está apagada). Si el encargo la necesitaba, el agente lo dice en su entrega.
+- **Preguntar.** El agente le pide a una persona lo que quiere ver y **por qué**, y se detiene sin gastar hasta la respuesta (abajo).
+- **Siempre.** Lo usa sin preguntar. Cada uso queda registrado.
+
+**Las acciones con efecto nunca van en *siempre*:** cada uso es el «sí» de una persona a esa acción precisa (reiniciar `api`, correr la rama `feature/x`), una vez.
+
+### Cómo se pide {#the-ask-flow}
+
+1. La herramienta necesita un permiso en modo *preguntar*, y ningún permiso dado lo cubre. La herramienta del agente de código recibe un `why` (por qué); sin él, contesta cómo pedirlo. Con él, el agente de código pide con [la misma maquinaria que una pregunta](#the-coding-agent): lo que cambió queda en un commit, el encargo pasa a *preguntando* y no gasta nada mientras espera.
+2. **Ruta → Para usted** muestra la tarjeta **El agente pide permiso**: lo que quiere (el permiso, la aplicación, qué exactamente y en qué ventana de tiempo), su motivo en sus palabras, y el alcance: **Solo esta vez**, **Mientras dure este encargo** (para una llave MCP, mientras su cargo actual siga abierto) o **Siempre, para &lt;app&gt;**, y **No**. Una acción con efecto muestra solo **Hacerlo** y **No**.
+3. Lo da una persona administradora; una colaboradora puede decir que no. Dado, el encargo vuelve a la fila y el agente sigue en su rama y vuelve a llamar a la herramienta; con **No**, sigue sin eso y lo dice en su entrega. Un permiso *siempre, para la app* se queda hasta que se quita en la página de Permisos; uno *mientras dure el encargo* termina con el encargo.
+
+Una llamada de una llave MCP contesta **necesita permiso; se le pidió a &lt;quien hizo la llave&gt;** con el número del pedido, y el pedido sale en Para usted. El agente da su motivo con `permiso_pedir` (el número del pedido y `por_que`), o pide antes de llamar; ya dado, su siguiente llamada funciona. Solo una persona con su sesión contesta (`POST /api/permisos/pedidos/{id}`): la llave de un agente nunca llega a las rutas de los permisos, así que no se puede dar permiso a sí misma.
+
+### Lo que deja cada uso {#permission-audit}
+
+Cada uso de un permiso, cada pedido y cada respuesta quedan en la **historia del encargo** (*infraestructura · leyó los eventos de la versión 71*, *pidió permiso*, *p0dxD dio permiso, mientras dure el encargo*) y en la [bitácora](../architecture/security.md#the-bitacora): quién (el agente o la llave), la herramienta, la aplicación, qué leyó o hizo, y cuándo. Solo un resumen: nunca los valores que leyó.
+
+### La herramienta de infraestructura {#the-infrastructure-tool}
+
+`infra_read` (la del agente de código) e `infra_leer` (MCP) leen la infraestructura de la aplicación, solo lectura, del tamaño que le cabe a un modelo (30,000 caracteres a lo más, registros de hasta 500 líneas por contenedor, 4 contenedores, una ventana de hasta 24 horas), sin las líneas que parecen una credencial:
+
+- **En el clúster:** el espacio de nombres de la aplicación, y en él solo los objetos con la etiqueta de su nombre (así nunca se ve otra aplicación que comparta el espacio de nombres): sus **pods** (fase, condiciones, el estado y la razón de cada contenedor, sus reinicios, cómo terminó el último), los **eventos recientes** de sus pods, conjuntos de réplicas, despliegues y statefulsets, el final de los **registros** de sus contenedores (también los del contenedor anterior, después de una caída), el **rollout** de sus despliegues y statefulsets, y la **verificación** de sus versiones. Nunca un Secret, ni la especificación de un pod con su entorno.
+- **En una computadora** (`MODE=local`): los contenedores de la aplicación por el motor de contenedores que rendimiento ya usa (`nerdctl` de containerd, o Docker), con su estado, su código de salida y sus reinicios, y el final de sus registros dentro de la ventana. Una computadora no guarda eventos, y guarda un solo registro por contenedor.
+
+La evidencia que la plataforma guarda cuando una versión falla y se regresa (los eventos y las últimas líneas del pod que no arrancó) se sumará a la respuesta de esta herramienta en cuanto exista; mientras tanto está en el problema y en la ejecución.
+
+**Ponerla en marcha.** La herramienta de infraestructura lee `events` en los espacios de nombres de las aplicaciones, que el ClusterRole de la plataforma ahora permite (`get`, `list`, junto a `pods`, `pods/log`, `replicasets` y `statefulsets`, que ya tenía); reiniciar un servicio parcha su Deployment, como ya podía. Aplique `deploy/` una vez (`make deploy`), o el chart de Helm: mientras tanto, la parte de los eventos dice que no los pudo leer.
 
 ## Hacia dónde va {#where-it-is-going}
 

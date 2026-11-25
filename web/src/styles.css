@@ -3491,3 +3491,51 @@ a.et-insignia:hover { text-decoration: none; filter: brightness(.97); }
 .dormir-resumen li.ojo::before { content: "!"; color: var(--warn); }
 .dormir-resumen li span { color: var(--muted); font-size: 14px; }
 .dormir-resumen .dormir-botones { justify-content: flex-start; }
+
+/* What each agent may do (components/permisos.tsx, Ruta 184): the subjects, the table of modes and apps,
+   the three cards, the card in «Para usted», and each use in an encargo's history. */
+.permisos h2 { margin: 0; }
+.permisos-ruta { font-size: 12.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.permisos-sujetos { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px; border-radius: 22px; background: var(--surface-2); }
+.permisos-sujeto { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 0; background: none; font: inherit; font-weight: 700; color: var(--text); cursor: pointer; }
+.permisos-sujeto.on { background: var(--accent); color: var(--accent-text); font-weight: 800; }
+.permisos-sujeto.llave:not(.on) { color: var(--muted); }
+.permisos-filas { display: grid; gap: 8px; }
+.permisos-fila { display: grid; grid-template-columns: minmax(0, 1fr) 300px 200px; gap: 12px; align-items: center; padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.permisos-fila.cabeza { padding: 0 14px; border: 0; background: none; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.permisos-fila.cambiada { outline: 2.5px solid var(--anil, var(--accent)); outline-offset: -1px; }
+.permisos-que { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.permisos-que code { white-space: normal; overflow-wrap: anywhere; }
+.permisos-marca { align-self: flex-start; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 800; color: #fff; background: var(--anil, var(--accent)); }
+.permisos-marca.cuidado { background: var(--bad); color: #fff; }
+.permisos-modo { display: inline-flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--surface-2); font-size: 13px; font-weight: 700; }
+.permisos-modo button { min-height: 36px; padding: 0 12px; border: 0; border-radius: 999px; background: none; font: inherit; color: var(--text); cursor: pointer; }
+.permisos-modo button:disabled { cursor: not-allowed; opacity: .5; }
+.permisos-modo button.on { color: #fff; opacity: 1; }
+.permisos-modo button.on.modo-off { background: var(--muted); }
+.permisos-modo button.on.modo-ask { background: var(--anil, var(--accent)); }
+.permisos-modo button.on.modo-always { background: var(--ok); }
+.permisos-apps { min-width: 0; overflow-wrap: anywhere; }
+.permisos-escoger { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.permisos-escoger label { display: flex; gap: 6px; align-items: center; min-height: 32px; }
+.linkish { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
+.permisos-tarjetas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.permisos-tarjeta { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); }
+.permisos-tarjeta.modo-ask { border-color: var(--anil, var(--accent)); }
+.permisos-tarjeta.modo-always { border-color: var(--ok); }
+.permisos-dados { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.permisos-dados li { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 12px; background: var(--surface-2); }
+.pu-permiso.efecto { border-color: var(--bad); }
+.uso-linea { display: grid; grid-template-columns: minmax(120px, auto) minmax(0, 1fr); gap: 10px; padding: 4px 8px; border-left: 3px solid var(--anil, var(--accent)); border-radius: 4px; background: var(--surface-2); }
+.uso-linea.permiso_pedido, .uso-linea.permiso_dado { border-left-color: var(--warn); }
+.uso-linea.permiso_negado { border-left-color: var(--bad); }
+.uso-cuando { font-weight: 700; color: var(--muted); }
+.uso-que { overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .permisos-fila { grid-template-columns: minmax(0, 1fr); }
+  .permisos-fila.cabeza { display: none; }
+  .permisos-modo { display: flex; width: 100%; }
+  .permisos-modo button { flex: 1; }
+  .permisos-tarjetas { grid-template-columns: minmax(0, 1fr); }
+  .uso-linea { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}

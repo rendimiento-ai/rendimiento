@@ -254,6 +254,9 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 	srv.Vigia = &agentes.Vigia{Store: st, Model: srv.IA, Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "lookout")}
 	rutaSrv := &ruta.Server{Store: st, Log: log.With("component", "ruta"), Lang: env("NOTIFY_LANG", "en")}
 	rutaSrv.Plataforma = plataformaMCP{Store: st, p: p, srv: srv}
+	// Each key's permissions (Ruta 184), and what infra_leer, copias_leer
+	// and the effects tools read and do (only the asked app's).
+	rutaSrv.Permisos, rutaSrv.Infra = st, platform.AgentInfra{P: p}
 	rutaSrv.Encargos = st
 	rutaSrv.AlEntregar = p.PullsForDelivery // a delivered branch gets its pull request
 	rutaSrv.Comentarios = st
@@ -318,6 +321,7 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 		coder := &agentes.Coder{Store: st, Repos: p.Repos(), Model: srv.IA, Logs: srv.StepLogText, BaseURL: baseURL, Lang: lang, Log: log.With("component", "agents")}
 		coder.AlEntregar = p.PullsForDelivery
 		coder.Plataforma, coder.RetryRun = st, p.RetryRun
+		coder.Infra = platform.AgentInfra{P: p} // infra_read, copies, effects (each by its permission)
 		est := &agentes.Estimator{Store: st, Model: srv.IA, Lang: lang, Log: log.With("component", "agents")}
 		go est.Run(ctx)
 		go coder.Run(ctx)

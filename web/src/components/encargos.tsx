@@ -14,6 +14,7 @@ import { EstimateBar } from "./boleta";
 import { EsqTarjetas } from "./esqueleto";
 import { useConexion } from "../conexion";
 import { apagado } from "./conexion-aviso";
+import { UsoLinea } from "./permisos";
 
 export const statusLabel: Record<EncargoStatus, string> = {
   pending: "Pending", taken: "Taken", waiting: "Waiting", asking: "Asks you", delivered: "Delivered", reviewed: "Reviewed", cancelled: "Dropped",
@@ -296,7 +297,7 @@ export function EncargoCard({ e, cola, onChange, chosen, onChoose, comentarios }
       {historia && (
         <div className="small encargo-log">
           {full?.body && <TextoConFormato text={full.body} />}
-          {full?.log?.map((l, i) => (
+          {full?.log?.map((l, i) => l.what.startsWith("permiso_") ? <UsoLinea key={i} l={l} /> : (
             <div key={i}><span className="muted">{new Date(l.at).toLocaleString()}</span> · {l.who} · {t(eventLabel[l.what] ?? l.what)}{l.note && ` · ${l.what === "routed" ? t(routeLabel[l.note as "platform" | "local"] ?? l.note) : l.note}`}</div>
           ))}
         </div>

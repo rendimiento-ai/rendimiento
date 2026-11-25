@@ -28,6 +28,9 @@ type Portada struct {
 	// Asking: encargos the coding agent stopped on to ask the person, the
 	// first thing on the page (it spends nothing until answered).
 	Asking []store.Encargo `json:"asking"`
+	// Permisos: what agents asked a person's permission for (Ruta 184):
+	// the coding agent's (its encargo waits) and the MCP keys'.
+	Permisos []store.PermisoPedido `json:"permisos"`
 	// Review: encargos an agent delivered, for the person to review.
 	Review []store.Encargo `json:"review"`
 	// Decide: entries tagged por-decidir; Yours: to-dos tagged
@@ -77,6 +80,8 @@ func (s *Server) portada(w http.ResponseWriter, r *http.Request, login string) {
 			continue
 		}
 		switch {
+		case e.Status == store.EncargoAsking && e.Question != nil && e.Question.PedidoID != nil:
+			// a request for a permission: shown as one, below (out.Permisos)
 		case e.Status == store.EncargoAsking && e.Question != nil:
 			out.Asking = append(out.Asking, e)
 		case e.Status == store.EncargoDelivered:
@@ -126,6 +131,16 @@ func (s *Server) portada(w http.ResponseWriter, r *http.Request, login string) {
 	if out.Counts, err = s.Store.CountRuta(ctx, org, since); err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	if ps, err := s.Store.PermisosPedidos(ctx, org); err == nil {
+		out.Permisos = []store.PermisoPedido{}
+		for _, p := range ps {
+			if acc.Sees(p.App) {
+				out.Permisos = append(out.Permisos, p)
+			}
+		}
+	} else {
+		out.Permisos = []store.PermisoPedido{}
 	}
 	writeJSON(w, out)
 }

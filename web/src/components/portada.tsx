@@ -12,6 +12,7 @@ import { t, tn } from "../i18n";
 import { AgenteTira, doingText } from "./cola";
 import { BarraMandar, Dificultad, EscogerApp, porQueNo, routeLabel } from "./encargos";
 import { EsqPortada } from "./esqueleto";
+import { PidePermiso } from "./permisos";
 
 /** The greeting for the hour of the day. */
 function saludo() {
@@ -188,7 +189,7 @@ export function ParaUsted({ me, cola, onCola }: { me: string; cola?: Cola; onCol
   const [sent, setSent] = useState<string>();
   const change = () => { reload(); onCola(); };
   const p: Portada | undefined = data;
-  const cuantas = p ? (p.asking?.length ?? 0) + p.review.length + p.decide.length + p.yours.length + p.rate.length + p.unanswered.length + p.unowned.length : 0;
+  const cuantas = p ? (p.asking?.length ?? 0) + (p.permisos?.length ?? 0) + p.review.length + p.decide.length + p.yours.length + p.rate.length + p.unanswered.length + p.unowned.length : 0;
   const activas = (llaves ?? []).filter((k) => !k.revokedAt && new Date(k.expiresAt).getTime() > Date.now()).length;
   const encargoDe = (id?: number) => `/ruta?tab=encargos#encargo-${id}`;
   return (
@@ -211,6 +212,7 @@ export function ParaUsted({ me, cola, onCola }: { me: string; cola?: Cola; onCol
           <div className="pu-principal">
             <h2>{t("For you")}</h2>
             {sent && <p className="small" role="status">{sent}</p>}
+            {(p.permisos ?? []).map((x) => <PidePermiso key={`p${x.id}`} p={x} onDone={(msg) => { setSent(msg); change(); }} />)}
             {(p.asking ?? []).map((e) => <Pregunta key={`q${e.id}`} e={e} onDone={(msg) => { setSent(msg); change(); }} />)}
             {cuantas === 0 && <p className="pu-nada">{t("Nothing needs you now. When an agent delivers something, or something waits for your word, it shows here.")}</p>}
             {p.review.map((e) => (

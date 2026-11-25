@@ -37,6 +37,11 @@ All of it over one MCP server, at `https://<your rendimiento>/mcp`:
 | `encargos_listar`, `encargo_leer` | the work asked of agents, and one encargo with its history | reader |
 | `encargo_crear`, `encargo_tomar`, `encargo_esperar`, `encargo_entregar`, `encargo_soltar` | leave work for later; take an encargo; wait on its run; hand it over; let it go | collaborator, with a cargo |
 | `mercado_*` | read and edit [Mercado](mercado.md) pages | reader / collaborator |
+| `infra_leer`, `copias_leer` | [the app's infrastructure](#the-infrastructure-tool), read-only; its preview copies | reader, with the [permission](#permissions) |
+| `servicio_reiniciar`, `copia_rehacer` | restart a service of the app; make a pull request's copy again: actions with effect, each one a person's yes | collaborator, with a cargo and the permission |
+| `permiso_pedir` | ask a person for a permission, or give the reason of a request a tool opened | reader |
+
+Each tool beyond the Ruta also needs the key's [permission](#permissions) for that app: the platform's views (`platform_read`, always by default), the infrastructure (`infra_read`, ask), copies (`copies_read`, always) and actions with effect (`effects`, off: `ejecucion_lanzar` and `ejecucion_reintentar` are among them).
 
 A typical turn: the agent calls `ruta_inicio`, which shows the pending encargos, takes a cargo and an encargo, reads why a run failed (`ejecucion_leer`, `paso_registro`, `solicitud_leer`), fixes the code on a branch, runs CI on it (`ejecucion_lanzar`), waits for the run (`encargo_esperar`), hands the encargo over with the link for the person to merge, and hands its cargo over.
 
@@ -101,7 +106,7 @@ With its `run` tool the coding agent runs any shell command (`npm ci && npm test
 - **How long it lives.** One sandbox per encargo, kept between commands (what one installs is there for the next), and removed when the encargo ends (delivered, given back, stopped), after 30 minutes without a command, or at 4 hours; a janitor removes what a restarted platform left behind. One command runs at most 15 minutes: one past its time takes the sandbox with it, and nothing it changed comes back.
 - **What it costs.** No AI money: only time, which counts against the encargo's (3 hours at most).
 - **Its image.** The image of the test, or build task, whose folder holds the command's folder (`node:22-bookworm-slim` for `web/` if `web`'s test runs there), else `CODER_SANDBOX_IMAGE` (`golang:1.27-bookworm`). The sandbox runs as user 1000, without sudo, with `HOME` in the workspace; a tool the image lacks can be downloaded into it.
-- **Turning it off.** On the AI page, under the coding agent, **Run commands in a sandbox** (on by default); a platform started with `CODER_SANDBOX=off` never offers it.
+- **Turning it off.** It is the coding agent's [`sandbox` permission](#permissions), on the AI page → Permissions (always by default; off, or ask); a platform started with `CODER_SANDBOX=off` never offers it.
 
 ##### The security model {#the-sandbox-security}
 
@@ -120,6 +125,52 @@ The commands are chosen by a model that reads the repository: treat them as untr
 **Setting it up.** It needs `pods/exec` in the build namespace and the `isolate-sandbox` policy (which also changes `isolate-builds` to leave sandboxes out): apply `deploy/` (`make deploy`) once, or the Helm chart. Until then the platform can make the policy, but a command fails with a message saying exec is not allowed.
 
 Only one copy of the agents works at a time (a lock in Postgres), so nothing is done twice during an update.
+
+## Permissions: what each agent may do {#permissions}
+
+Every agent works under **permissions**, set on the [AI page → Permissions](ai.md#permissions). A permission's subject is one agent: one of the platform's own (by a stable id: `coder`, `diagnostician`, `estimator`, `vigia`, `clasificador`, `platica`, `resumen`, `traductor`, `aprendiz`) or **each MCP key on its own** (`mcp:<key id>`). Whatever the permission, an agent works only on the app it was given, never another app's, and never sees a secret's value, merges, or publishes from the default branch: that is a person's.
+
+| Permission | Covers | The coding agent and MCP keys, by default |
+|---|---|---|
+| `code_read` | the code, its branches and history, and the Ruta | always (it cannot be turned off) |
+| `platform_read` | runs, step logs, slow requests, the app's status (`runs`, `step_log`, `slow_requests`, `app_status`; `app_estado`, `mesa_leer`, `ejecucion_leer`, `paso_registro`, `solicitudes_*`) | always |
+| `infra_read` | [the app's infrastructure](#the-infrastructure-tool), read-only | ask |
+| `sandbox` | running commands in [the sandbox](#the-sandbox) (`run`) | always, or off where the old *Run commands in a sandbox* switch was off |
+| `copies_read` | the app's [preview copies](caminos.md): health, address, tests | always |
+| `effects` | restarting a service of the app, running a branch again (`rerun_branch`; `ejecucion_lanzar`, `ejecucion_reintentar`), remaking a copy | off |
+
+The other platform's agents start with what they use today: the diagnostician reads the platform, and its `infra_read` is **always for its failed run's step pods only** (the build namespace, their events and the nodes' pressure; never an app's data or logs), while an app's own namespace asks; the lookout reads the platform; the estimator, the comment sorter, conversations, the summarizer, the translator and the learner read only the Ruta and what they are given. Every agent checks its permission before it reads (the gating hook `agentes.Permite`); the coding agent and MCP keys are the ones whose every tool is wired today.
+
+Each permission has one of three **modes**, and may be limited to some apps (none chosen: all):
+
+- **Off.** The tool is not offered to the coding agent (an MCP key's answers that it is off). If the encargo needed it, the agent says so in its delivery.
+- **Ask.** The agent asks a person what it wants to see and **why**, and stops without spending until the answer (below).
+- **Always.** It uses it without asking. Each use is recorded.
+
+**Actions with effect are never *always*:** each use is a person's yes to that very action (restart `api`, run branch `feature/x`), once.
+
+### The ask flow {#the-ask-flow}
+
+1. The tool needs a permission in mode *ask*, and no grant holds. The coding agent's tool takes a `why`; without it, the tool answers how to ask. With it, the coding agent asks through the [same machinery as a question](#the-coding-agent): what it changed is committed, the encargo goes to *asking* and it spends nothing while it waits.
+2. **Ruta → For you** shows the card **The agent asks for permission**: what it wants (the permission, the app, what exactly and in which window of time), its reason in its words, and the reach: **Only this time**, **While this encargo lasts** (for an MCP key, while its current cargo is open) or **Always, for &lt;app&gt;**, and **No**. An action with effect shows only **Do it** and **No**.
+3. An administrator gives it; a collaborator can say no. Given, the encargo goes back to the queue and the agent resumes on its branch and calls the tool again; with **No** it goes on without it and says so in its delivery. A grant *always, for the app* stays until it is taken back on the Permissions page; one *while the encargo lasts* ends with the encargo.
+
+An MCP key's call answers **needs permission; asked &lt;who made the key&gt;** with the request's number, and the request shows on For you. The agent gives its reason with `permiso_pedir` (the request's number and `por_que`), or asks before calling; once given, its next call works. Only a person signed in answers (`POST /api/permisos/pedidos/{id}`): an agent's key never reaches the permission routes, so it cannot grant itself.
+
+### What each use leaves {#permission-audit}
+
+Every use of a permission, every request and every answer goes to the **encargo's history** (*infrastructure · read the events of release 71*, *asked for permission*, *p0dxD gave permission, while the encargo lasts*) and to the [bitácora](../architecture/security.md#the-bitacora): who (the agent or the key), the tool, the app, what was read or done, and when. Only a summary: never the values read.
+
+### The infrastructure tool {#the-infrastructure-tool}
+
+`infra_read` (the coding agent's) and `infra_leer` (MCP) read the app's infrastructure, read-only, sized to fit a model (30,000 characters at most, logs up to 500 lines a container, 4 containers, a window up to 24 hours), with the lines that look like a credential left out:
+
+- **In the cluster:** the app's namespace, and in it only the objects labeled with the app's name (so another app sharing the namespace is never seen): its **pods** (phase, conditions, each container's state and reason, restarts, how the last one ended), the **recent events** about its pods, replica sets, deployments and statefulsets, the end of its containers' **logs** (the previous container's too, after a crash), the **rollout** of its deployments and statefulsets, and its releases' **verification**. Never a Secret, nor a pod's spec with its environment.
+- **On a computer** (`MODE=local`): the app's containers through the container engine rendimiento already uses (containerd's `nerdctl` or Docker), with their state, exit code and restarts, and the end of their logs within the window. A computer keeps no events, and one log per container.
+
+The evidence the platform keeps when a release fails and is rolled back (the events and the last lines of the pod that did not start) will join this tool's answer once it exists; until then it is on the problem and the run.
+
+**Setting it up.** The infrastructure tool reads `events` in the app namespaces, which the platform's ClusterRole now allows (`get`, `list`, beside `pods`, `pods/log`, `replicasets` and `statefulsets`, which it had); restarting a service patches its Deployment, as it already could. Apply `deploy/` once (`make deploy`), or the Helm chart: until then the events part says it could not read them.
 
 ## Where it is going {#where-it-is-going}
 

@@ -234,6 +234,9 @@ func (s *Server) mesaLeer(ctx context.Context, k store.AgentKey, in appIn) (mesa
 	if err != nil {
 		return mesaOut{}, err
 	}
+	if err := s.permitir(ctx, k, store.PermPlatformRead, a, "", "su mesa de trabajo"); err != nil {
+		return mesaOut{}, err
+	}
 	b, err := s.Plataforma.Mesa(ctx, a)
 	if err != nil {
 		return mesaOut{}, err
@@ -339,6 +342,9 @@ func (s *Server) appEstado(ctx context.Context, k store.AgentKey, in appIn) (est
 	if err != nil {
 		return estadoOut{}, err
 	}
+	if err := s.permitir(ctx, k, store.PermPlatformRead, a, "", "su estado"); err != nil {
+		return estadoOut{}, err
+	}
 	r, err := s.resumen(ctx, a)
 	if err != nil {
 		return estadoOut{}, err
@@ -385,12 +391,19 @@ func (s *Server) ejecucionLeer(ctx context.Context, k store.AgentKey, in ejecuci
 	if err != nil {
 		return Corrida{}, err
 	}
+	if err := s.permitir(ctx, k, store.PermPlatformRead, a, "", fmt.Sprintf("la ejecución %d", in.ID)); err != nil {
+		return Corrida{}, err
+	}
 	return corrida(r, a.Name), nil
 }
 
 // pasoRegistro (paso_registro) is the end of a step's log.
 func (s *Server) pasoRegistro(ctx context.Context, k store.AgentKey, in registroIn) (registroOut, error) {
-	if _, _, err := s.runFor(ctx, k, in.Ejecucion); err != nil {
+	_, a, err := s.runFor(ctx, k, in.Ejecucion)
+	if err != nil {
+		return registroOut{}, err
+	}
+	if err := s.permitir(ctx, k, store.PermPlatformRead, a, "", fmt.Sprintf("el registro del paso %s de la ejecución %d", in.Paso, in.Ejecucion)); err != nil {
 		return registroOut{}, err
 	}
 	n := in.Lineas
@@ -433,6 +446,14 @@ func (s *Server) visibleApps(ctx context.Context, k store.AgentKey) (map[string]
 	return out, nil
 }
 
+// firstOf is a list's first, or "".
+func firstOf(l []string) string {
+	if len(l) == 0 {
+		return ""
+	}
+	return l[0]
+}
+
 // traceAllowed says whether a request went through one of the visible apps
 // (services are app/service).
 func traceAllowed(visible map[string]bool, services []string) bool {
@@ -451,8 +472,21 @@ func (s *Server) solicitudesListar(ctx context.Context, k store.AgentKey, in sol
 		return solicitudesOut{}, err
 	}
 	if in.Servicio != "" {
-		if app, _, _ := strings.Cut(in.Servicio, "/"); !visible[app] {
+		app, _, _ := strings.Cut(in.Servicio, "/")
+		if !visible[app] {
 			return solicitudesOut{}, fmt.Errorf("esta llave no tiene acceso a la aplicación %s", app)
+		}
+		a, err := s.appFor(ctx, k, app)
+		if err != nil {
+			return solicitudesOut{}, err
+		}
+		if err := s.permitir(ctx, k, store.PermPlatformRead, a, "", "sus solicitudes guardadas"); err != nil {
+			return solicitudesOut{}, err
+		}
+	}
+	for app := range visible {
+		if s.modoPara(ctx, k, store.PermPlatformRead, app) != store.ModoAlways {
+			delete(visible, app) // off, or it would ask: left out of a list
 		}
 	}
 	list, err := s.Plataforma.ListTraces(ctx, store.TraceQuery{Service: in.Servicio, ErrorsOnly: in.Fallidas, Limit: 30})
@@ -484,6 +518,13 @@ func (s *Server) solicitudLeer(ctx context.Context, k store.AgentKey, in solicit
 	if !traceAllowed(visible, t.Services) {
 		return solicitudOut{}, errors.New("esta llave no tiene acceso a las aplicaciones de esa solicitud")
 	}
+	if first, _, _ := strings.Cut(firstOf(t.Services), "/"); first != "" {
+		if a, err := s.appFor(ctx, k, first); err == nil {
+			if err := s.permitir(ctx, k, store.PermPlatformRead, a, "", "la solicitud "+t.ID); err != nil {
+				return solicitudOut{}, err
+			}
+		}
+	}
 	return solicitudOut{Solicitud: *t, Tramos: spans}, nil
 }
 
@@ -504,6 +545,9 @@ func (s *Server) ejecucionLanzar(ctx context.Context, k store.AgentKey, in lanza
 		return Corrida{}, errors.New("falta la rama")
 	case strings.EqualFold(branch, a.DefaultBranch):
 		return Corrida{}, fmt.Errorf("%s es la rama principal de %s: ejecutarla despliega a producción, y eso lo hace una persona", branch, a.Name)
+	}
+	if err := s.permitir(ctx, k, store.PermEffects, a, "rerun:"+branch, "correr la rama "+branch); err != nil {
+		return Corrida{}, err
 	}
 	r, err := s.Plataforma.QueueRun(ctx, a, branch)
 	if err != nil {
@@ -533,6 +577,9 @@ func (s *Server) ejecucionReintentar(ctx context.Context, k store.AgentKey, in e
 	}
 	if r.Deploy {
 		return Corrida{}, fmt.Errorf("la ejecución %d es de la rama principal de %s: reintentarla despliega, y eso lo hace una persona", in.ID, a.Name)
+	}
+	if err := s.permitir(ctx, k, store.PermEffects, a, fmt.Sprintf("retry:%d", in.ID), fmt.Sprintf("reintentar la ejecución %d de la rama %s", in.ID, r.Branch)); err != nil {
+		return Corrida{}, err
 	}
 	if r, err = s.Plataforma.RetryRun(ctx, in.ID); err != nil {
 		return Corrida{}, err

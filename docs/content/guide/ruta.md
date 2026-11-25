@@ -107,6 +107,10 @@ An agent's client lists the tools, and what each one answers (its output schema)
 
 The same server also has the platform's tools (apps, runs, logs, kept requests, and running CI on a branch) and, while the [Mercado](mercado.md#from-an-agent-mcp) is on, its tools: see [Built for agents](agents.md#what-an-agent-can-do-today).
 
+### Each key's permissions {#each-keys-permissions}
+
+Beyond its role and its apps, each key has its own [permissions](agents.md#permissions), set on the [AI page → Permissions](ai.md#permissions) with the key chosen in the list: the platform's views, the app's infrastructure (`infra_leer`), its copies (`copias_leer`) and actions with effect (`servicio_reiniciar`, `copia_rehacer`, and running a branch or retrying a run). A new key gets the same defaults as the coding agent: it sees the platform and the copies, asks for the infrastructure, and does nothing with effect. A tool whose permission is off answers that it is off; one that asks answers *needs permission; asked &lt;who made the key&gt;*, with the request's number, and the request shows on **For you**. The agent says why with `permiso_pedir`; once a person gives it (only this time, while its cargo is open, or always for that app), the next call works. Each use goes to the [bitácora](../architecture/security.md#the-bitacora) with the permission.
+
 ## Safety {#safety}
 
 - **Keys** are random, stored only as a SHA-256 hash, always expire, and can be revoked on the Keys tab; revoking closes the key's open cargo. A reader's key doesn't even see the writing tools, and a key limited to some apps sees only those.

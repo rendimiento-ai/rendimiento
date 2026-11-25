@@ -74,6 +74,11 @@ var toolsEN = map[string]string{
 	"comentario_responder": "Answers a person's comment on a handover or an encargo: what you did about what they asked, or why not. The person sees it in the bell. Needs an open cargo.",
 
 	"produccion_pedir":   "Asks to roll an app back to an earlier release. You can't do it yourself: a person approves or rejects it, and then the platform does it in their name. Say why. Needs an open cargo. Wait for the decision with produccion_esperar.",
+	"permiso_pedir":      "Asks a person for permission for something your key does only with permission (seeing the infrastructure, an action with effect…), or gives the reason for a request a tool opened. The person sees it in «Para usted» and gives it only this time, while your cargo lasts, always for that app, or not.",
+	"infra_leer":         "An app's infrastructure, read-only: in the cluster its pods (status, conditions, containers with their reason, restarts), its recent events, the end of its logs (the previous container's too) and the rollout; on a computer its containers (state, exit code, restarts) and their logs. Only that app, never secrets. Needs the permission to see the infrastructure.",
+	"copias_leer":        "An app's preview copies: each pull request's, its branch, health, address, tests and when it goes. Needs the permission to see the copies.",
+	"servicio_reiniciar": "Restarts a service of an app (as kubectl rollout restart). An action with effect: a person allows each one. Needs an open cargo.",
+	"copia_rehacer":      "Makes a pull request's preview copy again with its branch's last run that passed. An action with effect: a person allows each one. Needs an open cargo.",
 	"produccion_esperar": "Waits for a person's decision on your request (up to 50 seconds per call) and says how it stands: aprobada (approved, with the new release), rechazada (rejected, with the comment), vencida (expired) or fallida (failed). If it is still pendiente, call again.",
 }
 
@@ -138,6 +143,18 @@ var camposEN = map[string]string{
 	"la aplicación de la que trata; vacío para ninguna":                                                     "the app it is about; empty for none",
 	"una rama más en que se trabaja (las anteriores siguen ligadas)":                                         "one more branch it is worked on (the earlier ones stay linked)",
 	"por qué se deja de lado (sale como descartado en la libreta); vacío para retomarla":                     "why it is set aside (it shows as discarded in the libreta); empty to take it up again",
+	"el número del pedido que dio la herramienta; vacío para uno nuevo":         "the request's number the tool gave; empty for a new one",
+	"para uno nuevo: platform_read, infra_read, copies_read o effects":          "for a new one: platform_read, infra_read, copies_read or effects",
+	"para uno nuevo: la aplicación":                                             "for a new one: the app",
+	"qué quiere ver o hacer, corto":                                             "what you want to see or do, short",
+	"de cuándo a cuándo, si es de un rato (p. ej. de las 05:44 a las 05:54)":    "from when to when, if it is about a while (such as from 05:44 to 05:54)",
+	"pods, events, logs o rollout; vacío para pods, eventos y rollout":          "pods, events, logs or rollout; empty for pods, events and rollout",
+	"solo este servicio de la aplicación":                                       "only this service of the app",
+	"de los registros: cuántas líneas del final, hasta 500 (100 si se omite)":   "for logs: how many lines from the end, up to 500 (100 if omitted)",
+	"de los registros: los del contenedor anterior, el que terminó":             "for logs: the previous container's, the one that ended",
+	"cuánto hacia atrás, en minutos, hasta 1440 (60 si se omite)":               "how far back, in minutes, up to 1440 (60 if omitted)",
+	"el servicio a reiniciar":                                                   "the service to restart",
+	"el número de la solicitud de cambios de la copia":                          "the number of the copy's pull request",
 }
 
 // schemaFor is the input schema the MCP SDK would infer for In (nil when
