@@ -163,6 +163,10 @@ All routes are registered in `Server.Handler` (`internal/api/server.go`). The UI
 | GET | `/api/apps/{app}/runs` | CI runs |
 | GET | `/api/apps/{app}/branch-kinds` | the kind of each branch of the last 50 runs (main, fix, feature, release, deps, other) and its pull request ([Kinds of branch](../guide/builds.md#kinds-of-branch)) |
 | GET | `/api/apps/{app}/caminos` | the last 14 days of runs by branch, with where each branch started and was merged ([Roads](../guide/caminos.md)) |
+| GET | `/api/apps/{app}/copias` | the app's live copies (one per pull request, and the short ones en seco), each with what it runs, its health, tests, memory and deadline; the memory they hold, the cluster's share of all copies, those deleted in the last 7 days and why, and the Secrets a copy lacks (names only) ([Live copies](../guide/caminos.md#live-copies)) |
+| POST | `/api/apps/{app}/copias/{n}/rehacer` | makes pull request n's copy again with its branch's last commit that passed (restarts it when it already runs it); collaborators and administrators |
+| POST | `/api/apps/{app}/copias/{n}/extender` | keeps the copy 3 more days, up to 30 after its last push |
+| DELETE | `/api/apps/{app}/copias/{n}` | deletes the copy now; its comment says who, and the next push makes it again |
 | POST | `/api/apps/{app}/runs` | start a run of the default branch (the **Run** button) |
 | GET | `/api/apps/{app}/releases` | release history (digest per service) |
 | GET | `/api/apps/{app}/reliability?range=24h\|7d\|30d` | uptime checks: per check, uptime, p50/p95, chart buckets and the latest check; outages; releases in the range |

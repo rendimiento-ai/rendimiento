@@ -66,6 +66,9 @@ export function Vistazo({ app, onBuilt }: { app: App; onBuilt?: () => void }) {
   const { data: vis } = usePoll(() => api.visits(name, "7d"), [name], 300000);
   const { data: resumen } = usePoll(() => api.summary().catch(() => undefined), [], 300000);
   const { data: encargos } = usePoll(() => api.encargos().catch(() => []), [], 60000);
+  // Its live copies, when it asks for previews: a door to them on the Caminos tab.
+  const previews = !!app.spec?.previews;
+  const { data: copias } = usePoll(() => (previews ? api.copias(name).catch(() => undefined) : Promise.resolve(undefined)), [name, previews], 60000);
   const sem = semana(rel);
   const flor = floracion(app, sem.enLinea, sem.dias);
   const trabajando = (encargos ?? []).some((e) => e.app === name && (e.status === "taken" || e.status === "waiting"));
@@ -85,6 +88,7 @@ export function Vistazo({ app, onBuilt }: { app: App; onBuilt?: () => void }) {
             {sem.respuestaMs !== undefined && <span className="chip"><b>{respuesta(sem.respuestaMs)}</b> {t("to answer")}</span>}
             <span className="chip"><b>{cambios}</b> {tn(cambios, "change this week", "changes this week")}</span>
             {sem.enLinea !== undefined && <span className="chip"><b>{Math.round(sem.enLinea * 1000) / 10}%</b> {t("online")}</span>}
+            {copias?.previews && <Link className="chip vistazo-copias" to={`/apps/${name}/caminos#copias`}><b>{copias.live.length}</b> {tn(copias.live.length, "live copy", "live copies")}</Link>}
           </div>
         </div>
         <div className="vistazo-acciones">

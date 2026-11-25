@@ -101,6 +101,16 @@ var catalog = map[string]string{
 	"the pull request was closed":                  "se cerró la solicitud",
 	"its app is gone":                              "su aplicación ya no existe",
 	"the app no longer asks for previews":          "la aplicación ya no pide vistas previas",
+	// The copies on the Caminos tab (platform/copias_vista.go, api/copias.go, Ruta 180).
+	"the pull request was merged": "se integró la solicitud",
+	"the branch of pull request #%d is not known: push to it to make its copy again": "no se sabe cuál es la rama de la solicitud #%d: envíe un cambio a ella para volver a hacer su copia",
+	"no run of branch %s passed: there is no commit to make the copy with":            "ninguna ejecución de la rama %s pasó: no hay un commit con el cual hacer la copia",
+	"the commit of run %d asks for no previews":                                       "el commit de la ejecución %d no pide vistas previas",
+	"the copy is already kept %d days after its last push, the most there is":         "la copia ya se guarda %d días después de su último envío, lo más que se puede",
+	"**Kept longer:** %s asked rendimiento to keep this copy until %s.":               "**Se guarda más tiempo:** %s le pidió a rendimiento guardar esta copia hasta el %s.",
+	"by %s, from rendimiento; the next push to its branch makes it again":             "por %s, desde rendimiento; el siguiente envío a su rama la vuelve a hacer",
+	"bad pull request number":            "número de solicitud no válido",
+	"this pull request has no live copy": "esta solicitud no tiene una copia viva",
 	// Platicar una entrada (api/platica.go).
 	"lo vivido is people's own story: it is not talked over with an AI": "lo vivido es la historia de una persona: no se platica con una IA",
 	"write a message, up to 8,000 characters": "escriba un mensaje, de hasta 8,000 caracteres",

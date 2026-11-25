@@ -481,6 +481,8 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/apps/{app}/runs", s.listRuns)
 	auth(store.MemberGuest, "GET /api/apps/{app}/branch-kinds", s.branchKinds)
 	auth(store.MemberGuest, "GET /api/apps/{app}/caminos", s.appCaminos)
+	// Its live copies, on the Caminos tab (copias.go).
+	s.copiasRoutes(auth)
 	auth(store.MemberGuest, "GET /api/apps/{app}/libreta", s.appLibreta)
 	auth(store.MemberCollaborator, "POST /api/apps/{app}/libreta", s.anotarPedido)
 	auth(store.MemberCollaborator, "POST /api/apps/{app}/libreta/{id}/discard", s.descartarPedido)
@@ -1092,7 +1094,7 @@ func (s *Server) atenderEvento(ctx context.Context, f forja.Forja, ev forja.Even
 	if c := ev.Change; c != nil && f.Allows(strings.Split(c.Repo, "/")[0]) {
 		switch c.Action {
 		case "closed":
-			s.Platform.ClosePreview(ctx, c.Repo, c.Number)
+			s.Platform.ClosePreview(ctx, c.Repo, c.Number, c.Merged)
 			// A merge, by a person or by rendimiento: the libreta keeps it.
 			if c.Merged && (c.HeadRepo == "" || strings.EqualFold(c.HeadRepo, c.Repo)) {
 				at := time.Now()

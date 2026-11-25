@@ -13,6 +13,14 @@ import { locale, t } from "../i18n";
 import { clamp, hash, isNight, palette, still, type Palette } from "./maqueta";
 
 export type CaminosSel = { kind: "branch"; name: string } | { kind: "run"; id: number };
+
+/** A live copy marked on the map: a little house at the end of its branch's road, with its pull request's number. */
+export interface CopiaMark {
+  branch: string;
+  text: string; // "#42", or "seco" for a short copy
+  label: string; // what a screen reader says
+  short?: boolean;
+}
 export type PlayState = "stopped" | "playing" | "paused";
 
 /** A run placed on the map. */
@@ -192,6 +200,9 @@ export class CaminosMap {
   private frameId = 0;
   private S = 1;
   private cleanup: (() => void)[] = [];
+  // The live copies' houses: buttons over the canvas, so a keyboard and a screen reader reach them, placed each frame.
+  private marks: { m: CopiaMark; el: HTMLButtonElement }[] = [];
+  private signEnd = new Map<string, number>(); // branch → the screen x where its sign ends
   private tufts: { x: number; y: number; k: number }[];
   private decor: { x: number; side: number; k: number; kind: "nopal" | "maguey" }[];
   private dayFmt = new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric" });
@@ -234,6 +245,27 @@ export class CaminosMap {
   destroy() {
     cancelAnimationFrame(this.frameId);
     for (const f of this.cleanup) f();
+    for (const x of this.marks) x.el.remove();
+  }
+
+  /** The live copies to mark, in layer (over the canvas); choosing one calls onPick, focusing one flies to it. */
+  setCopias(layer: HTMLElement, marks: CopiaMark[], onPick: (m: CopiaMark) => void) {
+    for (const x of this.marks) x.el.remove();
+    this.marks = marks.map((m) => {
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = "caminos-casa" + (m.short ? " corta" : "");
+      el.setAttribute("aria-label", m.label);
+      el.title = m.label;
+      el.innerHTML = '<svg viewBox="0 0 24 22" width="22" height="20" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 9.5V19h13V9.5" class="pared"/><rect x="10" y="13" width="4" height="6" rx="1" class="puerta"/></svg>';
+      const num = document.createElement("span");
+      num.textContent = m.text;
+      el.appendChild(num);
+      el.addEventListener("click", () => onPick(m));
+      el.addEventListener("focus", () => { const r = this.L.byName.get(m.branch); if (r && !this.drag) this.goTo(r.x1); });
+      layer.appendChild(el);
+      return { m, el };
+    });
   }
 
   // ---- public controls ----
@@ -442,6 +474,28 @@ export class CaminosMap {
     this.drawPlay(now, cut);
     this.drawNames();
     this.drawMini(cut);
+    this.placeMarks();
+  }
+
+  /** Puts each copy's house beside the sign at the end of its road, kept inside the map (at its edge, pointing the way, when the road is out of view). */
+  private placeMarks() {
+    const placed: { x: number; y: number }[] = [];
+    for (const { m, el } of this.marks) {
+      const r = this.L.byName.get(m.branch);
+      el.hidden = !r;
+      if (!r) continue;
+      const x = (this.signEnd.get(m.branch) ?? this.X(r.x1)) + 18, y = this.Y(r.y) + 4;
+      // Clear of the zoom buttons on the right.
+      const right = this.W - 90;
+      const side = x < 40 ? "izq" : x > right ? "der" : "";
+      const cx = clamp(x, 40, right);
+      let cy = clamp(y, TOP + 50, this.H - BOTTOM - 30);
+      // Two houses never sit on each other (both at the edge, say): the later one goes up.
+      while (placed.some((p) => Math.abs(p.x - cx) < 70 && Math.abs(p.y - cy) < 48)) cy -= 48;
+      placed.push({ x: cx, y: cy });
+      el.style.transform = `translate(${Math.round(cx)}px, ${Math.round(cy)}px) translate(-50%, -100%)`;
+      if (el.dataset.lado !== side) el.dataset.lado = side;
+    }
   }
 
   private sprite(color: string, glow: boolean) {
@@ -545,6 +599,7 @@ export class CaminosMap {
 
   private drawStops(now: number, cut?: number) {
     const { ctx, C, L, S, W } = this;
+    this.signEnd.clear();
     const selR = this.selRoad();
     for (const s of L.releases) {
       if (cut !== undefined && s.x > cut) continue;
@@ -587,7 +642,7 @@ export class CaminosMap {
           const lastRun = r.b.runs[r.b.runs.length - 1];
           const waiting = r.b.state === "open" && lastRun.status === "succeeded";
           const txt = r.b.state === "open" ? (waiting ? t("Waiting at the gate") : t("Stuck here")) : t("Left on the way");
-          this.letrero(sx, sy + 4, txt, waiting ? C.nopal : C.grana);
+          this.signEnd.set(r.b.name, this.letrero(sx, sy + 4, txt, waiting ? C.nopal : C.grana));
           if (r.b.state === "open") this.burro(sx - 22 * S, sy + 4, 0.85 * S, now * 0.003);
           ctx.globalAlpha = 1;
         }
@@ -775,7 +830,8 @@ export class CaminosMap {
     }
   }
 
-  private letrero(x: number, y: number, text: string, color: string) {
+  /** A sign at the end of a road that was not merged; it says where it ends (screen x). */
+  private letrero(x: number, y: number, text: string, color: string): number {
     const { ctx, C } = this;
     ctx.strokeStyle = C.huacalD; ctx.lineWidth = 2.4;
     ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - 30); ctx.stroke();
@@ -783,6 +839,7 @@ export class CaminosMap {
     const w = ctx.measureText(text).width + 14;
     ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(x - 4, y - 44); ctx.lineTo(x + w, y - 44); ctx.lineTo(x + w + 7, y - 36); ctx.lineTo(x + w, y - 28); ctx.lineTo(x - 4, y - 28); ctx.closePath(); ctx.fill();
     ctx.fillStyle = "#fff"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(text, x + 3, y - 36);
+    return x + w + 7;
   }
 
   private mojonera(x: number, y: number, text: string) {

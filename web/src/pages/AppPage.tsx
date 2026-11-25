@@ -105,7 +105,7 @@ export function AppPage() {
       {tab === "mesa" && <MesaTab app={app} />}
       {tab === "overview" && <Overview name={name} app={app} />}
       {tab === "runs" && <Runs name={name} repo={app.repo} forja={app.forja} />}
-      {tab === "caminos" && <CaminosTab name={name} />}
+      {tab === "caminos" && <CaminosTab name={name} app={app} />}
       {tab === "libreta" && <LibretaTab app={app} />}
       {tab === "releases" && <Releases name={name} current={app.status.release} />}
       {tab === "reliability" && <ReliabilityTab app={app} />}

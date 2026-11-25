@@ -63,7 +63,7 @@ rules:
     resources: [nodes]
     verbs: [get, list]
   - apiGroups: [metrics.k8s.io]
-    resources: [nodes]
+    resources: [nodes, pods]
     verbs: [get, list]
   - apiGroups: [networking.k8s.io]
     resources: [ingressclasses, networkpolicies]

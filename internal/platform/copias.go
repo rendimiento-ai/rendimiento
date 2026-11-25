@@ -24,6 +24,10 @@ type copia struct {
 	Run       int64  // the run a short copy is for (0 for a pull request's)
 	PushedAt  time.Time
 	CommentID int64
+	// Release is the run whose images it runs (0 when unknown).
+	Release int64
+	// MadeAt is when it was first made (zero when unknown).
+	MadeAt time.Time
 }
 
 // name is the copy's App object (or containers' name).
@@ -99,9 +103,9 @@ func copiaOf(a v1alpha1.App) copia {
 		at = a.CreationTimestamp.Time
 	}
 	if run, _ := strconv.ParseInt(a.Labels[labelShortCopy], 10, 64); run != 0 {
-		return copia{App: a.Labels[labelPreviewOf], Run: run, PushedAt: at}
+		return copia{App: a.Labels[labelPreviewOf], Run: run, PushedAt: at, Release: a.Spec.Release, MadeAt: a.CreationTimestamp.Time}
 	}
-	return copia{App: a.Labels[labelPreviewOf], Number: a.Spec.Preview, PushedAt: at, CommentID: id}
+	return copia{App: a.Labels[labelPreviewOf], Number: a.Spec.Preview, PushedAt: at, CommentID: id, Release: a.Spec.Release, MadeAt: a.CreationTimestamp.Time}
 }
 
 func (k kubeCopias) Get(ctx context.Context, app string, number int) (copia, bool) {
@@ -185,7 +189,7 @@ func (l LocalCopias) List(ctx context.Context, app string) ([]copia, error) {
 	}
 	out := make([]copia, 0, len(got))
 	for _, c := range got {
-		out = append(out, copia{App: c.App, Number: c.Numero, Run: c.Seco, PushedAt: c.Empujada, CommentID: c.Comentario})
+		out = append(out, copia{App: c.App, Number: c.Numero, Run: c.Seco, PushedAt: c.Empujada, CommentID: c.Comentario, Release: c.Version})
 	}
 	return out, nil
 }
