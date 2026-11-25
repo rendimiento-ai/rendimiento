@@ -68,11 +68,15 @@ type Encargo struct {
 	RouteChosen bool `json:"routeChosen,omitempty"`
 	// Question is what the coding agent asks the person while it is
 	// asking (nil otherwise; see EncargoAsking).
-	Question  *EncargoPregunta `json:"question,omitempty"`
-	OrgID     int64            `json:"orgId"`
-	CreatedAt time.Time        `json:"createdAt"`
-	UpdatedAt time.Time        `json:"updatedAt"`
-	Log       []EncargoLog     `json:"log,omitempty"`
+	Question *EncargoPregunta `json:"question,omitempty"`
+	// GivenBack: pending, and the last thing that changed who has it is
+	// an agent letting it go (as the queue's «Given back to you»), so the
+	// person can tell it something when sending it again.
+	GivenBack bool         `json:"givenBack,omitempty"`
+	OrgID     int64        `json:"orgId"`
+	CreatedAt time.Time    `json:"createdAt"`
+	UpdatedAt time.Time    `json:"updatedAt"`
+	Log       []EncargoLog `json:"log,omitempty"`
 }
 
 // EncargoLog is one thing that happened to an encargo.
@@ -88,7 +92,9 @@ const encargoCols = `e.id, e.title, e.body, e.app, e.run_id, e.status, e.created
 	e.difficulty, e.estimate_micros, e.estimate_reason, e.route, e.do_now, e.spent_micros, e.queue_pos, e.doing, e.stop_asked,
 	EXISTS (SELECT 1 FROM encargo_log rl WHERE rl.encargo_id = e.id AND rl.what = 'routed'),
 	COALESCE((SELECT r.branch FROM runs r JOIN apps a ON a.id = r.app_id WHERE r.id = e.run_id AND r.branch <> a.default_branch), ''),
-	` + openQuestionCol
+	` + openQuestionCol + `,
+	e.status = 'pending' AND COALESCE((SELECT gl.what FROM encargo_log gl WHERE gl.encargo_id = e.id
+		AND gl.what IN ('taken', 'released', 'returned', 'sent', 'routed', 'app') ORDER BY gl.id DESC LIMIT 1), '') = 'released'`
 
 const encargoFrom = ` FROM encargos e LEFT JOIN agent_keys k ON k.id = e.key_id`
 
@@ -97,7 +103,7 @@ const encargoFrom = ` FROM encargos e LEFT JOIN agent_keys k ON k.id = e.key_id`
 func encargoFields(e *Encargo, more ...any) []any {
 	return append([]any{&e.ID, &e.Title, &e.Body, &e.App, &e.RunID, &e.Status, &e.CreatedBy, &e.ByAgent, &e.KeyID, &e.KeyName,
 		&e.CargoID, &e.WaitingRun, &e.Result, &e.Links, &e.Comment, &e.CreatedAt, &e.UpdatedAt, &e.OrgID,
-		&e.Difficulty, &e.EstimateMicros, &e.EstimateReason, &e.Route, &e.DoNow, &e.SpentMicros, &e.QueuePos, &e.Doing, &e.StopAsked, &e.RouteChosen, &e.RunBranch, &e.Question}, more...)
+		&e.Difficulty, &e.EstimateMicros, &e.EstimateReason, &e.Route, &e.DoNow, &e.SpentMicros, &e.QueuePos, &e.Doing, &e.StopAsked, &e.RouteChosen, &e.RunBranch, &e.Question, &e.GivenBack}, more...)
 }
 
 func scanEncargo(row pgx.Row) (Encargo, error) {
@@ -382,6 +388,12 @@ func (s *Store) CoderRecord(ctx context.Context, orgID int64, name string, limit
 // DoEncargos sends an organization's pending encargos to the platform's
 // coding agent, and returns how many it sent.
 func (s *Store) DoEncargos(ctx context.Context, orgID int64, ids []int64, who string) (int, error) {
+	return s.DoEncargosTold(ctx, orgID, ids, nil, who)
+}
+
+// DoEncargosTold is DoEncargos with what the person tells the agent about
+// each one it sends (notes by id, optional; TellEncargo).
+func (s *Store) DoEncargosTold(ctx context.Context, orgID int64, ids []int64, notes map[int64]string, who string) (int, error) {
 	n := 0
 	for _, id := range ids {
 		_, err := s.change(ctx, id, who, "sent", "", `UPDATE encargos SET do_now = true, route = 'platform', updated_at = now()
@@ -393,8 +405,41 @@ func (s *Store) DoEncargos(ctx context.Context, orgID int64, ids []int64, who st
 			return n, err
 		}
 		n++
+		if note := notes[id]; note != "" {
+			if _, err := s.TellEncargo(ctx, id, who, note); err != nil {
+				return n, err
+			}
+		}
 	}
 	return n, nil
+}
+
+// TellEncargo keeps what a person tells whoever does an open encargo next
+// ("told" in its history), as when sending one an agent gave back to it
+// again: the coding agent's brief and encargo_leer show it.
+func (s *Store) TellEncargo(ctx context.Context, id int64, who, note string) (Encargo, error) {
+	return s.change(ctx, id, who, "told", note,
+		`UPDATE encargos SET updated_at = now() WHERE id = $1 AND status NOT IN ('reviewed', 'cancelled')`, id)
+}
+
+// GaveBack reads an encargo's history (Log): why the last agent that gave
+// it back stopped (its last "released" note, "" if none did), and what
+// people told it since (the "told" notes after it, oldest first). A
+// delivery after them leaves them behind.
+func (e Encargo) GaveBack() (why string, told []string) {
+	for _, l := range e.Log {
+		switch l.What {
+		case "delivered":
+			why, told = "", nil
+		case "released":
+			why, told = l.Note, nil
+		case "told":
+			if l.Note != "" {
+				told = append(told, l.Note)
+			}
+		}
+	}
+	return why, told
 }
 
 // GiveBackEncargo is the coding agent letting an encargo go to the person's

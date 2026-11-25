@@ -25,7 +25,7 @@ export const eventLabel: Record<string, string> = {
   created: "created", taken: "taken", waiting: "waiting", resumed: "done waiting", delivered: "delivered",
   reviewed: "reviewed", routed: "routed", estimate: "asked to estimate it again", sent: "sent it to the coding agent", returned: "sent back", released: "let go", cancelled: "dropped",
   noted: "added to it", fixed: "ran a fix", ran: "ran a command", app: "chose its app", stop: "asked the coding agent to stop",
-  asked: "asked a question", answered: "answered the question",
+  asked: "asked a question", answered: "answered the question", told: "told it",
 };
 
 export const routeLabel = { platform: "For the platform's AI", local: "For your own agent" };
@@ -204,6 +204,8 @@ export function EncargoCard({ e, cola, onChange, chosen, onChoose, comentarios }
   const agentOn = !!cola && cola.mode !== "off";
   const delCoder = (e.status === "taken" || e.status === "waiting") && !!cola?.now.some((x) => x.id === e.id);
   const fila = pending && enFila(e, cola);
+  // Given back by an agent: what it should know, sent along with it (Reenviar).
+  const reenviar = pending && !!e.givenBack && !!e.app;
 
   // The one main action.
   let principal: ReactNode = null;
@@ -284,6 +286,11 @@ export function EncargoCard({ e, cola, onChange, chosen, onChoose, comentarios }
           onNo={() => setConfirma(undefined)} onSi={(m) => { setConfirma(undefined); act(api.cancelEncargo(e.id, m)); }} />
       ) : confirma === "devolver" ? (
         <DevolverForm onNo={() => setConfirma(undefined)} onSi={(c) => { setConfirma(undefined); act(api.reviewEncargo(e.id, false, c)); }} />
+      ) : reenviar ? (
+        <Reenviar e={e} onChange={onChange} setErr={setErr} otraVez={agentOn}>
+          <button type="button" className="et-boton" aria-expanded={comentando} onClick={() => setComentando(!comentando)}>{t("Comment")}</button>
+          <Menu label={t("More for encargo {n}", { n: e.id })} items={menu} />
+        </Reenviar>
       ) : (
         <div className="et-acciones">
           {principal}
@@ -302,6 +309,31 @@ export function EncargoCard({ e, cola, onChange, chosen, onChoose, comentarios }
         </div>
       )}
     </article>
+  );
+}
+
+/**
+ * An encargo an agent gave back: what it should know when it tries again (optional, its brief and
+ * encargo_leer show it), then leaving it to the person's own agent or, when otraVez, sending it to the
+ * coding agent again. Both carry the note. children go after the buttons.
+ */
+export function Reenviar({ e, onChange, setErr, otraVez, children }: {
+  e: Encargo; onChange: () => void; setErr: (x: unknown) => void; otraVez: boolean; children?: ReactNode;
+}) {
+  const [nota, setNota] = useState("");
+  const conexion = useConexion();
+  const n = nota.trim();
+  return (
+    <>
+      <label className="field et-nota"><span>{t("What it should know when it tries again")}</span>
+        <textarea rows={2} maxLength={4000} value={nota} onChange={(ev) => setNota(ev.target.value)} />
+      </label>
+      <div className="et-acciones">
+        <button type="button" className="et-boton principal anil" {...apagado(conexion)} onClick={() => api.routeEncargo(e.id, "local", n).then(onChange, setErr)}>{t("Leave it to my agent")}</button>
+        {otraVez && <button type="button" className="et-boton" {...apagado(conexion)} onClick={() => api.doEncargos([e.id], n ? { [e.id]: n } : undefined).then(onChange, setErr)}>{t("Send it again")}</button>}
+        {children}
+      </div>
+    </>
   );
 }
 

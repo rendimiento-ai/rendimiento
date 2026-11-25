@@ -950,6 +950,8 @@ export interface Encargo {
   routeChosen?: boolean;
   /** What the coding agent asks the person, while it is asking. */
   question?: EncargoPregunta;
+  /** Pending, and the last thing that changed who has it is an agent giving it back. */
+  givenBack?: boolean;
   createdAt: string;
   updatedAt: string;
   log?: { at: string; who: string; what: string; note?: string }[];
@@ -1780,8 +1782,10 @@ export const api = {
   cola: () => request<Cola>("GET", `/api/encargos/cola?hoy=${hoy()}`),
   reorderCola: (ids: number[]) => request<Cola>("POST", `/api/encargos/cola/orden?hoy=${hoy()}`, { ids }),
   portada: () => request<Portada>("GET", `/api/ruta/portada?hoy=${hoy()}`),
-  routeEncargo: (id: number, route: "platform" | "local") => request<Encargo>("POST", `/api/encargos/${id}/route`, { route }),
-  doEncargos: (ids: number[]) => request<{ sent: number }>("POST", "/api/encargos/do", { ids }),
+  /** note: what the person tells the agent that does it (optional). */
+  routeEncargo: (id: number, route: "platform" | "local", note?: string) => request<Encargo>("POST", `/api/encargos/${id}/route`, { route, note: note || undefined }),
+  /** notes: what the person tells the coding agent about each one, by id (optional). */
+  doEncargos: (ids: number[], notes?: Record<number, string>) => request<{ sent: number }>("POST", "/api/encargos/do", { ids, notes }),
   setAppAutoEncargo: (app: string, mode: AutoEncargo | "") => request<void>("PUT", `/api/apps/${app}/auto-encargo`, { mode }),
   setAppAutoMerge: (app: string, on: boolean, any: boolean) => request<void>("PUT", `/api/apps/${app}/auto-merge`, { on, any }),
   appAccess: (app: string) => request<AppAccess>("GET", `/api/apps/${app}/members`),

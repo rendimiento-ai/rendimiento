@@ -51,6 +51,7 @@ var catalog = map[string]string{
 	"the coding agent asks nothing about this encargo now":                              "el agente de código no pregunta nada de este encargo ahora",
 	"write an answer, or choose one of the options":                                     "escriba una respuesta, o elija una de las opciones",
 	"the answer is too long: up to 4000 characters":                                     "la respuesta es muy larga: hasta 4000 caracteres",
+	"the note is too long: up to 4,000 characters":                                      "la nota es muy larga: hasta 4,000 caracteres",
 	"bad cargo or encargo number":                                                       "número de cargo o de encargo inválido",
 	"say which cargo or encargo the comment is about":                                   "diga de qué cargo o encargo es el comentario",
 	"the comment must be 1 to 20,000 characters":                                        "el comentario debe tener de 1 a 20,000 caracteres",
