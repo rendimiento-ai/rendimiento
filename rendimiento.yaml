@@ -22,6 +22,17 @@ services:
       category: devtools
       title: rendimiento book
       description: How rendimiento works, how it is deployed here, and how to change it.
+# A live copy of the book for each pull request (opened from this
+# repository), at learn-pr-<number>.rendimiento.ai: only docs is a service
+# here, so the copy is the book alone; the platform is a build, never
+# deployed from this file, so no second platform starts. One replica at a
+# quarter of the resources, no LAN address, no aliases. A copy goes when its
+# pull request closes, after 3 days without a push, or, over 2, the one
+# idle longest.
+previews:
+  keep: 3
+  max: 2
+
 builds:
   # rendimiento's own image: the Go tests (envtest and a throwaway Postgres)
   # first, then the Dockerfile, which also checks the UI. The API's and the

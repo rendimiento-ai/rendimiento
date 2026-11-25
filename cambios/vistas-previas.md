@@ -1,0 +1,1 @@
+- **Previews:** rendimiento's own app (`rendimiento-ai`) turns on `previews:` (`keep: 3`, `max: 2`): a pull request opened from this repository gets a copy of the book at `learn-pr-<number>.rendimiento.ai`. Only `docs` is a service of this app; the platform is a build and is never deployed by it, so a copy never starts a second platform.
