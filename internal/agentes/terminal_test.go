@@ -233,3 +233,69 @@ func TestSandboxImage(t *testing.T) {
 		t.Errorf("no tests: %s %s", got, from)
 	}
 }
+
+// withDBSpec is the coder's store with an app whose web test has a
+// throwaway Postgres and a kept cache.
+type withDBSpec struct{ *coderStore }
+
+func (s withDBSpec) GetApp(ctx context.Context, name string) (*store.App, error) {
+	a, err := s.coderStore.GetApp(ctx, name)
+	if a != nil {
+		a.Spec = spec.Spec{Services: []spec.Service{{Name: "web", Path: "web", Test: &spec.Test{Image: "golang:1.27", Command: "go test ./...", Postgres: true, Cache: true}}}}
+	}
+	return a, err
+}
+
+// A folder whose test has postgres: true and cache: true runs with the
+// app's sandbox cache seeded from that test's CI caches and a database;
+// the model is told the time limit and how to work with a cold cache; a
+// command that runs out of time answers what it printed so far, how long
+// each part took, and that the cache it warmed stays.
+func TestCoderRunWithCacheAndTimeout(t *testing.T) {
+	st := &coderStore{}
+	r := &repos{st: st, files: map[string][]byte{"web/main.go": []byte("package main\n")}}
+	box := &fakeSandbox{results: []pipeline.SandboxResult{{
+		TimedOut: true, ExitCode: -1, Took: 20 * time.Minute, Fresh: true, Setup: 95 * time.Second, Sync: 2 * time.Second,
+		Cache: "the app's sandbox cache, new; seeded from CI's cache-tienda-web in 1m10s", CacheKept: true, Postgres: true,
+		Stdout: "go: downloading k8s.io/client-go v0.35.0\n", StdoutBytes: 41,
+	}}}
+	m := &script{t: t, cost: 10_000, turns: [][]ia.ToolCall{
+		{call("run", map[string]string{"command": "go test ./internal/api -run Update", "folder": "web"})},
+		{call("give_up", map[string]string{"reason": "nada"})},
+	}}
+	c := newCoder(st, r, m)
+	c.Store = withDBSpec{st}
+	c.Terminal = &Terminal{Sandbox: box, Store: &termStore{on: true}, Timeout: 20 * time.Minute}
+	var system string
+	var tools []string
+	c.Model = promptSeen{m, &system, &tools}
+	if err := c.Do(context.Background(), store.Encargo{ID: 13, OrgID: 1, App: "tienda"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Each command stops after 20m0s", "narrow commands", "commit_and_test (CI)", "TEST_DATABASE_URL"} {
+		if !strings.Contains(system, want) {
+			t.Errorf("the prompt lacks %q", want)
+		}
+	}
+	req := box.reqs[0]
+	if req.App != "tienda" || !req.Postgres || strings.Join(req.SeedFrom, " ") != "cache-tienda-web cache-tienda-web-2" {
+		t.Fatalf("asked %+v", req)
+	}
+	out := m.seen[0]
+	for _, want := range []string{"TIMED OUT", "20m0s", "making the sandbox took 1m35s", "seeded from CI's cache-tienda-web", "go: downloading k8s.io/client-go",
+		"stays, so the next try starts warmer", "narrower command", "throwaway Postgres"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the run's answer lacks %q:\n%s", want, out)
+		}
+	}
+
+	// A folder whose test has neither asks for neither.
+	tg := sandboxTarget(spec.Spec{Services: []spec.Service{{Name: "web", Path: "web", Test: &spec.Test{Image: "node:22"}}},
+		Tasks: []spec.Task{{Name: "e2e", Path: "web/e2e", Image: "playwright", Postgres: true, Cache: true}}}, "web/src")
+	if tg.Postgres || tg.Cache || tg.StepID != "web:test" {
+		t.Fatalf("target %+v", tg)
+	}
+	if tg = sandboxTarget(spec.Spec{Tasks: []spec.Task{{Name: "e2e", Path: "web/e2e", Image: "playwright", Postgres: true, Cache: true}}}, "web/e2e"); !tg.Postgres || !tg.Cache || tg.StepID != "e2e:task" {
+		t.Fatalf("task target %+v", tg)
+	}
+}

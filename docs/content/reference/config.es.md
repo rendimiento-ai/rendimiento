@@ -183,7 +183,9 @@ Los días y las horas se cuentan en `PUBLIC_STATS_TZ`.
 | `CODER_SANDBOX` | `on` | `off` | `off`: el agente de código nunca corre comandos, escojan lo que escojan las organizaciones ([su entorno aislado](../guide/agents.md#the-sandbox)) |
 | `CODER_SANDBOX_IMAGE` | `golang:1.27-bookworm` | `registry.example.lan:5000/toolbox:1` | la imagen del entorno aislado cuando la aplicación no tiene una imagen de pruebas o de tarea de construcción para la carpeta |
 | `CODER_SANDBOX_RUNTIME_CLASS` | *(vacío: el entorno de ejecución predeterminado del clúster)* | `gvisor` | el `runtimeClassName` de los pods del entorno aislado, para gVisor o Kata cuando sus nodos tengan uno |
-| `CODER_SANDBOX_CPU`, `CODER_SANDBOX_MEMORY`, `CODER_SANDBOX_DISK` | `2`, `4Gi`, `8Gi` | | los límites de CPU y memoria del contenedor de los comandos, y el tamaño del espacio de trabajo |
+| `CODER_SANDBOX_CPU`, `CODER_SANDBOX_MEMORY`, `CODER_SANDBOX_DISK` | `3`, `4Gi`, `8Gi` | | los límites de CPU y memoria del contenedor de los comandos (su solicitud de CPU se queda en 250m), y el tamaño del espacio de trabajo |
+| `CODER_SANDBOX_TIMEOUT` | `15m` | `25m` | lo más que corre un comando (de 1m a 2h) |
+| `CODER_SANDBOX_CACHE_SIZE` | `10Gi` | `off` | la caché del entorno aislado de cada aplicación (`sandbox-cache-<app>`, en `TEST_CACHE_STORAGE_CLASS`); `off`: ninguna, las cachés se quedan en el espacio de trabajo ([su caché](../guide/agents.md#the-sandbox)) |
 
 ## Archivo de registros {#log-archive}
 

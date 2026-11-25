@@ -29,6 +29,10 @@ func sandboxes(t *testing.T) (*Sandboxes, *fake.Clientset) {
 	// sandbox's two containers running.
 	cs.PrependReactor("create", "pods", func(a k8stesting.Action) (bool, runtime.Object, error) {
 		p := a.(k8stesting.CreateAction).GetObject().(*corev1.Pod)
+		if p.Labels[sandboxSeedLabel] != "" { // a seed pod: copied, and done
+			p.Status.Phase = corev1.PodSucceeded
+			return false, nil, nil
+		}
 		p.Status.Phase = corev1.PodRunning
 		p.Status.InitContainerStatuses = []corev1.ContainerStatus{{Name: "clone", State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{}}}}
 		p.Status.ContainerStatuses = []corev1.ContainerStatus{
@@ -50,7 +54,7 @@ func TestSandboxPod(t *testing.T) {
 	s, _ := sandboxes(t)
 	s.RuntimeClass = "gvisor"
 	s.defaults()
-	pod, err := s.Pod("sbx-encargo-7-abcde", map[string]string{SandboxLabel: "encargo-7"}, Source{Repo: "o/tienda", SHA: "abc123"}, "node:22-bookworm-slim")
+	pod, err := s.Pod("sbx-encargo-7-abcde", map[string]string{SandboxLabel: "encargo-7"}, Source{Repo: "o/tienda", SHA: "abc123"}, SandboxPodOptions{Image: "node:22-bookworm-slim"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +111,7 @@ func TestSandboxPod(t *testing.T) {
 		t.Fatal("the clone leaves the token in .git/config")
 	}
 	work := sp.Containers[0]
-	if work.Image != "node:22-bookworm-slim" || work.Resources.Limits.Cpu().String() != "2" || work.Resources.Limits.Memory().String() != "4Gi" {
+	if work.Image != "node:22-bookworm-slim" || work.Resources.Limits.Cpu().String() != "3" || work.Resources.Limits.Memory().String() != "4Gi" {
 		t.Fatalf("work %s %+v", work.Image, work.Resources.Limits)
 	}
 	na := sp.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
@@ -123,7 +127,7 @@ func TestSandboxPod(t *testing.T) {
 		t.Fatalf("affinity %s", got)
 	}
 	s.RuntimeClass = ""
-	if pod, _ := s.Pod("x", nil, Source{Repo: "o/tienda", SHA: "abc"}, "img"); pod.Spec.RuntimeClassName != nil {
+	if pod, _ := s.Pod("x", nil, Source{Repo: "o/tienda", SHA: "abc"}, SandboxPodOptions{Image: "img"}); pod.Spec.RuntimeClassName != nil {
 		t.Fatal("a runtime class nobody set")
 	}
 	// GitHub's owner/name, or another forja's address as it is; the commit,
@@ -135,7 +139,7 @@ func TestSandboxPod(t *testing.T) {
 		{Source{Repo: "o/tienda", SHA: "abc", Branch: "b"}, "https://github.com/o/tienda.git", "abc"},
 		{Source{Repo: "https://gitlab.example.com/g/tienda.git", Branch: "b"}, "https://gitlab.example.com/g/tienda.git", "b"},
 	} {
-		pod, err := s.Pod("x", nil, c.src, "img")
+		pod, err := s.Pod("x", nil, c.src, SandboxPodOptions{Image: "img"})
 		if err != nil {
 			t.Fatal(err)
 		}
