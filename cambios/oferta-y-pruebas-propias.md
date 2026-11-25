@@ -1,2 +1,0 @@
-- **Run page:** the stale-lockfile offer now reads every failed step, whatever their order: it offers **Regenerate** with a declared fix that covers any of them (the deepest one) before it suggests adding a fix, and that suggestion is for the deepest folder.
-- **App's own tests:** `tests:` takes `size` and `resources`, as a task does. Without them the tests no longer run best-effort: they ask for 250m and 256Mi, with no CPU limit and a 2Gi memory limit, like a build's `test:` section.

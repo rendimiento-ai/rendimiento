@@ -1,1 +1,0 @@
-- **CI:** the platform and API tests, like the store's, give each test a copy of one database migrated once per package (`internal/pgprueba`) instead of dropping the schema and running every migration again for each test, so `pruebas-api` and `pruebas-plataforma` take minutes less.

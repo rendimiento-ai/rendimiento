@@ -1,3 +1,0 @@
-- **Keys and settings:** the log archive's S3 key and the Umami user change on the Environment page too, tested first like the other keys: the archive must accept the key, have its bucket and let it write, read back and delete a test object; Umami must let the user in and show it the websites. Nothing is saved when a step fails, and the platform uses the new one with no restart.
-- **Keys and settings:** the off-site backups (R2) are listed as *Outside rendimiento*: an outside job copies them with its own secret, which the platform does not write.
-- **RBAC:** the `rendimiento-llaves` Role also names `rendimiento-logs` and `rendimiento-umami`: run `make deploy` (or `helm upgrade`) once after updating.

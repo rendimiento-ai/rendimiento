@@ -1,1 +1,0 @@
-- **Encargos:** the «⋯» menu of an encargo stays on the screen on a phone; it no longer opens off its left edge when the button wraps to its own row.
