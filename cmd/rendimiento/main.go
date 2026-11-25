@@ -769,10 +769,17 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 		// puts it under gVisor or Kata once a node has one.
 		var sandboxes *pipeline.Sandboxes
 		if sandboxOn {
+			// CODER_SANDBOX_TIMEOUT: the most one command runs (15m);
+			// CODER_SANDBOX_CACHE_SIZE: each app's sandbox cache (10Gi, "off").
+			sandboxTimeout, err := time.ParseDuration(env("CODER_SANDBOX_TIMEOUT", "15m"))
+			if err != nil || sandboxTimeout < time.Minute || sandboxTimeout > 2*time.Hour {
+				return fmt.Errorf("CODER_SANDBOX_TIMEOUT must be a duration from 1m to 2h, got %q", os.Getenv("CODER_SANDBOX_TIMEOUT"))
+			}
 			sandboxes = &pipeline.Sandboxes{K: executor, Rest: cfg, Image: os.Getenv("CODER_SANDBOX_IMAGE"),
 				RuntimeClass: os.Getenv("CODER_SANDBOX_RUNTIME_CLASS"), CPU: os.Getenv("CODER_SANDBOX_CPU"),
-				Memory: os.Getenv("CODER_SANDBOX_MEMORY"), Disk: os.Getenv("CODER_SANDBOX_DISK"), Log: log.With("component", "sandbox")}
-			coder.Terminal = &agentes.Terminal{Sandbox: sandboxes, Store: st, Clone: p.ForClone}
+				Memory: os.Getenv("CODER_SANDBOX_MEMORY"), Disk: os.Getenv("CODER_SANDBOX_DISK"),
+				CacheSize: os.Getenv("CODER_SANDBOX_CACHE_SIZE"), Timeout: sandboxTimeout, Log: log.With("component", "sandbox")}
+			coder.Terminal = &agentes.Terminal{Sandbox: sandboxes, Store: st, Clone: p.ForClone, Timeout: sandboxTimeout}
 		}
 		// What its read-only tools see (its encargo's app only), and how it
 		// runs again a run the cluster failed.

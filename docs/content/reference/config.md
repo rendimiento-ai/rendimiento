@@ -183,7 +183,9 @@ Days and hours are counted in `PUBLIC_STATS_TZ`.
 | `CODER_SANDBOX` | `on` | `off` | `off`: the coding agent never runs commands, whatever organizations choose ([its sandbox](../guide/agents.md#the-sandbox)) |
 | `CODER_SANDBOX_IMAGE` | `golang:1.27-bookworm` | `registry.example.lan:5000/toolbox:1` | the sandbox's image when the app has no test or build-task image for the folder |
 | `CODER_SANDBOX_RUNTIME_CLASS` | *(empty: the cluster's default runtime)* | `gvisor` | the sandbox pods' `runtimeClassName`, for gVisor or Kata once your nodes have one |
-| `CODER_SANDBOX_CPU`, `CODER_SANDBOX_MEMORY`, `CODER_SANDBOX_DISK` | `2`, `4Gi`, `8Gi` | | the command container's CPU and memory limits, and the workspace's size |
+| `CODER_SANDBOX_CPU`, `CODER_SANDBOX_MEMORY`, `CODER_SANDBOX_DISK` | `3`, `4Gi`, `8Gi` | | the command container's CPU and memory limits (its CPU request stays 250m), and the workspace's size |
+| `CODER_SANDBOX_TIMEOUT` | `15m` | `25m` | the most one command runs (from 1m to 2h) |
+| `CODER_SANDBOX_CACHE_SIZE` | `10Gi` | `off` | each app's sandbox cache (`sandbox-cache-<app>`, on `TEST_CACHE_STORAGE_CLASS`); `off`: none, the caches stay in the workspace ([its cache](../guide/agents.md#the-sandbox)) |
 
 ## Log archive
 

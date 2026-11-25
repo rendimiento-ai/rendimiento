@@ -41,7 +41,10 @@ import (
 // no capabilities, RuntimeDefault seccomp, a workspace that is an emptyDir
 // with a size limit, never the control plane, and a NetworkPolicy of its
 // own (isolate-sandbox) that lets it reach DNS and the public internet
-// only: not the cluster, the nodes, the home network or BuildKit.
+// only: not the cluster, the nodes, the home network or BuildKit. The
+// tools' caches live in the app's sandbox cache (arenero_cache.go), never
+// in CI's; a folder whose test or task has postgres: true gets the steps'
+// throwaway Postgres beside it, on localhost.
 
 // SandboxLabel marks a sandbox's pod and secret; its value is the
 // sandbox's key (the encargo's). Step pods never carry it: isolate-builds
@@ -81,9 +84,20 @@ type Sandboxes struct {
 	// empty: the cluster's default runtime). gVisor's runsc or Kata, once a
 	// node has them, isolate the kernel too.
 	RuntimeClass string
-	// CPU and Memory are the command container's limits (2 and 4Gi), Disk
-	// the workspace's (8Gi).
+	// CPU and Memory are the command container's limits (3 and 4Gi), Disk
+	// the workspace's (8Gi). Its CPU request stays small (250m): a sandbox
+	// lives for hours mostly waiting for the model, and reserving cores for
+	// it would keep CI's steps off the node; with the cores free, a compile
+	// gets up to CPU of them.
 	CPU, Memory, Disk string
+	// CacheSize is each app's sandbox cache (CODER_SANDBOX_CACHE_SIZE, 10Gi;
+	// "off": none, the caches stay in the workspace), CacheIdle how long one
+	// unused stays (14 days), and SeedWait the most seeding a new one from
+	// CI's cache may take (5 minutes). The storage class is the test
+	// caches' (K.CacheStorageClass).
+	CacheSize string
+	CacheIdle time.Duration
+	SeedWait  time.Duration
 	// Timeout is the most one command runs (15 minutes), Idle how long a
 	// sandbox waits for the next one (30 minutes), and MaxLife the most a
 	// sandbox lives at all (4 hours, past the agent's 3-hour job).
@@ -95,15 +109,19 @@ type Sandboxes struct {
 
 	mu    sync.Mutex
 	boxes map[string]*sandbox
+	appMu map[string]*sync.Mutex
 }
 
 // sandbox is one live sandbox pod.
 type sandbox struct {
-	mu    sync.Mutex
-	pod   string
-	image string
-	used  time.Time
-	gone  bool
+	mu       sync.Mutex
+	pod      string
+	image    string
+	postgres bool
+	cache    string // what /cache is
+	kept     bool   // the app's sandbox cache, not an empty folder
+	used     time.Time
+	gone     bool
 }
 
 // SandboxRun is one command to run.
@@ -123,6 +141,14 @@ type SandboxRun struct {
 	// sandbox's files are set to the commit's with them before it runs.
 	Pending map[string][]byte
 	Removed []string
+	// App is the encargo's app, whose sandbox cache the sandbox mounts
+	// (empty: none). SeedFrom are the CI caches a new one is seeded from
+	// (CacheVolumes of the folder's test or task), read-only.
+	App      string
+	SeedFrom []string
+	// Postgres gives the sandbox the steps' throwaway Postgres (the
+	// folder's test or task has postgres: true).
+	Postgres bool
 }
 
 // SandboxResult is how a command ran.
@@ -145,6 +171,13 @@ type SandboxResult struct {
 	// Image is what it ran in, and Fresh whether the sandbox was new.
 	Image, ImageFrom string
 	Fresh            bool
+	// Setup is how long making the sandbox took (the image, the clone,
+	// seeding its cache), Sync laying the changes in; Cache says what /cache
+	// was, and Postgres whether a database was beside it.
+	Setup, Sync time.Duration
+	Cache       string
+	CacheKept   bool
+	Postgres    bool
 }
 
 func (s *Sandboxes) defaults() {
@@ -152,7 +185,7 @@ func (s *Sandboxes) defaults() {
 		s.Image = DefaultSandboxImage
 	}
 	if s.CPU == "" {
-		s.CPU = "2"
+		s.CPU = "3"
 	}
 	if s.Memory == "" {
 		s.Memory = "4Gi"
@@ -168,6 +201,15 @@ func (s *Sandboxes) defaults() {
 	}
 	if s.MaxLife <= 0 {
 		s.MaxLife = 4 * time.Hour
+	}
+	if s.CacheSize == "" {
+		s.CacheSize = "10Gi"
+	}
+	if s.CacheIdle <= 0 {
+		s.CacheIdle = 14 * 24 * time.Hour
+	}
+	if s.SeedWait <= 0 {
+		s.SeedWait = 5 * time.Minute
 	}
 	if s.MaxOutput <= 0 {
 		s.MaxOutput = 16 << 10
@@ -205,7 +247,7 @@ func (s *Sandboxes) Run(ctx context.Context, req SandboxRun) (SandboxResult, err
 	if image == "" {
 		image, from = s.Image, "default"
 	}
-	res := SandboxResult{Image: image, ImageFrom: from}
+	res := SandboxResult{Image: image, ImageFrom: from, Postgres: req.Postgres}
 	pending, err := sandboxTar(req.Pending, req.Removed)
 	if err != nil {
 		return res, err
@@ -213,17 +255,20 @@ func (s *Sandboxes) Run(ctx context.Context, req SandboxRun) (SandboxResult, err
 	if len(pending) > sandboxMaxPending {
 		return res, fmt.Errorf("the uncommitted changes are %d MB compressed, more than the %d MB a sandbox takes; commit them first", len(pending)>>20, sandboxMaxPending>>20)
 	}
-	if box.pod != "" && (box.image != image || box.gone) {
+	if box.pod != "" && (box.image != image || box.postgres != req.Postgres || box.gone) {
 		s.drop(box)
 	}
+	begin := time.Now()
 	if box.pod == "" {
 		if err := s.start(ctx, req, box, image); err != nil {
 			return res, err
 		}
 		res.Fresh = true
 	}
+	res.Setup = time.Since(begin).Round(100 * time.Millisecond)
 	// The files as the caller has them; a sandbox whose git a command broke
 	// is made again, once.
+	begin = time.Now()
 	if msg, err := s.script(ctx, box.pod, []string{"sh", "-c", sandboxSyncScript, "sync", "/workspace"}, bytes.NewReader(pending), io.Discard); err != nil || msg != "" {
 		s.drop(box)
 		if ctx.Err() != nil {
@@ -238,6 +283,8 @@ func (s *Sandboxes) Run(ctx context.Context, req SandboxRun) (SandboxResult, err
 			return res, fmt.Errorf("could not lay your changes in the sandbox: %v %s", err, msg)
 		}
 	}
+	res.Sync = time.Since(begin).Round(100 * time.Millisecond)
+	res.Cache, res.CacheKept = box.cache, box.kept
 
 	out := &tailBuffer{max: s.MaxOutput}
 	errOut := &tailBuffer{max: s.MaxOutput}
@@ -404,6 +451,7 @@ func (s *Sandboxes) Sweep(ctx context.Context, first bool) {
 			}
 		}
 	}
+	s.sweepCaches(ctx, now)
 }
 
 // drop deletes a sandbox's pod (and its clone secret, if still there).
@@ -415,12 +463,13 @@ func (s *Sandboxes) drop(box *sandbox) {
 	zero := int64(0)
 	_ = s.K.Client.CoreV1().Pods(s.K.Namespace).Delete(bg, box.pod, metav1.DeleteOptions{GracePeriodSeconds: &zero})
 	_ = s.K.Client.CoreV1().Secrets(s.K.Namespace).Delete(bg, box.pod, metav1.DeleteOptions{})
-	box.pod, box.image, box.gone = "", "", false
+	box.pod, box.image, box.postgres, box.cache, box.kept, box.gone = "", "", false, "", false, false
 }
 
 // start makes the key's sandbox: its network policy first (no pod without
-// it), the clone token's secret, the pod, and, once the clone is done and
-// the sandbox runs, the secret goes.
+// it), the app's cache (seeded from CI's the first time), the clone token's
+// secret, the pod, and, once the clone is done and the sandbox runs, the
+// secret goes.
 func (s *Sandboxes) start(ctx context.Context, req SandboxRun, box *sandbox, image string) error {
 	k := s.K
 	if err := s.EnsurePolicy(ctx); err != nil {
@@ -429,6 +478,19 @@ func (s *Sandboxes) start(ctx context.Context, req SandboxRun, box *sandbox, ima
 	key := SandboxKey(req.Key)
 	name := "sbx-" + key + "-" + randSuffix()
 	labels := map[string]string{"app.kubernetes.io/managed-by": "rendimiento", SandboxLabel: key}
+	opts := SandboxPodOptions{Image: image, Postgres: req.Postgres}
+	release := func() {}
+	if req.App != "" && s.cacheOn() {
+		// Held until the pod is created: from then on it is listed as the
+		// cache's, and another sandbox of the app goes without.
+		lock := s.appLock(req.App)
+		lock.Lock()
+		var once sync.Once
+		release = func() { once.Do(lock.Unlock) }
+		defer release()
+		opts.Cache, box.cache = s.takeCache(ctx, req, labels)
+		opts.CacheDir, box.kept = true, opts.Cache != ""
+	}
 	token := ""
 	if k.Token != nil {
 		var err error
@@ -447,8 +509,8 @@ func (s *Sandboxes) start(ctx context.Context, req SandboxRun, box *sandbox, ima
 	}); err != nil {
 		return fmt.Errorf("create the sandbox's secret: %v", err)
 	}
-	box.pod, box.image = name, image
-	pod, err := s.Pod(name, labels, req.Src, image)
+	box.pod, box.image, box.postgres = name, image, req.Postgres
+	pod, err := s.Pod(name, labels, req.Src, opts)
 	if err != nil {
 		s.drop(box)
 		return err
@@ -457,6 +519,7 @@ func (s *Sandboxes) start(ctx context.Context, req SandboxRun, box *sandbox, ima
 		s.drop(box)
 		return fmt.Errorf("create the sandbox's pod: %v", err)
 	}
+	release()
 	wctx, cancel := context.WithTimeout(ctx, 10*time.Minute) // the image pull and the clone
 	defer cancel()
 	for _, c := range []string{"clone", "work", "git"} {
@@ -562,12 +625,25 @@ fi
 echo "RENDIMIENTO-FIX-END"
 `
 
+// SandboxPodOptions are what a sandbox's pod is made with beyond its
+// commit: the command's image; Postgres for the steps' throwaway database
+// beside it; CacheDir for /cache in the command's container, the volume
+// Cache (the app's sandbox cache), or an empty folder when Cache is "".
+type SandboxPodOptions struct {
+	Image    string
+	Postgres bool
+	CacheDir bool
+	Cache    string
+}
+
 // Pod is a sandbox's pod: the clone as an init container (the only one
 // with the token), then the command's container in the image and a git
 // container beside it, both idle until the platform execs into them,
-// sharing the workspace.
-func (s *Sandboxes) Pod(name string, labels map[string]string, src Source, image string) (*corev1.Pod, error) {
+// sharing the workspace. Only the command's container mounts /cache; the
+// Postgres sidecar, when asked for, starts after the clone and before it.
+func (s *Sandboxes) Pod(name string, labels map[string]string, src Source, opts SandboxPodOptions) (*corev1.Pod, error) {
 	k := s.K
+	image := opts.Image
 	cloneURL, ref := src.CloneURL(), src.Ref()
 	if ref == "" || image == "" {
 		return nil, errors.New("a sandbox needs a commit and an image")
@@ -648,6 +724,31 @@ func (s *Sandboxes) Pod(name string, labels map[string]string, src Source, image
 			Volumes: []corev1.Volume{{Name: "workspace", VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{SizeLimit: &disk}}}},
 		},
+	}
+	work0 := &pod.Spec.Containers[0]
+	if opts.CacheDir {
+		work0.Env = append(work0.Env, sandboxCacheEnv...)
+		work0.VolumeMounts = append(work0.VolumeMounts, corev1.VolumeMount{Name: "cache", MountPath: "/cache"})
+		vs := corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{SizeLimit: &disk}}
+		if opts.Cache != "" {
+			vs = corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: opts.Cache}}
+			// The cache holds many thousands of files: change their group
+			// only when its root's is not the sandbox's, not at every mount.
+			onRoot := corev1.FSGroupChangeOnRootMismatch
+			pod.Spec.SecurityContext.FSGroupChangePolicy = &onRoot
+		}
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{Name: "cache", VolumeSource: vs})
+	}
+	if opts.Postgres {
+		// The steps' Postgres, on the pod's own localhost: NetworkPolicy
+		// never sees that traffic (it does not leave the pod), so
+		// isolate-sandbox, which takes everything else, lets it be.
+		work0.Env = append(work0.Env, corev1.EnvVar{Name: "DATABASE_URL", Value: testDatabaseURL},
+			corev1.EnvVar{Name: "TEST_DATABASE_URL", Value: sandboxDatabaseURL()})
+		pgDisk := resource.MustParse("2Gi")
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, s.sandboxPostgres())
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{Name: "postgres", VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{SizeLimit: &pgDisk}}})
 	}
 	if s.RuntimeClass != "" {
 		pod.Spec.RuntimeClassName = ptr(s.RuntimeClass)

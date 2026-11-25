@@ -36,6 +36,9 @@ type Terminal struct {
 	// ForClone). Without it the sandbox clones app.Repo from GitHub without
 	// a token, which a private repository refuses.
 	Clone func(ctx context.Context, app *store.App) (context.Context, string)
+	// Timeout is the most one command runs, as the sandbox has it
+	// (CODER_SANDBOX_TIMEOUT, 15 minutes): the model is told.
+	Timeout time.Duration
 
 	mu       sync.Mutex
 	watching map[int64]bool
@@ -44,7 +47,7 @@ type Terminal struct {
 // maxCommand is the longest command the run tool takes.
 const maxCommand = 8000
 
-var runTool = ia.Tool{Name: "run", Description: "Run a shell command (sh -c) in a sandbox: a pod with the repository at your branch plus your uncommitted changes, in the app's test image when it has one. Use it to install dependencies, run the tests touching your change, a linter, a build, or git. The sandbox stays for this encargo, so what one command installs is there for the next. It answers the exit code, how long it took and the end of stdout and stderr; files it changes in the repository (not ignored ones such as node_modules) become your changes, and commit_and_test commits them. It reaches the public internet (package registries), never the cluster or the home network; each command stops after 15 minutes.",
+var runTool = ia.Tool{Name: "run", Description: "Run a shell command (sh -c) in a sandbox: a pod with the repository at your branch plus your uncommitted changes, in the app's test image when it has one. Use it to install dependencies, run the tests touching your change, a linter, a build, or git. The sandbox stays for this encargo, so what one command installs is there for the next. It answers the exit code, how long it took and the end of stdout and stderr; files it changes in the repository (not ignored ones such as node_modules) become your changes, and commit_and_test commits them. It reaches the public internet (package registries), never the cluster or the home network. Each command has a time limit (your rules say how long); the first Go or npm command of an app may be slow while its cache warms, so prefer narrow commands (go vet ./pkg, go test ./pkg -run X).",
 	InputSchema: schema(map[string]any{"command": str("the command, as for sh -c, e.g. npm ci && npm test"), "folder": str("the folder it runs in, from the repository's root; empty for the root")}, "command")}
 
 // offered says whether the job may use run: the platform has a sandbox and
@@ -78,7 +81,12 @@ func (j *job) terminalRule() string {
 	if !j.offered() {
 		return "\n- You cannot run code: commit_and_test is how your change gets tested."
 	}
-	return "\n- You can run code: run executes a shell command in a sandbox with your branch and your uncommitted changes. Before commit_and_test, run the tests touching your change (and its linter or type check, if the repository has one), fix what fails, and only then commit; a run that passes in the sandbox still needs commit_and_test, which is the proof the person sees. Install dependencies the way the repository's CI does (npm ci, go mod download). Files a command changes become your changes: do not leave build output or caches the repository does not ignore. The sandbox runs as a non-root user without sudo, and reaches only the public internet."
+	limit := j.c.Terminal.Timeout
+	if limit <= 0 {
+		limit = 15 * time.Minute
+	}
+	return "\n- You can run code: run executes a shell command in a sandbox with your branch and your uncommitted changes. Before commit_and_test, run the tests touching your change (and its linter or type check, if the repository has one), fix what fails, and only then commit; a run that passes in the sandbox still needs commit_and_test, which is the proof the person sees. Install dependencies the way the repository's CI does (npm ci, go mod download). Files a command changes become your changes: do not leave build output or caches the repository does not ignore. The sandbox runs as a non-root user without sudo, and reaches only the public internet." +
+		fmt.Sprintf("\n- Each command stops after %s. Go's and npm's caches (GOMODCACHE, GOCACHE, npm's) are kept per app between encargos in /cache, but the first Go or npm command of an app, or after its dependencies change, may still download and compile for minutes on the sandbox's few cores: run narrow commands (go vet ./internal/x, go test ./internal/x -run TestY, one npm script), not the whole suite; commit_and_test (CI) is where heavy suites run and the proof that counts. A command that runs out of time answers the output it had printed; what it downloaded into /cache stays, so the next try starts warmer. Where the folder's test or task has postgres: true, a throwaway Postgres runs beside the sandbox (DATABASE_URL and TEST_DATABASE_URL say where).", limit.Round(time.Second))
 }
 
 // run runs a command in the job's sandbox.
@@ -112,14 +120,19 @@ func (j *job) run(ctx context.Context, input json.RawMessage) (string, bool) {
 		}
 	}
 	sort.Strings(removed)
-	image, from := sandboxImage(j.app.Spec, folder)
+	tg := sandboxTarget(j.app.Spec, folder)
 	rctx, repo := ctx, j.app.Repo
 	if t.Clone != nil {
 		rctx, repo = t.Clone(ctx, j.app)
 	}
 	src := pipeline.Source{Repo: repo, Branch: j.branch, SHA: j.at()}
-	res, err := t.Sandbox.Run(rctx, pipeline.SandboxRun{Key: key, Src: src, Image: image, ImageFrom: from,
-		Folder: folder, Command: in.Command, Pending: j.changed, Removed: removed})
+	var seed []string
+	if tg.Cache && tg.StepID != "" {
+		seed = pipeline.CacheVolumes(j.app.Name, tg.StepID)
+	}
+	res, err := t.Sandbox.Run(rctx, pipeline.SandboxRun{Key: key, Src: src, Image: tg.Image, ImageFrom: tg.From,
+		Folder: folder, Command: in.Command, Pending: j.changed, Removed: removed,
+		App: j.app.Name, SeedFrom: seed, Postgres: tg.Postgres})
 	if err != nil {
 		_ = t.Store.NoteEncargoRun(context.WithoutCancel(ctx), j.e.ID, CoderName,
 			c.say("%s: no se pudo correr: %v", "%s: could not run: %v", truncate(in.Command, 200), err))
@@ -154,8 +167,23 @@ func (j *job) run(ctx context.Context, input json.RawMessage) (string, bool) {
 		fresh = "a new sandbox"
 	}
 	fmt.Fprintf(&b, "$ %s\n(in %s, image %s (%s), %s)\n", in.Command, folder, res.Image, res.ImageFrom, fresh)
+	if res.Fresh {
+		fmt.Fprintf(&b, "making the sandbox took %s", res.Setup.Round(time.Second))
+		if res.Cache != "" {
+			fmt.Fprintf(&b, "; /cache: %s", res.Cache)
+		}
+		b.WriteString("\n")
+	}
+	if res.Postgres {
+		b.WriteString("a throwaway Postgres runs beside it: DATABASE_URL and TEST_DATABASE_URL point at it\n")
+	}
 	if res.TimedOut {
-		fmt.Fprintf(&b, "TIMED OUT: it ran %s and was stopped; the sandbox was removed (the next run starts a fresh one) and nothing it changed came back.\n", took)
+		fmt.Fprintf(&b, "TIMED OUT: the command ran %s (after %s laying your changes in) and was stopped; the sandbox was removed (the next run starts a fresh one) and nothing it changed in the repository came back. What it printed until then is below.", took, res.Sync.Round(time.Second))
+		if res.CacheKept {
+			b.WriteString(" What it downloaded or compiled into /cache (the app's sandbox cache) stays, so the next try starts warmer.")
+		}
+		b.WriteString(" Run a narrower command (one package, -run one test), and leave the whole suite to commit_and_test.")
+		b.WriteString("\n")
 	} else {
 		fmt.Fprintf(&b, "exit code %d, in %s\n", res.ExitCode, took)
 	}
@@ -212,34 +240,48 @@ func (t *Terminal) watch(ctx context.Context, id int64, key string) {
 	}()
 }
 
-// sandboxImage is the image a command in folder runs in: the image of the
-// test or build task whose folder holds it most closely (as a step there
-// would run), or "" (the sandbox's general image) when none does.
-func sandboxImage(sp spec.Spec, folder string) (string, string) {
-	best, image, from := -1, "", ""
-	consider := func(dir, img, what string) {
+// target is the test or build task a command's folder belongs to: its
+// image (and why), its step (for its CI cache) and whether it has a
+// throwaway Postgres and a kept cache.
+type target struct {
+	Image, From, StepID string
+	Postgres, Cache     bool
+}
+
+// sandboxTarget is the test or build task whose folder holds folder most
+// closely (as a step there would run): its image, or "" (the sandbox's
+// general image) when none does, with its Postgres and cache.
+func sandboxTarget(sp spec.Spec, folder string) target {
+	best, out := -1, target{}
+	consider := func(dir string, t target) {
 		dir = strings.Trim(path.Clean("/"+dir), "/")
-		if img == "" || (dir != "" && folder != dir && !strings.HasPrefix(folder, dir+"/")) {
+		if t.Image == "" || (dir != "" && folder != dir && !strings.HasPrefix(folder, dir+"/")) {
 			return
 		}
 		if n := len(dir); n > best {
-			best, image, from = n, img, what
+			best, out = n, t
 		}
 	}
 	for _, s := range sp.Services {
 		if s.Test != nil {
-			consider(s.Path, s.Test.Image, "the test of service "+s.Name)
+			consider(s.Path, target{Image: s.Test.Image, From: "the test of service " + s.Name, StepID: s.Name + ":test", Postgres: s.Test.Postgres, Cache: s.Test.Cache})
 		}
 	}
 	for _, b := range sp.Builds {
 		if b.Test != nil {
-			consider(b.Path, b.Test.Image, "the test of build "+b.Name)
+			consider(b.Path, target{Image: b.Test.Image, From: "the test of build " + b.Name, StepID: b.Name + ":test", Postgres: b.Test.Postgres, Cache: b.Test.Cache})
 		}
 	}
 	for _, tk := range sp.Tasks {
 		if tk.Stage == "" || tk.Stage == "build" {
-			consider(tk.Path, tk.Image, "task "+tk.Name)
+			consider(tk.Path, target{Image: tk.Image, From: "task " + tk.Name, StepID: pipeline.TaskStepID(tk.Name), Postgres: tk.Postgres, Cache: tk.Cache})
 		}
 	}
-	return image, from
+	return out
+}
+
+// sandboxImage is the image a command in folder runs in, and why.
+func sandboxImage(sp spec.Spec, folder string) (string, string) {
+	t := sandboxTarget(sp, folder)
+	return t.Image, t.From
 }
