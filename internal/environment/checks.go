@@ -117,7 +117,18 @@ func (c *Checker) checkAPI(s *snapshot) Check {
 func checkNodes(s *snapshot) Check {
 	ch := Check{ID: "nodes", Name: M("Nodes"), Category: CatCluster, Required: true}
 	archs := map[string]int{}
+	var aRatos []string
 	for _, n := range s.nodes {
+		if n.ARatos {
+			// On only sometimes: off is its normal state, and its architecture
+			// is only its builds' other half.
+			if n.Ready {
+				aRatos = append(aRatos, M("%s (%s) is «a ratos» and on: it helps CI", n.Name, n.Arch))
+			} else {
+				aRatos = append(aRatos, M("%s (%s) is «a ratos» and off: builds go on without it", n.Name, n.Arch))
+			}
+			continue
+		}
 		archs[n.Arch]++
 		if !n.Ready {
 			ch.Details = append(ch.Details, M("%s is NotReady", n.Name))
@@ -148,6 +159,7 @@ func checkNodes(s *snapshot) Check {
 	if len(archs) > 1 {
 		ch.Details = append(ch.Details, M("mixed CPU architectures: images must be built for each (rendimiento builds for the build node's arch)"))
 	}
+	ch.Details = append(ch.Details, aRatos...)
 	return ch
 }
 

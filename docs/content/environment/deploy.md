@@ -421,7 +421,21 @@ The database, the secrets key, the mode and the role change only with Helm: with
 
 | What | Where it comes from |
 |---|---|
-| BuildKit daemons | the `buildkit` add-on (`p0dxD/gitops/buildkit/`): a StatefulSet with one daemon per worker node |
+| BuildKit daemons | the `buildkit` add-on (`p0dxD/gitops/buildkit/`): a StatefulSet with one daemon per worker node, and one on a [node «a ratos»](#nodes-a-ratos) |
 | Railpack CLI image | `make railpack-image` from `deploy/railpack/Dockerfile`, checksum-pinned |
 | Railpack frontend | pulled by BuildKit from `ghcr.io/railwayapp/railpack-frontend` at the pinned version |
 | Clone and build client images | `alpine/git`, `moby/buildkit` (the client must match the daemon's version) |
+
+### Nodes «a ratos» {#nodes-a-ratos}
+
+A node «a ratos» is a computer that joins the cluster only sometimes: a desktop that helps CI while it is on. It may be of another architecture than the rest (an amd64 desktop beside arm64 boards). It carries the taint and label `rendimiento.ai/a-ratos=true` and the label `rendimiento.ai/construye=si`, so nothing lands on it but what tolerates the taint: never your apps, the database or the platform.
+
+While it is on:
+
+- **Images get both halves.** The `buildkit` add-on keeps one daemon on it (`buildkitd-a-ratos`, cache in a folder of its own disk). A build makes its usual half on a daemon of the cluster's architecture and, at the same time, the other half there; the platform then writes one OCI index at the image's tag, so the image runs on any node. The build's log says so: `building the amd64 half on …` and `one image for arm64 and amd64`.
+- **Tests may run there, and prefer it,** when every image the test runs has that architecture (an image of the platform's registry is asked; a public one is taken to have it) and the test keeps no cache volume.
+- **If it is turned off mid-step,** the kubelet ends the step within its grace period (90 seconds) and the platform runs it again once on another node, with a note: `moved: … shut down`.
+
+While it is off, nothing waits for it: images are built for one architecture (the other half's failure is only a note), the Environment page draws its house asleep under a moon, and neither the nodes check nor Problems counts it, or its pods, as down.
+
+Joining one: an Ansible playbook in your private overlay installs the k3s agent with the taint, the labels, the registry's address and a graceful shutdown (a `kubelet.conf.d` drop-in with `shutdownGracePeriod`). The platform reads `REGISTRY` to ask the registry which architectures an image has.

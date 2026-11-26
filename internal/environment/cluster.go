@@ -159,6 +159,7 @@ func (c *Checker) snapshot(ctx context.Context) *snapshot {
 			CPUCores:      float64(n.Status.Capacity.Cpu().MilliValue()) / 1000,
 			MemBytes:      n.Status.Capacity.Memory().Value(),
 			Unschedulable: n.Spec.Unschedulable,
+			ARatos:        n.Labels["rendimiento.ai/a-ratos"] == "true",
 			CPUReserved:   float64(reserved[n.Name][0]) / 1000,
 			MemReserved:   reserved[n.Name][1],
 		}
@@ -183,7 +184,10 @@ func (c *Checker) snapshot(ctx context.Context) *snapshot {
 			cpu := float64(u[0]) / 1000
 			node.CPUUsed, node.MemUsed = &cpu, &u[1]
 		}
-		s.cluster.Nodes++
+		// A node «a ratos» that is off is not one of the cluster's nodes for now.
+		if !node.ARatos || node.Ready {
+			s.cluster.Nodes++
+		}
 		if node.Ready {
 			s.cluster.NodesReady++
 		}
@@ -191,7 +195,7 @@ func (c *Checker) snapshot(ctx context.Context) *snapshot {
 	}
 	sort.Slice(s.nodes, func(i, j int) bool { return s.nodes[i].Name < s.nodes[j].Name })
 
-	s.problems = podProblems(pods.Items, time.Now())
+	s.problems = podProblems(sinDormidos(pods.Items, s.nodes), time.Now())
 	return s
 }
 
@@ -280,4 +284,26 @@ func (c *Checker) certificateProblems(ctx context.Context) (int, []Problem) {
 		}
 	}
 	return len(list.Items), out
+}
+
+// sinDormidos leaves out the pods of nodes «a ratos» that are off: theirs
+// (a node exporter, a BuildKit daemon) wait unready or ended by the
+// shutdown until it is turned on again, and that is not a problem.
+func sinDormidos(pods []corev1.Pod, nodes []Node) []corev1.Pod {
+	dormidos := map[string]bool{}
+	for _, n := range nodes {
+		if n.ARatos && !n.Ready {
+			dormidos[n.Name] = true
+		}
+	}
+	if len(dormidos) == 0 {
+		return pods
+	}
+	out := make([]corev1.Pod, 0, len(pods))
+	for _, p := range pods {
+		if !dormidos[p.Spec.NodeName] {
+			out = append(out, p)
+		}
+	}
+	return out
 }

@@ -462,6 +462,8 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 		PostgresImage:     os.Getenv("TEST_POSTGRES_IMAGE"),
 		CacheStorageClass: os.Getenv("TEST_CACHE_STORAGE_CLASS"),
 		CacheSize:         os.Getenv("TEST_CACHE_SIZE"),
+		// The images it asks before a test goes to a node «a ratos» (decision 196).
+		Registry: p.Config.Registry,
 	}
 	// The capacity set on the Environment page overrides PARALLEL_RUNS,
 	// RUNS_PER_APP and BUILD_EXCLUDE_NODES, read again every 15 seconds; and

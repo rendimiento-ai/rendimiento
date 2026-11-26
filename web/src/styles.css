@@ -3105,6 +3105,12 @@ button.link:hover { background: none; text-decoration: underline; }
 .casita { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 14px; border-radius: 18px; background: var(--surface); border: 1px solid var(--border); color: var(--text); text-align: left; cursor: pointer; animation: casa-brota .45s cubic-bezier(.2, .9, .3, 1.3) both; animation-delay: var(--d); transition: transform .2s; }
 .casita:hover { background: var(--surface); transform: translateY(-3px); }
 .casita.aviso { border: 2px solid var(--cempasuchil); }
+.casita.a-ratos { border: 2px dashed #23408E; }
+.casita.dormida { background: color-mix(in srgb, var(--surface) 80%, #23408E 8%); }
+.casita .luna { animation: luna-flota 3.6s ease-in-out infinite; }
+@keyframes luna-flota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .casita .luna { animation: none; } }
+.a-ratos-nota { padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, #23408E 12%, var(--surface)); }
 .casita.on { outline: 3px solid var(--accent); outline-offset: 1px; }
 .casita svg { display: block; overflow: visible; }
 .casita .suelo { fill: var(--surface-2); }

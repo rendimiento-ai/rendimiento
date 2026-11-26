@@ -122,6 +122,10 @@ type Node struct {
 	MemReserved   int64   `json:"memReserved"`
 	Unschedulable bool    `json:"unschedulable,omitempty"`
 	GPUs          int64   `json:"gpus,omitempty"` // nvidia.com/gpu capacity
+	// ARatos: a node on only sometimes (the label rendimiento.ai/a-ratos, a
+	// desktop that helps CI while it is on, decision 196). Off is its normal
+	// state: it does not count as down.
+	ARatos bool `json:"aRatos,omitempty"`
 }
 
 // Problem is an unhealthy workload or certificate somewhere in the cluster.

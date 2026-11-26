@@ -115,7 +115,7 @@ function Entorno() {
   const problems = r.problems ?? [];
   const nodo = r.nodes.find((n) => n.name === sel);
   const malos = r.checks.filter((c) => c.status !== "ok");
-  const caidos = malos.filter((c) => c.status === "error" || (c.status === "missing" && c.required)).length + r.nodes.filter((n) => !n.ready).length;
+  const caidos = malos.filter((c) => c.status === "error" || (c.status === "missing" && c.required)).length + r.nodes.filter((n) => !n.ready && !n.aRatos).length;
   const avisos = malos.length - malos.filter((c) => c.status === "error" || (c.status === "missing" && c.required)).length + problems.length;
   const vst = version.data?.status;
 
@@ -355,7 +355,9 @@ function Casita({ n, i, on, onPick }: { n: EnvNode; i: number; on: boolean; onPi
   const cpu = n.cpuUsed !== undefined && n.cpuCores ? Math.min(1, n.cpuUsed / n.cpuCores) : 0;
   const mem = n.memUsed !== undefined && n.memBytes ? Math.min(1, n.memUsed / n.memBytes) : 0;
   const mando = (n.roles ?? []).some((r) => r === "control-plane" || r === "master");
-  const nota = !n.ready ? t("down") : n.pressure?.length ? t("pressure") : n.unschedulable ? t("cordoned") : mem >= 0.85 ? t("full") : "";
+  const ratos = !!n.aRatos;
+  const dormida = ratos && !n.ready;
+  const nota = dormida ? "" : !n.ready ? t("down") : n.pressure?.length ? t("pressure") : n.unschedulable ? t("cordoned") : mem >= 0.85 ? t("full") : "";
   const ancho = mando ? 128 : [96, 108, 108][i % 3];
   const x0 = 110 - ancho / 2;
   const top = mando ? 40 : 36;
@@ -363,12 +365,14 @@ function Casita({ n, i, on, onPick }: { n: EnvNode; i: number; on: boolean; onPi
   const lit = Math.round(cpu * ventanas.length);
   const zocalo = Math.round(mem * (86 - top));
   const pct = (x: number) => `${Math.round(x * 100)}%`;
-  const etiqueta = t("{name}: processor {cpu}, memory {mem}", { name: n.name, cpu: pct(cpu), mem: pct(mem) }) + (nota ? ` · ${nota}` : "");
+  const etiqueta = dormida
+    ? t("{name}: «a ratos», off", { name: n.name })
+    : t("{name}: processor {cpu}, memory {mem}", { name: n.name, cpu: pct(cpu), mem: pct(mem) }) + (nota ? ` · ${nota}` : "") + (ratos ? ` · ${t("«a ratos», on")}` : "");
   return (
-    <button className={`casita${on ? " on" : ""}${nota ? " aviso" : ""}`} style={{ ["--d" as string]: `${i * 120}ms` }} onClick={onPick} aria-pressed={on} aria-label={etiqueta}>
+    <button className={`casita${on ? " on" : ""}${nota ? " aviso" : ""}${ratos ? " a-ratos" : ""}${dormida ? " dormida" : ""}`} style={{ ["--d" as string]: `${i * 120}ms` }} onClick={onPick} aria-pressed={on} aria-label={etiqueta}>
       <svg width="100%" height="96" viewBox="0 0 220 96" aria-hidden="true">
         <rect className="suelo" x="0" y="86" width="220" height="10" />
-        <path d={`M${x0 - 6} ${top} L110 ${top - 22} L${x0 + ancho + 6} ${top} Z`} fill={TECHOS[i % TECHOS.length]} />
+        <path d={`M${x0 - 6} ${top} L110 ${top - 22} L${x0 + ancho + 6} ${top} Z`} fill={ratos ? "#23408E" : TECHOS[i % TECHOS.length]} />
         <rect x={x0} y={top} width={ancho} height={86 - top} fill="#FBF7EF" stroke="#C9B79F" strokeWidth="2" />
         {mando && (
           <g>
@@ -379,9 +383,12 @@ function Casita({ n, i, on, onPick }: { n: EnvNode; i: number; on: boolean; onPi
         )}
         <rect className="zocalo" x={x0} y={86 - zocalo} width={ancho} height={zocalo} fill={mem >= 0.85 ? "#D6246E" : "#E86A9A"} opacity={mem >= 0.85 ? 0.55 : 0.35} />
         {ventanas.map((x, j) => (
-          <rect key={j} className={j < lit ? "luz" : undefined} x={x} y={top + 10} width="16" height="18" rx="2" fill={j < lit ? LUZ : APAGADA} style={{ ["--d" as string]: `${j * -0.8}s` }} />
+          <rect key={j} className={j < lit && !dormida ? "luz" : undefined} x={x} y={top + 10} width="16" height="18" rx="2" fill={j < lit && !dormida ? LUZ : APAGADA} style={{ ["--d" as string]: `${j * -0.8}s` }} />
         ))}
         <path d="M102 86 V70 Q110 62 118 70 V86 Z" fill="#7A3E0B" />
+        {dormida && (
+          <path className="luna" d="M196 6a12 12 0 1 0 10 19A13 13 0 0 1 196 6z" fill="#7B2F8E" />
+        )}
         {nota && (
           <g className="nota-flota">
             <rect x="150" y="2" width="62" height="24" rx="6" fill="#FFFDF8" stroke="#E8890C" strokeWidth="2" />
@@ -389,7 +396,7 @@ function Casita({ n, i, on, onPick }: { n: EnvNode; i: number; on: boolean; onPi
           </g>
         )}
       </svg>
-      <span className="casita-nombre"><strong>{n.name}</strong><span className="small muted">{mando ? t("in charge") : (n.roles?.length ? n.roles.join(", ") : t("worker"))}</span></span>
+      <span className="casita-nombre"><strong>{n.name}</strong><span className="small muted">{ratos ? `${n.arch} · ${dormida ? t("«a ratos», off") : t("«a ratos», on")}` : mando ? t("in charge") : (n.roles?.length ? n.roles.join(", ") : t("worker"))}</span></span>
       <Barra label={t("Processor")} v={n.cpuUsed !== undefined ? cpu : undefined} color="var(--cempasuchil)" />
       <Barra label={t("Memory")} v={n.memUsed !== undefined ? mem : undefined} color={mem >= 0.85 ? "var(--rosa)" : "var(--grana)"} />
     </button>
@@ -881,17 +888,24 @@ const cores = (c: number) => t("{n} cores", { n: c.toLocaleString(locale, { maxi
 
 /** One node: ready or not, pressure, its CPU and memory in use, and what it runs on. */
 function NodeCard({ n }: { n: EnvNode }) {
-  const status: EnvStatus = !n.ready ? "error" : (n.pressure?.length || n.unschedulable) ? "warning" : "ok";
+  const status: EnvStatus = !n.ready ? (n.aRatos ? "ok" : "error") : (n.pressure?.length || n.unschedulable) ? "warning" : "ok";
   return (
     <div className="card stack">
       <div className="row between">
         <strong>{n.name}</strong>
-        <span className={`badge ${tone[status]}`}>{n.ready ? (status === "ok" ? t("Ready") : t("Degraded")) : t("NotReady")}</span>
+        <span className={`badge ${tone[status]}`}>{n.ready ? (status === "ok" ? t("Ready") : t("Degraded")) : n.aRatos ? t("Off: sleeping") : t("NotReady")}</span>
       </div>
       <div className="small muted">
         {(n.roles?.length ? n.roles.join(", ") : t("worker"))} · {n.arch} · {tn(n.pods, "{n} pod", "{n} pods")}
         <br />{n.os} · {n.kubelet}
       </div>
+      {n.aRatos && (
+        <div className="small a-ratos-nota">
+          {n.ready
+            ? t("On only sometimes. While it is on it builds images' {arch} half and runs tests whose images have it; nothing else of yours lands here.", { arch: n.arch })
+            : t("On only sometimes, and off now: that is not a problem. Everything goes on in the other nodes, images for one architecture.")}
+        </div>
+      )}
       {n.pressure?.map((p) => <div key={p} className="small" style={{ color: "var(--bad)" }}>{p}</div>)}
       {n.unschedulable && <div className="small" style={{ color: "var(--warn)" }}>{t("cordoned (no new pods)")}</div>}
       <Meter label={t("CPU")} used={n.cpuUsed} total={n.cpuCores} fmt={cores} />
