@@ -116,6 +116,7 @@ plugins:
             Libraries (rendimiento for Node, Python and Java): Bibliotecas (rendimiento para Node, Python y Java)
             Add-ons: Complementos
             Renovate: Renovate
+            Putting an app up to date (each dependency update, read): Poner una aplicación al día (cada actualización de dependencias, leída)
             Developing it: Desarrollo
             Setting up and building: Preparación y construcción
             Go for this codebase: Go para este código
@@ -223,6 +224,7 @@ nav:
       - Libraries (rendimiento for Node, Python and Java): guide/observa.md
       - Add-ons: guide/addons.md
       - Renovate: guide/renovate.md
+      - Putting an app up to date (each dependency update, read): guide/al-dia.md
   - Developing it:
       - develop/index.md
       - Go for this codebase: develop/go.md

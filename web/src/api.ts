@@ -1833,6 +1833,10 @@ export const api = {
   runs: (app: string) => request<Run[]>("GET", `/api/apps/${app}/runs`),
   caminos: (app: string) => request<Caminos>("GET", `/api/apps/${app}/caminos`),
   copias: (app: string) => request<Copias>("GET", `/api/apps/${app}/copias`),
+  alDia: (app: string) => request<AlDiaView>("GET", `/api/apps/${app}/al-dia`),
+  ponerAlDia: (app: string, id: number) => request<{ encargo: number }>("POST", `/api/apps/${app}/al-dia/${id}/poner`),
+  alDiaAjustes: () => request<AlDiaAjustes>("GET", "/api/ia/al-dia"),
+  putAlDiaAjustes: (a: AlDiaAjustes) => request<AlDiaAjustes>("PUT", "/api/ia/al-dia", a),
   /** Makes the copy again with its branch's last commit whose run passed (restarts it when that is the one it runs). */
   rehacerCopia: (app: string, pull: number) => request<{ run: number; restarted?: boolean }>("POST", `/api/apps/${app}/copias/${pull}/rehacer`),
   /** Keeps the copy 3 more days, up to previews' most. */
@@ -2790,3 +2794,45 @@ export const suenoApi = {
   despertar: () => request<Sueno>("POST", "/api/despertar"),
   opciones: (despertarA: string, tapa: boolean) => request<Sueno>("PUT", "/api/dormir/opciones", { despertarA, tapa }),
 };
+
+/** Poner al día (decision 191): the report on a run of a dependency update's pull request. */
+export type AlDiaEstado = "pendiente" | "listo" | "sin_cambios" | "fallo";
+export type AlDiaRiesgo = "bajo" | "medio" | "alto";
+export interface AlDiaCambio { archivo: string; mas: number; menos: number }
+export interface AlDiaInforme {
+  id: number;
+  pull: number;
+  titulo: string;
+  branch: string;
+  sha: string;
+  runId: number;
+  runFailed: boolean;
+  estado: AlDiaEstado;
+  falla: string[];
+  cambia: AlDiaCambio[];
+  riesgo?: AlDiaRiesgo;
+  dificultad?: number;
+  costoMicros: number;
+  resumen?: string;
+  nota?: string;
+  provider?: string;
+  model?: string;
+  informeMicros: number;
+  encargoId?: number;
+  puestoPor?: string;
+  encargoStatus?: string;
+  encargoRoute?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+/** Who puts an app up to date, when a report is made, and whether a low-risk one starts by itself. */
+export interface AlDiaAjustes {
+  encendido: boolean;
+  quien: "platform" | "local";
+  cuando: "toda" | "falla";
+  sola: boolean;
+  topeMicros: number;
+  updatedBy?: string;
+  updatedAt?: string;
+}
+export interface AlDiaView { informes: AlDiaInforme[]; ajustes: AlDiaAjustes; coderOff?: boolean }

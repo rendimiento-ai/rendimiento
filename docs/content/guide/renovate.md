@@ -27,6 +27,8 @@ The current configuration auto-merges **patch and minor** updates once rendimien
 !!! warning "A passing build is not a passing app"
     For apps without tests, the check only proves the image builds. An update can still break at runtime, as SQLAlchemy 2.1 would have for wellness. Add tests, or exclude risky packages from auto-merge in the config.
 
+Each update also gets a report on the app's Caminos tab: what would fail, what would change and how much, and a button that has an agent adapt the app to it. See [Putting an app up to date](al-dia.md).
+
 ## Required GitHub App permissions
 
 Renovate's first request for each repository reads its issues (the Dependency Dashboard), so the App needs **Issues: Read and write** and **Commit statuses: Read-only** in addition to contents, pull requests and checks. The Add-ons page lists anything missing and links to where to grant it; runs do not start until the installation has accepted it.

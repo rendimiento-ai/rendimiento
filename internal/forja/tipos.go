@@ -43,6 +43,9 @@ type Branch struct {
 type Change struct {
 	Number int    `json:"number"`
 	Title  string `json:"title"`
+	// Body is its text: a dependency update's release notes (GitHub's; the
+	// other forjas leave it empty).
+	Body   string `json:"body"`
 	Labels []struct {
 		Name string `json:"name"`
 	} `json:"labels"`

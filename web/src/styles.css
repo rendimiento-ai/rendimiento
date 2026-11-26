@@ -3647,3 +3647,95 @@ a.et-insignia:hover { text-decoration: none; filter: brightness(.97); }
 @media (prefers-reduced-motion: reduce) {
   .ayudante-boton, .colibri, .colibri-ala, .colibri-ojo, .ayudante, .ay-picado i, .ay-ave, .ay-msg, .ay-enlace, .ay-flor, .ay-ofrece, .ay-enviar { animation: none; }
 }
+
+/* Poner al día (components/al-dia.tsx, decision 191): the reports on the Caminos tab and the card of the AI page. A sun
+   that rises over the road, the town's colors on each figure, cards that come up one after the other, cempasúchil
+   flowers that turn while the report is written, a loom that weaves while the agent works. Nothing grows or shrinks
+   (translate, opacity, rotate and shadows only), and all of it stands still when the device asks for less movement. */
+.dibujo-al-dia { flex: none; width: 22px; height: 22px; }
+.al-dia { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+.al-dia-cabeza { display: flex; gap: 14px; align-items: flex-start; }
+.al-dia-cabeza h2 { margin: 0; font-family: var(--display); font-size: 26px; color: var(--accent); }
+.al-dia-sol { flex: none; width: 46px; height: 46px; border-radius: 16px; display: flex; align-items: center; justify-content: center; color: #fff;
+  background: linear-gradient(160deg, var(--cempasuchil), var(--rosa)); box-shadow: 0 6px 16px -8px var(--rosa); }
+.al-dia-sol .dibujo-al-dia { width: 28px; height: 28px; animation: al-dia-amanece 3.2s ease-in-out infinite; }
+@keyframes al-dia-amanece { 0%, 100% { transform: translateY(2px); } 50% { transform: translateY(-2px); } }
+.al-dia-lista { display: grid; gap: 12px; }
+.al-dia-informe { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; border-radius: 20px; background: var(--surface);
+  border: 1px solid var(--border); border-top: 6px solid var(--cempasuchil); animation: al-dia-entra .45s ease-out both; min-width: 0; }
+.al-dia-informe.estado-sin_cambios { border-top-color: var(--nopal); }
+.al-dia-informe.estado-fallo { border-top-color: var(--muted); }
+.al-dia-informe.estado-pendiente { border-top-color: var(--anil); }
+@keyframes al-dia-entra { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.al-dia-informe-cabeza { display: flex; gap: 12px; align-items: flex-start; }
+.al-dia-titulos { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.al-dia-titulos h3 { margin: 0; font-family: var(--display); font-size: 20px; overflow-wrap: anywhere; }
+.al-dia-titulos code { overflow-wrap: anywhere; white-space: normal; }
+.al-dia-cifras { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.al-dia-cifra { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 16px; background: var(--surface-2); border: 2px solid transparent; min-width: 0; }
+.al-dia-cifra .dibujo-al-dia { width: 26px; height: 26px; margin-bottom: 4px; }
+.al-dia-cifra strong { font-family: var(--display); font-size: 21px; }
+.al-dia-cifra-que { font-size: 12.5px; font-weight: 800; letter-spacing: .03em; color: var(--muted); }
+.al-dia-cifra.falla { border-color: color-mix(in srgb, var(--maiz) 70%, transparent); }
+.al-dia-cifra.falla .dibujo-al-dia { color: var(--bad); }
+.al-dia-cifra.cambia { border-color: color-mix(in srgb, var(--cempasuchil) 70%, transparent); }
+.al-dia-cifra.cambia .dibujo-al-dia { color: var(--cempasuchil); }
+.al-dia-cifra[class*="riesgo-"] .dibujo-al-dia { transform-origin: 50% 15%; animation: al-dia-balanza 4s ease-in-out infinite; }
+.al-dia-cifra.riesgo-bajo { border-color: color-mix(in srgb, var(--nopal) 70%, transparent); } .al-dia-cifra.riesgo-bajo .dibujo-al-dia { color: var(--ok); }
+.al-dia-cifra.riesgo-medio { border-color: color-mix(in srgb, var(--maiz) 80%, transparent); } .al-dia-cifra.riesgo-medio .dibujo-al-dia { color: var(--warn); }
+.al-dia-cifra.riesgo-alto { border-color: color-mix(in srgb, var(--rosa) 70%, transparent); } .al-dia-cifra.riesgo-alto .dibujo-al-dia { color: var(--bad); }
+@keyframes al-dia-balanza { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+.al-dia-resumen { margin: 0; line-height: 1.5; }
+.al-dia-detalle summary { min-height: 44px; display: flex; align-items: center; font-weight: 700; cursor: pointer; color: var(--accent); }
+.al-dia-detalle-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.al-dia-detalle ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; line-height: 1.45; min-width: 0; overflow-wrap: anywhere; }
+.al-dia-archivos { list-style: none; padding-left: 0 !important; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+.al-dia-mas { color: var(--ok); font-weight: 700; }
+.al-dia-poner { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 18px;
+  background: var(--anil); color: #fff; }
+.al-dia-poner .small { flex: 1 1 260px; min-width: 0; }
+.al-dia-boton { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 22px; border: 0; border-radius: 999px; font: inherit; font-weight: 800;
+  background: var(--maiz); color: #2B1B12; cursor: pointer; animation: al-dia-llama 2.6s ease-in-out infinite; }
+.al-dia-boton:disabled { cursor: progress; opacity: .7; animation: none; }
+.al-dia-boton:hover:not(:disabled) { background: var(--cempasuchil); }
+.al-dia-boton .dibujo-al-dia { width: 20px; height: 20px; }
+@keyframes al-dia-llama { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--maiz) 0%, transparent); } 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--maiz) 30%, transparent); } }
+.al-dia-pensando { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--muted); }
+.al-dia-flor { animation: al-dia-gira 2.4s linear infinite; }
+@keyframes al-dia-gira { to { transform: rotate(360deg); } }
+.al-dia-sin { display: flex; gap: 10px; align-items: center; margin: 0; padding: 12px 14px; border-radius: 16px; background: var(--ok-bg); color: var(--ok); font-weight: 700; }
+.al-dia-sin .dibujo-al-dia { animation: al-dia-brota 3s ease-in-out infinite; }
+@keyframes al-dia-brota { 0%, 100% { transform: translateY(1px) rotate(-3deg); } 50% { transform: translateY(-1px) rotate(3deg); } }
+.al-dia-trabaja { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 0; padding: 12px 14px; border-radius: 16px; background: var(--surface-2); font-weight: 700; }
+.al-dia-trabaja a { min-height: 44px; display: inline-flex; align-items: center; }
+.al-dia-trabaja .dibujo-al-dia { color: var(--anil); }
+.al-dia-trabaja .tejiendo { animation: al-dia-teje 1.6s ease-in-out infinite; }
+@keyframes al-dia-teje { 0%, 100% { opacity: 1; transform: translateX(0); } 50% { opacity: .55; transform: translateX(2px); } }
+.al-dia-quien { align-self: flex-end; }
+.al-dia-tarjeta { position: relative; border-top: 8px solid var(--cempasuchil); }
+.al-dia-tarjeta h2 { margin: 0; font-family: var(--display); font-size: 28px; color: var(--accent); }
+.al-dia-opciones { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.al-dia-opciones fieldset { margin: 0; padding: 12px 14px; border: 2px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.al-dia-opciones fieldset:disabled { opacity: .6; }
+.al-dia-opciones legend { display: flex; align-items: center; gap: 6px; padding: 0 6px; font-weight: 800; }
+.al-dia-opciones legend .dibujo-al-dia { color: var(--cempasuchil); }
+.al-dia-opciones label { display: flex; gap: 10px; align-items: center; min-height: 44px; }
+.al-dia-tope { gap: 6px !important; font-weight: 700; }
+.al-dia-tope input { width: 7em; min-height: 40px; }
+.al-dia-permisos { display: flex; flex-direction: column; gap: 8px; }
+.al-dia-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.al-dia-chip { padding: 8px 14px; border-radius: 999px; font-size: 13.5px; font-weight: 700; animation: al-dia-entra .4s ease-out both; }
+.al-dia-chip:nth-child(2) { animation-delay: .06s; } .al-dia-chip:nth-child(3) { animation-delay: .12s; } .al-dia-chip:nth-child(4) { animation-delay: .18s; }
+.al-dia-chip.si { background: var(--ok-bg); color: var(--ok); }
+.al-dia-chip.pregunta { background: var(--warn-bg); color: var(--warn); }
+.al-dia-chip.pregunta a { color: inherit; }
+.al-dia-chip.no { background: var(--surface-2); color: var(--muted); }
+.al-dia-guardado { color: var(--ok); font-weight: 800; animation: al-dia-entra .35s ease-out both; }
+@media (max-width: 760px) {
+  .al-dia-cifras, .al-dia-opciones { grid-template-columns: minmax(0, 1fr); }
+  .al-dia-boton { width: 100%; justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .al-dia-sol .dibujo-al-dia, .al-dia-informe, .al-dia-cifra .dibujo-al-dia, .al-dia-boton, .al-dia-flor, .al-dia-sin .dibujo-al-dia,
+  .al-dia-trabaja .tejiendo, .al-dia-chip, .al-dia-guardado { animation: none; }
+}
