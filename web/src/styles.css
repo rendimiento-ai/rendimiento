@@ -3562,7 +3562,7 @@ a.et-insignia:hover { text-decoration: none; filter: brightness(.97); }
 @keyframes permiso-cambia { from { box-shadow: 0 0 0 6px color-mix(in srgb, var(--anil) 25%, transparent); } to { box-shadow: 0 0 0 0 transparent; } }
 .permisos-modo button { transition: background .2s, color .2s; }
 .permisos-modo button.on { animation: modo-pone .25s ease-out; }
-@keyframes modo-pone { from { transform: scale(.88); } to { transform: scale(1); } }
+@keyframes modo-pone { from { box-shadow: 0 0 0 5px color-mix(in srgb, currentColor 30%, transparent); } to { box-shadow: 0 0 0 0 transparent; } }
 .pu-signo-dibujo .dibujo-agente, .pu-signo-dibujo .dibujo-permiso { width: 26px; height: 26px; color: #fff; }
 .pu-permiso .pu-signo-dibujo { animation: pide-llama 2.4s ease-in-out infinite; }
 @keyframes pide-llama { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tono) 0%, transparent); } 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--tono) 22%, transparent); } }
