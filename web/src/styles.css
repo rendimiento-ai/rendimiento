@@ -3805,3 +3805,27 @@ a.et-insignia:hover { text-decoration: none; filter: brightness(.97); }
 @media (prefers-reduced-motion: reduce) {
   .ia-tab, .ia-puesto, .ia-cajon, .ia-cajon-fondo, .ia-pestana.on .dibujo-ia, .ia-puesto:hover .ia-puesto-dibujo svg, .ia-puesto.on .ia-puesto-dibujo svg, .ia-pide-fila.llama .dibujo-ia { animation: none; }
 }
+
+/* An app's page in five tabs (pages/AppPage.tsx, decision 194): pills with their drawings like the AI page's, the
+   sections of a tab as smaller pills under them, and a «!» on Deliveries when the last run failed. On a phone the
+   five fit one row, each a button with its drawing over its name. Movement: the chosen drawing sways, nothing grows. */
+.app-pestanas { display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; margin: 18px 0 10px; border-radius: 26px; background: var(--surface-2); width: fit-content; max-width: 100%; box-sizing: border-box; }
+.app-pestana { position: relative; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; font-weight: 700; color: var(--text); text-decoration: none; transition: background .2s, color .2s; }
+.app-pestana:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text); }
+.app-pestana.on { background: var(--anil, var(--accent)); color: #fff; font-weight: 800; }
+.app-pestana svg { flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.app-pestana.on svg { animation: logo-mece 2.6s ease-in-out infinite; transform-origin: 50% 80%; }
+.app-pestana-aviso { min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 999px; background: var(--rosa); color: #fff; font-size: 12px; font-weight: 900; display: inline-flex; align-items: center; justify-content: center; animation: pide-llama 2.4s ease-in-out infinite; --tono: var(--rosa); }
+.app-secciones { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 16px; }
+.app-seccion { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 2px solid transparent; font-weight: 700; color: var(--text); text-decoration: none; }
+.app-seccion:hover { border-color: var(--border); color: var(--text); }
+.app-seccion.on { border-color: var(--anil, var(--accent)); background: var(--surface); color: var(--anil, var(--accent)); font-weight: 800; }
+@media (max-width: 760px) {
+  .app-pestanas { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); width: 100%; border-radius: 18px; gap: 4px; padding: 4px; }
+  .app-pestana { flex-direction: column; justify-content: center; gap: 2px; min-height: 56px; padding: 4px 2px; border-radius: 14px; font-size: 12px; text-align: center; }
+  .app-pestana span:not(.app-pestana-aviso) { overflow-wrap: anywhere; line-height: 1.15; }
+  .app-pestana-aviso { position: absolute; top: 4px; right: 6px; }
+  .app-secciones { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
+  .app-seccion { flex: none; }
+}
+@media (prefers-reduced-motion: reduce) { .app-pestana.on svg, .app-pestana-aviso { animation: none; } }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { addonsApi, api, appSecretNames, duration, isLibrary, session, subscribe, timeAgo, universeApi, type App, type AppAccess, type AutoEncargo, type BranchKind, type Forja, type MemberRole, type ReleaseTask, type ReleaseTest } from "../api";
 import { memberRoleLabel } from "./Members";
 import { autoEncargoName } from "./IA";
@@ -12,7 +12,7 @@ import { tecnicoPrimero, Vistazo } from "../components/vistazo";
 import { MesaTab } from "../components/mesa";
 import { LoUltimo, Rama, VerifyBadge, verifyBadge } from "../components/lo-ultimo";
 import { forjaOf, repoURL } from "../forja";
-import { anotar } from "../uso";
+import { anotar, type Accion } from "../uso";
 import { AppProblems } from "./Problems";
 import { Falla, NoExiste } from "../components/falla";
 import { outsideWhy } from "../components/barda";
@@ -24,18 +24,50 @@ import { apagado, PorQueApagado } from "../components/conexion-aviso";
 import { BuildNow, puedeConstruir } from "../components/construir";
 import { EvidenciaFallo } from "../components/evidencia";
 
+// The app's sections, each at its own address (/apps/<name>/<id>), so every link that ever pointed at one still does.
 const tabs = [
-  { id: "", label: "At a glance", icon: "M12 3a4 4 0 0 1 4 4 4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-8 0 4 4 0 0 1-4-4 4 4 0 0 1 4-4 4 4 0 0 1 4-4zM12 12h.01" }, // labels are translated where shown
-  { id: "mesa", label: "Work board", icon: "M3 7h18M3 12h18M3 17h12M7 3v4M17 3v4" },
-  { id: "overview", label: "Overview", icon: "M4 5h16v14H4zM4 10h16M10 10v9" },
-  { id: "runs", label: "Runs", icon: "M5 4l14 8-14 8z" },
-  { id: "caminos", label: "Roads", icon: "M6 3v12a3 3 0 0 0 3 3h9M6 9h6a3 3 0 0 1 3 3v6" },
-  { id: "libreta", label: "Notebook", icon: "M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6zM6 3v18M10 8h6M10 12h6M10 16h3M4 7h4M4 12h4M4 17h4" },
-  { id: "releases", label: "Releases", icon: "M12 3l8 4v10l-8 4-8-4V7zM12 12l8-5M12 12v9M12 12L4 7" },
-  { id: "reliability", label: "Reliability", icon: "M3 12h4l3-8 4 16 3-8h4" },
-  { id: "visits", label: "Visits", icon: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" },
-  { id: "settings", label: "Settings", icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z" },
+  { id: "", label: "At a glance" }, // labels are translated where shown
+  { id: "mesa", label: "Work board" },
+  { id: "runs", label: "Runs" },
+  { id: "caminos", label: "Roads" },
+  { id: "releases", label: "Releases" },
+  { id: "overview", label: "Services" },
+  { id: "reliability", label: "Reliability" },
+  { id: "visits", label: "Visits" },
+  { id: "libreta", label: "Notebook" },
+  { id: "settings", label: "Settings" },
+] as const;
+type Seccion = (typeof tabs)[number]["id"];
+
+/**
+ * The five tabs over those sections (decision 194): Today (the glance or the work board), Deliveries (runs, roads,
+ * releases), Live (services, reliability, visits), the notebook and settings. A tab with sections opens the one last
+ * seen in it on this device (Deliveries opens on Runs the first time), and each section is noted in the interface's use.
+ */
+const grupos: { id: string; label: string; icon: string; secciones: Seccion[] }[] = [
+  { id: "hoy", label: "Today", icon: "M3 18.5h18M6.5 18.5a5.5 5.5 0 0 1 11 0M12 6.5V4M6.3 9.8 4.6 8.1M17.7 9.8l1.7-1.7", secciones: ["", "mesa"] },
+  { id: "entregas", label: "Deliveries", icon: "M6 3v12a3 3 0 0 0 3 3h9M6 9h6a3 3 0 0 1 3 3v6", secciones: ["runs", "caminos", "releases"] },
+  { id: "envivo", label: "Running live", icon: "M2.5 10.5 12 4l9.5 6.5M5.5 9.5v11h13v-11M10 20.5v-4a2 2 0 0 1 4 0v4", secciones: ["overview", "reliability", "visits"] },
+  { id: "libreta", label: "Notebook", icon: "M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6zM6 3v18M10 8h6M10 12h6M10 16h3", secciones: ["libreta"] },
+  { id: "ajustes", label: "Settings", icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6a7 7 0 0 0 0 2.4l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6c.1-.4.1-.8.1-1.2z", secciones: ["settings"] },
 ];
+const grupoDe = (sec: string) => grupos.find((g) => (g.secciones as string[]).includes(sec)) ?? grupos[0];
+
+/** How each section is noted in the interface's use (uso.ts): only its name. */
+const usoDe: Record<Seccion, Accion> = {
+  "": "open_glance", mesa: "open_board", runs: "open_runs", caminos: "open_roads", releases: "open_releases",
+  overview: "open_services", reliability: "open_reliability", visits: "open_visits", libreta: "open_notebook", settings: "open_settings",
+};
+
+/** The last section seen in a tab, on this device. */
+const ULTIMA = "rendimiento.app.seccion.";
+function ultimaDe(grupo: string): Seccion | undefined {
+  try { return (localStorage.getItem(ULTIMA + grupo) ?? undefined) as Seccion | undefined; } catch { return undefined; }
+}
+function recordar(grupo: string, sec: string) {
+  try { localStorage.setItem(ULTIMA + grupo, sec); } catch { /* this visit only */ }
+}
+
 
 /**
  * An app's page, in tabs: the glance, the work board, overview, runs, roads (its branches as caminos), its libreta (what was asked for it and whether it is done), releases, reliability, visits and settings. It refreshes as runs and releases happen.
@@ -56,6 +88,12 @@ export function AppPage() {
   }, [app?.status.release]);
 
   useEffect(() => subscribe(`/api/apps/${name}/events`, { run: reload, release: reload }), [name]);
+  const grupo = grupoDe(tab);
+  useEffect(() => {
+    if (!tabs.some((tb) => tb.id === tab)) return;
+    recordar(grupo.id, tab);
+    anotar(usoDe[tab as Seccion]);
+  }, [name, tab]);
 
   // The page is about the app: one that is not there, or not for this account, is a page of its own.
   if (error) return <Falla error={error} reintentar={reload} />;
@@ -93,14 +131,31 @@ export function AppPage() {
       <VerificationBanner name={name} />
       <AppProblems name={name} />
       <Datos app={app} />
-      <nav className="tabs app-tabs">
-        {tabs.map((tb) => (
-          <Link key={tb.id} to={`/apps/${name}${tb.id ? "/" + tb.id : ""}`} className={tab === tb.id ? "active" : ""} aria-current={tab === tb.id ? "page" : undefined}>
-            <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><path d={tb.icon} /></svg>
-            {t(tb.label)}
-          </Link>
-        ))}
+      <nav className="app-pestanas" aria-label={t("Parts of the app")}>
+        {grupos.map((g) => {
+          const on = g.id === grupo.id;
+          // A tab opens the section last seen in it; Today follows the technical-first choice (the glance or the board).
+          const sec = g.id === "hoy" ? (tecnicoPrimero() ? "mesa" : "") : (g.secciones as string[]).includes(ultimaDe(g.id) ?? "-") ? ultimaDe(g.id)! : g.secciones[0];
+          const fallo = g.id === "entregas" && app.lastRun?.status === "failed";
+          return (
+            <Link key={g.id} to={`/apps/${name}${sec ? "/" + sec : ""}`} className={`app-pestana${on ? " on" : ""}`} aria-current={on ? "page" : undefined}>
+              <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><path d={g.icon} /></svg>
+              <span>{t(g.label)}</span>
+              {fallo && <span className="app-pestana-aviso" title={t("The last run failed")} aria-label={t("The last run failed")}>!</span>}
+            </Link>
+          );
+        })}
       </nav>
+      {grupo.secciones.length > 1 && (
+        <nav className="app-secciones" aria-label={t(grupo.label)}>
+          {grupo.secciones.map((sec) => {
+            const tb = tabs.find((x) => x.id === sec)!;
+            return (
+              <Link key={sec} to={`/apps/${name}${sec ? "/" + sec : ""}`} className={`app-seccion${tab === sec ? " on" : ""}`} aria-current={tab === sec ? "page" : undefined}>{t(tb.label)}</Link>
+            );
+          })}
+        </nav>
+      )}
       <div className="app-vista" key={tab}>
       {tab === "" && <Vistazo app={app} onBuilt={reload} />}
       {tab === "mesa" && <MesaTab app={app} />}
@@ -380,11 +435,17 @@ const kindNames: Partial<Record<BranchKind, string>> = { fix: "fix", feature: "f
  * The Runs tab: the last runs, with their commit, branch, state and time, filtered by the kind of their branch (the
  * default branch, with a pull request, fixes, features, releases...). The filter is kept in the address.
  */
+/** Where a list was scrolled when a run was opened from it, by the list's address (this tab only). */
+const VUELTA = "rendimiento.vuelta.";
+
 function Runs({ name, repo, forja }: { name: string; repo: string; forja?: Forja }) {
   const { data: runs, error } = usePoll(() => api.runs(name), [name], 5000);
   const { data: kinds } = usePoll(() => api.branchKinds(name), [name], 60000);
   const [params, setParams] = useSearchParams();
   const nav = useNavigate();
+  const location = useLocation();
+  // Back from a run, the list comes back where it was: the same filter (in the address) and the same place.
+  const desde = location.pathname + location.search;
   const of = (branch: string) => kinds?.branches[branch];
   const fits = (id: string, branch: string) =>
     id === "all" || (id === "pull" ? !!of(branch)?.open : of(branch)?.kind === id);
@@ -392,6 +453,21 @@ function Runs({ name, repo, forja }: { name: string; repo: string; forja?: Forja
   const asked = params.get("tipo") ?? "all";
   const filter = kinds && runFilters.some((f) => f.id === asked) ? asked : "all";
   const shown = (runs ?? []).filter((r) => fits(filter, r.branch));
+  const listos = shown.length > 0;
+  useEffect(() => {
+    if (!listos) return;
+    try {
+      const y = sessionStorage.getItem(VUELTA + desde);
+      if (y) {
+        sessionStorage.removeItem(VUELTA + desde);
+        requestAnimationFrame(() => window.scrollTo(0, Number(y)));
+      }
+    } catch { /* nothing kept */ }
+  }, [listos, desde]);
+  const abrir = (id: number) => {
+    try { sessionStorage.setItem(VUELTA + desde, String(Math.round(window.scrollY))); } catch { /* it opens at the top */ }
+    nav(`/apps/${name}/runs/${id}`, { state: { desde } });
+  };
   const choose = (id: string) => {
     const next = new URLSearchParams(params);
     if (id === "all") next.delete("tipo");
@@ -424,7 +500,7 @@ function Runs({ name, repo, forja }: { name: string; repo: string; forja?: Forja
                 const k = of(r.branch);
                 const kind = k && kindNames[k.kind];
                 return (
-                  <tr key={r.id} className="clickable" onClick={() => nav(`/apps/${name}/runs/${r.id}`)}>
+                  <tr key={r.id} className="clickable" onClick={() => abrir(r.id)}>
                     <td>{r.id}</td>
                     <td><RunBadge status={r.status} /></td>
                     <td className="mono">{r.sha.slice(0, 7)}</td>

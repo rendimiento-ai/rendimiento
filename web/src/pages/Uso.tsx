@@ -30,6 +30,10 @@ function accion(a: string): string {
     switch_theme: t("Switch day and night"), switch_language: t("Switch the language"), rollback: t("Roll back"),
     customize_home: t("Open Customize home"), save_home: t("Save the home page"),
     talk_entry: t("Talk an entry over"), make_encargos: t("Make encargos from a conversation"),
+    open_glance: t("Open an app's glance"), open_board: t("Open an app's work board"), open_runs: t("Open an app's runs"),
+    open_roads: t("Open an app's roads"), open_releases: t("Open an app's releases"), open_services: t("Open an app's services"),
+    open_reliability: t("Open an app's reliability"), open_visits: t("Open an app's visits"), open_notebook: t("Open an app's notebook"),
+    open_settings: t("Open an app's settings"),
   };
   return n[a as Accion] ?? a;
 }

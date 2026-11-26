@@ -9,7 +9,7 @@ On every move inside the interface, the browser queues one line and sends the qu
 - **The page opened, by its kind:** its route pattern, like `/apps/:name/runs/:id` ("a run"), never its address. No app's name, no run's number, no search.
 - **The page it came from**, the same way (nothing on the first page of a visit).
 - **How long the page took to show its data:** from the moment the address changes until the page puts its data on screen. Only the pages that say when their data is in are measured: Apps, an app, a run, the Universe, a request, Environment and the Use page. The others count their visits only, rather than a wrong time. A time over 60 seconds, or in a hidden tab, is not noted.
-- **The main buttons used**, by a short fixed name: *Build now*, *Retry a run*, *Cancel a run*, *Merge this branch*, *Roll back*, *Dismiss a problem*, *Ask the agent why it failed*, *Open a step*, *Switch day and night*, *Switch the language*.
+- **The main buttons used**, by a short fixed name: *Build now*, *Retry a run*, *Cancel a run*, *Merge this branch*, *Roll back*, *Dismiss a problem*, *Ask the agent why it failed*, *Open a step*, *Switch day and night*, *Switch the language*, and which section of an app's page was opened (*Runs*, *Roads*, *Visits*…, never which app).
 
 The server accepts only the interface's own route patterns and that closed list of actions, at most 100 lines at once, and refuses anything else. It keeps **totals per day** (UTC): how many times each page was opened, each move from one page to another and each action, and for the times a count, a sum and five buckets (under 0.5 s, 1 s, 2 s, 4 s, and 4 s or more). Days older than 90 are deleted.
 

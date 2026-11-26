@@ -25,6 +25,8 @@ export const ACCIONES = [
   "build_now", "retry", "cancel_run", "merge", "dismiss_problem",
   "ask_agent", "select_step", "switch_theme", "switch_language", "rollback",
   "customize_home", "save_home", "talk_entry", "make_encargos",
+  "open_glance", "open_board", "open_runs", "open_roads", "open_releases",
+  "open_services", "open_reliability", "open_visits", "open_notebook", "open_settings",
 ] as const;
 export type Accion = (typeof ACCIONES)[number];
 

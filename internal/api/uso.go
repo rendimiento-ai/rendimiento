@@ -37,6 +37,9 @@ var accionesUso = map[string]bool{
 	"build_now": true, "retry": true, "cancel_run": true, "merge": true, "dismiss_problem": true,
 	"ask_agent": true, "select_step": true, "switch_theme": true, "switch_language": true, "rollback": true,
 	"customize_home": true, "save_home": true, "talk_entry": true, "make_encargos": true,
+	// Which section of an app's page was opened (decision 194), to see how the five tabs are used.
+	"open_glance": true, "open_board": true, "open_runs": true, "open_roads": true, "open_releases": true,
+	"open_services": true, "open_reliability": true, "open_visits": true, "open_notebook": true, "open_settings": true,
 }
 
 // Limits of one request: at most this many events, of this many bytes.
