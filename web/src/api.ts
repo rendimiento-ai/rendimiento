@@ -862,8 +862,18 @@ export interface IAAnswer {
 export interface IAOrgs {
   orgs: { org: Org; settings: AISettings; spentPlatformMicros: number }[];
   spentMicros: number;
+  /** What the platform's key may spend this month in all (AI_PLATFORM_CAP); capSaved: saved on the AI page, not the environment's. */
   capMicros: number;
+  capSaved: boolean;
+  /** Every organization's allowance, added up. */
+  allowancesMicros: number;
   platformKeySet: boolean;
+}
+
+/** The platform's total after a change: raised when the allowances outgrew it (api.IACapView). */
+export interface IACapView {
+  capMicros: number;
+  raised?: boolean;
 }
 
 /** Millionths of a dollar as dollars: $0.15. */
@@ -1705,7 +1715,8 @@ export const api = {
   probeLocal: (url: string, model: string) => request<LocalProbe>("POST", "/api/ia/local/probe", { url, model }),
   localModel: () => request<LocalModelView>("GET", "/api/ia/local"),
   saveLocalModel: (url: string, model: string) => request<LocalModelView>("PUT", "/api/ia/local", { url, model }),
-  setIAAllowance: (org: number, dollars: number) => request<void>("PUT", `/api/ia/orgs/${org}/allowance`, { dollars }),
+  setIAAllowance: (org: number, dollars: number) => request<IACapView>("PUT", `/api/ia/orgs/${org}/allowance`, { dollars }),
+  setIACap: (dollars: number) => request<IACapView>("PUT", "/api/ia/cap", { dollars }),
   setMember: (login: string, role: MemberRole) => request<Member[]>("PUT", `/api/members/${encodeURIComponent(login)}`, { role }),
   removeMember: (login: string) => request<void>("DELETE", `/api/members/${encodeURIComponent(login)}`),
   demoLinks: () => request<DemoLink[]>("GET", "/api/demo-links"),

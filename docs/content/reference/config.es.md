@@ -179,7 +179,7 @@ Los días y las horas se cuentan en `PUBLIC_STATS_TZ`.
 | `AI_LOCAL_MODEL` | `qwen3.5:4b` | | el modelo local (los dos cambian en vivo: gana lo que quien opera guarda en la página IA) |
 | `AI_PLATFORM_KEY` | *(vacío: ninguna)* | del Secret `rendimiento-ia` | la llave de Anthropic de la plataforma, que las organizaciones usan solo dentro de la asignación que les dan los operadores |
 | `AI_PLATFORM_MODEL` | `claude-haiku-5-5` | | el modelo de la llave de la plataforma |
-| `AI_PLATFORM_CAP` | `5` | | dólares al mes que puede gastar la llave de la plataforma, sumando todas las organizaciones |
+| `AI_PLATFORM_CAP` | `5` | | dólares al mes que puede gastar la llave de la plataforma, sumando todas las organizaciones; el valor de arranque del total en la página IA, que manda en cuanto se guarda ahí y sube con las asignaciones |
 | `CODER_SANDBOX` | `on` | `off` | `off`: el agente de código nunca corre comandos, escojan lo que escojan las organizaciones ([su entorno aislado](../guide/agents.md#the-sandbox)) |
 | `CODER_SANDBOX_IMAGE` | `golang:1.27-bookworm` | `registry.example.lan:5000/toolbox:1` | la imagen del entorno aislado cuando la aplicación no tiene una imagen de pruebas o de tarea de construcción para la carpeta |
 | `CODER_SANDBOX_RUNTIME_CLASS` | *(vacío: el entorno de ejecución predeterminado del clúster)* | `gvisor` | el `runtimeClassName` de los pods del entorno aislado, para gVisor o Kata cuando sus nodos tengan uno |

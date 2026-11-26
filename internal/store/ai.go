@@ -106,6 +106,14 @@ func (s *Store) SetAIAllowance(ctx context.Context, orgID, micros int64, by stri
 	return err
 }
 
+// AIAllowancesTotal is what the operator lets every organization spend of
+// the platform's key each month, added up.
+func (s *Store) AIAllowancesTotal(ctx context.Context) (int64, error) {
+	var n int64
+	err := s.pool.QueryRow(ctx, `SELECT COALESCE(sum(allowance_micros), 0) FROM ai_settings`).Scan(&n)
+	return n, err
+}
+
 // RecordAIUsage keeps one call.
 func (s *Store) RecordAIUsage(ctx context.Context, u AIUsage) error {
 	_, err := s.pool.Exec(ctx, `INSERT INTO ai_usage (org_id, source, provider, model, input_tokens, output_tokens, cost_micros, ok, note)

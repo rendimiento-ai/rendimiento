@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"net"
 	"net/http"
 	"os"
@@ -232,14 +231,13 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 		BaseURL: baseURL, AllowedUsers: users, SetupToken: setupToken, SetupTokenCommand: "cat " + filepath.Join(dir, "ficha-configuracion"),
 		AppName: env("GITHUB_APP_NAME", "rendimiento"), UI: web.Dist(), Settings: settings,
 	}
-	aiCap, err := strconv.ParseFloat(env("AI_PLATFORM_CAP", "5"), 64)
-	if err != nil || aiCap < 0 {
-		return fmt.Errorf("AI_PLATFORM_CAP must be dollars a month, such as 5, got %q", os.Getenv("AI_PLATFORM_CAP"))
-	}
 	srv.IA = &ia.Gateway{Store: st, Keys: aiKeys,
 		LocalURL: os.Getenv("AI_LOCAL_URL"), LocalModel: env("AI_LOCAL_MODEL", ia.DefaultLocalModel),
 		PlatformKey: os.Getenv("AI_PLATFORM_KEY"), PlatformModel: env("AI_PLATFORM_MODEL", ia.DefaultAnthropicModel),
-		PlatformCapMicros: int64(math.Round(aiCap * 1e6)),
+		PlatformCapMicros: ajustes.AIPlatformCapMicros(settings.Boot),
+		// What the platform's key may spend in all can be changed on the AI
+		// page too (AI_PLATFORM_CAP), and saving an allowance raises it.
+		PlatformCap: func() int64 { return ajustes.AIPlatformCapMicros(settings.Effective()) },
 		// The local model can be connected on the AI page: its live settings
 		// start from these variables and follow what is saved there.
 		Local: func() (string, string) {

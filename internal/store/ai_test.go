@@ -28,6 +28,13 @@ func TestAI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Every allowance added up: what the platform's total must cover.
+	if err := s.SetAIAllowance(ctx, other.ID, 1_500_000, "operador"); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := s.AIAllowancesTotal(ctx); err != nil || n != 2_000_000 {
+		t.Fatalf("allowances total = %d %v, want 2000000", n, err)
+	}
 	for _, u := range []AIUsage{
 		{OrgID: DefaultOrg, Source: "x", Provider: AIPlatform, Model: "m", CostMicros: 300, OK: true},
 		{OrgID: DefaultOrg, Source: "x", Provider: AIOwn, Model: "m", CostMicros: 70, OK: true},

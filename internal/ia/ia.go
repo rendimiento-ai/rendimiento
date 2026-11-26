@@ -83,6 +83,10 @@ type Gateway struct {
 	PlatformKey       string
 	PlatformModel     string
 	PlatformCapMicros int64
+	// PlatformCap, when set, says the platform's monthly cap now: the live
+	// setting AI_PLATFORM_CAP, which the AI page saves (and raises with the
+	// allowances). It wins over PlatformCapMicros.
+	PlatformCap func() int64
 	// Prices per model; Default when nil.
 	Prices map[string]Price
 	HTTP   *http.Client
@@ -136,6 +140,15 @@ func ProbarLlave(ctx context.Context, h *http.Client, url, key, model string) er
 		return fmt.Errorf("anthropic answered %d", res.StatusCode)
 	}
 	return nil
+}
+
+// PlatformCapNow is what the platform's key may spend this month, across
+// every organization, in millionths of a dollar.
+func (g *Gateway) PlatformCapNow() int64 {
+	if g.PlatformCap != nil {
+		return g.PlatformCap()
+	}
+	return g.PlatformCapMicros
 }
 
 // LocalNow is the local model's Ollama and model now ("" address: there is
@@ -232,7 +245,7 @@ func (g *Gateway) choose(ctx context.Context, set store.AISettings) (target, str
 			return local, "the platform has no AI key", nil
 		case spentPlatform >= limit:
 			return local, fmt.Sprintf("this organization's share of the platform's AI (%s this month) was reached", Dollars(limit)), nil
-		case total >= g.PlatformCapMicros:
+		case total >= g.PlatformCapNow():
 			return local, "the platform's monthly AI budget was reached", nil
 		default:
 			return target{provider: store.AIPlatform, client: anthropic{url: g.AnthropicURL, key: g.PlatformKeyNow(), http: g.http()}, model: or(g.PlatformModel, DefaultAnthropicModel)}, "", nil

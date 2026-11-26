@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { api, dollars, session, timeAgo, type AIProvider, type AutoEncargo, type CodeAgent, type IAAnswer, type IAView, type LocalProbe } from "../api";
+import { api, dollars, session, timeAgo, type AIProvider, type AutoEncargo, type CodeAgent, type IAAnswer, type IACapView, type IAView, type LocalProbe } from "../api";
 import { ErrorBox, Switch, usePoll } from "../components/ui";
 import { t } from "../i18n";
 import { useConexion } from "../conexion";
@@ -424,9 +424,15 @@ function Calls({ v }: { v: IAView }) {
   );
 }
 
-/** For the platform's operators: each organization's allowance of the platform's AI, and the bill. */
+/**
+ * For the platform's operators: what the platform's key may spend a month in all (AI_PLATFORM_CAP, changed here), each
+ * organization's allowance of it, and the bill. An allowance past the total raises the total with it.
+ */
 function Operator({ local }: { local: ReactNode }) {
   const { data, error, reload } = usePoll(api.iaOrgs, [], 60000);
+  // The total an allowance just raised, said once under the table.
+  const [raised, setRaised] = useState<number>();
+  const saved = (v: IACapView) => { setRaised(v.raised ? v.capMicros : undefined); reload(); };
   return (
     <>
       <h2 style={{ marginTop: 28 }}>{t("The platform's AI (operators)")}</h2>
@@ -436,15 +442,20 @@ function Operator({ local }: { local: ReactNode }) {
       {data && (
         <>
           {data.platformKeySet
-            ? <Meter label={t("The platform's key this month (AI_PLATFORM_CAP)")} used={data.spentMicros} total={data.capMicros} fmt={dollars} />
+            ? <Meter label={t("The platform's key this month")} used={data.spentMicros} total={data.capMicros} fmt={dollars} />
             : <p className="sub">{t("The platform has no AI key yet (the rendimiento-ia secret, AI_PLATFORM_KEY): organizations can use the local model or their own key.")}</p>}
-          <p className="small muted">{t("An organization can use the platform's key only up to the allowance you give it here.")}</p>
+          <TotalRow cap={data.capMicros} saved={data.capSaved} onSaved={saved} />
+          <p className="small muted">{t("An organization can use the platform's key only up to the allowance you give it here, and all of them together only up to the total. An allowance that does not fit in the total raises it.")}</p>
+          {raised !== undefined && <div className="alert info small ia-total-subio" role="status">{t("The total went up to {cap} a month, so every allowance fits.", { cap: dollars(raised) })}</div>}
+          {data.allowancesMicros > data.capMicros && (
+            <div className="alert small ia-total-corto">{t("The allowances add up to {sum}, more than the total of {cap}: once the total is spent, every organization falls back to the local model, even below its allowance.", { sum: dollars(data.allowancesMicros), cap: dollars(data.capMicros) })}</div>
+          )}
           <div className="table-wrap">
             <table className="ruta-actions small">
               <thead><tr><th>{t("Organization")}</th><th>{t("Uses")}</th><th>{t("Spent of the platform's")}</th><th>{t("Allowance a month (dollars)")}</th></tr></thead>
               <tbody>
                 {data.orgs.map((o) => <AllowanceRow key={o.org.id} org={o.org.id} name={o.org.name} uses={o.settings.provider}
-                  spent={o.spentPlatformMicros} allowance={o.settings.allowanceMicros} onSaved={reload} />)}
+                  spent={o.spentPlatformMicros} allowance={o.settings.allowanceMicros} cap={o.settings.capMicros} onSaved={saved} />)}
               </tbody>
             </table>
           </div>
@@ -454,7 +465,33 @@ function Operator({ local }: { local: ReactNode }) {
   );
 }
 
-function AllowanceRow({ org, name, uses, spent, allowance, onSaved }: { org: number; name: string; uses: AIProvider; spent: number; allowance: number; onSaved: () => void }) {
+/** What the platform's key may spend a month across every organization: AI_PLATFORM_CAP until it is saved here. */
+function TotalRow({ cap, saved, onSaved }: { cap: number; saved: boolean; onSaved: (v: IACapView) => void }) {
+  const [value, setValue] = useState(cap / 1e6);
+  const [state, setState] = useState<"" | "busy" | "saved">("");
+  const [err, setErr] = useState<unknown>();
+  useEffect(() => setValue(cap / 1e6), [cap]);
+  const dirty = Math.round(value * 1e6) !== cap;
+  return (
+    <div className="stack ia-total" style={{ gap: 4, margin: "10px 0" }}>
+      <label className="small" htmlFor="ia-total">{t("Total a month for every organization (dollars)")}</label>
+      <div className="row" style={{ gap: 6 }}>
+        <input id="ia-total" type="number" min={0} max={100000} step={1} value={value} style={{ width: 110 }} onChange={(e) => { setValue(Number(e.target.value)); setState(""); }} />
+        {dirty && <button className="primary" disabled={state === "busy"} onClick={() => {
+          setState("busy"); setErr(undefined);
+          api.setIACap(value).then((v) => { setState("saved"); onSaved(v); }, (e) => { setState(""); setErr(e); });
+        }}>{t("Save")}</button>}
+        {!dirty && state === "saved" && <span className="badge ok">{t("Saved")}</span>}
+      </div>
+      <span className="small muted">{saved ? t("Saved here: it wins over AI_PLATFORM_CAP.") : t("From AI_PLATFORM_CAP until you save it here.")}</span>
+      <ErrorBox error={err} />
+    </div>
+  );
+}
+
+function AllowanceRow({ org, name, uses, spent, allowance, cap, onSaved }: {
+  org: number; name: string; uses: AIProvider; spent: number; allowance: number; cap: number; onSaved: (v: IACapView) => void;
+}) {
   const [value, setValue] = useState(allowance / 1e6);
   const [state, setState] = useState<"" | "busy" | "saved">("");
   const [err, setErr] = useState<unknown>();
@@ -470,10 +507,14 @@ function AllowanceRow({ org, name, uses, spent, allowance, onSaved }: { org: num
           <input type="number" min={0} max={1000} step={0.5} value={value} style={{ width: 90 }} onChange={(e) => { setValue(Number(e.target.value)); setState(""); }} />
           {dirty && <button className="primary" disabled={state === "busy"} onClick={() => {
             setState("busy"); setErr(undefined);
-            api.setIAAllowance(org, value).then(() => { setState("saved"); onSaved(); }, (e) => { setState(""); setErr(e); });
+            api.setIAAllowance(org, value).then((v) => { setState("saved"); onSaved(v); }, (e) => { setState(""); setErr(e); });
           }}>{t("Save")}</button>}
           {!dirty && state === "saved" && <span className="badge ok">{t("Saved")}</span>}
         </div>
+        {/* The gateway stops at the smaller of the two: the organization's own cap can stop it before the allowance. */}
+        {uses === "platform" && allowance > 0 && cap < allowance && (
+          <div className="small muted">{t("Its own monthly cap, {cap}, stops it first.", { cap: dollars(cap) })}</div>
+        )}
         <ErrorBox error={err} />
       </td>
     </tr>

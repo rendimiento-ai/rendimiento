@@ -141,7 +141,9 @@ func run(addr, ui, estado string, log *slog.Logger, central *registrocentral.Rec
 		Settings: settings,
 		Platform: p, Store: st, GitHub: holder, Credentials: &credenciales{c: &creds}, DNS: dns.Noop{}, Log: log,
 		BaseURL: base, AllowedUsers: []string{persona}, SetupToken: "pruebas", AppName: creds.Slug, UI: os.DirFS(ui),
-		IA: &ia.Gateway{Store: st, LocalModel: ia.DefaultLocalModel, PlatformModel: ia.DefaultAnthropicModel},
+		IA: &ia.Gateway{Store: st, LocalModel: ia.DefaultLocalModel, PlatformModel: ia.DefaultAnthropicModel,
+			// The platform's total follows what the AI page saves, as in a real process.
+			PlatformCap: func() int64 { return ajustes.AIPlatformCapMicros(settings.Effective()) }},
 		// Señales: shown and switched, never sent (its loop never starts),
 		// and received, so the operators' summary shows too.
 		Senales:        &senales.Enviador{Store: st, URL: "http://127.0.0.1:1/nadie", Version: "0.0.0-e2e", Modo: "local", Motor: "docker"},

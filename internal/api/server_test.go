@@ -32,6 +32,7 @@ import (
 
 	"github.com/rendimiento-ai/rendimiento/api/v1alpha1"
 	"github.com/rendimiento-ai/rendimiento/internal/agentes"
+	"github.com/rendimiento-ai/rendimiento/internal/ajustes"
 	"github.com/rendimiento-ai/rendimiento/internal/analytics"
 	"github.com/rendimiento-ai/rendimiento/internal/destino"
 	"github.com/rendimiento-ai/rendimiento/internal/dns"
@@ -1205,7 +1206,13 @@ func TestIAAPI(t *testing.T) {
 	}))
 	defer local.Close()
 	keys := memIAKeys{}
-	e.s.IA = &ia.Gateway{Store: e.store, Keys: keys, LocalURL: local.URL, LocalModel: "qwen", PlatformCapMicros: 5_000_000}
+	settings := &ajustes.Holder{Store: e.store, Boot: ajustes.Values{}, PlatformNS: "rendimiento-system"}
+	if err := settings.Start(); err != nil {
+		t.Fatal(err)
+	}
+	e.s.Settings = settings
+	e.s.IA = &ia.Gateway{Store: e.store, Keys: keys, LocalURL: local.URL, LocalModel: "qwen", PlatformCapMicros: 5_000_000,
+		PlatformCap: func() int64 { return ajustes.AIPlatformCapMicros(settings.Effective()) }}
 	e.s.IAKeys = keys
 	me := e.session(t, "p0dxD")
 
@@ -1247,11 +1254,36 @@ func TestIAAPI(t *testing.T) {
 	}
 
 	// The operator's view and allowances.
-	if r, _ := e.do(t, "PUT", "/api/ia/orgs/1/allowance", `{"dollars":0.5}`, me, nil); r.StatusCode != 204 {
-		t.Fatalf("allowance: %d", r.StatusCode)
+	if r, body := e.do(t, "PUT", "/api/ia/orgs/1/allowance", `{"dollars":0.5}`, me, nil); r.StatusCode != 200 || body != `{"capMicros":5000000}`+"\n" {
+		t.Fatalf("allowance: %d %s", r.StatusCode, body)
 	}
-	if _, body := e.do(t, "GET", "/api/ia/orgs", "", me, nil); !strings.Contains(body, `"allowanceMicros":500000`) || !strings.Contains(body, `"capMicros":5000000`) {
+	if _, body := e.do(t, "GET", "/api/ia/orgs", "", me, nil); !strings.Contains(body, `"allowanceMicros":500000`) || !strings.Contains(body, `"capMicros":5000000`) ||
+		!strings.Contains(body, `"capSaved":false`) || !strings.Contains(body, `"allowancesMicros":500000`) {
 		t.Fatalf("operator's view: %s", body)
+	}
+	// An allowance past the platform's total raises the total with it, or
+	// the organization would be stopped before its allowance.
+	if r, body := e.do(t, "PUT", "/api/ia/orgs/1/allowance", `{"dollars":15}`, me, nil); r.StatusCode != 200 || !strings.Contains(body, `"capMicros":15000000`) || !strings.Contains(body, `"raised":true`) {
+		t.Fatalf("allowance past the total: %d %s", r.StatusCode, body)
+	}
+	if got := e.s.IA.PlatformCapNow(); got != 15_000_000 {
+		t.Fatalf("the gateway's cap = %d, want 15000000", got)
+	}
+	if _, body := e.do(t, "GET", "/api/ia/orgs", "", me, nil); !strings.Contains(body, `"capMicros":15000000`) || !strings.Contains(body, `"capSaved":true`) {
+		t.Fatalf("operator's view after the raise: %s", body)
+	}
+	// The total itself is changed on the page too, lower than the
+	// allowances as well (a ceiling), within $0 to $100,000.
+	for _, bad := range []string{`{"dollars":-1}`, `{"dollars":100001}`} {
+		if r, _ := e.do(t, "PUT", "/api/ia/cap", bad, me, nil); r.StatusCode != 400 {
+			t.Errorf("cap %s: %d, want 400", bad, r.StatusCode)
+		}
+	}
+	if r, body := e.do(t, "PUT", "/api/ia/cap", `{"dollars":3}`, me, nil); r.StatusCode != 200 || body != `{"capMicros":3000000}`+"\n" {
+		t.Fatalf("cap: %d %s", r.StatusCode, body)
+	}
+	if v := settings.Effective()[ajustes.AIPlatformCap]; v != "3" || e.s.IA.PlatformCapNow() != 3_000_000 {
+		t.Fatalf("saved cap = %q, gateway %d", v, e.s.IA.PlatformCapNow())
 	}
 }
 

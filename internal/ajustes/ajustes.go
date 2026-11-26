@@ -1,5 +1,6 @@
 // Package ajustes is the platform's settings that change while it runs:
-// the boundary between organizations and their quota. Each one starts
+// the boundary between organizations, their quota, and the platform's AI
+// (the local model, and what the platform's key may spend). Each one starts
 // from its environment variable (the ConfigMap) and, once someone saves it
 // on the Environment page, follows the saved value, in every process,
 // without a restart. The checks are the same at boot and on the page.
@@ -9,9 +10,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -33,7 +36,12 @@ const (
 	OrgQuotaMemory       = "ORG_QUOTA_MEMORY"
 	AILocalURL           = "AI_LOCAL_URL"
 	AILocalModel         = "AI_LOCAL_MODEL"
+	AIPlatformCap        = "AI_PLATFORM_CAP"
 )
+
+// DefaultAIPlatformCap is what the platform's key may spend a month, in
+// dollars, across every organization, when AI_PLATFORM_CAP says nothing.
+const DefaultAIPlatformCap = 5
 
 // Def is one live setting: its variable, the group it is shown in, and
 // whether it only means something on a cluster.
@@ -54,6 +62,7 @@ var Live = []Def{
 	{OrgQuotaMemory, "quota", false},
 	{AILocalURL, "ai", false},
 	{AILocalModel, "ai", false},
+	{AIPlatformCap, "ai", false},
 }
 
 // Known says whether key is a live setting.
@@ -158,7 +167,38 @@ func Read(v Values, platformNS, ingressClass string) (Boundary, error) {
 	if s := v[AILocalModel]; len(s) > 200 || strings.ContainsAny(s, " \t\n") {
 		return b, fmt.Errorf("%s must be a model's name such as qwen3.5:4b, got %q", AILocalModel, s)
 	}
+	if s := v[AIPlatformCap]; s != "" {
+		if _, err := capDollars(s); err != nil {
+			return b, err
+		}
+	}
 	return b, nil
+}
+
+// capDollars reads AI_PLATFORM_CAP: dollars a month, none or more.
+func capDollars(s string) (float64, error) {
+	d, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	if err != nil || d < 0 || math.IsInf(d, 0) || math.IsNaN(d) {
+		return 0, fmt.Errorf("%s must be dollars a month, such as 5, got %q", AIPlatformCap, s)
+	}
+	return d, nil
+}
+
+// AIPlatformCapMicros is what the platform's key may spend a month across
+// every organization, in millionths of a dollar: AI_PLATFORM_CAP, or
+// DefaultAIPlatformCap when it is unset (or does not check out, which
+// Read stops first).
+func AIPlatformCapMicros(v Values) int64 {
+	d, err := capDollars(v[AIPlatformCap])
+	if v[AIPlatformCap] == "" || err != nil {
+		d = DefaultAIPlatformCap
+	}
+	return int64(math.Round(d * 1e6))
+}
+
+// Dollars writes millionths of a dollar as a setting's value: 16, 2.5.
+func Dollars(micros int64) string {
+	return strconv.FormatFloat(float64(micros)/1e6, 'f', -1, 64)
 }
 
 // IngressNamespaceOf is the namespace the boundary lets the ingress
