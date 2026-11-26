@@ -170,7 +170,7 @@ func TestEnSecoConCopia(t *testing.T) {
 	rollouts["secacopia-pr-41"] = []RolloutState{RolloutPending}
 	mu.Unlock()
 	before = count()
-	conPR := push("p0dxD/secacopia", 41, "renovate/react-19.x", sha("b"), conCopiaYAML, []string{"web/package.json"})
+	conPR := push("p0dxD/secacopia", 41, "react-19", sha("b"), conCopiaYAML, []string{"web/package.json"})
 	d := conPR.Dry
 	if d == nil || d.Release != 0 || d.Copy == nil || d.Copy.Kind != store.DryCopyPull || d.Copy.Pull != 41 ||
 		d.Copy.URL != "https://secacopia-pr-41.example.com" || d.Copy.Gone || d.Failed || len(d.Copy.Tasks) != 2 {
@@ -244,7 +244,7 @@ func TestEnSecoConCopia(t *testing.T) {
 	mu.Lock()
 	failing["secacopia-pr-42"] = true
 	mu.Unlock()
-	falla := push("p0dxD/secacopia", 42, "renovate/vite-8.x", sha("d"), conCopiaYAML, []string{"web/package.json"})
+	falla := push("p0dxD/secacopia", 42, "vite-8", sha("d"), conCopiaYAML, []string{"web/package.json"})
 	if !falla.DryFailed() || !falla.Dry.Copy.Failed || falla.Dry.Copy.Pull != 42 {
 		t.Fatalf("a test that fails against the copy: %+v", falla.Dry)
 	}

@@ -3350,6 +3350,7 @@ export const es: Record<string, string> = {
   "by a person": "por una persona",
   "with its app": "con su app",
   "when its checks ended": "al terminar sus comprobaciones",
+  "as a dependency update": "por ser una actualización de dependencias",
   "Starting": "Arrancando",
   "Not healthy": "No está sana",
   // What each agent may do (components/permisos.tsx, Ruta 184).

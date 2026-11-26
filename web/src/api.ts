@@ -1597,7 +1597,7 @@ export interface CopiaLive {
 }
 
 /** Why a copy went. */
-export type CopiaWhy = "merged" | "closed" | "idle" | "max" | "person" | "app" | "seco";
+export type CopiaWhy = "merged" | "closed" | "idle" | "max" | "person" | "app" | "seco" | "deps";
 
 /** A copy deleted lately. */
 export interface CopiaGone {

@@ -56,16 +56,48 @@ func previewURL(copy spec.Spec) string {
 // openPullOf is the open pull request of a branch, from the app's own
 // repository (0 when none, or a fork's).
 func (p *Platform) openPullOf(ctx context.Context, a *store.App, branch string) int {
+	pr, _ := p.openPull(ctx, a, branch)
+	return pr.Number
+}
+
+// openPull is the open pull request of a branch, from the app's own
+// repository; false when none, or a fork's.
+func (p *Platform) openPull(ctx context.Context, a *store.App, branch string) (forja.Change, bool) {
 	got, ok := p.recentPulls(ctx, a)
 	if !ok {
-		return 0
+		return forja.Change{}, false
 	}
 	for _, pr := range got.prs {
 		if pr.Head.Ref == branch && pr.State == "open" && (pr.Head.Repo.FullName == "" || pr.Head.Repo.FullName == a.Repo) {
-			return pr.Number
+			return pr, true
 		}
 	}
+	return forja.Change{}, false
+}
+
+// copiedPull is the open pull request of a branch that gets a copy by
+// itself: from the app's own repository, and not a dependency update
+// (Renovate's, Dependabot's), which would fill the app's copies with
+// updates nobody looks at; 0 when none.
+func (p *Platform) copiedPull(ctx context.Context, a *store.App, branch string) int {
+	if pr, ok := p.openPull(ctx, a, branch); ok && !depsPull(pr, a) {
+		return pr.Number
+	}
 	return 0
+}
+
+// depsBranch says whether pull request number, on branch, is a dependency
+// update: by its labels when GitHub has it among the latest, else by the
+// branch's name.
+func (p *Platform) depsBranch(ctx context.Context, a *store.App, number int, branch string) bool {
+	if got, ok := p.recentPulls(ctx, a); ok {
+		for _, pr := range got.prs {
+			if pr.Number == number {
+				return depsPull(pr, a)
+			}
+		}
+	}
+	return kindOf(branch, a.DefaultBranch, nil) == KindDeps
 }
 
 // deployPreview gives a branch's open pull request its copy once the
@@ -78,7 +110,7 @@ func (p *Platform) deployPreview(ctx context.Context, app *store.App, run *store
 	if sp.Previews == nil || p.copias() == nil || run.Deploy {
 		return
 	}
-	if number := p.openPullOf(ctx, app, run.Branch); number != 0 {
+	if number := p.copiedPull(ctx, app, run.Branch); number != 0 {
 		p.deployPreviewOf(ctx, app, run, sp, images, number, testsEnSeco)
 	}
 }
@@ -343,11 +375,15 @@ func (p *Platform) OpenedPreview(ctx context.Context, repo string, number int, b
 }
 
 // previewFromLastRun gives pull request number its copy from its branch's
-// last run, when that run passed (and is not a deploy of the main branch).
+// last run, when that run passed (and is not a deploy of the main branch),
+// unless the pull request is a dependency update.
 func (p *Platform) previewFromLastRun(ctx context.Context, a *store.App, number int, branch string) {
 	last, err := p.Store.LastRunOf(ctx, a.ID, branch)
 	if err != nil || last.Status != store.RunSucceeded || last.Deploy || branch == a.DefaultBranch {
 		return
+	}
+	if p.depsBranch(ctx, a, number, branch) {
+		return // a dependency update gets no copy by itself
 	}
 	p.previewFromRun(ctx, a, number, last.ID)
 }
@@ -546,6 +582,9 @@ func (p *Platform) previewGone(ctx context.Context, c copia, now time.Time) (str
 	for _, pr := range got.prs {
 		if pr.Number == c.Number {
 			switch {
+			case pr.State == "open" && depsPull(pr, app):
+				// Made before dependency updates stopped getting copies.
+				return store.CopiaDeps, M("a dependency update gets no copy")
 			case pr.State == "open":
 				return "", ""
 			case pr.MergedAt != nil:

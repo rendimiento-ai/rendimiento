@@ -37,6 +37,7 @@ const WHY: Record<CopiaWhy, string> = {
   person: "by a person",
   app: "with its app",
   seco: "when its checks ended",
+  deps: "as a dependency update",
 };
 
 const HEALTH: Record<string, { cls: string; label: string }> = {

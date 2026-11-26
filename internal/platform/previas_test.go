@@ -103,6 +103,68 @@ func TestPreviewCopies(t *testing.T) {
 	}
 }
 
+// A dependency update (Renovate's branch, or a pull request labeled
+// dependencies) gets no copy, neither when its branch passes nor when it is
+// opened; a copy made before goes at the sweep.
+func TestPreviewNotForDeps(t *testing.T) {
+	p, fake, _, kube := setup(t)
+	ctx := context.Background()
+	yaml := "services:\n  - name: web\n    port: 3000\n    domain: dependencias.example.com\npreviews: {}\n"
+	sp, err := spec.Parse([]byte(yaml))
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := &store.App{Name: "dependencias", Repo: "o/dependencias", DefaultBranch: "main", Spec: *sp}
+	if err := p.Store.CreateApp(ctx, app); err != nil {
+		t.Fatal(err)
+	}
+	pull := func(n int, branch string, labels ...string) forja.Change {
+		var pr forja.Change
+		pr.Number, pr.State = n, "open"
+		pr.Head.Ref, pr.Base.Ref = branch, "main"
+		for _, l := range labels {
+			pr.Labels = append(pr.Labels, struct {
+				Name string `json:"name"`
+			}{l})
+		}
+		return pr
+	}
+	fake.recent = []forja.Change{pull(21, "renovate/maven-3.x"), pull(22, "actualiza-react", "dependencies"), pull(23, "propina")}
+	images := map[string]string{"web": "registry.example.lan:5000/dependencias-web@sha256:1"}
+	sha := strings.Repeat("d", 40)
+
+	p.deployPreview(ctx, app, &store.Run{ID: 61, SHA: sha, Branch: "renovate/maven-3.x"}, *sp, images, false)
+	p.deployPreview(ctx, app, &store.Run{ID: 62, SHA: sha, Branch: "actualiza-react"}, *sp, images, false)
+	p.deployPreview(ctx, app, &store.Run{ID: 63, SHA: sha, Branch: "propina"}, *sp, images, false)
+	for _, name := range []string{"dependencias-pr-21", "dependencias-pr-22"} {
+		if !gone(ctx, kube, name) {
+			t.Fatalf("a dependency update got a copy: %s", name)
+		}
+	}
+	var cr v1alpha1.App
+	if err := kube.Get(ctx, client.ObjectKey{Name: "dependencias-pr-23"}, &cr); err != nil {
+		t.Fatalf("a person's pull request got no copy: %v", err)
+	}
+
+	// Opened on a branch that already passed: still no copy.
+	fake.files[sha] = fstest.MapFS{spec.FileName: {Data: []byte(yaml)}}
+	passedRun(t, p, app, sp, sha, "renovate/maven-3.x")
+	p.OpenedPreview(ctx, "o/dependencias", 21, "renovate/maven-3.x", "o/dependencias")
+	if !gone(ctx, kube, "dependencias-pr-21") {
+		t.Fatal("a dependency update got a copy when opened")
+	}
+
+	// One made before the rule goes at the sweep, with its reason.
+	p.deployPreviewOf(ctx, app, &store.Run{ID: 64, SHA: sha, Branch: "actualiza-react"}, *sp, images, 22, false)
+	if gone(ctx, kube, "dependencias-pr-22") {
+		t.Fatal("the old copy was not made")
+	}
+	p.sweepPreviews(ctx, time.Now())
+	if !gone(ctx, kube, "dependencias-pr-22") || gone(ctx, kube, "dependencias-pr-23") {
+		t.Fatal("the sweep kept a dependency update's copy, or took a person's")
+	}
+}
+
 // gone: the App object is deleted, or being deleted (the controller's
 // finalizer still has it).
 func gone(ctx context.Context, kube client.Client, name string) bool {

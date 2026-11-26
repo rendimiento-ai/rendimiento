@@ -1,0 +1,1 @@
+- **Previews:** a dependency update's pull request (Renovate's or Dependabot's) no longer gets a live copy; the copies already made for one go at the next sweep. Its checks en seco still run against a short copy.
