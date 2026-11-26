@@ -14,7 +14,7 @@ test("the platform's AI total follows the allowances", async ({ page }, info) =>
   const esperado = Math.max(5, vista.allowancesMicros / 1e6 + 15);
   const pesos = (n: number) => `$${n.toFixed(2)}`;
 
-  await page.goto("/ia");
+  await page.goto("/ia?tab=plataforma");
   const total = page.locator("#ia-total");
   await expect(total).toHaveValue("5");
 

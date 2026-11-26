@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { api, dollars, session, timeAgo, type AIProvider, type AutoEncargo, type CodeAgent, type IAAnswer, type IACapView, type IAView, type LocalProbe } from "../api";
 import { ErrorBox, Switch, usePoll } from "../components/ui";
-import { t } from "../i18n";
+import { t, tn } from "../i18n";
 import { useConexion } from "../conexion";
 import { apagado } from "../components/conexion-aviso";
 import { VigiaIA } from "../components/vigia";
@@ -9,7 +10,8 @@ import { EsqBloques, EsqTabla } from "../components/esqueleto";
 import { Boleta } from "../components/boleta";
 import { ComoLeVa } from "../components/agente-cuentas";
 import { TopePlatica } from "../components/platica";
-import { Permisos } from "../components/permisos";
+import { PicadoPermisos } from "../components/permisos-dibujos";
+import { DibujoIA, Plaza } from "../components/ia-plaza";
 import { AlDiaTarjeta } from "../components/al-dia";
 
 const providerLabel: Record<AIProvider, string> = { local: "local model", own: "own key", platform: "the platform's" };
@@ -23,34 +25,140 @@ const autoEncargoCost: Record<AutoEncargo, string> = {
 const codeAgentName: Record<CodeAgent, string> = { off: "Off", asked: "Only when I send it", system: "What rendimiento opens, if cheap", auto: "Every cheap one" };
 const escalateName: Record<"" | AIProvider, string> = { "": "Do not escalate", local: "Do not escalate", own: "Your own key", platform: "The platform's" };
 
+/** The tabs of the AI page (decision 193): each one a single question. */
+export type PestanaIA = "resumen" | "modelo" | "agentes" | "gasto" | "plataforma";
+const pestanas: { id: PestanaIA; nombre: string; dibujo: string }[] = [
+  { id: "resumen", nombre: "Summary", dibujo: "sol" },
+  { id: "modelo", nombre: "The model", dibujo: "olla" },
+  { id: "agentes", nombre: "The agents", dibujo: "telar" },
+  { id: "gasto", nombre: "Spending and calls", dibujo: "peso" },
+  { id: "plataforma", nombre: "Platform (operators)", dibujo: "casa" },
+];
+
+/** Where an address on the AI page leads: ?tab= and ?agente=, and the hashes other pages link to (#permisos-<id>, #al-dia). */
+export function destinoIA(search: string, hash: string): { tab: PestanaIA; agente?: string } {
+  const q = new URLSearchParams(search);
+  const tab = q.get("tab") as PestanaIA | null;
+  let agente = q.get("agente") ?? undefined;
+  if (!agente && hash.startsWith("#permisos-")) agente = decodeURIComponent(hash.slice(10));
+  if (!agente && hash === "#al-dia") agente = "al-dia";
+  const porHash = hash === "#permisos" || !!agente;
+  return { tab: tab && pestanas.some((p) => p.id === tab) ? tab : porHash ? "agentes" : "resumen", agente };
+}
+
 /**
- * The organization's AI: which model answers (the local one, free; its own
- * key; or the platform's, within the operator's allowance), its monthly cap,
- * what it spent, and every call. Administrators change it; collaborators
- * try it.
+ * The organization's AI, in tabs (decision 193): Summary (who answers, what it spent, how the agents go and what they ask
+ * of you, and a box to try it), The model (who answers, new failures, the cap), The agents (a stall for each, with its
+ * drawer), Spending and calls, and the platform's AI for operators. Administrators change it; collaborators try it.
  */
 export function IA() {
   const { data, error, reload } = usePoll(api.ia, [], 30000);
+  const location = useLocation();
+  const nav = useNavigate();
+  const { tab, agente } = destinoIA(location.search, location.hash);
+  const ir = (to: { tab: PestanaIA; agente?: string }) => {
+    const q = new URLSearchParams();
+    if (to.tab !== "resumen") q.set("tab", to.tab);
+    if (to.agente) q.set("agente", to.agente);
+    nav({ search: q.toString() ? `?${q}` : "", hash: "" });
+  };
+  const visibles = pestanas.filter((p) => p.id !== "plataforma" || session.operator);
   return (
-    <>
+    <div className="ia-pagina">
+      <PicadoPermisos />
       <h1>{t("AI")}</h1>
-      <p className="sub">{t("Every call the platform makes to a model goes through here: the agents inside the platform, and the explanations of what failed. It stays within the cap you set, and when a cap is reached the local model answers instead.")}</p>
+      <p className="sub">{t("Who answers, what the agents do and what it costs. One thing at a time.")}</p>
+      <nav className="ia-pestanas" aria-label={t("Parts of the AI page")}>
+        {visibles.map((p) => (
+          <Link key={p.id} to={p.id === "resumen" ? "/ia" : `/ia?tab=${p.id}`} className={`ia-pestana${tab === p.id ? " on" : ""}`}
+            aria-current={tab === p.id ? "page" : undefined} onClick={(e) => { e.preventDefault(); ir({ tab: p.id }); }}>
+            <DibujoIA id={p.dibujo} />{t(p.nombre)}
+          </Link>
+        ))}
+      </nav>
       <ErrorBox error={error} />
-      {/* On its way: the summary and the settings, then the latest calls under the try box. */}
-      {!data && !error && <EsqBloques alturas={[190, 560]} />}
-      {data && <Summary v={data} />}
-      {/* Without a local model nothing may answer: the place to connect one comes first. */}
-      {data && session.operator && !data.localModel && <ModeloLocal onSaved={reload} />}
-      {data && <Settings v={data} onSaved={reload} />}
-      <Permisos />
-      <AlDiaTarjeta />
-      {data && <TopePlatica />}
-      {session.operator && <VigiaIA />}
-      <Try onDone={reload} />
-      {!data && !error && <div style={{ marginTop: 24 }}><EsqTabla filas={6} columnas={6} /></div>}
-      {data && <Calls v={data} />}
-      {session.operator && <Operator local={data?.localModel ? <ModeloLocal onSaved={reload} /> : null} />}
-    </>
+      {!data && !error && <EsqBloques alturas={[190, 420]} />}
+      {data && tab === "resumen" && (
+        <div className="ia-tab" key="resumen">
+          <Summary v={data} />
+          {/* Without a local model nothing may answer: the place to connect one comes first. */}
+          {session.operator && !data.localModel && <ModeloLocal onSaved={reload} />}
+          <LoQuePide v={data} onAgente={(id) => ir({ tab: "agentes", agente: id })} />
+          <Try onDone={reload} />
+        </div>
+      )}
+      {data && tab === "modelo" && (
+        <div className="ia-tab card" key="modelo">
+          <Settings v={data} onSaved={reload} parte="modelo" />
+        </div>
+      )}
+      {data && tab === "agentes" && (
+        <div className="ia-tab" key="agentes">
+          <Plaza v={data} agente={agente} onAgente={(id) => ir({ tab: "agentes", agente: id })} onCerrar={() => ir({ tab: "agentes" })}
+            cajon={(id) => <CajonDe id={id} v={data} onSaved={reload} />} />
+        </div>
+      )}
+      {data && tab === "gasto" && (
+        <div className="ia-tab" key="gasto">
+          <Summary v={data} soloGasto />
+          <Calls v={data} />
+        </div>
+      )}
+      {tab === "plataforma" && session.operator && (
+        <div className="ia-tab" key="plataforma">
+          <Operator local={data?.localModel ? <ModeloLocal onSaved={reload} /> : null} />
+          <VigiaIA />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** What an agent's drawer holds besides its permissions: its own choices, where it has them. */
+function CajonDe({ id, v, onSaved }: { id: string; v: IAView; onSaved: () => void }) {
+  switch (id) {
+    case "coder": return <Settings v={v} onSaved={onSaved} parte="codigo" />;
+    case "diagnostician": return <Settings v={v} onSaved={onSaved} parte="diagnostico" />;
+    case "estimator": return <Settings v={v} onSaved={onSaved} parte="estimador" />;
+    case "al-dia": return <AlDiaTarjeta />;
+    case "platica": return <TopePlatica />;
+    case "vigia": return session.operator ? <VigiaIA /> : null;
+    default: return null;
+  }
+}
+
+/** What the agents ask of the person now: permissions and questions waiting, answered where they always are. */
+function LoQuePide({ v, onAgente }: { v: IAView; onAgente: (id: string) => void }) {
+  const { data } = usePoll(() => api.portada().catch(() => undefined), [], 60000);
+  const permisos = data?.permisos ?? [];
+  const preguntas = data?.asking ?? [];
+  const codigoApagado = v.settings.codeAgent === "off";
+  if (!permisos.length && !preguntas.length && !codigoApagado) return null;
+  return (
+    <section className="card stack ia-pide" aria-labelledby="ia-pide-titulo">
+      <h2 id="ia-pide-titulo">{t("What it asks of you")}</h2>
+      {permisos.length > 0 && (
+        <div className="ia-pide-fila llama">
+          <DibujoIA id="vela" />
+          <span>{tn(permisos.length, "An agent asks for a permission", "Agents ask for {n} permissions")}</span>
+          <Link className="et-boton" to="/ruta">{t("Answer")}</Link>
+        </div>
+      )}
+      {preguntas.length > 0 && (
+        <div className="ia-pide-fila">
+          <DibujoIA id="telar" />
+          <span>{tn(preguntas.length, "The coding agent asks you something", "The coding agent asks you {n} things")}</span>
+          <Link className="et-boton" to="/ruta">{t("Answer")}</Link>
+        </div>
+      )}
+      {codigoApagado && (
+        <div className="ia-pide-fila">
+          <DibujoIA id="telar" />
+          <span>{t("The coding agent is off: encargos are for your own agent.")}</span>
+          <button type="button" className="linkish" onClick={() => onAgente("coder")}>{t("See it")}</button>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -71,7 +179,7 @@ function blocked(v: IAView, p: AIProvider | ""): string {
 }
 
 /** How things stand now, saved: who answers, failures, and what was spent. */
-function Summary({ v }: { v: IAView }) {
+function Summary({ v, soloGasto = false }: { v: IAView; soloGasto?: boolean }) {
   const s = v.settings;
   const why = blocked(v, s.provider);
   const escalate = s.autoDiagnose ? s.escalateTo : "";
@@ -84,7 +192,7 @@ function Summary({ v }: { v: IAView }) {
   const missing = [...new Set([why, escWhy].filter(Boolean))];
   return (
     <div className="card ia-summary">
-      {missing.length > 0 && (
+      {!soloGasto && missing.length > 0 && (
         <div className="ia-alert small">
           <strong>{t("Something is missing:")}</strong>{" "}
           {v.localModel
@@ -98,14 +206,14 @@ function Summary({ v }: { v: IAView }) {
             : t("Ask the platform's operators for an allowance."))}
         </div>
       )}
-      <div className="ia-fact">
+      {!soloGasto && <div className="ia-fact">
         <span className="small muted">{t("Answers now")}</span>
         <strong>{answers ? t(providerName[answers]) : t("Nobody")}</strong>
         <span className="small muted">{answers
           ? `${modelOf(v, answers)} · ${t(answers === "local" ? "free" : answers === "own" ? "paid by you" : "paid by the platform")}`
           : t("no model is available")}</span>
-      </div>
-      <div className="ia-fact">
+      </div>}
+      {!soloGasto && <div className="ia-fact">
         <span className="small muted">{t("Failed runs")}</span>
         <strong>{t(s.autoDiagnose ? "Explained" : "Not explained")}</strong>
         {s.autoDiagnose && (
@@ -113,7 +221,7 @@ function Summary({ v }: { v: IAView }) {
             ? t("New ones with {who}: {n} of {limit} this month", { who: t(providerLabel[escalate]), n: v.escalations, limit: s.escalateLimit })
             : t("All with the usual model")}</span>
         )}
-      </div>
+      </div>}
       <div className="ia-fact">
         <span className="small muted">{t("Spent this month")}</span>
         <strong>{dollars(spent)}</strong>
@@ -122,7 +230,12 @@ function Summary({ v }: { v: IAView }) {
         {platformLimit > 0 && <Meter label={t("The platform's")} used={v.spentPlatformMicros} total={platformLimit} fmt={dollars} />}
         {!spent && s.provider === "local" && <span className="small muted">{t("everything on the local model, free")}</span>}
       </div>
-      {s.updatedBy && <p className="small muted ia-last">{t("Last changed by {who}, {when}.", { who: s.updatedBy, when: timeAgo(s.updatedAt) })}</p>}
+      {!soloGasto && <div className="ia-fact">
+        <span className="small muted">{t("The coding agent")}</span>
+        <strong>{t(codeAgentName[s.codeAgent])}</strong>
+        <Link className="small" to="/ia?tab=agentes&agente=coder">{t("See the agents")}</Link>
+      </div>}
+      {!soloGasto && s.updatedBy && <p className="small muted ia-last">{t("Last changed by {who}, {when}.", { who: s.updatedBy, when: timeAgo(s.updatedAt) })}</p>}
     </div>
   );
 }
@@ -154,7 +267,11 @@ function Tile({ name, checked, disabled, onPick, title, cost, status }: {
   );
 }
 
-function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
+/** Which part of the settings a place shows: the Model tab, or an agent's drawer. One form under each, so a save
+ * sends every choice as it was saved and only what this part changed differs. */
+export type ParteIA = "modelo" | "diagnostico" | "estimador" | "codigo";
+
+export function Settings({ v, onSaved, parte }: { v: IAView; onSaved: () => void; parte: ParteIA }) {
   const conexion = useConexion();
   const admin = session.role === "admin";
   const s = v.settings;
@@ -223,9 +340,9 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
   };
 
   return (
-    <div className="card stack ia-settings">
-      <section className="stack">
-        <h2>{t("1. Who answers")}</h2>
+    <div className="stack ia-settings">
+      {parte === "modelo" && <section className="stack">
+        <h2>{t("Who answers")}</h2>
         <p className="small muted">{t("The model that answers every question: the agents, and the explanations of known failures.")}</p>
         <div className="ia-tiles">
           <Tile name="provider" title={t("The local model")} checked={provider === "local"} disabled={!admin} onPick={() => setProvider("local")}
@@ -258,14 +375,11 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
             </label>
           </div>
         )}
-      </section>
+      </section>}
 
-      <section className="stack">
-        <div className="row between">
-          <h2>{t("2. Explain failed runs")}</h2>
-          <Switch checked={auto} disabled={!admin} onChange={setAuto} label={t("Explain every failed run")} />
-        </div>
-        <p className="small muted">{t("the diagnostician agent reads the failed steps and their logs, and says why and how to fix it, on the run's page")}</p>
+      {parte === "modelo" && <section className="stack">
+        <h2>{t("New failures")}</h2>
+        {!auto && <p className="small muted" style={{ margin: 0 }}>{t("Failed runs are not explained now (the diagnostician, on the Agents tab): this matters once they are.")}</p>}
         {auto && (
           <>
             <p className="small" style={{ margin: 0 }}><strong>{t("New failures")}</strong> <span className="muted">{t("(nothing alike in the Ruta yet): who answers them?")}</span></p>
@@ -285,6 +399,18 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
             <p className="small muted" style={{ margin: 0 }}>{escalateTo
               ? t("What the stronger model answers is kept in the Ruta as an unconfirmed known failure, so the local model knows it next time.")
               : t("Known failures always go to the usual model, which reads what the Ruta knows.")}</p>
+          </>
+        )}
+      </section>}
+
+      {parte === "diagnostico" && <section className="stack">
+        <div className="row between">
+          <h2>{t("Explain failed runs")}</h2>
+          <Switch checked={auto} disabled={!admin} onChange={setAuto} label={t("Explain every failed run")} />
+        </div>
+        <p className="small muted">{t("the diagnostician agent reads the failed steps and their logs, and says why and how to fix it, on the run's page")}</p>
+        {auto && (
+          <>
             <p className="small" style={{ margin: 0 }}><strong>{t("Encargos for failures")}</strong> <span className="muted">{t("once a failure is explained, open an encargo for it, as Ask an agent does; each app may choose for itself in its Settings")}</span></p>
             <div className="ia-tiles">
               {(["off", "branches", "all"] as AutoEncargo[]).map((m) => (
@@ -294,26 +420,26 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
             </div>
           </>
         )}
-      </section>
+      </section>}
 
-      <section className="stack">
-        <h2>{t("3. Monthly cap")}</h2>
+      {parte === "modelo" && <section className="stack">
+        <h2>{t("Monthly cap")}</h2>
         <p className="small muted">{t("The most this organization spends on paid models in a month; past it, the local model answers.")}</p>
         <label className="field ia-narrow"><span>{t("Dollars")}</span>
           <input disabled={!admin} type="number" min={0} max={1000} step={0.5} value={cap} onChange={(e) => setCap(Number(e.target.value))} />
         </label>
-      </section>
+      </section>}
 
-      <section className="stack">
-        <h2>{t("4. Encargos")}</h2>
+      {parte === "estimador" && <section className="stack">
+        <h2>{t("Who does each encargo")}</h2>
         <p className="small muted">{t("Each new encargo is estimated: how hard it is, and what the platform's AI would spend doing it. Up to this amount, it is for the platform's AI; above it, for your own agent (Claude Code or Codex, paid by the month rather than by the call). On each encargo you can change it.")}</p>
         <label className="field ia-narrow"><span>{t("Dollars per encargo")}</span>
           <input disabled={!admin} type="number" min={0} max={100} step={0.25} value={encargoAuto} onChange={(e) => setEncargoAuto(Number(e.target.value))} />
         </label>
-      </section>
+      </section>}
 
-      <section className="stack">
-        <h2>{t("5. The coding agent")}</h2>
+      {parte === "codigo" && <section className="stack">
+        <h2>{t("What it does by itself")}</h2>
         <p className="small muted">{t("The platform's AI does encargos itself: on a branch of the app's repository, testing it with rendimiento's CI until it passes, and hands it over with the link for you to merge. It never touches the default branch, and stops before it would pass twice the estimate, leaving what it did (committed, marked untested) for your own agent. It needs an Anthropic model.")}</p>
         <div className="ia-tiles">
           <Tile name="code-agent" title={t(codeAgentName.off)} checked={codeAgent === "off"} disabled={!admin} onPick={() => setCodeAgent("off")}
@@ -340,14 +466,14 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
         <div className="stack" style={{ gap: 4 }}>
           <div className="row between">
             <strong>{t("Run commands in a sandbox")}</strong>
-            <a className="small" href="#permisos-coder">{t("On Permissions, below")}</a>
+            <a className="small" href="#permisos">{t("On its permissions, below")}</a>
           </div>
           <p className="small muted" style={{ margin: 0 }}>{t("With it on, the coding agent can install dependencies and run the tests, linters and builds touching its change before it commits, in a pod of its own: your branch with its changes, the app's test image, no secrets, not root, and only the public internet (never the cluster or your network). Each command stops after 15 minutes; the pod goes when the encargo ends. Commands cost no AI money, only time; the platform's CI run is still the proof.")}</p>
           {v.coderSandbox === false && <p className="small" style={{ margin: 0 }}><span className="badge warn">{t("not on this platform")}</span> {t("This platform has no sandbox for it (it needs Kubernetes and CODER_SANDBOX not off), so the coding agent cannot run code here.")}</p>}
         </div>
         {v.coder && <Boleta b={v.coder} learn={learn} onLearn={setLearn} admin={admin} />}
         {v.coder && <ComoLeVa />}
-      </section>
+      </section>}
 
       <ErrorBox error={err} />
       {!admin ? <p className="small muted" style={{ margin: 0 }}>{t("Only administrators change this.")}</p> : changes.length ? (
@@ -364,7 +490,7 @@ function Settings({ v, onSaved }: { v: IAView; onSaved: () => void }) {
       ) : (
         <div className="row" style={{ gap: 8 }}>
           {saved ? <span className="badge ok">{t("Saved")}</span> : <span className="small muted">{t("No changes.")}</span>}
-          {v.keyHint && <button disabled={busy} onClick={() => confirm(t("Remove your key?")) && save({ removeKey: true })}>{t("Remove the key")}</button>}
+          {v.keyHint && parte === "modelo" && <button disabled={busy} onClick={() => confirm(t("Remove your key?")) && save({ removeKey: true })}>{t("Remove the key")}</button>}
         </div>
       )}
     </div>
