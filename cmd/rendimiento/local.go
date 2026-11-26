@@ -323,6 +323,8 @@ func runLocal(ctx context.Context, log *slog.Logger, problemLog *problems.Record
 		est := &agentes.Estimator{Store: st, Model: srv.IA, Lang: lang, Log: log.With("component", "agents")}
 		go est.Run(ctx)
 		go coder.Run(ctx)
+		// Each dependency update's report (decision 191).
+		go (&agentes.AlDia{Store: st, Model: srv.IA, Diag: diag, Est: est, Lang: lang, Log: log.With("component", "agents")}).Run(ctx)
 		go srv.Vigia.Run(ctx) // the weekly review
 		diag.Run(ctx)
 	}()

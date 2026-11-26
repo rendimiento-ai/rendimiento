@@ -494,6 +494,8 @@ func (s *Server) Handler() http.Handler {
 	auth(store.MemberGuest, "GET /api/apps/{app}/caminos", s.appCaminos)
 	// Its live copies, on the Caminos tab (copias.go).
 	s.copiasRoutes(auth)
+	// Its dependency updates' reports, and putting it up to date (al_dia.go, decision 191).
+	s.alDiaRoutes(auth)
 	auth(store.MemberGuest, "GET /api/apps/{app}/libreta", s.appLibreta)
 	auth(store.MemberCollaborator, "POST /api/apps/{app}/libreta", s.anotarPedido)
 	auth(store.MemberCollaborator, "POST /api/apps/{app}/libreta/{id}/discard", s.descartarPedido)

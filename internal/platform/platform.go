@@ -1033,6 +1033,9 @@ func (p *Platform) execute(ctx context.Context, run *store.Run) {
 	if status == store.RunSucceeded && !run.Deploy && app.AutoMerge {
 		p.MergeReady(ctx, app) // after the check: GitHub may ask for it before merging
 	}
+	if status == store.RunSucceeded || status == store.RunFailed {
+		go p.pedirAlDia(context.WithoutCancel(ctx), app, run, status == store.RunFailed) // a dependency update's report (decision 191)
+	}
 	if status == store.RunFailed && !run.Deploy && p.Fixes != nil {
 		// Minutes in a pod of its own: the worker goes on to the next run.
 		go p.fixRenovate(context.WithoutCancel(ctx), app, run, toRun, results)

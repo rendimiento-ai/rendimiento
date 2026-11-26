@@ -791,6 +791,8 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 		coder.Plataforma, coder.PlatformApp, coder.RetryRun = st, os.Getenv("SELF_APP"), p.RetryRun
 		coder.Infra = platform.AgentInfra{P: p} // infra_read, copies, effects (each by its permission)
 		est := &agentes.Estimator{Store: st, Model: srv.IA, Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "agents")}
+		// Each dependency update's report, and the encargo that puts the app up to date (decision 191).
+		alDia := &agentes.AlDia{Store: st, Model: srv.IA, Diag: diag, Est: est, Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "agents")}
 		// Where comments are received (rendimiento.ai), the platform's AI
 		// sorts each one and drafts its answer, for a person to send.
 		var clas *agentes.Clasificador
@@ -806,6 +808,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 			log.Info("starting the agents: the diagnostician, the estimator and the coding agent")
 			go est.Run(ctx)
 			go coder.Run(ctx)
+			go alDia.Run(ctx)
 			if sandboxes != nil {
 				go sandboxes.Janitor(ctx) // what an earlier process left, and the idle ones
 			}

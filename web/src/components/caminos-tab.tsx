@@ -8,6 +8,7 @@ import { api, type App, type Caminos, type CaminosBranch, type CaminosRun, type 
 import { locale, t, tn } from "../i18n";
 import { CaminosMap, Layout, type CaminosSel, type CopiaMark, type PlayState } from "./caminos";
 import { copiaAnchor, CopiasVivas, EsqCopias, goToCopia } from "./copias";
+import { AlDiaInformes } from "./al-dia";
 import { ErrorBox, usePoll } from "./ui";
 import { EsqBloques } from "./esqueleto";
 
@@ -53,7 +54,7 @@ export function CaminosTab({ name, app }: { name: string; app?: App }) {
   else if (!data) road = <EsqBloques alturas={[420]} />;
   else if (data.main.length === 0 && data.branches.length === 0) road = <p className="muted">{t("No runs in the last two weeks yet: the road starts with the first push.")}</p>;
   else road = <CaminosView name={name} data={data} copias={vivas} />;
-  return <>{copiasPart}{road}</>;
+  return <>{app && <AlDiaInformes app={app} />}{copiasPart}{road}</>;
 }
 
 /** The live copy of each branch (a pull request's first). */

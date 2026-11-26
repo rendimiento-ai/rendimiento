@@ -5,6 +5,14 @@ package i18n
 // problems, statuses). Formal (usted); technical terms in Spanish.
 // Keys are the English formats; TestCatalog checks the two stay in step.
 var catalog = map[string]string{
+	// Poner al día (api/al_dia.go, agentes/al_dia.go).
+	"bad report number":           "número de informe no válido",
+	"this app has no such report": "esta aplicación no tiene ese informe",
+	"this report is already being put to work, or has nothing to change":        "este informe ya se está trabajando, o no tiene nada que cambiar",
+	"who puts an app up to date must be platform or local":                      "quien pone al día una aplicación debe ser platform o local",
+	"when a report is made must be toda or falla":                               "cuándo se hace un informe debe ser toda o falla",
+	"the amount to start without asking must be between $0 and $5":              "el tope para empezar sin preguntar debe estar entre $0 y $5",
+	"the model's report could not be read; it is asked again with the next run": "no se pudo leer el informe del modelo; se pide otra vez con la siguiente ejecución",
 	// El ayudante (api/ayudante.go).
 	"write a question":                                                     "escriba una pregunta",
 	"a question is at most 2,000 characters":                               "una pregunta tiene a lo más 2,000 caracteres",

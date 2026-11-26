@@ -27,6 +27,8 @@ La configuración actual integra sola las actualizaciones **de parche y menores*
 !!! warning "Que se construya no significa que funcione"
     En las aplicaciones sin pruebas, la comprobación solo demuestra que la imagen se construye. Una actualización todavía puede descomponerse al ejecutarse, como le habría pasado a wellness con SQLAlchemy 2.1. Agregue pruebas, o excluya de la integración automática los paquetes riesgosos en la configuración.
 
+Cada actualización lleva además un informe en la pestaña Caminos de la aplicación: qué fallaría, qué cambiaría y cuánto, y un botón para que un agente adapte la aplicación a ella. Vea [Poner una aplicación al día](al-dia.md).
+
 ## Permisos necesarios de la aplicación de GitHub {#required-github-app-permissions}
 
 La primera petición de Renovate para cada repositorio lee sus incidencias (el panel de dependencias), así que la aplicación necesita **Issues: lectura y escritura** y **Commit statuses: solo lectura**, además de contenido, solicitudes de incorporación y comprobaciones. La página Complementos enumera lo que falte y lleva adonde se otorga; las ejecuciones no empiezan hasta que la instalación lo acepta.

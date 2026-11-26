@@ -10,6 +10,7 @@ import { Boleta } from "../components/boleta";
 import { ComoLeVa } from "../components/agente-cuentas";
 import { TopePlatica } from "../components/platica";
 import { Permisos } from "../components/permisos";
+import { AlDiaTarjeta } from "../components/al-dia";
 
 const providerLabel: Record<AIProvider, string> = { local: "local model", own: "own key", platform: "the platform's" };
 const providerName: Record<AIProvider, string> = { local: "The local model", own: "Your own key", platform: "The platform's" };
@@ -42,6 +43,7 @@ export function IA() {
       {data && session.operator && !data.localModel && <ModeloLocal onSaved={reload} />}
       {data && <Settings v={data} onSaved={reload} />}
       <Permisos />
+      <AlDiaTarjeta />
       {data && <TopePlatica />}
       {session.operator && <VigiaIA />}
       <Try onDone={reload} />
