@@ -323,7 +323,7 @@ If GitHub answers "Bad credentials" while setting up or adding an app, look at t
 
 rendimiento's repository is onboarded like any app. Its `rendimiento.yaml` has the book (`docs`, a service) and the platform's own image (`builds: platform`), so every push runs:
 
-- `platform:test`: `hack/ci-test.sh` with `CI_PARTE=resto` (generate, vet and the Go tests but the API's and the platform's, with envtest and a throwaway Postgres; then the Windows app's module, `escritorio/`) in `golang`, with a kept cache;
+- `platform:test`: `hack/ci-test.sh` with `CI_PARTE=resto` (generate, vet and the Go tests but the API's and the platform's, with a throwaway Postgres; then `internal/controller`'s envtest, alone, and the Windows app's module, `escritorio/`) in `golang`, with a kept cache;
 - `pruebas-api:task` and `pruebas-plataforma:task`: the same script with `CI_PARTE=api` and `CI_PARTE=plataforma`, the two longest packages, each with its own Postgres, at the same time on other nodes;
 - `interfaz-en:task` and `interfaz-es:task`: the browser tests in English and in Spanish, at the same time, each with its own test server and database;
 - `platform:build`: the Dockerfile, which also checks the UI's types and translations, pushed as `<registry>/rendimiento-ai-platform:<commit>`.

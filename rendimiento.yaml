@@ -46,8 +46,9 @@ builds:
       command: CI_PARTE=resto CHECK_GENERATED=1 hack/ci-test.sh
       postgres: true
       cache: true
-      # An envtest API server runs beside the other packages: with less
-      # than two cores, etcd timed out (run 881, at 1.5). Where steps do not
+      # internal/controller's envtest runs alone, after the other packages
+      # (hack/ci-test.sh): beside them its etcd timed out, and with less
+      # than two cores too (run 881, at 1.5). Where steps do not
       # fit, the Environment page's Capacity lowers what steps reserve, or
       # turns nodes off.
       resources: { cpu: "2", memory: 2Gi, memoryLimit: 5Gi }
