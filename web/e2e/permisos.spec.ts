@@ -20,9 +20,9 @@ test("the Permissions section: a mode changed, saved and put back", async ({ pag
   await page.setViewportSize(phone);
   await page.route("**/api/ia", (r) => r.request().method() === "GET" ? r.fulfill({ json: vista }) : r.fallback());
   await page.goto("/ia#permisos-coder");
+  // The old address opens the coding agent's drawer on the Agents tab, with its permissions.
+  await expect(page.getByRole("dialog", { name: es ? "El agente de código" : "The coding agent" })).toBeVisible();
   const sec = page.locator("section#permisos");
-  await expect(sec.getByRole("radio", { name: es ? "El agente de código" : "The coding agent" })).toHaveAttribute("aria-checked", "true");
-  await expect(sec.getByRole("radio", { name: es ? "El agente diagnosticador" : "The diagnostician" })).toBeVisible();
   const fila = sec.locator(".permisos-fila", { hasText: es ? "Ver la infraestructura de su app" : "See its app's infrastructure" });
   const siempre = fila.getByRole("radio", { name: es ? "Siempre" : "Always" });
   const preguntar = fila.getByRole("radio", { name: es ? "Preguntar" : "Ask" });

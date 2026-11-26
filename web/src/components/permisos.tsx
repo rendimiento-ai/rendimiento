@@ -11,7 +11,7 @@ import { t } from "../i18n";
 import { useConexion } from "../conexion";
 import { apagado } from "./conexion-aviso";
 import { EsqBloques } from "./esqueleto";
-import { DibujoAgente, DibujoPermiso, PicadoPermisos } from "./permisos-dibujos";
+import { DibujoAgente, DibujoPermiso } from "./permisos-dibujos";
 
 /** The platform's agents, by their stable ids (store.SujetosPlataforma). */
 export const sujetoName: Record<string, string> = {
@@ -56,24 +56,25 @@ const modos: PermisoModo[] = ["off", "ask", "always"];
 /** The permissions a subject's table shows: an MCP key has no sandbox here (it runs on its own computer). */
 const filasDe = (s: PermisoSujeto) => s.permisos.filter((p) => !(s.kind === "mcp" && p.permiso === "sandbox"));
 
-/** The Permissions section of the AI page. */
-export function Permisos() {
+/**
+ * One agent's permissions, in its drawer on the AI page's Agents tab (decision 193): what it may do, each permission's
+ * mode and apps, and the grants that still hold. The page links here as /ia#permisos-<id>.
+ */
+export function PermisosDe({ sujeto }: { sujeto: string }) {
   const { data, error, reload } = usePoll(api.permisos, [], 0);
-  const [sujeto, setSujeto] = useState<string>(() => (location.hash.startsWith("#permisos-") ? decodeURIComponent(location.hash.slice(10)) : "coder"));
+  const s = data?.sujetos.find((x) => x.id === sujeto);
   return (
-    <section className="card stack permisos-agentes" id="permisos" aria-labelledby="permisos-titulo">
-      <PicadoPermisos />
-      <span className="permisos-ruta">{t("AI → Permissions")}</span>
-      <h2 id="permisos-titulo">{t("What the agents may do")}</h2>
+    <section className="stack permisos-agentes en-cajon" id="permisos" aria-labelledby="permisos-titulo">
+      <h3 id="permisos-titulo">{t("What it may do")}</h3>
       <p className="small muted" style={{ margin: 0 }}>{t("Always of the encargo's app, never another's. They never see a secret's value, nor merge, nor publish from main: that is a person's.")}</p>
       <ErrorBox error={error} />
-      {!data && !error && <EsqBloques alturas={[44, 320, 120]} />}
-      {data && <PermisosTabla v={data} sujeto={data.sujetos.some((s) => s.id === sujeto) ? sujeto : "coder"} setSujeto={setSujeto} onSaved={reload} />}
+      {!data && !error && <EsqBloques alturas={[200, 90]} />}
+      {data && s && <PermisosTabla v={data} sujeto={sujeto} onSaved={reload} />}
     </section>
   );
 }
 
-function PermisosTabla({ v, sujeto, setSujeto, onSaved }: { v: PermisosView; sujeto: string; setSujeto: (s: string) => void; onSaved: () => void }) {
+function PermisosTabla({ v, sujeto, onSaved }: { v: PermisosView; sujeto: string; onSaved: () => void }) {
   const conexion = useConexion();
   const admin = session.role === "admin";
   const s = v.sujetos.find((x) => x.id === sujeto)!;
@@ -106,16 +107,6 @@ function PermisosTabla({ v, sujeto, setSujeto, onSaved }: { v: PermisosView; suj
   const dados = v.dados.filter((d) => d.sujeto === sujeto);
   return (
     <>
-      <div className="permisos-sujetos" role="radiogroup" aria-label={t("For whom")}>
-        {v.sujetos.map((x) => (
-          <button key={x.id} type="button" role="radio" aria-checked={x.id === sujeto} id={`permisos-${x.id}`}
-            className={`permisos-sujeto${x.id === sujeto ? " on" : ""}${x.kind === "mcp" ? " llave" : ""}`}
-            onClick={() => { setSujeto(x.id); history.replaceState(null, "", `#permisos-${x.id}`); }}>
-            <DibujoAgente id={x.id} />
-            <span>{nombreSujeto(x)}</span>
-          </button>
-        ))}
-      </div>
       <div className="permisos-filas" role="table" aria-label={t("Permissions of {who}", { who: nombreSujeto(s) })}>
         <div className="permisos-fila cabeza" role="row">
           <span role="columnheader">{t("Permission")}</span><span role="columnheader">{t("Mode")}</span><span role="columnheader">{t("Apps")}</span>
@@ -266,7 +257,7 @@ export function PidePermiso({ p, onDone }: { p: PermisoPedido; onDone: (msg: str
         </div>
       )}
       {!admin && puedeNo && <p className="small muted">{t("Only administrators give permissions; you can say no.")}</p>}
-      <p className="small muted">{t("With «No», it goes on without it and says so in its delivery. It never sees secrets' values.")} {t("The permissions given «always» are taken back on")} <Link to="/ia#permisos">{t("AI → Permissions")}</Link>.</p>
+      <p className="small muted">{t("With «No», it goes on without it and says so in its delivery. It never sees secrets' values.")} {t("The permissions given «always» are taken back on")} <Link to={`/ia#permisos-${p.sujeto}`}>{t("AI → Agents")}</Link>.</p>
     </section>
   );
 }

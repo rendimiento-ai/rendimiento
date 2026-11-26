@@ -1,0 +1,1 @@
+- **AI page:** it is in tabs now — Summary, The model, The agents, Spending and calls, and Platform for operators. The agents tab is a plaza with a stall for each agent and MCP key; pressing one opens its drawer with what it does by itself and its permissions. Old links (`/ia#permisos-coder`, `/ia#al-dia`) open the right drawer.

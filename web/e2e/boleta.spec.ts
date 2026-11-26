@@ -29,7 +29,7 @@ const vista = {
 test("the coding agent's record on the AI page", async ({ page, problemas }, info) => {
   const es = info.project.name === "es";
   await page.route("**/api/ia", (r) => r.request().method() === "GET" ? r.fulfill({ json: vista }) : r.fallback());
-  await page.goto("/ia");
+  await page.goto("/ia?tab=agentes&agente=coder"); // the coding agent's drawer, on the Agents tab
 
   await expect(page.getByRole("radio", { name: es ? /Lo que abre rendimiento, si es barato/ : /What rendimiento opens, if cheap/ })).toBeChecked();
   const boleta = page.locator(".boleta");

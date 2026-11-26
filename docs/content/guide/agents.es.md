@@ -109,7 +109,7 @@ Con su herramienta `run` el agente de código corre cualquier comando de shell (
 - **Una base de datos para las pruebas.** Cuando la prueba o tarea de la carpeta tiene `postgres: true`, el entorno aislado recibe junto a él el mismo Postgres desechable que reciben los pasos (un contenedor acompañante, cuyos datos se van con el pod), con `DATABASE_URL` como la tienen los pasos y `TEST_DATABASE_URL` con `synchronous_commit=off` como la pone `hack/ci-test.sh`, así que las pruebas que necesitan una base de datos corren en vez de saltarse. Está en el `localhost` del propio pod, que la política de red nunca filtra.
 - **Lo que cuesta.** Nada de dinero de IA: solo tiempo, que cuenta contra el del encargo (3 horas a lo más).
 - **Su imagen.** La imagen de la prueba, o de la tarea de construcción, cuya carpeta contiene la carpeta del comando (`node:22-bookworm-slim` para `web/` si ahí corre la prueba de `web`), si no `CODER_SANDBOX_IMAGE` (`golang:1.27-bookworm`). El entorno aislado corre como el usuario 1000, sin sudo, con `HOME` en el espacio de trabajo; una herramienta que la imagen no traiga se puede descargar ahí.
-- **Apagarlo.** Es el [permiso `sandbox`](#permissions) del agente de código, en la página IA → Permisos (siempre si no se cambia; apagado, o preguntar); una plataforma que arranca con `CODER_SANDBOX=off` nunca lo ofrece.
+- **Apagarlo.** Es el [permiso `sandbox`](#permissions) del agente de código, en la página IA → Los agentes (siempre si no se cambia; apagado, o preguntar); una plataforma que arranca con `CODER_SANDBOX=off` nunca lo ofrece.
 
 ##### El modelo de seguridad {#the-sandbox-security}
 
@@ -132,7 +132,7 @@ Solo trabaja una copia de los agentes a la vez (un candado en Postgres), así qu
 
 ## Permisos: lo que puede hacer cada agente {#permissions}
 
-Cada agente trabaja con **permisos**, que se ponen en la [página IA → Permisos](ai.md#permissions). El sujeto de un permiso es un agente: uno de los de la plataforma (con un identificador fijo: `coder`, `diagnostician`, `estimator`, `vigia`, `clasificador`, `platica`, `resumen`, `traductor`, `aprendiz`) o **cada llave MCP por separado** (`mcp:<número de la llave>`). Sea cual sea el permiso, un agente trabaja solo en la aplicación que se le dio, nunca en otra, y nunca ve el valor de un secreto, ni integra, ni publica desde la rama principal: eso es de una persona.
+Cada agente trabaja con **permisos**, que se ponen en la [página IA → Los agentes](ai.md#permissions). El sujeto de un permiso es un agente: uno de los de la plataforma (con un identificador fijo: `coder`, `diagnostician`, `estimator`, `vigia`, `clasificador`, `platica`, `resumen`, `traductor`, `aprendiz`) o **cada llave MCP por separado** (`mcp:<número de la llave>`). Sea cual sea el permiso, un agente trabaja solo en la aplicación que se le dio, nunca en otra, y nunca ve el valor de un secreto, ni integra, ni publica desde la rama principal: eso es de una persona.
 
 | Permiso | Cubre | El agente de código y las llaves MCP, de inicio |
 |---|---|---|

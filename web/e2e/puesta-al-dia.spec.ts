@@ -81,7 +81,7 @@ test("the «Put up to date» card of the AI page saves what was chosen", async (
     await r.fulfill({ json: { ...ajustes, updatedBy: "p0dxD" } });
   });
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/ia");
+  await page.goto("/ia#al-dia"); // its drawer, on the Agents tab: other pages link here
   const tarjeta = page.locator("section#al-dia");
   await expect(tarjeta.locator("h2")).toHaveText(es ? "Poner al día" : "Put up to date");
   await tarjeta.getByLabel(es ? "Su agente (un encargo para su Claude)" : "Your own agent (an encargo for your Claude)").check();

@@ -109,7 +109,7 @@ With its `run` tool the coding agent runs any shell command (`npm ci && npm test
 - **A database for tests.** When the folder's test or task has `postgres: true`, the sandbox gets the same throwaway Postgres beside it that the steps get (a sidecar, its data gone with the pod), with `DATABASE_URL` as the steps have it and `TEST_DATABASE_URL` with `synchronous_commit=off` as `hack/ci-test.sh` sets it, so tests that need a database run instead of skipping. It is on the pod's own `localhost`, which the network policy never filters.
 - **What it costs.** No AI money: only time, which counts against the encargo's (3 hours at most).
 - **Its image.** The image of the test, or build task, whose folder holds the command's folder (`node:22-bookworm-slim` for `web/` if `web`'s test runs there), else `CODER_SANDBOX_IMAGE` (`golang:1.27-bookworm`). The sandbox runs as user 1000, without sudo, with `HOME` in the workspace; a tool the image lacks can be downloaded into it.
-- **Turning it off.** It is the coding agent's [`sandbox` permission](#permissions), on the AI page → Permissions (always by default; off, or ask); a platform started with `CODER_SANDBOX=off` never offers it.
+- **Turning it off.** It is the coding agent's [`sandbox` permission](#permissions), on the AI page → The agents (always by default; off, or ask); a platform started with `CODER_SANDBOX=off` never offers it.
 
 ##### The security model {#the-sandbox-security}
 
@@ -132,7 +132,7 @@ Only one copy of the agents works at a time (a lock in Postgres), so nothing is 
 
 ## Permissions: what each agent may do {#permissions}
 
-Every agent works under **permissions**, set on the [AI page → Permissions](ai.md#permissions). A permission's subject is one agent: one of the platform's own (by a stable id: `coder`, `diagnostician`, `estimator`, `vigia`, `clasificador`, `platica`, `resumen`, `traductor`, `aprendiz`) or **each MCP key on its own** (`mcp:<key id>`). Whatever the permission, an agent works only on the app it was given, never another app's, and never sees a secret's value, merges, or publishes from the default branch: that is a person's.
+Every agent works under **permissions**, set on the [AI page → The agents](ai.md#permissions). A permission's subject is one agent: one of the platform's own (by a stable id: `coder`, `diagnostician`, `estimator`, `vigia`, `clasificador`, `platica`, `resumen`, `traductor`, `aprendiz`) or **each MCP key on its own** (`mcp:<key id>`). Whatever the permission, an agent works only on the app it was given, never another app's, and never sees a secret's value, merges, or publishes from the default branch: that is a person's.
 
 | Permission | Covers | The coding agent and MCP keys, by default |
 |---|---|---|

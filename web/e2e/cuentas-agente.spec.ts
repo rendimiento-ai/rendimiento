@@ -39,7 +39,7 @@ test("how the coding agent is doing, on the AI page", async ({ page, problemas }
     pedidos.push(String(days));
     return r.fulfill({ json: cuentas(days) });
   });
-  await page.goto("/ia");
+  await page.goto("/ia?tab=agentes&agente=coder"); // the coding agent's drawer, on the Agents tab
 
   const card = page.locator(".cuentas-agente");
   await expect(card).toContainText(es ? "Cómo le va al agente" : "How the coding agent is doing");

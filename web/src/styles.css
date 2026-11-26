@@ -3739,3 +3739,69 @@ a.et-insignia:hover { text-decoration: none; filter: brightness(.97); }
   .al-dia-sol .dibujo-al-dia, .al-dia-informe, .al-dia-cifra .dibujo-al-dia, .al-dia-boton, .al-dia-flor, .al-dia-sin .dibujo-al-dia,
   .al-dia-trabaja .tejiendo, .al-dia-chip, .al-dia-guardado { animation: none; }
 }
+
+/* The AI page in tabs, with its plaza of agents (pages/IA.tsx, components/ia-plaza.tsx, decision 193). Tabs as a
+   row of pills with their drawings, a stall for each agent in the town's colors that comes up one after the other,
+   and a drawer beside the page (a sheet from below on a phone). Movement is translate, opacity and shadows, never a
+   change of size; it all stands still when the device asks for less. */
+.ia-pagina { position: relative; padding-top: 34px; }
+.ia-pagina > .permisos-picado { top: -6px; }
+.ia-pestanas { display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; margin: 4px 0 18px; border-radius: 26px; background: var(--surface-2); width: fit-content; max-width: 100%; box-sizing: border-box; }
+.ia-pestana { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; font-weight: 700; color: var(--text); text-decoration: none; transition: background .2s, color .2s; }
+.ia-pestana:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text); }
+.ia-pestana.on { background: var(--anil, var(--accent)); color: #fff; font-weight: 800; }
+.ia-pestana.on .dibujo-ia { animation: logo-mece 2.6s ease-in-out infinite; transform-origin: 50% 80%; }
+.dibujo-ia { flex: none; width: 20px; height: 20px; }
+.ia-tab { display: flex; flex-direction: column; gap: 16px; animation: ia-entra .35s ease-out both; }
+@keyframes ia-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.ia-pide h2 { margin: 0; font-family: var(--display); font-size: 22px; }
+.ia-pide-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 14px; background: var(--surface-2); }
+.ia-pide-fila > span { flex: 1 1 200px; min-width: 0; }
+.ia-pide-fila .dibujo-ia { width: 26px; height: 26px; color: var(--anil, var(--accent)); }
+.ia-pide-fila.llama { background: var(--warn-bg); }
+.ia-pide-fila.llama .dibujo-ia { color: var(--warn); animation: pide-llama 2.4s ease-in-out infinite; border-radius: 50%; --tono: var(--cempasuchil); }
+.ia-pide-fila .et-boton, .ia-pide-fila .linkish { min-height: 44px; display: inline-flex; align-items: center; }
+.ia-plaza { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.ia-puesto { --c: var(--anil); display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 16px; text-align: left; font: inherit; color: var(--text);
+  background: var(--surface); border: 2px solid var(--border); border-top: 6px solid var(--c); border-radius: 20px; cursor: pointer; min-width: 0;
+  animation: ia-entra .45s ease-out both; transition: box-shadow .2s, border-color .2s; }
+.ia-puesto:hover, .ia-puesto:focus-visible { box-shadow: 0 8px 22px -14px var(--c); border-color: color-mix(in srgb, var(--c) 55%, var(--border)); }
+.ia-puesto.on { border-color: var(--c); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 30%, transparent); }
+.ia-puesto strong { font-size: 16.5px; }
+.ia-puesto-dibujo { width: 44px; height: 44px; flex: none; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: var(--c, var(--anil)); color: #fff; }
+.ia-puesto-dibujo .dibujo-agente, .ia-puesto-dibujo .dibujo-al-dia { width: 26px; height: 26px; }
+.ia-puesto:hover .ia-puesto-dibujo svg, .ia-puesto.on .ia-puesto-dibujo svg { animation: logo-mece 2.4s ease-in-out infinite; transform-origin: 50% 80%; }
+.ia-puesto-como { font-weight: 800; color: var(--ok); }
+.ia-puesto-como.off { color: var(--muted); }
+.ia-puesto.apagado { --c: var(--muted); border-style: dashed; border-top-style: solid; }
+.ia-puesto.tono-anil { --c: var(--anil); } .ia-puesto.tono-rosa { --c: var(--rosa); } .ia-puesto.tono-cempasuchil { --c: var(--cempasuchil); }
+.ia-puesto.tono-nopal { --c: var(--nopal); } .ia-puesto.tono-morado { --c: #7B2F8E; } .ia-puesto.tono-grana { --c: var(--grana); }
+.ia-cajon-fondo { position: fixed; inset: 0; z-index: 60; background: rgba(43, 27, 18, .28); animation: ia-fondo .3s ease-out both; }
+@keyframes ia-fondo { from { opacity: 0; } to { opacity: 1; } }
+.ia-cajon { position: fixed; z-index: 61; top: 0; right: 0; bottom: 0; width: min(560px, 100vw); box-sizing: border-box; display: flex; flex-direction: column;
+  background: var(--bg); border-left: 1px solid var(--border); box-shadow: -24px 0 48px -32px #2B1B12; animation: ia-cajon-entra .35s ease-out both; }
+@keyframes ia-cajon-entra { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.ia-cajon-cabeza { display: flex; align-items: center; gap: 12px; padding: 18px 20px 14px; padding-top: max(18px, env(safe-area-inset-top, 0px)); border-bottom: 1px solid var(--border); }
+.ia-cajon-cabeza h2 { margin: 0; font-family: var(--display); font-size: 24px; overflow-wrap: anywhere; }
+.ia-cajon-cabeza .ia-puesto-dibujo { --c: var(--anil); }
+.ia-cajon-cerrar { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 50%; border: 2px solid var(--border); background: var(--surface); color: var(--text);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.ia-cajon-cuerpo { flex: 1; overflow-y: auto; padding: 16px 20px; padding-bottom: max(24px, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 18px; overscroll-behavior: contain; }
+.ia-cajon-cuerpo .ia-settings section h2 { font-size: 20px; }
+.ia-cajon-cuerpo .card { box-shadow: none; }
+.permisos-agentes.en-cajon { padding-top: 0; overflow: visible; }
+.permisos-agentes.en-cajon h3 { margin: 0; font-family: var(--display); font-size: 20px; color: var(--accent); }
+.ia-cajon .permisos-fila { grid-template-columns: minmax(0, 1fr); }
+.ia-cajon .permisos-fila.cabeza { display: none; }
+@media (max-width: 760px) {
+  .ia-pestanas { border-radius: 20px; }
+  .ia-pestana { padding: 0 12px; }
+  .ia-plaza { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ia-puesto { padding: 12px; }
+  .ia-puesto .small.muted { display: none; }
+  .ia-cajon { top: auto; left: 0; width: 100%; max-height: 86vh; border-left: 0; border-radius: 26px 26px 0 0; box-shadow: 0 -18px 40px -24px #2B1B12; animation-name: ia-hoja-sube; }
+  @keyframes ia-hoja-sube { from { transform: translateY(60px); opacity: .4; } to { transform: none; opacity: 1; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ia-tab, .ia-puesto, .ia-cajon, .ia-cajon-fondo, .ia-pestana.on .dibujo-ia, .ia-puesto:hover .ia-puesto-dibujo svg, .ia-puesto.on .ia-puesto-dibujo svg, .ia-pide-fila.llama .dibujo-ia { animation: none; }
+}
