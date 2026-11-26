@@ -10,12 +10,12 @@ Each organization chooses, on its **AI** page (administrators):
 |---|---|---|
 | **The local model** | nobody: it runs on the platform's own hardware (`AI_LOCAL_URL`, an Ollama) | the default, and where every call falls back |
 | **Your own key** | the organization, to its provider | Anthropic, or any OpenAI-compatible service (its https address and a model). The key is kept in a Kubernetes Secret, never in the database, and the page shows only its last four characters |
-| **The platform's** | the platform's operators | only up to the **allowance** the operators give that organization each month, and never past the platform's total (`AI_PLATFORM_CAP`) |
+| **The platform's** | the platform's operators | only up to the **allowance** the operators give that organization each month, and never past the platform's total (`AI_PLATFORM_CAP`, changed on the AI page) |
 
 ## Caps {#caps}
 
 - The organization sets its **monthly cap** in dollars. With its own key, the gateway stops calling the provider once the month's spending reaches it.
-- With the platform's key, the limit is the smaller of the organization's cap and the operators' **allowance**, and all organizations together stay under `AI_PLATFORM_CAP` (5 dollars by default).
+- With the platform's key, the limit is the smaller of the organization's cap and the operators' **allowance**, and all organizations together stay under the platform's **total**: `AI_PLATFORM_CAP` (5 dollars by default) until an operator changes it on the AI page. An allowance that does not fit in the total raises it to the sum of every allowance, so the number an operator gives an organization is the one that limits it; the total can still be set lower by hand, as a ceiling, and the page says so.
 - When a cap is reached, a key is missing, or the provider fails, **the local model answers instead**, and the call says why. Nothing stops working; it just gets simpler.
 - A single answer is at most 4,096 tokens, so a call can pass a cap only by one answer's worth.
 - A [conversation about a Ruta entry](ruta.md#talking-an-entry-over) has its own **cap per conversation** (*Talking entries over* on the AI page, 50 cents by default): past it, it asks a person before going on, and each yes allows one cap more.
@@ -43,7 +43,7 @@ The newest day is a **scoreboard**: four numbers that count up as the page opens
 - **[How the coding agent is doing](#how-the-coding-agent-is-doing):** beside its settings, what it did over the last 30 days (or 7, 90, or all of it), for every member who sees the page.
 - **Try it:** ask a question and see who answered, the tokens, the cost and, if it fell back, why (collaborators).
 - **Latest calls:** every call, who asked (a feature or an agent), the model, tokens, cost, and any error.
-- **Operators** also see every organization's allowance of the platform's AI, what each spent of it, and the platform's bill; they change allowances there, each with its own Save.
+- **Operators** also see every organization's allowance of the platform's AI, what each spent of it, and the platform's bill against its total; they change the total and each allowance there, each with its own Save. Saved, the total wins over `AI_PLATFORM_CAP` in every process within seconds, without a restart. Where an organization's own monthly cap is below its allowance, its row says that cap stops it first.
 
 ### How the coding agent is doing {#how-the-coding-agent-is-doing}
 
@@ -58,6 +58,6 @@ Counted from the encargos' history, without AI, over the encargos [the coding ag
 
 1. A local model: an Ollama the platform can reach (on the same computer, `http://localhost:11434`; on another one of your network; or in the cluster, such as the `ai` app's `ollama` service). An operator connects it on the AI page, under **The local model**: its address and model, **Try it** to ask the Ollama which models it holds (it says when the model is missing, and offers the ones it has), and **Save**. It answers within seconds, without a restart, on a cluster and on a computer alike. `AI_LOCAL_URL` and `AI_LOCAL_MODEL` give the starting value; what is saved on the page wins.
 2. Optionally, the platform's key: an Anthropic key in the `rendimiento-ia` Secret as `AI_PLATFORM_KEY`. Set the same monthly limit in Anthropic's console as a second safety net.
-3. Give allowances to the organizations that may use it, on the AI page.
+3. Give allowances to the organizations that may use it, on the AI page. The platform's total (`AI_PLATFORM_CAP` to start) goes up with them when they do not fit in it; change it there too, and keep the limit in Anthropic's console in step with it.
 
 See [Settings](../reference/config.md#ai).

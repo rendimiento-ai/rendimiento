@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"net/http"
 	"net/url"
@@ -366,11 +367,20 @@ func (s *Server) iaOrgs(w http.ResponseWriter, r *http.Request, _ string) {
 		return
 	}
 	out := struct {
-		Orgs           []IAOrg `json:"orgs"`
-		SpentMicros    int64   `json:"spentMicros"`
-		CapMicros      int64   `json:"capMicros"`
-		PlatformKeySet bool    `json:"platformKeySet"`
-	}{Orgs: []IAOrg{}, CapMicros: s.IA.PlatformCapMicros, PlatformKeySet: s.IA.PlatformKeyNow() != ""}
+		Orgs        []IAOrg `json:"orgs"`
+		SpentMicros int64   `json:"spentMicros"`
+		// CapMicros is what the platform's key may spend this month in all
+		// (AI_PLATFORM_CAP); CapSaved says it was saved on the AI page
+		// rather than read from the environment; AllowancesMicros is every
+		// organization's allowance added up.
+		CapMicros        int64 `json:"capMicros"`
+		CapSaved         bool  `json:"capSaved"`
+		AllowancesMicros int64 `json:"allowancesMicros"`
+		PlatformKeySet   bool  `json:"platformKeySet"`
+	}{Orgs: []IAOrg{}, CapMicros: s.IA.PlatformCapNow(), PlatformKeySet: s.IA.PlatformKeyNow() != ""}
+	if s.Settings != nil {
+		_, out.CapSaved = s.Settings.SavedValues()[ajustes.AIPlatformCap]
+	}
 	if out.SpentMicros, err = s.Store.AIPlatformSpent(ctx, now); err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -387,9 +397,77 @@ func (s *Server) iaOrgs(w http.ResponseWriter, r *http.Request, _ string) {
 			return
 		}
 		out.Orgs = append(out.Orgs, IAOrg{Org: o, Settings: set, SpentPlatformMicros: spent})
+		out.AllowancesMicros += set.AllowanceMicros
 	}
 	writeJSON(w, out)
 }
+
+// IACapView is the platform's total after a change on the AI page: what
+// its key may spend a month in all, and whether saving an allowance just
+// raised it.
+type IACapView struct {
+	CapMicros int64 `json:"capMicros"`
+	Raised    bool  `json:"raised,omitempty"`
+}
+
+// saveIACap saves what the platform's key may spend a month in all as the
+// live setting AI_PLATFORM_CAP: it wins over the environment's in every
+// process within 15 seconds, this one at once.
+func (s *Server) saveIACap(r *http.Request, micros int64, login string) error {
+	eff := s.Settings.Effective()
+	before := ajustes.Dollars(ajustes.AIPlatformCapMicros(eff))
+	eff[ajustes.AIPlatformCap] = ajustes.Dollars(micros)
+	if _, err := ajustes.Read(eff, s.Settings.PlatformNS, s.Settings.IngressClass); err != nil {
+		return fmt.Errorf("%w: %w", errSettingBad, err)
+	}
+	if err := s.Store.SaveAjuste(r.Context(), ajustes.AIPlatformCap, ajustes.Dollars(micros), login); err != nil {
+		return err
+	}
+	anotarDetalle(r, "tope_antes", before)
+	anotarDetalle(r, "tope_despues", ajustes.Dollars(micros))
+	_ = s.Settings.Refresh(r.Context())
+	return nil
+}
+
+// errSettingBad is a value that does not check out with the other live
+// settings.
+var errSettingBad = errors.New("the setting does not check out")
+
+// putIACap is what the platform's key may spend a month across every
+// organization (AI_PLATFORM_CAP), changed on the AI page by its operators.
+func (s *Server) putIACap(w http.ResponseWriter, r *http.Request, login string) {
+	if s.IA == nil {
+		httpError(w, http.StatusServiceUnavailable, "the AI gateway is not set up on this platform")
+		return
+	}
+	if s.Settings == nil {
+		httpError(w, http.StatusServiceUnavailable, "this process does not keep live settings")
+		return
+	}
+	var in struct {
+		Dollars float64 `json:"dollars"`
+	}
+	if !readJSON(w, r, &in) {
+		return
+	}
+	if in.Dollars < 0 || in.Dollars > maxIACap {
+		httpError(w, http.StatusBadRequest, "the platform's total must be between $0 and $100,000 a month")
+		return
+	}
+	if err := s.saveIACap(r, micros(in.Dollars), login); errors.Is(err, errSettingBad) {
+		httpError(w, http.StatusBadRequest, err.Error())
+		return
+	} else if err != nil {
+		httpError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	s.Log.Info("AI platform cap set", "dollars", in.Dollars, "by", login)
+	writeJSON(w, IACapView{CapMicros: s.IA.PlatformCapNow()})
+}
+
+// maxIACap is the most, in dollars a month, the AI page lets the
+// platform's key spend in all.
+const maxIACap = 100_000
 
 // putIAAllowance is what the operator lets an organization spend of the
 // platform's AI each month.
@@ -418,7 +496,28 @@ func (s *Server) putIAAllowance(w http.ResponseWriter, r *http.Request, login st
 		return
 	}
 	s.Log.Info("AI allowance set", "org", id, "dollars", in.Dollars, "by", login)
-	w.WriteHeader(http.StatusNoContent)
+	// An allowance is what the operator wants that organization to be able
+	// to spend: when the allowances add up to more than the platform's
+	// total, the total goes up with them, or the allowance would never be
+	// reached.
+	out := IACapView{}
+	if s.IA != nil {
+		out.CapMicros = s.IA.PlatformCapNow()
+		total, err := s.Store.AIAllowancesTotal(r.Context())
+		if err != nil {
+			httpError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if total > out.CapMicros && s.Settings != nil {
+			if err := s.saveIACap(r, total, login); err != nil {
+				httpError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			s.Log.Info("AI platform cap raised to the allowances", "dollars", ajustes.Dollars(total), "by", login)
+			out.CapMicros, out.Raised = s.IA.PlatformCapNow(), true
+		}
+	}
+	writeJSON(w, out)
 }
 
 // autoEncargoMode says whether mode is one an organization (or, with

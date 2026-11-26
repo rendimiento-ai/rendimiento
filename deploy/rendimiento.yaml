@@ -87,7 +87,8 @@ data:
   # use by default and fall back to; and the platform's key (the
   # rendimiento-ia secret), which organizations use only within the
   # allowance an operator gives them, and AI_PLATFORM_CAP dollars a month in
-  # all.
+  # all (where the total starts: the AI page changes it, and an allowance
+  # past it raises it).
   # AI_LOCAL_URL: http://ollama.ai.svc.cluster.local:11434
   # AI_LOCAL_MODEL: qwen3.5:4b
   # AI_PLATFORM_MODEL: claude-haiku-5-5

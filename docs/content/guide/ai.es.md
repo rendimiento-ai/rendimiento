@@ -10,12 +10,12 @@ Cada organización elige en su página **IA** (los administradores):
 |---|---|---|
 | **El modelo local** | nadie: corre en el equipo de la propia plataforma (`AI_LOCAL_URL`, un Ollama) | el predeterminado, y al que cae toda llamada |
 | **Su propia llave** | la organización, a su proveedor | Anthropic, o cualquier servicio compatible con OpenAI (su dirección https y un modelo). La llave se guarda en un Secret de Kubernetes, nunca en la base de datos, y la página solo muestra sus últimos cuatro caracteres |
-| **La de la plataforma** | quienes operan la plataforma | solo hasta la **asignación** que los operadores le dan a esa organización cada mes, y nunca más allá del total de la plataforma (`AI_PLATFORM_CAP`) |
+| **La de la plataforma** | quienes operan la plataforma | solo hasta la **asignación** que los operadores le dan a esa organización cada mes, y nunca más allá del total de la plataforma (`AI_PLATFORM_CAP`, que se cambia en la página IA) |
 
 ## Topes {#caps}
 
 - La organización fija su **tope mensual** en dólares. Con su propia llave, la pasarela deja de llamar al proveedor en cuanto el gasto del mes lo alcanza.
-- Con la llave de la plataforma, el límite es el menor entre el tope de la organización y la **asignación** de los operadores, y todas las organizaciones juntas se quedan bajo `AI_PLATFORM_CAP` (5 dólares si no se cambia).
+- Con la llave de la plataforma, el límite es el menor entre el tope de la organización y la **asignación** de los operadores, y todas las organizaciones juntas se quedan bajo el **total** de la plataforma: `AI_PLATFORM_CAP` (5 dólares si no se cambia) hasta que un operador lo cambie en la página IA. Una asignación que no cabe en el total lo sube a la suma de todas las asignaciones, así que el número que un operador le da a una organización es el que la limita; el total todavía se puede bajar a mano, como techo, y la página lo dice.
 - Cuando se alcanza un tope, falta una llave o el proveedor falla, **contesta el modelo local** y la llamada dice por qué. Nada deja de funcionar; solo se vuelve más sencillo.
 - Una respuesta tiene a lo más 4,096 tokens, así que una llamada solo puede pasarse de un tope por una respuesta.
 - Una [plática sobre una entrada de la Ruta](ruta.md#talking-an-entry-over) tiene su propio **tope por plática** (*Platicar las entradas* en la página IA, 50 centavos si no se cambia): al pasarlo, le pregunta a una persona antes de seguir, y cada sí permite un tope más.
@@ -43,7 +43,7 @@ El día más reciente es un **marcador**: cuatro números que cuentan al abrir l
 - **[Cómo le va al agente](#how-the-coding-agent-is-doing):** junto a su configuración, lo que hizo en los últimos 30 días (o 7, 90, o todo), para todos los miembros que ven la página.
 - **Pruébela:** haga una pregunta y vea quién contestó, los tokens, el costo y, si cayó al modelo local, por qué (los colaboradores).
 - **Últimas llamadas:** cada llamada, quién preguntó (una función o un agente), el modelo, los tokens, el costo y cualquier error.
-- **Los operadores** ven además la asignación de cada organización de la IA de la plataforma, lo que gastó cada una y la cuenta de la plataforma; ahí cambian las asignaciones, cada una con su botón Guardar.
+- **Los operadores** ven además la asignación de cada organización de la IA de la plataforma, lo que gastó cada una y la cuenta de la plataforma contra su total; ahí cambian el total y cada asignación, cada uno con su botón Guardar. Ya guardado, el total manda sobre `AI_PLATFORM_CAP` en todos los procesos en segundos, sin reiniciar. Cuando el tope mensual propio de una organización es menor que su asignación, su renglón dice que ese tope la detiene antes.
 
 ### Cómo le va al agente {#how-the-coding-agent-is-doing}
 
@@ -58,6 +58,6 @@ Se cuenta con la historia de los encargos, sin IA, sobre los encargos que tomó 
 
 1. Un modelo local: un Ollama al que llegue la plataforma (en la misma computadora, `http://localhost:11434`; en otra de su red; o en el clúster, como el servicio `ollama` de la aplicación `ai`). Quien opera la plataforma lo conecta en la página IA, en **El modelo local**: su dirección y su modelo, **Probar** para preguntarle al Ollama qué modelos tiene (avisa si falta el modelo y ofrece los que tiene), y **Guardar**. Responde en unos segundos, sin reiniciar, igual en un clúster que en una computadora. `AI_LOCAL_URL` y `AI_LOCAL_MODEL` dan el valor inicial; lo que se guarda en la página gana.
 2. Si quiere, la llave de la plataforma: una llave de Anthropic en el Secret `rendimiento-ia`, como `AI_PLATFORM_KEY`. Ponga el mismo límite mensual en la consola de Anthropic, como segundo seguro.
-3. Dé asignaciones a las organizaciones que puedan usarla, en la página IA.
+3. Dé asignaciones a las organizaciones que puedan usarla, en la página IA. El total de la plataforma (de arranque, `AI_PLATFORM_CAP`) sube con ellas cuando no caben en él; ahí mismo también se cambia, y mantenga a la par el límite de la consola de Anthropic.
 
 Vea [Ajustes](../reference/config.md#ai).

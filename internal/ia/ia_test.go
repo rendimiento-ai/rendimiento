@@ -143,6 +143,12 @@ func TestGateway(t *testing.T) {
 	if res := ask(t, g, 3); res.Provider != store.AILocal || !strings.Contains(res.Note, "budget") {
 		t.Fatalf("platform's cap: %+v", res)
 	}
+	// The cap as the AI page saves it now wins over the environment's.
+	g.PlatformCap = func() int64 { return 1_000_000 }
+	if res := ask(t, g, 3); res.Provider != store.AIPlatform {
+		t.Fatalf("platform's cap raised live: %+v", res)
+	}
+	g.PlatformCap = nil
 
 	// A provider that fails: the local model answers, and both calls are kept.
 	fails = true
