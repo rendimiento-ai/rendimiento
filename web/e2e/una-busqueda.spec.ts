@@ -30,7 +30,8 @@ test("home: the top bar's search filters the apps, and each tile has its shortcu
   const teja = page.locator("main .mosaico .teja", { hasText: app });
   const corridas = teja.getByRole("link", { name: es ? "Ejecuciones" : "Runs" });
   await expect(corridas).toHaveAttribute("href", `/apps/${app}/runs`);
-  expect((await corridas.boundingBox())!.height).toBeGreaterThanOrEqual(40);
+  // Its layout height: the tile comes in growing a little (teja-entra), which a bounding box would catch mid-way.
+  expect(await corridas.evaluate((el) => (el as HTMLElement).offsetHeight)).toBeGreaterThanOrEqual(40);
 
   await page.locator("main .mosaico-coinciden").getByRole("button", { name: es ? "Quitar la búsqueda" : "Clear the search" }).click();
   await expect(caja).toHaveValue("");
