@@ -21,6 +21,8 @@ Cuando la ejecución pasó y las notas no le piden nada a la aplicación, dice *
 
 El agente adapta la aplicación, la prueba con la ejecución de la rama y la entrega; usted la integra, como siempre (o rendimiento lo hace, en una aplicación que se integra sola). El informe dice entonces qué fue de su encargo: esperando, en trabajo, entregado, listo.
 
+En cuanto el agente hace un commit en la rama, Renovate ve un commit que no es suyo y deja de rebasarla y de actualizarla, como con cualquier rama editada (y con un [arreglo del archivo de bloqueo](renovate.md#lockfiles)): nunca escribe encima del trabajo del agente, y una versión más nueva para esa rama espera hasta que esta se integre o se cierre. Marcar la casilla de rebase de la solicitud le devuelve la rama a Renovate, y borra los cambios del agente.
+
 ## Lo que se elige {#the-choices}
 
 En la página IA, la tarjeta **Poner al día** (la cambia un administrador):

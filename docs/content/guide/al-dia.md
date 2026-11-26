@@ -21,6 +21,8 @@ When the run passed and the notes ask nothing of the app, it says **No changes**
 
 The agent adapts the app, tests it with the branch's run and delivers it; you merge it, as always (or rendimiento does, in an app that merges by itself). The report then says what became of its encargo: waiting, being worked on, delivered, done.
 
+Once the agent commits on the branch, Renovate sees someone else's commit and stops rebasing and updating it, as it does for any edited branch (and for a [lockfile fix](renovate.md#lockfiles)): it never writes over the agent's work, and a newer version for that branch waits until this one is merged or closed. Ticking the pull request's rebase box gives the branch back to Renovate, and drops the agent's changes.
+
 ## The choices {#the-choices}
 
 On the AI page, the **Put up to date** card (an administrator changes it):
