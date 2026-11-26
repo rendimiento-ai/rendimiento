@@ -63,7 +63,7 @@ const palabra: Record<Floracion, string> = { brote: "Not live yet", abierta: "It
 export function Vistazo({ app, onBuilt }: { app: App; onBuilt?: () => void }) {
   const name = app.name;
   const { data: rel } = usePoll(() => api.reliability(name, "7d"), [name], 60000);
-  const { data: vis } = usePoll(() => api.visits(name, "7d"), [name], 300000);
+  const { data: vis } = usePoll(() => api.visitsBrief(name, "7d"), [name], 300000);
   const { data: resumen } = usePoll(() => api.summary().catch(() => undefined), [], 300000);
   const { data: encargos } = usePoll(() => api.encargos().catch(() => []), [], 60000);
   // Its live copies, when it asks for previews: a door to them on the Caminos tab.

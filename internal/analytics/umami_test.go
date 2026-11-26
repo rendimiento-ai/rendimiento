@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -217,5 +218,83 @@ func TestReportKey(t *testing.T) {
 			t.Errorf("%s and %s share the key %s", name, other, k)
 		}
 		keys[k] = name
+	}
+}
+
+// An app's page asks only for its totals and its chart: two of Umami's
+// queries, not a report's eight, kept apart from the Visits tab's report.
+// What is kept stays as long as it may still be shown.
+func TestUmamiSummary(t *testing.T) {
+	var logins atomic.Int32
+	inner := fakeUmami(t, &logins)
+	var mu sync.Mutex
+	hits := map[string]int{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		hits[r.URL.Path+" "+r.URL.Query().Get("type")]++
+		mu.Unlock()
+		inner.Config.Handler.ServeHTTP(w, r)
+	}))
+	t.Cleanup(srv.Close)
+	u := &Umami{URL: srv.URL, Username: "rendimiento", Password: "pw"}
+	ctx := context.Background()
+	tz, _ := time.LoadLocation("America/Mexico_City")
+	to := time.Date(2026, 10, 6, 15, 0, 0, 0, tz)
+	p := Period{From: to.AddDate(0, 0, -2), To: to, Unit: "day", TZ: tz}
+	w := Website{ID: "w1", Name: "Blog", Domain: "blog.example.com"}
+	asked := func() map[string]int {
+		mu.Lock()
+		defer mu.Unlock()
+		out := map[string]int{}
+		for k, v := range hits {
+			if !strings.HasPrefix(k, "/api/auth/") {
+				out[k] = v
+			}
+		}
+		return out
+	}
+
+	// Signed in first (the fake's first token expires), so each query below
+	// is asked once.
+	if _, err := u.Websites(ctx); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	clear(hits)
+	mu.Unlock()
+
+	s, err := u.Summary(ctx, w, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Current.Pageviews != 120 || s.Previous.Visitors != 30 || len(s.Pageviews) != 3 || s.Pageviews[1].N != 70 || s.Visitors[2].N != 40 {
+		t.Errorf("summary %+v, want the totals, the period before and the series", s)
+	}
+	if s.Paths == nil || len(s.Paths) != 0 || s.Sessions == nil || len(s.Sessions) != 0 || s.Active != 0 {
+		t.Errorf("summary tops %v, sessions %v, active %d: want empty lists (never null) and nothing else read", s.Paths, s.Sessions, s.Active)
+	}
+	want := map[string]int{"/api/websites/w1/stats ": 1, "/api/websites/w1/pageviews ": 1}
+	if got := asked(); len(got) != len(want) || got["/api/websites/w1/stats "] != 1 || got["/api/websites/w1/pageviews "] != 1 {
+		t.Fatalf("a summary asked Umami %v, want only %v", got, want)
+	}
+	if _, err := u.Summary(ctx, w, p); err != nil {
+		t.Fatal(err)
+	}
+	if got := asked(); got["/api/websites/w1/stats "] != 1 {
+		t.Errorf("a second summary asked Umami again: %v", got)
+	}
+	// The Visits tab's report is the whole one, read on its own.
+	r, err := u.Report(ctx, w, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Paths) != 2 || len(r.Sessions) != 2 || r.Active != 3 {
+		t.Errorf("report after a summary %+v, want the whole report", r)
+	}
+	if got := asked(); got["/api/websites/w1/sessions "] != 1 || got["/api/websites/w1/metrics path"] != 1 || got["/api/websites/w1/active "] != 1 {
+		t.Errorf("the report asked Umami %v", got)
+	}
+	if u.cache.Keep != staleFor {
+		t.Errorf("kept answers are dropped after %v unused, want %v (as long as they may be shown)", u.cache.Keep, staleFor)
 	}
 }

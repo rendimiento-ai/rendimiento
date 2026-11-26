@@ -14,7 +14,7 @@ En la pestaña **Visitas** de una aplicación, para **hoy**, **ayer**, los últi
 
 En la página Números (y en el inicio, si la enciende en [Personalizar inicio](../start/tour.md#customize-home)), **Visitantes, últimos 7 días** suma todas las aplicaciones que Umami cuenta. Tiene una fila por aplicación, la más visitada primero, con su cambio frente a los 7 días anteriores. Cuando también se cuentan las páginas de rendimiento ([`UMAMI_WEBSITE_ID`](../reference/config.md)), un administrador de la organización de la plataforma las ve en una última fila aparte, fuera de los totales; nadie más las ve.
 
-Los números se guardan dos minutos: así las páginas cargan rápido y a Umami no se le pregunta lo mismo una y otra vez. Los días y las horas se cuentan en `PUBLIC_STATS_TZ` (UTC si no se define).
+Los números se guardan dos minutos: así las páginas cargan rápido y a Umami no se le pregunta lo mismo una y otra vez; después, hasta por una hora, se muestran los guardados al instante mientras se leen los nuevos por detrás. La página de una aplicación pide solo lo que muestra arriba de sus pestañas y en su vistazo (los totales y la gráfica pequeña de las últimas 24 horas y los últimos 7 días), y rendimiento los lee por adelantado para cada aplicación, al arrancar y cada media hora: abrir una aplicación nunca espera a Umami, ni siquiera justo después de una actualización. Los días y las horas se cuentan en `PUBLIC_STATS_TZ` (UTC si no se define).
 
 ## Cómo se emparejan las aplicaciones {#how-apps-are-matched}
 

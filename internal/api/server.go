@@ -203,6 +203,8 @@ type Server struct {
 type Analytics interface {
 	Websites(ctx context.Context) ([]analytics.Website, error)
 	Report(ctx context.Context, w analytics.Website, p analytics.Period) (*analytics.Report, error)
+	// Summary is a report's totals and series only, for an app's page.
+	Summary(ctx context.Context, w analytics.Website, p analytics.Period) (*analytics.Report, error)
 	Totals(ctx context.Context, w analytics.Website, from, to time.Time) (cur, prev analytics.Stats, err error)
 	Activity(ctx context.Context, w analytics.Website, sessionID string, from, to time.Time) ([]analytics.Step, error)
 }

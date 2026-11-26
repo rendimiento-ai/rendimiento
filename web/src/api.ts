@@ -1271,6 +1271,8 @@ export interface Visits {
   timeZone: string;
   hosts: string[];
   umamiURL?: string;
+  /** Asked with brief=1: each report has only its totals and series. */
+  brief?: boolean;
   reports: VisitReport[];
 }
 
@@ -1853,6 +1855,8 @@ export const api = {
   visitsSummary: () => request<VisitsSummary>("GET", "/api/stats/visits"),
   visits: (app: string, range: VisitRange, day?: string) =>
     request<Visits>("GET", `/api/apps/${app}/visits?${range === "day" && day ? `day=${day}` : `range=${range}`}`),
+  /** Only the totals and the chart's series (no top lists or visitors): what an app's page shows above its tabs and on its overview, two of Umami's queries instead of eight. */
+  visitsBrief: (app: string, range: "24h" | "7d") => request<Visits>("GET", `/api/apps/${app}/visits?range=${range}&brief=1`),
   visitActivity: (app: string, site: string, session: string, from: string, to: string) =>
     request<VisitStep[]>("GET", `/api/apps/${app}/visits/${encodeURIComponent(site)}/sessions/${encodeURIComponent(session)}?from=${Date.parse(from)}&to=${Date.parse(to)}`),
   problems: (opts: { app?: string; dismissed?: boolean } = {}) =>

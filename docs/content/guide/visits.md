@@ -14,7 +14,7 @@ On an app's **Visits** tab, for **today**, **yesterday**, the last **7** or **30
 
 On the Numbers page (and on the home page, when you turn it on in [Customize home](../start/tour.md#customize-home)), **Visitors, last 7 days** adds up every app Umami counts, with one row per app (most visited first) and its change against the 7 days before. When rendimiento's own pages are counted too ([`UMAMI_WEBSITE_ID`](../reference/config.md)), an administrator of the platform's organization sees them in a last row of their own, outside the totals; nobody else does.
 
-The numbers are kept for two minutes, so the pages stay fast and Umami is not asked the same thing again and again. Days and hours are counted in `PUBLIC_STATS_TZ` (default UTC).
+The numbers are kept for two minutes, so the pages stay fast and Umami is not asked the same thing again and again; after that, for up to an hour, the kept ones show at once while new ones are read behind them. An app's page asks only for what it shows above its tabs and on its overview (the totals and the little chart of the last 24 hours and 7 days), and rendimiento reads those ahead for every app, when it starts and every half hour, so opening an app never waits for Umami, not even right after an update. Days and hours are counted in `PUBLIC_STATS_TZ` (default UTC).
 
 ## How apps are matched {#how-apps-are-matched}
 

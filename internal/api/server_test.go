@@ -685,6 +685,11 @@ func (fakeAnalytics) Report(_ context.Context, w analytics.Website, p analytics.
 	return &analytics.Report{Website: w, Current: analytics.Stats{Visitors: 7, Pageviews: 20}, Pageviews: []analytics.Point{{At: p.From, N: 20}}}, nil
 }
 
+// Summary answers other numbers than Report, so a test sees which was read.
+func (fakeAnalytics) Summary(_ context.Context, w analytics.Website, p analytics.Period) (*analytics.Report, error) {
+	return &analytics.Report{Website: w, Current: analytics.Stats{Visitors: 3, Pageviews: 9}, Pageviews: []analytics.Point{{At: p.From, N: 9}}}, nil
+}
+
 func (fakeAnalytics) Totals(context.Context, analytics.Website, time.Time, time.Time) (analytics.Stats, analytics.Stats, error) {
 	return analytics.Stats{Visitors: 7}, analytics.Stats{Visitors: 5}, nil
 }
@@ -717,6 +722,15 @@ func TestVisitsAPI(t *testing.T) {
 	var v VisitsView
 	if r.StatusCode != 200 || json.Unmarshal([]byte(body), &v) != nil || len(v.Reports) != 1 || v.Reports[0].Website.ID != "w1" {
 		t.Fatalf("visits: %d %s", r.StatusCode, body)
+	}
+	if v.Brief || v.Reports[0].Current.Visitors != 7 {
+		t.Fatalf("the Visits tab got a summary: %s", body)
+	}
+	// An app's page asks for the brief one: the totals and the series only.
+	r, body = e.do(t, "GET", "/api/apps/shop/visits?range=24h&brief=1", "", me, nil)
+	v = VisitsView{}
+	if r.StatusCode != 200 || json.Unmarshal([]byte(body), &v) != nil || !v.Brief || len(v.Reports) != 1 || v.Reports[0].Current.Visitors != 3 {
+		t.Fatalf("brief visits: %d %s", r.StatusCode, body)
 	}
 	if r, body := e.do(t, "GET", "/api/apps/shop/visits?range=today", "", me, nil); r.StatusCode != 200 || !strings.Contains(body, `"unit":"hour"`) {
 		t.Fatalf("today: %d %s", r.StatusCode, body)

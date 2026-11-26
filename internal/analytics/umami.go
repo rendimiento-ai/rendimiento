@@ -228,10 +228,13 @@ func (u *Umami) get(ctx context.Context, path string, q url.Values, out any) err
 }
 
 // remember returns key's kept answer, or reads it with f (see cacheFor).
+// An answer nobody looks at stays as long as it may still be shown
+// (staleFor), not the cache's default half hour: a page opened 40 minutes
+// after the last one gets the kept numbers at once, not Umami's wait.
 func remember[T any](ctx context.Context, u *Umami, key string, f func(context.Context) (T, error)) (T, error) {
 	u.once.Do(func() {
 		u.cache.TTL, u.cache.Stale, u.cache.Wait = cacheFor, staleFor, firstWait
-		u.cache.Build, u.cache.Parallel = time.Minute, 4
+		u.cache.Build, u.cache.Parallel, u.cache.Keep = time.Minute, 4, staleFor
 	})
 	v, err := u.cache.Get(ctx, key, func(ctx context.Context) (any, error) { return f(ctx) })
 	if err != nil {
@@ -327,52 +330,73 @@ type Period struct {
 	TZ       *time.Location
 }
 
-// Report gathers a website's numbers for the period, in parallel.
+// Report gathers a website's numbers for the period, in parallel: eight of
+// Umami's queries, for the Visits tab.
 func (u *Umami) Report(ctx context.Context, w Website, p Period) (*Report, error) {
 	return remember(ctx, u, reportKey(w, p, time.Now()), func(ctx context.Context) (*Report, error) {
-		base := url.Values{
-			"startAt":  {strconv.FormatInt(p.From.UnixMilli(), 10)},
-			"endAt":    {strconv.FormatInt(p.To.UnixMilli(), 10)},
-			"timezone": {p.TZ.String()},
+		return u.read(ctx, w, p, true)
+	})
+}
+
+// Summary is the part of a report that an app's page shows above its tabs
+// and on its overview: the totals, the period before and the chart's
+// series. It asks Umami two queries, not a report's eight (the latest
+// visitors and the top lists are the slowest), and is kept apart from the
+// report; its top lists and visitors are empty.
+func (u *Umami) Summary(ctx context.Context, w Website, p Period) (*Report, error) {
+	return remember(ctx, u, "summary/"+reportKey(w, p, time.Now()), func(ctx context.Context) (*Report, error) {
+		return u.read(ctx, w, p, false)
+	})
+}
+
+// read asks Umami for a website's numbers of the period: the totals and the
+// series, and with full the top lists, the latest visitors and who is on
+// it now.
+func (u *Umami) read(ctx context.Context, w Website, p Period, full bool) (*Report, error) {
+	base := url.Values{
+		"startAt":  {strconv.FormatInt(p.From.UnixMilli(), 10)},
+		"endAt":    {strconv.FormatInt(p.To.UnixMilli(), 10)},
+		"timezone": {p.TZ.String()},
+	}
+	with := func(kv ...string) url.Values {
+		q := url.Values{}
+		for k, v := range base {
+			q[k] = v
 		}
-		with := func(kv ...string) url.Values {
-			q := url.Values{}
-			for k, v := range base {
-				q[k] = v
-			}
-			for i := 0; i+1 < len(kv); i += 2 {
-				q.Set(kv[i], kv[i+1])
-			}
-			return q
+		for i := 0; i+1 < len(kv); i += 2 {
+			q.Set(kv[i], kv[i+1])
 		}
-		site := "/api/websites/" + url.PathEscape(w.ID)
-		r := &Report{Website: w}
-		g, gctx := errgroup.WithContext(ctx)
-		g.Go(func() error {
-			var s struct {
-				rawStats
-				Comparison *rawStats `json:"comparison"`
-			}
-			if err := u.get(gctx, site+"/stats", base, &s); err != nil {
-				return err
-			}
-			r.Current = s.stats()
-			if s.Comparison != nil {
-				r.Previous = s.Comparison.stats()
-			}
-			return nil
-		})
-		g.Go(func() error {
-			var s struct {
-				Pageviews []xy `json:"pageviews"`
-				Sessions  []xy `json:"sessions"`
-			}
-			if err := u.get(gctx, site+"/pageviews", with("unit", p.Unit), &s); err != nil {
-				return err
-			}
-			r.Pageviews, r.Visitors = series(s.Pageviews, p), series(s.Sessions, p)
-			return nil
-		})
+		return q
+	}
+	site := "/api/websites/" + url.PathEscape(w.ID)
+	r := &Report{Website: w, Paths: []Metric{}, Referrers: []Metric{}, Countries: []Metric{}, Sessions: []Session{}}
+	g, gctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		var s struct {
+			rawStats
+			Comparison *rawStats `json:"comparison"`
+		}
+		if err := u.get(gctx, site+"/stats", base, &s); err != nil {
+			return err
+		}
+		r.Current = s.stats()
+		if s.Comparison != nil {
+			r.Previous = s.Comparison.stats()
+		}
+		return nil
+	})
+	g.Go(func() error {
+		var s struct {
+			Pageviews []xy `json:"pageviews"`
+			Sessions  []xy `json:"sessions"`
+		}
+		if err := u.get(gctx, site+"/pageviews", with("unit", p.Unit), &s); err != nil {
+			return err
+		}
+		r.Pageviews, r.Visitors = series(s.Pageviews, p), series(s.Sessions, p)
+		return nil
+	})
+	if full {
 		top := func(kind string, dst *[]Metric) func() error {
 			return func() error {
 				var rows []xy
@@ -414,11 +438,11 @@ func (u *Umami) Report(ctx context.Context, w Website, p Period) (*Report, error
 			r.Active = int64(max(a.Visitors, a.X))
 			return nil
 		})
-		if err := g.Wait(); err != nil {
-			return nil, err
-		}
-		return r, nil
-	})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 // reportKey names a report in the cache. A period that ends now moves
