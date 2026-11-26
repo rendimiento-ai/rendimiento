@@ -1,4 +1,4 @@
-// The interface's use by stages (decision 196): each release of rendimiento that changed the interface is a stage, with
+// The interface's use by stages (decision 197): each release of rendimiento that changed the interface is a stage, with
 // its little flag over the days' views, in the color the days after it take; and, for the stage chosen, the same days
 // before and after it compared: views a day, pages for each run opened, the time to data and the section opened most.
 // It says when the days after are too few to conclude. Only totals: never who.

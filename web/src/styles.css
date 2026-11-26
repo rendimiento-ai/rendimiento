@@ -2706,7 +2706,7 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .uso-valor { white-space: nowrap; }
 .uso-columnas { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .uso-columnas ul { margin: 6px 0 0; padding-left: 18px; }
-/* The interface's use by stages (components/uso-etapas.tsx, decision 196): the days' views as bars in the color of
+/* The interface's use by stages (components/uso-etapas.tsx, decision 197): the days' views as bars in the color of
    their stage, a papel-picado flag at each stage that sways (press it to compare), and the four figures before → after,
    green when a way or a wait got shorter. Bars come up one after another; nothing grows; still with less movement. */
 .uso-etapas { margin-top: 16px; }

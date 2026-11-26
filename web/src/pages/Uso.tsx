@@ -158,7 +158,7 @@ export function UsoPage() {
           <button key={d} aria-pressed={dias === d} onClick={() => setDias(d)}>{tn(d, "Last {n} days", "Last {n} days")}</button>
         ))}
       </div>
-      {/* The stages: what each release that changed the interface did to the clicks (decision 196). */}
+      {/* The stages: what each release that changed the interface did to the clicks (decision 197). */}
       <EtapasUso dias={dias} />
       {!data && !error && (
         <Esqueleto className="stack">

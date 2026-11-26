@@ -2850,7 +2850,7 @@ export const es: Record<string, string> = {
   "Where your apps live, what rendimiento connects to, and what it needs from you.": "Dónde viven sus aplicaciones, con qué se conecta rendimiento y qué necesita de usted.",
   "Check again": "Volver a revisar",
   "Summary": "Resumen",
-  // The interface's use by stages (components/uso-etapas.tsx, decision 196).
+  // The interface's use by stages (components/uso-etapas.tsx, decision 197).
   "about the same": "más o menos igual",
   "then": "luego",
   "Stages": "Etapas",
