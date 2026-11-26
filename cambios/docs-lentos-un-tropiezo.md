@@ -1,0 +1,2 @@
+- **Verification:** a release is reported as slower only when at least two checks of its 5-minute window were slow (p95 three times the hour before, and a second more). With 16 checks the window's p95 is its slowest check, so one slow answer alone (as on release 335's public docs) was reported as a slower release.
+- **Book build:** `docs/Dockerfile` no longer starts with `# syntax=docker/dockerfile:1`, so `docs:build` no longer fetches that frontend from Docker Hub first; its token request timing out was what made the step fail and then pass on a retry.

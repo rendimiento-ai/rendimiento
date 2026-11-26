@@ -1,10 +1,13 @@
-# syntax=docker/dockerfile:1
 # The book, built in three stages from the whole repository (build context
 # = repository root, so the book can include real source files):
 #   1. codemap: generate the code reference from the Go sources
 #   2. site:    build the static site with MkDocs Material
 #   3. runtime: serve it with an unprivileged nginx on port 8080
 # Only the last stage becomes the image; the others are thrown away.
+# No "# syntax=" line: BuildKit's own frontend builds it, so a build does
+# not first fetch docker/dockerfile:1 from Docker Hub, whose token request
+# timed out now and then (docs:build failed, then passed: run 1905, Ruta 70
+# and 76). Nothing below needs a newer frontend (no RUN --mount, no heredocs).
 
 FROM golang:1.27-alpine AS codemap
 WORKDIR /src

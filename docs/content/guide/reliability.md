@@ -73,7 +73,7 @@ flowchart LR
 2. **The window:** for 5 minutes, every check of the release (inside the cluster and public) runs every 20 seconds.
 3. **The verdict.** A check fails the release when **at least 3 of its checks, and at least a fifth, failed**, and it was healthy (90%+ up) in the hour before the release, or is new. Two exceptions:
    - A check that was **already failing before** is reported but not blamed on the release.
-   - A release that's **much slower** (p95 three times higher, and a second more) is reported, not rolled back, because cold caches make that noisy.
+   - A release that's **much slower** (p95 three times higher, and a second more, in at least two checks) is reported, not rolled back, because cold caches make that noisy; in a 5-minute window the p95 is the slowest check, so one slow answer alone is a blip.
 4. **The rollback:** a failed release is rolled back to the **newest earlier release that didn't fail verification**, as a new release (`rollback to #7`). Rollbacks, manual or automatic, aren't verified again, so there's no rollback loop.
 
 The result shows on each release in the **Releases** tab, with the reason:
