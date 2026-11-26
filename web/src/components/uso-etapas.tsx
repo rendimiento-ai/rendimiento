@@ -76,12 +76,17 @@ export function EtapasUso({ dias }: { dias: number }) {
             if (i < 0) return null;
             // A flag past the middle hangs to the left of its line, so it stays inside the chart.
             const derecha = i * ancho > 55;
+            const lado = derecha ? { right: `${100 - i * ancho}%` } : { left: `${i * ancho}%` };
+            const c = { ["--c" as string]: tonos[(k + 1) % tonos.length], ["--d" as string]: `${k * -0.7}s` };
+            // Its line is drawn apart (it takes no clicks); the flags go on two rows, so neighbours never cover each other.
             return (
-              <button key={x.release} type="button" className={`etapa-bandera${derecha ? " derecha" : ""}${e?.release === x.release ? " on" : ""}`}
-                style={{ ...(derecha ? { right: `${100 - i * ancho}%` } : { left: `${i * ancho}%` }), ["--c" as string]: tonos[(k + 1) % tonos.length], ["--d" as string]: `${k * -0.7}s` }}
-                onClick={() => setElegida(x.release)} title={x.texto}>
-                <span>#{x.release}{x.rama ? ` · ${x.rama}` : ""}</span>
-              </button>
+              <span key={x.release}>
+                <span className={`etapa-linea${derecha ? " derecha" : ""}`} aria-hidden="true" style={{ ...lado, ...c }} />
+                <button type="button" className={`etapa-bandera${derecha ? " derecha" : ""}${e?.release === x.release ? " on" : ""}`}
+                  style={{ ...lado, ...c, top: `${(k % 2) * 26}px` }} onClick={() => setElegida(x.release)} title={x.texto}>
+                  <span>#{x.release}{x.rama ? ` · ${x.rama}` : ""}</span>
+                </button>
+              </span>
             );
           })}
         </div>
