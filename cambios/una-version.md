@@ -1,0 +1,1 @@
+- **Environment:** the platform's version shows once, in the header's Update button and the Platform figure (which links to the releases); the folded «The platform's version» with its second Update button is gone. The `make deploy` notice shows under the figures when it is needed.

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, NavLink } from "react-router-dom";
-import { envApi, session, timeAgo, type PlatformRelease, type Published } from "../api";
+import { NavLink } from "react-router-dom";
+import { envApi, session, timeAgo, type Published } from "../api";
 import { usePoll } from "../components/ui";
 import { t } from "../i18n";
 import { useConexion } from "../conexion";
@@ -17,8 +17,6 @@ export function EnvironmentNavLink({ dibujo }: { dibujo?: ReactNode }) {
     </NavLink>
   );
 }
-
-const describe = (r: PlatformRelease) => t("release #{n} ({sha}, {when})", { n: r.release, sha: r.sha.slice(0, 7), when: timeAgo(r.at) });
 
 /**
  * The version rendimiento runs, when it builds itself, and how to move it to the newest release: after the person says yes, the
@@ -70,37 +68,19 @@ export function BotonActualizar() {
   );
 }
 
-// The version of rendimiento that runs, and the button that moves it to the
-// newest image its own repository built and tested.
-export function PlatformVersion() {
-  const { data, error, target, failed, update } = useActualizar();
-  const conexion = useConexion();
-
+/**
+ * What the Update button cannot do: the platform's manifests changed, and `make deploy` applies them. The version and its
+ * button are in the Environment page's header and its Platform figure, once; this says only what is left for the person.
+ */
+export function AvisoDeploy() {
+  const { data } = useActualizar();
   const st = data?.status;
-  if ((error && !target) || !data?.enabled || !st) return null;
-  const manifests = st.manifests;
-
-  return (
-    <div className={`bando ${st.available ? "warn" : "ok"}`}>
-      <span className="bando-titulo">{t("Bando")}</span>
-      <strong>{t("rendimiento")}</strong>
-      <span className="small">
-        {st.current ? t("runs {release}", { release: describe(st.current) }) : t("runs an image built by hand, not from a release")}
-      </span>
-      {!st.available && <span className="sello puesto">{t("Up to date")} ✓</span>}
-      {st.available && st.latest && (
-        <>
-          <span className="small">{t("{release} is ready", { release: describe(st.latest) })}</span>
-          {target ? (
-            <span className="badge warn">{t("Updating… the page reloads when the new version answers")}</span>
-          ) : (
-            <button className="sello" {...apagado(conexion)} onClick={() => update(st.latest!.release)}>{t("Update")}</button>
-          )}
-        </>
-      )}
-      <Link className="small" to={`/apps/${st.app}/releases`}>{t("Releases")}</Link>
-      {failed && <span className="small" style={{ color: "var(--bad)" }}>{failed}</span>}
-      {manifests?.changed?.length ? (
+  const manifests = st?.manifests;
+  if (!data?.enabled || !st || !manifests) return null;
+  if (manifests.changed?.length) {
+    return (
+      <div className="bando warn">
+        <span className="bando-titulo">{t("Bando")}</span>
         <div className="small" style={{ flexBasis: "100%" }}>
           <p style={{ margin: "4px 0" }}>
             <strong>{t("make deploy is needed")}</strong>{" "}
@@ -111,11 +91,13 @@ export function PlatformVersion() {
           <pre className="file">git pull && make deploy</pre>
           <span className="muted">{t("Changed:")} <span className="mono">{manifests.changed.join(", ")}</span></span>
         </div>
-      ) : manifests && !manifests.applied ? (
-        <span className="small muted" style={{ flexBasis: "100%" }}>{t("rendimiento cannot tell yet whether make deploy is needed: it learns which commit was applied the next time make deploy runs.")}</span>
-      ) : null}
-    </div>
-  );
+      </div>
+    );
+  }
+  if (!manifests.applied) {
+    return <p className="small muted" style={{ margin: 0 }}>{t("rendimiento cannot tell yet whether make deploy is needed: it learns which commit was applied the next time make deploy runs.")}</p>;
+  }
+  return null;
 }
 
 /** The first lines of a release's notes, without GitHub's headings and links to every pull request. */
