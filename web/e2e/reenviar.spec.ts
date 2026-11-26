@@ -1,4 +1,5 @@
 import { test, expect } from "./vigia";
+import type { Route } from "@playwright/test";
 
 // An encargo the coding agent gave back (Ruta: comentar-al-reenviar): on
 // «The agent» and on its card in Encargos, on a phone, the person writes
@@ -12,18 +13,27 @@ const devuelto = (id: number, title: string) => ({
 });
 const porque = "Me detuve: la migración necesita lock_timeout y no sé si lo quiere.";
 
+// The server's answer with something added. A page that moved on (a reload, the next page) disposes the answer while
+// it is read, and Playwright then says «Response has been disposed» (run 1894, 1923): that request is no longer anyone's.
+async function conLoReal(r: Route, cambia: (real: unknown) => unknown) {
+  let real: unknown;
+  let status = 200;
+  try {
+    const res = await r.fetch();
+    status = res.status();
+    real = await res.json();
+  } catch {
+    return; // the page moved on
+  }
+  await r.fulfill({ status, json: cambia(real) }).catch(() => {});
+}
+
 test("a given-back encargo goes again with what it should know", async ({ page, problemas }, info) => {
   const es = info.project.name === "es";
   await page.setViewportSize({ width: 390, height: 844 });
   let returned = [devuelto(990201, "Endurecer las migraciones"), devuelto(990203, "Mirar el índice de runs")];
-  await page.route("**/api/encargos/cola*", async (r) => {
-    const res = await r.fetch();
-    await r.fulfill({ response: res, json: { ...(await res.json()), mode: "asked", returned } });
-  });
-  await page.route((u) => u.pathname === "/api/encargos", async (r) => {
-    const res = await r.fetch();
-    await r.fulfill({ response: res, json: [...returned, ...(await res.json())] });
-  });
+  await page.route("**/api/encargos/cola*", (r) => conLoReal(r, (real) => ({ ...(real as object), mode: "asked", returned })));
+  await page.route((u) => u.pathname === "/api/encargos", (r) => conLoReal(r, (real) => [...returned, ...(real as unknown[])]));
   await page.route(/\/api\/encargos\/99020\d$/, (r) => {
     const id = Number(new URL(r.request().url()).pathname.split("/").pop());
     return r.fulfill({ json: { ...devuelto(id, "x"), log: [{ at: new Date().toISOString(), who: "agente de código", what: "released", note: porque }] } });
