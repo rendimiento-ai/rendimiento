@@ -315,6 +315,7 @@ func (s *Server) Handler() http.Handler {
 	// How the interface is used, as totals (internal/api/uso.go).
 	anonima(store.MemberGuest, "POST /api/uso", "the interface's use is kept as totals: a row would tie each batch to who sent it", s.anotarUso)
 	plat(store.MemberAdmin, "GET /api/uso", s.verUso)
+	plat(store.MemberAdmin, "GET /api/uso/etapas", s.verEtapas)
 	plat(store.MemberAdmin, "PUT /api/uso", s.putUso)
 	// The UI's error pages, reported to the Problems page.
 	anonima(store.MemberGuest, "POST /api/fallas", "who saw a broken page is not kept", s.recibirFalla)

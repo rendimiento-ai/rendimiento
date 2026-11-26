@@ -1,0 +1,1 @@
+- **Use of the interface:** each release of rendimiento that changed the interface is a **stage**, with its flag over the days' views on the Use page, and the same days before and after it compared: views a day, pages for each run opened, time to data and the section opened most.

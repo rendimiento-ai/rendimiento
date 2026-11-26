@@ -703,6 +703,16 @@ export interface Senal {
 /** A page's totals over the period (internal/store.PaginaUso): cubetas count the measured views under 0.5, 1, 2 and 4 s, and 4 s or more. */
 export interface PaginaUso { ruta: string; vistas: number; medidas: number; msTotal: number; cubetas: [number, number, number, number, number] }
 /** The Use page (api.UsoView): the switch and the totals of the last days. */
+/** One side of a stage (api.MedidasEtapa): views a day, pages for each run opened, time to data, the section opened most. */
+export interface MedidasEtapa { vistasDia: number; paginasPorCorrida?: number; msDatos?: number; seccion?: string; seccionParte?: number }
+/** A release of rendimiento that changed the interface, and the same days before and after it (api.Etapa). */
+export interface Etapa {
+  release: number; at: string; sha: string; rama?: string; pull?: number; texto: string;
+  dias: number; pocos: boolean; antes: MedidasEtapa; despues: MedidasEtapa;
+}
+/** The Uso page's stages (api.EtapasView): the days' views and each stage; sin "propia" when rendimiento does not build itself. */
+export interface EtapasView { dias: { dia: string; vistas: number; medidas: number; msTotal: number }[]; etapas: Etapa[]; sin?: string }
+
 export interface UsoView {
   encendido: boolean;
   updatedBy?: string;
@@ -1896,6 +1906,7 @@ export const api = {
   verificarBitacora: () => request<BitacoraCheck>("GET", "/api/bitacora/verificar"),
   senales: () => request<SenalesView>("GET", "/api/senales/estado"),
   uso: (dias: number) => request<UsoView>("GET", `/api/uso?dias=${dias}`),
+  usoEtapas: (dias: number) => request<EtapasView>("GET", `/api/uso/etapas?dias=${dias}`),
   putUso: (encendido: boolean, dias: number) => request<UsoView>("PUT", `/api/uso?dias=${dias}`, { encendido }),
   putSenales: (cambio: { encendidas?: boolean; avisoVisto?: boolean }) => request<SenalesView>("PUT", "/api/senales/estado", cambio),
   instalaciones: () => request<Instalacion[]>("GET", "/api/senales/instalaciones"),

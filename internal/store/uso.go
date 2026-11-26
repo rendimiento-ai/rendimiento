@@ -167,10 +167,16 @@ type ResumenUso struct {
 
 // LeerUso adds up the use from desde (a UTC day, included) to today.
 func (s *Store) LeerUso(ctx context.Context, desde time.Time) (ResumenUso, error) {
-	d := desde.UTC().Format("2006-01-02")
+	return s.LeerUsoEntre(ctx, desde, time.Now().AddDate(0, 0, 1))
+}
+
+// LeerUsoEntre adds up the use from desde (a UTC day, included) to hasta
+// (a UTC day, left out): the days before and after a stage.
+func (s *Store) LeerUsoEntre(ctx context.Context, desde, hasta time.Time) (ResumenUso, error) {
+	d, h := desde.UTC().Format("2006-01-02"), hasta.UTC().Format("2006-01-02")
 	out := ResumenUso{Paginas: []PaginaUso{}, Pasos: []PasoUso{}, Acciones: []AccionUsada{}}
 	rows, err := s.pool.Query(ctx, `SELECT ruta, sum(vistas), sum(medidas), sum(ms_total), sum(menos_500), sum(menos_1000), sum(menos_2000), sum(menos_4000), sum(mas_4000)
-		FROM uso_paginas WHERE dia >= $1 GROUP BY ruta ORDER BY 2 DESC, ruta LIMIT 100`, d)
+		FROM uso_paginas WHERE dia >= $1 AND dia < $2 GROUP BY ruta ORDER BY 2 DESC, ruta LIMIT 100`, d, h)
 	if err != nil {
 		return out, err
 	}
@@ -186,7 +192,7 @@ func (s *Store) LeerUso(ctx context.Context, desde time.Time) (ResumenUso, error
 	if err := rows.Err(); err != nil {
 		return out, err
 	}
-	rows, err = s.pool.Query(ctx, `SELECT desde, hacia, sum(veces) FROM uso_pasos WHERE dia >= $1 GROUP BY desde, hacia ORDER BY 3 DESC, desde, hacia LIMIT 100`, d)
+	rows, err = s.pool.Query(ctx, `SELECT desde, hacia, sum(veces) FROM uso_pasos WHERE dia >= $1 AND dia < $2 GROUP BY desde, hacia ORDER BY 3 DESC, desde, hacia LIMIT 100`, d, h)
 	if err != nil {
 		return out, err
 	}
@@ -202,7 +208,7 @@ func (s *Store) LeerUso(ctx context.Context, desde time.Time) (ResumenUso, error
 	if err := rows.Err(); err != nil {
 		return out, err
 	}
-	rows, err = s.pool.Query(ctx, `SELECT ruta, accion, sum(veces) FROM uso_acciones WHERE dia >= $1 GROUP BY ruta, accion ORDER BY 3 DESC, ruta, accion LIMIT 100`, d)
+	rows, err = s.pool.Query(ctx, `SELECT ruta, accion, sum(veces) FROM uso_acciones WHERE dia >= $1 AND dia < $2 GROUP BY ruta, accion ORDER BY 3 DESC, ruta, accion LIMIT 100`, d, h)
 	if err != nil {
 		return out, err
 	}
@@ -216,6 +222,29 @@ func (s *Store) LeerUso(ctx context.Context, desde time.Time) (ResumenUso, error
 	}
 	rows.Close()
 	return out, rows.Err()
+}
+
+// DiaUso is one day's views, and how many of them were measured and their time.
+type DiaUso struct {
+	Dia     string `json:"dia"`
+	Vistas  int64  `json:"vistas"`
+	Medidas int64  `json:"medidas"`
+	MsTotal int64  `json:"msTotal"`
+}
+
+// UsoPorDia is each day's views from desde (a UTC day, included) to today,
+// oldest first: the line the stages are drawn on.
+func (s *Store) UsoPorDia(ctx context.Context, desde time.Time) ([]DiaUso, error) {
+	rows, err := s.pool.Query(ctx, `SELECT dia::text, sum(vistas), sum(medidas), sum(ms_total) FROM uso_paginas WHERE dia >= $1 GROUP BY dia ORDER BY dia`,
+		desde.UTC().Format("2006-01-02"))
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, func(r pgx.CollectableRow) (DiaUso, error) {
+		var d DiaUso
+		err := r.Scan(&d.Dia, &d.Vistas, &d.Medidas, &d.MsTotal)
+		return d, err
+	})
 }
 
 // PruneUso deletes the days before `before` (a UTC day).
