@@ -75,6 +75,12 @@ type Step struct {
 	// CacheSlot is which of the step's caches this run got (0: the first);
 	// the executor chooses it when the step starts.
 	CacheSlot int `json:"-"`
+	// otroBuildkit is the daemon of a node «a ratos» that builds a build's
+	// other architecture's half ("" when none is on): set when it starts.
+	otroBuildkit string
+	// evitar are nodes «a ratos» that shut down under this step: its second
+	// try stays off them.
+	evitar []string
 }
 
 // TaskStepID is the ID of a task's step.

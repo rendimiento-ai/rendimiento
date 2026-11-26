@@ -2074,6 +2074,8 @@ export interface EnvNode {
   cpuReserved: number;
   memReserved: number;
   unschedulable?: boolean;
+  // On only sometimes (a desktop that helps CI while it is on): off is its normal state.
+  aRatos?: boolean;
 }
 
 // How much the platform runs at once, set on the Environment page (0: the

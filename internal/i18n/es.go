@@ -235,6 +235,8 @@ var catalog = map[string]string{
 	"%s is failing, but it was already failing before this release": "%s está fallando, pero ya fallaba antes de esta versión",
 	"%s is not installed on any account":                            "%s no está instalada en ninguna cuenta",
 	"%s is NotReady":                                                "%s no está listo",
+	"%s (%s) is «a ratos» and on: it helps CI": "%s (%s) es «a ratos» y está prendido: ayuda a CI",
+	"%s (%s) is «a ratos» and off: builds go on without it": "%s (%s) es «a ratos» y está apagado: las construcciones siguen sin él",
 	"%s is reachable":                                               "%s es accesible",
 	"%s is reachable (requires auth)":                               "%s es accesible (requiere autenticación)",
 	"%s is ready":                                                   "%s está listo",

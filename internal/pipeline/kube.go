@@ -8,11 +8,13 @@ import (
 	"hash/fnv"
 	"io"
 	"net"
+	"net/http"
 	"path"
 	"regexp"
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -76,6 +78,16 @@ type KubeExecutor struct {
 	// page: that many runs of it go at once, each with one (nil or under 1:
 	// DefaultCaches).
 	Caches func() int
+
+	// Registry is the platform's registry host (REGISTRY): the images whose
+	// architectures it asks before a test goes to a node «a ratos»
+	// (arquitecturas.go). Empty: every image is taken to have both.
+	Registry string
+
+	archMu       sync.Mutex
+	archDe       map[string]string // node → its architecture
+	archs        archsCache
+	httpRegistro *http.Client // tests set it
 }
 
 // DefaultCaches is how many caches a test keeps unless the Environment page
@@ -165,6 +177,20 @@ func (k *KubeExecutor) Cleanup(ctx context.Context) (int, error) {
 // then the step), its logs streamed to w, and the digest of a build read from the termination
 // message. The pod and secret are removed afterwards.
 func (k *KubeExecutor) Execute(ctx context.Context, runID string, src Source, step Step, w io.Writer) StepResult {
+	res := k.ejecutar(ctx, runID, src, step, w)
+	// A node «a ratos» turned off under a test ends it in its grace period:
+	// it is run again once, elsewhere (decision 196).
+	if res.Status == StatusFailed && res.seApago != "" && ctx.Err() == nil {
+		fmt.Fprintf(w, "rendimiento: moved: %s shut down; running this step again on another node\n", res.seApago)
+		step.evitar = append(step.evitar, res.seApago)
+		otra := k.ejecutar(ctx, runID, src, step, w)
+		otra.Started = res.Started
+		return otra
+	}
+	return res
+}
+
+func (k *KubeExecutor) ejecutar(ctx context.Context, runID string, src Source, step Step, w io.Writer) StepResult {
 	k.defaults()
 	res := StepResult{Started: time.Now()}
 	fail := func(format string, a ...any) StepResult {
@@ -226,6 +252,11 @@ func (k *KubeExecutor) Execute(ctx context.Context, runID string, src Source, st
 		if daemon != "" {
 			fmt.Fprintf(w, "rendimiento: building on %s\n", daemon)
 		}
+		// A node «a ratos» that is on builds the other architecture's half.
+		if addr, otro := k.buildkitOtro(ctx, step.Target); addr != "" {
+			step.otroBuildkit = addr
+			fmt.Fprintf(w, "rendimiento: building the %s half on %s, a node «a ratos»\n", archOtra(archPrincipal), otro)
+		}
 	}
 	noCache := false
 	if step.Cache {
@@ -257,6 +288,12 @@ func (k *KubeExecutor) Execute(ctx context.Context, runID string, src Source, st
 	}
 	if noCache {
 		withoutCache(pod)
+	}
+	evitarNodos(pod, step.evitar)
+	// A test with no cache volume to keep (a node «a ratos» has none) may go
+	// to a node «a ratos», when all its images run there.
+	if step.Kind == KindTest && (!step.Cache || noCache) && k.aRatos(ctx, pod) {
+		fmt.Fprintf(w, "rendimiento: this test may run on a node «a ratos» (%s), and prefers it\n", archOtra(archPrincipal))
 	}
 	cleanup := func() {
 		bg := context.Background()
@@ -342,17 +379,31 @@ func (k *KubeExecutor) Execute(ctx context.Context, runID string, src Source, st
 				return fail("tests timed out after %s", timeout)
 			}
 		}
+		if seApagoBajo(final) && k.esARatos(ctx, final.Spec.NodeName) {
+			res.seApago = final.Spec.NodeName
+		}
 		return fail("step failed: %s", terminationSummary(final))
 	}
 	res.Status = StatusSucceeded
 	if step.Kind == KindBuild {
+		var half string
 		for _, cs := range final.Status.ContainerStatuses {
 			if cs.Name == "step" && cs.State.Terminated != nil {
-				res.Digest = strings.TrimSpace(cs.State.Terminated.Message)
+				res.Digest, half, _ = strings.Cut(strings.TrimSpace(cs.State.Terminated.Message), " ")
 			}
 		}
 		if !strings.HasPrefix(res.Digest, "sha256:") {
 			return fail("build finished but reported no image digest")
+		}
+		// Its other architecture's half, built on a node «a ratos»: both become
+		// one image. If the index cannot be written, the image keeps one.
+		if arch, d, ok := strings.Cut(half, "="); ok && strings.HasPrefix(d, "sha256:") {
+			if ix, err := k.unirArquitecturas(ctx, step.Target, imageTag(src), map[string]string{archPrincipal: res.Digest, arch: d}); err != nil {
+				fmt.Fprintf(w, "rendimiento: the %s half could not join the image (%v): it is for %s only\n", arch, err, archPrincipal)
+			} else {
+				fmt.Fprintf(w, "rendimiento: one image for %s and %s\n", archPrincipal, arch)
+				res.Digest = ix
+			}
 		}
 		fmt.Fprintf(w, "rendimiento: pushed %s@%s\n", step.Target, res.Digest)
 	}
@@ -420,14 +471,39 @@ until buildctl --addr "$BUILDKIT_ADDR" debug workers >/dev/null 2>&1; do
   [ "$i" -lt 30 ] || break
   sleep 1
 done
+# A node «a ratos» that is on builds the other architecture's half at the
+# same time, on its own daemon (OTHER_ADDR); the platform then joins the two
+# in one image. If it fails, the image is this architecture's alone.
+if [ -n "${OTHER_ADDR:-}" ]; then
+  ( buildctl --addr "$OTHER_ADDR" build "$@" --opt platform="linux/$OTHER_ARCH" \
+      --output "type=image,name=$IMAGE:$TAG-$OTHER_ARCH,push=true$INSECURE" \
+      --import-cache "type=registry,ref=$IMAGE:buildcache-$OTHER_ARCH$INSECURE" \
+      --export-cache "type=registry,ref=$IMAGE:buildcache-$OTHER_ARCH,mode=max$INSECURE" \
+      --metadata-file /tmp/metadata-other.json >/tmp/other.log 2>&1; echo $? >/tmp/other.rc ) &
+  other=$!
+fi
 buildctl --addr "$BUILDKIT_ADDR" build "$@" \
   --output "type=image,name=$IMAGE:$TAG,push=true$INSECURE" \
   --import-cache "type=registry,ref=$IMAGE:buildcache$INSECURE" \
   --export-cache "type=registry,ref=$IMAGE:buildcache,mode=max$INSECURE" \
   --metadata-file /tmp/metadata.json
 digest=$(grep -o '"containerimage.digest": *"sha256:[a-f0-9]*"' /tmp/metadata.json | grep -o 'sha256:[a-f0-9]*')
-printf '%s' "$digest" > /dev/termination-log
 echo "image digest: $digest"
+half=""
+if [ -n "${OTHER_ADDR:-}" ]; then
+  wait "$other" || true
+  echo "== the $OTHER_ARCH half, on the node «a ratos»"
+  tail -n 40 /tmp/other.log || true
+  if [ "$(cat /tmp/other.rc 2>/dev/null)" = 0 ]; then
+    half=$(grep -o '"containerimage.digest": *"sha256:[a-f0-9]*"' /tmp/metadata-other.json | grep -o 'sha256:[a-f0-9]*' || true)
+  fi
+  if [ -n "$half" ]; then echo "$OTHER_ARCH digest: $half"; else echo "rendimiento: the $OTHER_ARCH half did not build: this image is for one architecture"; fi
+fi
+if [ -n "$half" ]; then
+  printf '%s %s=%s' "$digest" "$OTHER_ARCH" "$half" > /dev/termination-log
+else
+  printf '%s' "$digest" > /dev/termination-log
+fi
 `
 
 // --8<-- [end:scripts]
@@ -455,6 +531,18 @@ func (k *KubeExecutor) buildkitFor(ctx context.Context, key string) (string, str
 	if err != nil || len(srvs) == 0 {
 		return k.BuildkitAddr, ""
 	}
+	// The daemons on nodes of another architecture (a node «a ratos») build
+	// only an image's other half (buildkitOtro).
+	var propios []*net.SRV
+	for _, s := range srvs {
+		if k.deArch(ctx, s.Target, archPrincipal) {
+			propios = append(propios, s)
+		}
+	}
+	if len(propios) == 0 {
+		return k.BuildkitAddr, ""
+	}
+	srvs = propios
 	if off := k.avoided(); len(off) > 0 {
 		var on []*net.SRV
 		for _, s := range srvs {
@@ -481,6 +569,43 @@ func (k *KubeExecutor) buildkitFor(ctx context.Context, key string) (string, str
 }
 
 // --8<-- [end:buildkitFor]
+
+// buildkitOtro is a ready pool daemon on a node of the other architecture
+// (a node «a ratos» that is on), for an image's other half: its address and
+// name, "" when there is none.
+func (k *KubeExecutor) buildkitOtro(ctx context.Context, key string) (string, string) {
+	if k.BuildkitPool == "" {
+		return "", ""
+	}
+	res := k.Resolver
+	if res == nil {
+		res = net.DefaultResolver
+	}
+	lctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	_, srvs, err := res.LookupSRV(lctx, "buildkit", "tcp", k.BuildkitPool)
+	if err != nil {
+		return "", ""
+	}
+	var best *net.SRV
+	var bestScore uint64
+	for _, s := range srvs {
+		if !k.deArch(ctx, s.Target, archOtra(archPrincipal)) {
+			continue
+		}
+		h := fnv.New64a()
+		h.Write([]byte(strings.TrimSuffix(s.Target, ".") + "|" + key))
+		if score := h.Sum64(); best == nil || score > bestScore {
+			best, bestScore = s, score
+		}
+	}
+	if best == nil {
+		return "", ""
+	}
+	host := strings.TrimSuffix(best.Target, ".")
+	daemon, _, _ := strings.Cut(host, ".")
+	return fmt.Sprintf("tcp://%s:%d", host, best.Port), daemon
+}
 
 // daemonNode is the node a pool daemon's pod runs on ("" when it cannot
 // tell): its SRV target is <pod>.<service>.<namespace>.svc….
@@ -551,13 +676,7 @@ func (k *KubeExecutor) pod(name string, labels map[string]string, src Source, st
 		if k.InsecureRegistry {
 			insecure = ",registry.insecure=true"
 		}
-		tag := src.SHA
-		if len(tag) > 12 {
-			tag = tag[:12]
-		}
-		if tag == "" {
-			tag = "latest"
-		}
+		tag := imageTag(src)
 		dockerArgs, railpackArgs := dockerArgs(step), railpackArgs(step)
 		switch {
 		case k.RailpackImage != "":
@@ -589,6 +708,8 @@ func (k *KubeExecutor) pod(name string, labels map[string]string, src Source, st
 				{Name: "TAG", Value: tag},
 				{Name: "GIT_SHA", Value: src.SHA},
 				{Name: "INSECURE", Value: insecure},
+				{Name: "OTHER_ADDR", Value: step.otroBuildkit},
+				{Name: "OTHER_ARCH", Value: archOtra(archPrincipal)},
 			},
 		}
 	case KindTask:
@@ -629,6 +750,18 @@ func (k *KubeExecutor) pod(name string, labels map[string]string, src Source, st
 			Volumes:                      volumes,
 		},
 	}, nil
+}
+
+// imageTag is the tag a build pushes: the commit, short.
+func imageTag(src Source) string {
+	tag := src.SHA
+	if len(tag) > 12 {
+		tag = tag[:12]
+	}
+	if tag == "" {
+		tag = "latest"
+	}
+	return tag
 }
 
 // dockerArgs passes a build step's build args to the Dockerfile frontend.

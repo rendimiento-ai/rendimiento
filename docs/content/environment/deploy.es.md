@@ -421,7 +421,21 @@ La base de datos, la llave de los secretos, el modo y el papel se cambian solo c
 
 | Qué | De dónde viene |
 |---|---|
-| Demonios de BuildKit | el complemento `buildkit` (`p0dxD/gitops/buildkit/`): un StatefulSet con un demonio por nodo trabajador |
+| Demonios de BuildKit | el complemento `buildkit` (`p0dxD/gitops/buildkit/`): un StatefulSet con un demonio por nodo trabajador, y uno en un [nodo «a ratos»](#nodes-a-ratos) |
 | Imagen de la herramienta de Railpack | `make railpack-image` desde `deploy/railpack/Dockerfile`, fijada por suma de verificación |
 | Interfaz de entrada de Railpack | BuildKit la descarga de `ghcr.io/railwayapp/railpack-frontend` en la versión fijada |
 | Imágenes de clonado y del cliente de construcción | `alpine/git`, `moby/buildkit` (el cliente debe coincidir con la versión del demonio) |
+
+### Nodos «a ratos» {#nodes-a-ratos}
+
+Un nodo «a ratos» es una computadora que se une al clúster solo a veces: un desktop que ayuda a CI mientras está prendido. Puede ser de otra arquitectura que los demás (un desktop amd64 junto a tarjetas arm64). Lleva la marca y la etiqueta `rendimiento.ai/a-ratos=true` y la etiqueta `rendimiento.ai/construye=si`, así que nada cae en él salvo lo que tolera la marca: nunca sus apps, la base de datos ni la plataforma.
+
+Mientras está prendido:
+
+- **Las imágenes salen con sus dos mitades.** El complemento `buildkit` mantiene en él un demonio (`buildkitd-a-ratos`, con su caché en una carpeta de su propio disco). Una construcción hace su mitad de siempre en un demonio de la arquitectura del clúster y, al mismo tiempo, la otra mitad ahí; luego la plataforma escribe un índice OCI en la etiqueta de la imagen, así que la imagen corre en cualquier nodo. El registro de la construcción lo dice: `building the amd64 half on …` y `one image for arm64 and amd64`.
+- **Las pruebas pueden correr ahí, y lo prefieren,** cuando todas las imágenes que usa la prueba tienen esa arquitectura (a una imagen del registro de la plataforma se le pregunta; a una pública se le supone) y la prueba no guarda un volumen de caché.
+- **Si se apaga a media ejecución,** el kubelet termina el paso dentro de su periodo de gracia (90 segundos) y la plataforma lo vuelve a correr una vez en otro nodo, con una nota: `moved: … shut down`.
+
+Mientras está apagado, nada lo espera: las imágenes se construyen para una sola arquitectura (que falle la otra mitad es solo una nota), la página de Entorno dibuja su casita dormida bajo una luna, y ni la revisión de nodos ni Problemas lo cuentan como caído, ni a él ni a sus pods.
+
+Para unir uno: un playbook de Ansible en su capa privada instala el agente de k3s con la marca, las etiquetas, la dirección del registro y un apagado ordenado (un archivo en `kubelet.conf.d` con `shutdownGracePeriod`). La plataforma lee `REGISTRY` para preguntarle al registro qué arquitecturas tiene una imagen.

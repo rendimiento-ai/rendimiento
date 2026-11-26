@@ -15,6 +15,10 @@ type StepResult struct {
 	Message  string
 	Started  time.Time
 	Finished time.Time
+
+	// seApago is the node «a ratos» that shut down under the step (the
+	// executor runs it again elsewhere, once).
+	seApago string
 }
 
 // Executor runs a single step to completion, writing its logs to w.
