@@ -5,3 +5,4 @@
 - **Agents:** MCP keys' `ejecucion_lanzar` and `ejecucion_reintentar` are actions with effect now: off by default, so an agent that queues or retries branch runs needs a person to set its key's effects to ask, and to say yes each time. Pushing to a branch still runs it as before.
 - **Agents:** every use of a permission, request and answer goes to the encargo's history and to the bitácora (what was read or done, never values).
 - **Deploy:** `deploy/` changed (the platform's ClusterRole may now read events): run `make deploy` once, or the infrastructure tool says it could not read the events.
+- **Agents:** the Permissions section has the town of Cotija's look: each agent and each permission with its own drawing (a loom, a magnifier, the tecolote, a key for MCP; a codex, the milpa, a house, a clay pot, a candle), papel picado over it, and gentle movement that stops with the movement switch or the system's reduced motion.

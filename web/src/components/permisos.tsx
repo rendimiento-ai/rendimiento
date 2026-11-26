@@ -11,6 +11,7 @@ import { t } from "../i18n";
 import { useConexion } from "../conexion";
 import { apagado } from "./conexion-aviso";
 import { EsqBloques } from "./esqueleto";
+import { DibujoAgente, DibujoPermiso, PicadoPermisos } from "./permisos-dibujos";
 
 /** The platform's agents, by their stable ids (store.SujetosPlataforma). */
 export const sujetoName: Record<string, string> = {
@@ -60,7 +61,8 @@ export function Permisos() {
   const { data, error, reload } = usePoll(api.permisos, [], 0);
   const [sujeto, setSujeto] = useState<string>(() => (location.hash.startsWith("#permisos-") ? decodeURIComponent(location.hash.slice(10)) : "coder"));
   return (
-    <section className="card stack permisos" id="permisos" aria-labelledby="permisos-titulo">
+    <section className="card stack permisos-agentes" id="permisos" aria-labelledby="permisos-titulo">
+      <PicadoPermisos />
       <span className="permisos-ruta">{t("AI → Permissions")}</span>
       <h2 id="permisos-titulo">{t("What the agents may do")}</h2>
       <p className="small muted" style={{ margin: 0 }}>{t("Always of the encargo's app, never another's. They never see a secret's value, nor merge, nor publish from main: that is a person's.")}</p>
@@ -109,7 +111,8 @@ function PermisosTabla({ v, sujeto, setSujeto, onSaved }: { v: PermisosView; suj
           <button key={x.id} type="button" role="radio" aria-checked={x.id === sujeto} id={`permisos-${x.id}`}
             className={`permisos-sujeto${x.id === sujeto ? " on" : ""}${x.kind === "mcp" ? " llave" : ""}`}
             onClick={() => { setSujeto(x.id); history.replaceState(null, "", `#permisos-${x.id}`); }}>
-            {nombreSujeto(x)}
+            <DibujoAgente id={x.id} />
+            <span>{nombreSujeto(x)}</span>
           </button>
         ))}
       </div>
@@ -123,7 +126,7 @@ function PermisosTabla({ v, sujeto, setSujeto, onSaved }: { v: PermisosView; suj
           return (
             <div key={g.permiso} role="row" className={`permisos-fila${cambios[g.permiso] ? " cambiada" : ""}${g.permiso === "effects" ? " efecto" : ""}`}>
               <span role="cell" className="permisos-que">
-                <strong>{t(permisoName[g.permiso])}</strong>
+                <span className="permisos-titulo"><DibujoPermiso id={g.permiso} /><strong>{t(permisoName[g.permiso])}</strong></span>
                 {g.permiso === "infra_read" && <span className="permisos-marca nuevo">{t("new")}</span>}
                 {g.permiso === "effects" && <span className="permisos-marca cuidado">{t("careful")}</span>}
                 <span className="small muted">{g.permiso === "platform_read" || g.permiso === "sandbox" ? <code>{t(permisoDesc[g.permiso])}</code> : t(permisoDesc[g.permiso])}</span>
@@ -235,7 +238,7 @@ export function PidePermiso({ p, onDone }: { p: PermisoPedido; onDone: (msg: str
   return (
     <section className={`pu-grupo tono-anil pu-permiso${efecto ? " efecto" : ""}`} aria-labelledby={`pu-permiso-${p.id}`}>
       <div className="pu-grupo-cabeza">
-        <span className="pu-signo" aria-hidden="true">{efecto ? "!" : "?"}</span>
+        <span className="pu-signo pu-signo-dibujo" aria-hidden="true">{efecto ? <DibujoPermiso id="effects" /> : <DibujoAgente id={p.sujeto} />}</span>
         <span className="pu-texto">
           <strong id={`pu-permiso-${p.id}`}>{efecto ? t("It wants to do something with effect") : t("The agent asks for permission")}</strong>
           <span>{quien}{p.encargoTitle ? ` · ${p.encargoTitle}` : ""} · {p.app} · {timeAgo(p.askedAt)}{!llave && <> · {t("it waits, spending nothing")}</>}</span>

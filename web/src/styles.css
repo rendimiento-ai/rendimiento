@@ -3497,7 +3497,8 @@ a.et-insignia:hover { text-decoration: none; filter: brightness(.97); }
 
 /* What each agent may do (components/permisos.tsx, Ruta 184): the subjects, the table of modes and apps,
    the three cards, the card in «Para usted», and each use in an encargo's history. */
-.permisos h2 { margin: 0; }
+.permisos-agentes { position: relative; overflow: hidden; padding-top: 46px; }
+.permisos-agentes h2 { margin: 0; font-family: var(--display); font-size: 28px; color: var(--accent); }
 .permisos-ruta { font-size: 12.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
 .permisos-sujetos { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px; border-radius: 22px; background: var(--surface-2); }
 .permisos-sujeto { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 0; background: none; font: inherit; font-weight: 700; color: var(--text); cursor: pointer; }
@@ -3542,3 +3543,29 @@ a.et-insignia:hover { text-decoration: none; filter: brightness(.97); }
   .permisos-tarjetas { grid-template-columns: minmax(0, 1fr); }
   .uso-linea { grid-template-columns: minmax(0, 1fr); gap: 2px; }
 }
+
+/* The drawings, the papel picado and the movement of the Permissions section (permisos-dibujos.tsx). */
+.permisos-picado { position: absolute; top: 0; left: 0; right: 0; height: 30px; display: flex; justify-content: space-around; pointer-events: none; }
+.permisos-picado::before { content: ""; position: absolute; left: 0; right: 0; top: 2px; height: 2px; background: currentColor; opacity: .25; }
+.permisos-picado i { width: 30px; height: 26px; margin-top: 3px; clip-path: polygon(0 0,100% 0,100% 78%,75% 100%,50% 78%,25% 100%,0 78%); transform-origin: top; animation: calle-mece 3.5s ease-in-out infinite; animation-delay: var(--d); opacity: .9; }
+.permisos-picado .pp-grana { background: var(--grana); } .permisos-picado .pp-cempasuchil { background: var(--cempasuchil); }
+.permisos-picado .pp-rosa { background: var(--rosa); } .permisos-picado .pp-anil { background: var(--anil); } .permisos-picado .pp-nopal { background: var(--nopal); }
+.dibujo-agente, .dibujo-permiso { flex: none; width: 22px; height: 22px; }
+.permisos-sujeto { display: inline-flex; align-items: center; gap: 8px; transition: background .2s, color .2s, transform .2s; }
+.permisos-sujeto:hover:not(.on) { transform: translateY(-2px); }
+.permisos-sujeto.on .dibujo-agente { animation: logo-mece 2.6s ease-in-out infinite; transform-origin: 50% 80%; }
+.permisos-titulo { display: inline-flex; align-items: center; gap: 8px; }
+.permisos-titulo .dibujo-permiso { width: 26px; height: 26px; padding: 4px; border-radius: 10px; background: var(--surface-2); color: var(--accent); }
+.permisos-fila.efecto .permisos-titulo .dibujo-permiso { color: var(--bad); }
+.permisos-fila { transition: outline-color .3s, box-shadow .3s; }
+.permisos-fila.cambiada { animation: permiso-cambia .6s ease-out; }
+@keyframes permiso-cambia { from { box-shadow: 0 0 0 6px color-mix(in srgb, var(--anil) 25%, transparent); } to { box-shadow: 0 0 0 0 transparent; } }
+.permisos-modo button { transition: background .2s, color .2s; }
+.permisos-modo button.on { animation: modo-pone .25s ease-out; }
+@keyframes modo-pone { from { transform: scale(.88); } to { transform: scale(1); } }
+.pu-signo-dibujo .dibujo-agente, .pu-signo-dibujo .dibujo-permiso { width: 26px; height: 26px; color: #fff; }
+.pu-permiso .pu-signo-dibujo { animation: pide-llama 2.4s ease-in-out infinite; }
+@keyframes pide-llama { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tono) 0%, transparent); } 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--tono) 22%, transparent); } }
+.uso-linea { animation: vista-entra .35s ease both; }
+@media (prefers-reduced-motion: reduce) { .permisos-picado i, .permisos-sujeto.on .dibujo-agente, .permisos-fila.cambiada, .permisos-modo button.on, .pu-permiso .pu-signo-dibujo, .uso-linea { animation: none; } .permisos-sujeto:hover:not(.on) { transform: none; } }
+@media (max-width: 760px) { .permisos-picado i:nth-child(n+8) { display: none; } }
