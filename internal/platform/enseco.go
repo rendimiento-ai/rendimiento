@@ -213,9 +213,10 @@ func (p *Platform) dryOnCopy(ctx context.Context, app *store.App, run *store.Run
 
 	var c copia
 	var copySpec spec.Spec
-	if number := p.openPullOf(ctx, app, run.Branch); number != 0 {
+	if number := p.copiedPull(ctx, app, run.Branch); number != 0 {
 		// The pull request's copy: deployPreview wrote this run's images
-		// to it just before.
+		// to it just before. A dependency update has none: it gets a
+		// short copy, as a branch with no pull request does.
 		c, copySpec = copia{App: app.Name, Number: number}, spec.PreviewOf(sp, number)
 		record(func(d *store.DryRun) { d.Copy = &store.DryCopy{Kind: store.DryCopyPull, Pull: number} })
 		if _, ok := copias.Get(ctx, app.Name, number); !ok {

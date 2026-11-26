@@ -108,6 +108,7 @@ var catalog = map[string]string{
 	"**Preview of #%d:** deleted, %s.":             "**Vista previa de #%d:** borrada, %s.",
 	"to make room for a newer pull request's copy": "para dejar lugar a la copia de una solicitud más nueva",
 	"the pull request was closed":                  "se cerró la solicitud",
+	"a dependency update gets no copy":             "una actualización de dependencias no lleva copia",
 	"its app is gone":                              "su aplicación ya no existe",
 	"the app no longer asks for previews":          "la aplicación ya no pide vistas previas",
 	// The copies on the Caminos tab (platform/copias_vista.go, api/copias.go, Ruta 180).

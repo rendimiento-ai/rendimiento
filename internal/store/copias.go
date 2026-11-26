@@ -19,6 +19,7 @@ const (
 	CopiaPerson = "person" // a person deleted it from rendimiento
 	CopiaApp    = "app"    // its app is gone, or no longer asks for previews
 	CopiaSeco   = "seco"   // a short copy whose checks en seco ended
+	CopiaDeps   = "deps"   // its pull request is a dependency update, which gets no copy
 )
 
 // Copia is one copy's life, as the store keeps it beside the copy itself:
