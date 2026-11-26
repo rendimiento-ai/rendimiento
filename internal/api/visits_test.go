@@ -1,9 +1,17 @@
 package api
 
 import (
+	"context"
+	"fmt"
 	"net/url"
+	"slices"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/rendimiento-ai/rendimiento/internal/analytics"
+	"github.com/rendimiento-ai/rendimiento/internal/spec"
+	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
 // A Visits request's window: calendar days run midnight to midnight in the
@@ -36,4 +44,46 @@ func TestVisitPeriod(t *testing.T) {
 			t.Errorf("%q: no error", bad)
 		}
 	}
+}
+
+// countingAnalytics is fakeAnalytics that notes each summary it is asked
+// for: the website, the unit and the length of the period.
+type countingAnalytics struct {
+	fakeAnalytics
+	mu    sync.Mutex
+	asked []string
+}
+
+func (c *countingAnalytics) Summary(ctx context.Context, w analytics.Website, p analytics.Period) (*analytics.Report, error) {
+	c.mu.Lock()
+	c.asked = append(c.asked, fmt.Sprintf("%s %s %s", w.ID, p.Unit, p.To.Sub(p.From)))
+	c.mu.Unlock()
+	return c.fakeAnalytics.Summary(ctx, w, p)
+}
+
+// What an app's page shows of its visits (the last 24 hours and 7 days, in
+// brief) is read ahead for every app Umami counts, each website once
+// however many apps share it, so the page finds it kept even after a
+// restart. Websites no app answers on are not read.
+func TestWarmVisits(t *testing.T) {
+	e := newEnv(t, false)
+	ctx := context.Background()
+	for _, a := range [][2]string{{"tienda-visitas", "shop.example.com"}, {"tienda-otra-puerta", "www.shop.example.com"}, {"sin-visitas", "nadie.example.com"}} {
+		sp := spec.Spec{Services: []spec.Service{{Name: "web", Domain: a[1]}}}
+		sp.Default()
+		if err := e.store.CreateApp(ctx, &store.App{Name: a[0], Repo: "p0dxD/" + a[0], DefaultBranch: "main", Spec: sp}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c := &countingAnalytics{}
+	e.s.Analytics = c
+	if err := e.s.warmVisits(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"w1 hour 24h0m0s", "w1 day 168h0m0s"}; !slices.Equal(c.asked, want) {
+		t.Fatalf("read ahead %v, want %v", c.asked, want)
+	}
+	// Without Umami there is nothing to read, and it returns at once.
+	e.s.Analytics = nil
+	e.s.WarmVisits(ctx)
 }

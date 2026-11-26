@@ -817,6 +817,11 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 		}()
 	}
 
+	if runs("api") {
+		// What each app's page shows of its visits, read from Umami ahead
+		// (nothing without Umami).
+		go srv.WarmVisits(ctx)
+	}
 	handler := srv.Handler()
 	if !runs("api") {
 		// The control service and the worker serve only their health.

@@ -85,6 +85,7 @@ type VisitsView struct {
 	TimeZone   string              `json:"timeZone"`
 	Hosts      []string            `json:"hosts"`              // the app's hostnames
 	UmamiURL   string              `json:"umamiURL,omitempty"` // Umami's public address, for links
+	Brief      bool                `json:"brief,omitempty"`    // ?brief=1: each report's totals and series only, for an app's page
 	Reports    []*analytics.Report `json:"reports"`
 }
 
@@ -125,7 +126,9 @@ func umamiError(w http.ResponseWriter, err error) {
 
 // visits is an app's Visits tab: Umami's numbers for each of its addresses
 // today, yesterday, on a chosen day, or over the last 24 hours, 7 or 30
-// days, with the latest visitors of that time.
+// days, with the latest visitors of that time. With brief=1 (an app's page,
+// above its tabs and on its overview) only each address's totals and
+// series, two of Umami's queries instead of eight.
 func (s *Server) visits(w http.ResponseWriter, r *http.Request, _ string) {
 	a := s.app(w, r)
 	if a == nil {
@@ -138,7 +141,7 @@ func (s *Server) visits(w http.ResponseWriter, r *http.Request, _ string) {
 		return
 	}
 	view := VisitsView{Configured: s.Analytics != nil, Range: name, From: period.From, To: period.To, Unit: period.Unit, TimeZone: tz.String(),
-		Hosts: appHosts(a), UmamiURL: s.AnalyticsURL, Reports: []*analytics.Report{}}
+		Hosts: appHosts(a), UmamiURL: s.AnalyticsURL, Brief: r.URL.Query().Get("brief") == "1", Reports: []*analytics.Report{}}
 	if s.Analytics == nil {
 		writeJSON(w, view)
 		return
@@ -148,13 +151,17 @@ func (s *Server) visits(w http.ResponseWriter, r *http.Request, _ string) {
 		umamiError(w, err)
 		return
 	}
+	read := s.Analytics.Report
+	if view.Brief {
+		read = s.Analytics.Summary
+	}
 	matched := analytics.Match(sites, view.Hosts)
 	reports := make([]*analytics.Report, len(matched))
 	g, ctx := errgroup.WithContext(r.Context())
 	g.SetLimit(umamiParallel)
 	for i, site := range matched {
 		g.Go(func() (err error) {
-			reports[i], err = s.Analytics.Report(ctx, site, period)
+			reports[i], err = read(ctx, site, period)
 			return err
 		})
 	}
@@ -205,6 +212,75 @@ func (s *Server) visitActivity(w http.ResponseWriter, r *http.Request, _ string)
 		return
 	}
 	httpError(w, http.StatusNotFound, "that website is not one of this app's")
+}
+
+// visitsAhead are the brief ranges an app's page asks for: the last 24
+// hours above its tabs, the last 7 days on its overview.
+var visitsAhead = []string{"24h", "7d"}
+
+// visitsAheadEvery is how often WarmVisits reads them again: within the
+// hour Umami's numbers are still shown while new ones are read, so an app's
+// page always finds them kept.
+const visitsAheadEvery = 30 * time.Minute
+
+// WarmVisits reads ahead, for every app Umami counts, what its page shows
+// of its visits: when rendimiento starts and then every visitsAheadEvery.
+// Without it, the first look at each app's page after an update (a restart
+// forgets what was kept) or after an idle hour waited for Umami, often
+// several seconds. Until ctx ends.
+func (s *Server) WarmVisits(ctx context.Context) {
+	if s.Analytics == nil || s.Store == nil {
+		return
+	}
+	for {
+		wait := visitsAheadEvery
+		if err := s.warmVisits(ctx); errors.Is(err, fresco.ErrSlow) {
+			wait = time.Minute // Umami's list of websites is still coming
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(wait):
+		}
+	}
+}
+
+// warmVisits reads each website of an app once, however many apps share
+// it, and one at a time, so Umami is not crowded. A summary still being
+// read when its wait ends goes on behind and is kept.
+func (s *Server) warmVisits(ctx context.Context) error {
+	sites, err := s.Analytics.Websites(ctx)
+	if err != nil {
+		return err
+	}
+	apps, err := s.Store.ListApps(ctx)
+	if err != nil {
+		return err
+	}
+	tz := s.visitTZ()
+	seen := map[string]bool{}
+	for _, a := range apps {
+		for _, site := range analytics.Match(sites, appHosts(a)) {
+			if seen[site.ID] {
+				continue
+			}
+			seen[site.ID] = true
+			for _, name := range visitsAhead {
+				// Each period ends now, as the page's will: they share the
+				// kept answer.
+				_, p, err := visitPeriod(url.Values{"range": {name}}, tz, time.Now())
+				if err != nil {
+					return err
+				}
+				if _, err := s.Analytics.Summary(ctx, site, p); ctx.Err() != nil {
+					return ctx.Err()
+				} else if errors.Is(err, analytics.ErrAuth) {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // AppVisits is one app's line in the dashboard summary.

@@ -122,7 +122,7 @@ function Datos({ app }: { app: App }) {
   const base = `/apps/${app.name}`;
   const nav = useNavigate();
   const { data: rels } = usePoll(() => api.releases(app.name), [app.name], 30000);
-  const { data: vis } = usePoll(() => api.visits(app.name, "24h"), [app.name], 300000);
+  const { data: vis } = usePoll(() => api.visitsBrief(app.name, "24h"), [app.name], 300000);
   const live = rels?.find((r) => r.number === app.status.release);
   const lib = isLibrary(app.spec);
   const run = app.lastRun;
