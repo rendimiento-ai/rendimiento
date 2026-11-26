@@ -31,7 +31,7 @@ test("the AI page: tabs, the plaza of agents and an agent's drawer", async ({ pa
   const cajon = page.getByRole("dialog", { name: es ? "El agente de código" : "The coding agent" });
   await expect(cajon).toBeVisible();
   await expect(cajon.locator(".ia-settings h2")).toHaveText(es ? "Lo que hace solo" : "What it does by itself");
-  await expect(cajon.locator("section#permisos .permisos-fila").first()).toBeVisible();
+  await expect(cajon.locator("section#permisos .permisos-fila:not(.cabeza)").first()).toBeVisible();
   expect((await cajon.getByRole("button", { name: es ? "Cerrar" : "Close" }).boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 

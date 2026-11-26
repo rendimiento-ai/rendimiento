@@ -3792,6 +3792,7 @@ a.et-insignia:hover { text-decoration: none; filter: brightness(.97); }
 .permisos-agentes.en-cajon { padding-top: 0; overflow: visible; }
 .permisos-agentes.en-cajon h3 { margin: 0; font-family: var(--display); font-size: 20px; color: var(--accent); }
 .ia-cajon .permisos-fila { grid-template-columns: minmax(0, 1fr); }
+.ia-cajon .permisos-fila.cabeza { display: none; }
 @media (max-width: 760px) {
   .ia-pestanas { border-radius: 20px; }
   .ia-pestana { padding: 0 12px; }
