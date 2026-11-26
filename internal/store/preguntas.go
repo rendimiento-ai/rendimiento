@@ -34,18 +34,21 @@ type EncargoPregunta struct {
 	Answer      string     `json:"answer,omitempty"`
 	AnsweredBy  string     `json:"answeredBy,omitempty"`
 	AnsweredAt  *time.Time `json:"answeredAt,omitempty"`
+	// PedidoID is the request for a permission this question is (Ruta
+	// 184): «Para usted» shows it as one, with the grant's options.
+	PedidoID *int64 `json:"pedidoId,omitempty"`
 }
 
 // openQuestionCol is an encargo's open question, as JSON (NULL when it
 // asks nothing): the one column encargoCols adds for it.
-const openQuestionCol = `(SELECT json_build_object('id', q.id, 'encargoId', q.encargo_id, 'question', q.question, 'options', q.options, 'askedAt', q.asked_at)
+const openQuestionCol = `(SELECT json_build_object('id', q.id, 'encargoId', q.encargo_id, 'question', q.question, 'options', q.options, 'askedAt', q.asked_at, 'pedidoId', q.pedido_id)
 		FROM encargo_preguntas q WHERE q.encargo_id = e.id AND e.status = 'asking' AND q.answered_at IS NULL AND q.passed_at IS NULL ORDER BY q.id DESC LIMIT 1)`
 
-const preguntaCols = `id, encargo_id, org_id, question, options, notes, spent_micros, asked_by, asked_at, answer, answered_by, answered_at`
+const preguntaCols = `id, encargo_id, org_id, question, options, notes, spent_micros, asked_by, asked_at, answer, answered_by, answered_at, pedido_id`
 
 func scanPregunta(r pgx.Row) (EncargoPregunta, error) {
 	var p EncargoPregunta
-	err := r.Scan(&p.ID, &p.EncargoID, &p.OrgID, &p.Question, &p.Options, &p.Notes, &p.SpentMicros, &p.AskedBy, &p.AskedAt, &p.Answer, &p.AnsweredBy, &p.AnsweredAt)
+	err := r.Scan(&p.ID, &p.EncargoID, &p.OrgID, &p.Question, &p.Options, &p.Notes, &p.SpentMicros, &p.AskedBy, &p.AskedAt, &p.Answer, &p.AnsweredBy, &p.AnsweredAt, &p.PedidoID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return p, ErrNotFound
 	}
@@ -64,9 +67,9 @@ func (s *Store) AskEncargo(ctx context.Context, id, keyID int64, who string, q E
 	return s.change(ctx, id, who, "asked", q.Question, `WITH u AS (
 			UPDATE encargos SET status = 'asking', waiting_run = NULL, cargo_id = NULL, doing = '', stop_asked = false, updated_at = now()
 			WHERE id = $1 AND key_id = $2 AND status IN ('taken', 'waiting') RETURNING id, org_id)
-		INSERT INTO encargo_preguntas (encargo_id, org_id, question, options, notes, spent_micros, asked_by)
-		SELECT u.id, u.org_id, $3, $4, $5, $6, $7 FROM u`,
-		id, keyID, q.Question, q.Options, q.Notes, q.SpentMicros, who)
+		INSERT INTO encargo_preguntas (encargo_id, org_id, question, options, notes, spent_micros, asked_by, pedido_id)
+		SELECT u.id, u.org_id, $3, $4, $5, $6, $7, $8 FROM u`,
+		id, keyID, q.Question, q.Options, q.Notes, q.SpentMicros, who, q.PedidoID)
 }
 
 // AnswerEncargo is a person's answer to the question an encargo of their

@@ -897,7 +897,28 @@ export interface AppAccess {
 export type EncargoStatus = "pending" | "taken" | "waiting" | "asking" | "delivered" | "reviewed" | "cancelled";
 
 /** What the coding agent asks the person about an encargo while it is asking (internal/store.EncargoPregunta). */
-export interface EncargoPregunta { id: number; encargoId: number; question: string; options: string[]; askedAt: string }
+export interface EncargoPregunta { id: number; encargoId: number; question: string; options: string[]; askedAt: string; pedidoId?: number }
+
+/** The permissions an agent may have (internal/store/permisos.go, Ruta 184). */
+export type PermisoId = "code_read" | "platform_read" | "infra_read" | "sandbox" | "copies_read" | "effects";
+/** Off: the tool is not offered; ask: it asks a person; always: it uses it. */
+export type PermisoModo = "off" | "ask" | "always";
+/** One permission of a subject: its mode, and the apps it is limited to (none: all). */
+export interface Permiso { permiso: PermisoId; modo: PermisoModo; apps: string[]; set: boolean; alcance?: string; updatedBy?: string; updatedAt?: string }
+/** A subject: one of the platform's agents (by a stable id, such as "coder") or an MCP key ("mcp:<id>"). */
+export interface PermisoSujeto { id: string; kind: "agent" | "mcp"; name?: string; role?: string; permisos: Permiso[] }
+/** A person's yes to an agent: once, while an encargo (or a key's cargo) lasts, or always for one app. */
+export interface PermisoDado {
+  id: number; sujeto: string; permiso: PermisoId; app: string; alcance: "once" | "encargo" | "cargo" | "always";
+  accion?: string; encargoId?: number; cargoId?: number; pedidoId?: number; grantedBy: string; grantedAt: string; usedAt?: string;
+}
+export interface PermisosView { sujetos: PermisoSujeto[]; dados: PermisoDado[]; apps: string[] }
+/** What an agent asked a person's permission for (store.PermisoPedido). */
+export interface PermisoPedido {
+  id: number; sujeto: string; permiso: PermisoId; app: string; tool?: string; accion?: string; que: string; porQue: string; ventana?: string;
+  encargoId?: number; cargoId?: number; askedBy: string; askedAt: string; encargoTitle?: string; keyName?: string;
+}
+export type PermisoRespuesta = "once" | "encargo" | "always" | "no";
 
 // When an encargo opens by itself for an explained failure.
 export type AutoEncargo = "off" | "branches" | "all";
@@ -964,7 +985,7 @@ export interface Encargo {
   givenBack?: boolean;
   createdAt: string;
   updatedAt: string;
-  log?: { at: string; who: string; what: string; note?: string }[];
+  log?: { at: string; who: string; what: string; note?: string; permiso?: PermisoId }[];
 }
 
 /** A known failure the diagnostician wrote that nobody rated yet, with the run to rate it on. */
@@ -974,6 +995,8 @@ export interface UnconfirmedManual { id: number; title: string; runId: number; a
 export interface Portada {
   /** Encargos the coding agent stopped on to ask the person: first on the page. */
   asking: Encargo[];
+  /** What agents asked a person's permission for (the coding agent's encargo waits meanwhile). */
+  permisos?: PermisoPedido[];
   review: Encargo[];
   decide: RutaEntry[];
   yours: RutaEntry[];
@@ -1848,6 +1871,11 @@ export const api = {
   stopEncargo: (id: number) => request<Encargo>("POST", `/api/encargos/${id}/stop`),
   answerEncargo: (id: number, answer: string) => request<Encargo>("POST", `/api/encargos/${id}/answer`, { answer }),
   passEncargo: (id: number) => request<Encargo>("POST", `/api/encargos/${id}/pass`),
+  permisos: () => request<PermisosView>("GET", "/api/permisos"),
+  savePermisos: (sujeto: string, permisos: Pick<Permiso, "permiso" | "modo" | "apps">[]) =>
+    request<PermisoSujeto>("PUT", `/api/permisos/${encodeURIComponent(sujeto)}`, { permisos }),
+  quitarPermiso: (id: number) => request<void>("DELETE", `/api/permisos/dados/${id}`),
+  answerPermiso: (id: number, answer: PermisoRespuesta) => request<{ pedido: PermisoPedido; dado?: PermisoDado }>("POST", `/api/permisos/pedidos/${id}`, { answer }),
   cola: () => request<Cola>("GET", `/api/encargos/cola?hoy=${hoy()}`),
   reorderCola: (ids: number[]) => request<Cola>("POST", `/api/encargos/cola/orden?hoy=${hoy()}`, { ids }),
   portada: () => request<Portada>("GET", `/api/ruta/portada?hoy=${hoy()}`),

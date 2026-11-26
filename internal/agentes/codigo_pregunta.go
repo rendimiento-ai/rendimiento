@@ -137,18 +137,9 @@ func (j *job) ask(ctx context.Context, input json.RawMessage) (string, bool) {
 	case len(j.marked()) > 0:
 		return "these files still have conflict marks; resolve them before you ask: " + strings.Join(j.marked(), ", "), true
 	}
-	pending := len(j.changed) > 0 || len(j.removed) > 0 || j.merging != ""
-	if pending && j.same && store.EncargoOfBranch(j.branch) == 0 {
-		return "you have changes not committed on the person's own branch: commit_and_test them first, then ask", true
-	}
-	sha := ""
-	if pending {
-		var err error
-		sha, err = j.commit(context.WithoutCancel(ctx), j.say("Encargo %d: lo que llevaba al preguntar, sin probar todavía\n\nEl agente de código le preguntó algo a la persona y sigue al recibir su respuesta.",
-			"Encargo %d: what it had when it asked, not tested yet\n\nThe coding agent asked the person something and goes on with their answer.", j.e.ID))
-		if err != nil {
-			return "could not commit your changes before asking: " + err.Error(), true
-		}
+	sha, msg, ok := j.commitBeforeAsking(ctx)
+	if !ok {
+		return msg, true
 	}
 	notes := strings.TrimSpace(in.Notes)
 	if sha != "" {
@@ -160,6 +151,28 @@ func (j *job) ask(ctx context.Context, input json.RawMessage) (string, bool) {
 	}
 	j.finished, j.outcome = true, j.say("le preguntó a la persona y espera su respuesta", "asked the person and waits for their answer")
 	return "asked; you stop here until the person answers", false
+}
+
+// commitBeforeAsking commits what changed before the job stops to ask (a
+// question or a permission): the commit ("" when nothing changed), or why
+// it may not ask yet.
+func (j *job) commitBeforeAsking(ctx context.Context) (string, string, bool) {
+	if left := j.marked(); len(left) > 0 {
+		return "", "these files still have conflict marks; resolve them before you ask: " + strings.Join(left, ", "), false
+	}
+	pending := len(j.changed) > 0 || len(j.removed) > 0 || j.merging != ""
+	if pending && j.same && store.EncargoOfBranch(j.branch) == 0 {
+		return "", "you have changes not committed on the person's own branch: commit_and_test them first, then ask", false
+	}
+	if !pending {
+		return "", "", true
+	}
+	sha, err := j.commit(context.WithoutCancel(ctx), j.say("Encargo %d: lo que llevaba al preguntar, sin probar todavía\n\nEl agente de código le preguntó algo a la persona y sigue al recibir su respuesta.",
+		"Encargo %d: what it had when it asked, not tested yet\n\nThe coding agent asked the person something and goes on with their answer.", j.e.ID))
+	if err != nil {
+		return "", "could not commit your changes before asking: " + err.Error(), false
+	}
+	return sha, "", true
 }
 
 // resumedHead is the branch's head when the job resumes after a question
@@ -280,6 +293,11 @@ func (j *job) moreTools() []ia.Tool {
 			out = append(out, t)
 		}
 	}
+	for _, t := range infraTools {
+		if j.infraOffered(t.Name) {
+			out = append(out, t)
+		}
+	}
 	return out
 }
 
@@ -302,6 +320,9 @@ func (j *job) moreTool(ctx context.Context, call ia.ToolCall) (out string, isErr
 			return out, isErr, true
 		}
 		return "", false, false
+	}
+	if out, isErr, ok := j.infraTool(ctx, call); ok {
+		return out, isErr, true
 	}
 	known := false
 	for _, t := range seeTools {
@@ -573,7 +594,7 @@ func (j *job) appStatus(ctx context.Context) (string, bool) {
 func (j *job) seeRule() string {
 	var names []string
 	for _, t := range j.moreTools() {
-		if t.Name != "ask" {
+		if t.Name != "ask" && j.modo(toolPerm[t.Name]) != store.ModoOff {
 			names = append(names, t.Name)
 		}
 	}

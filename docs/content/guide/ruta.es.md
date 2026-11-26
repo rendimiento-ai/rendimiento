@@ -107,6 +107,10 @@ El cliente de un agente lista las herramientas, y lo que responde cada una (su e
 
 El mismo servidor tiene también las herramientas de la plataforma (aplicaciones, ejecuciones, registros, solicitudes guardadas y correr CI en una rama) y, mientras el [Mercado](mercado.md#from-an-agent-mcp) está encendido, las suyas: vea [Hecha para agentes](agents.md#what-an-agent-can-do-today).
 
+### Los permisos de cada llave {#each-keys-permissions}
+
+Además de su función y sus aplicaciones, cada llave tiene sus propios [permisos](agents.md#permissions), que se ponen en la [página IA → Permisos](ai.md#permissions) escogiendo la llave en la lista: las vistas de la plataforma, la infraestructura de la aplicación (`infra_leer`), sus copias (`copias_leer`) y las acciones con efecto (`servicio_reiniciar`, `copia_rehacer`, y correr una rama o reintentar una ejecución). Una llave nueva empieza igual que el agente de código: ve la plataforma y las copias, pregunta por la infraestructura y no hace nada con efecto. Una herramienta con el permiso apagado contesta que está apagado; una que pregunta contesta *necesita permiso; se le pidió a &lt;quien hizo la llave&gt;*, con el número del pedido, y el pedido sale en **Para usted**. El agente dice por qué con `permiso_pedir`; en cuanto una persona lo da (solo esta vez, mientras su cargo siga abierto, o siempre para esa aplicación), la siguiente llamada funciona. Cada uso queda en la [bitácora](../architecture/security.md#the-bitacora) con el permiso.
+
 ## Seguridad {#safety}
 
 - **Las llaves** son aleatorias, se guardan solo como huella SHA-256, siempre caducan y se pueden revocar en la pestaña Llaves; revocar cierra el cargo abierto de la llave. La llave de un lector ni siquiera ve las herramientas de escritura, y una llave limitada a algunas aplicaciones solo ve esas.

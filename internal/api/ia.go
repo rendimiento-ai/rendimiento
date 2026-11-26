@@ -290,7 +290,9 @@ func (s *Server) putIA(w http.ResponseWriter, r *http.Request, login string) {
 			return
 		}
 	}
-	if in.CodeRun != nil {
+	// The old switch (a page from before Permissions): only a change counts,
+	// so a save does not undo the sandbox's mode set on Permissions.
+	if was, err := s.Store.AISettingsOf(ctx, org); in.CodeRun != nil && err == nil && was.CodeRun != *in.CodeRun {
 		if err := s.Store.SetCodeRun(ctx, org, *in.CodeRun, login); err != nil {
 			httpError(w, http.StatusInternalServerError, err.Error())
 			return

@@ -285,16 +285,6 @@ pre.log {
   padding: 14px; margin: 0; max-height: 520px; overflow: auto; white-space: pre-wrap; word-break: break-all;
   font-size: 12.5px; line-height: 1.55;
 }
-/* What was seen of a failed release (components/evidencia.tsx): its pods, their last lines and the events. */
-.evidencia { margin-top: 6px; min-width: 0; }
-.evidencia-cuerpo { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; min-width: 0; }
-.evidencia-cuerpo p { margin: 0; }
-.evidencia-servicio { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); min-width: 0; }
-.evidencia-pod { display: flex; flex-direction: column; gap: 4px; padding-top: 6px; border-top: 1px dashed var(--border); min-width: 0; }
-.evidencia-contenedor { display: flex; flex-direction: column; gap: 4px; padding-left: 10px; min-width: 0; }
-.evidencia-contenedor summary, .evidencia > .evidencia-cuerpo > details > summary { cursor: pointer; }
-pre.log.evidencia-log { max-height: 260px; margin-top: 4px; font-size: 12px; padding: 10px 12px; }
-.evidencia-eventos { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
 pre.file { background: var(--surface-2); border-radius: 8px; padding: 12px; overflow: auto; max-height: 320px; margin: 0; font-size: 12.5px; }
 
 /* Wizard */
@@ -3504,3 +3494,78 @@ a.et-insignia:hover { text-decoration: none; filter: brightness(.97); }
 .dormir-resumen li.ojo::before { content: "!"; color: var(--warn); }
 .dormir-resumen li span { color: var(--muted); font-size: 14px; }
 .dormir-resumen .dormir-botones { justify-content: flex-start; }
+
+/* What each agent may do (components/permisos.tsx, Ruta 184): the subjects, the table of modes and apps,
+   the three cards, the card in «Para usted», and each use in an encargo's history. */
+.permisos-agentes { position: relative; overflow: hidden; padding-top: 46px; }
+.permisos-agentes h2 { margin: 0; font-family: var(--display); font-size: 28px; color: var(--accent); }
+.permisos-ruta { font-size: 12.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.permisos-sujetos { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px; border-radius: 22px; background: var(--surface-2); }
+.permisos-sujeto { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 0; background: none; font: inherit; font-weight: 700; color: var(--text); cursor: pointer; }
+.permisos-sujeto.on { background: var(--accent); color: var(--accent-text); font-weight: 800; }
+.permisos-sujeto.llave:not(.on) { color: var(--muted); }
+.permisos-filas { display: grid; gap: 8px; }
+.permisos-fila { display: grid; grid-template-columns: minmax(0, 1fr) 300px 200px; gap: 12px; align-items: center; padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.permisos-fila.cabeza { padding: 0 14px; border: 0; background: none; font-size: 12.5px; font-weight: 700; color: var(--muted); }
+.permisos-fila.cambiada { outline: 2.5px solid var(--anil, var(--accent)); outline-offset: -1px; }
+.permisos-que { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.permisos-que code { white-space: normal; overflow-wrap: anywhere; }
+.permisos-marca { align-self: flex-start; padding: 2px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 800; color: #fff; background: var(--anil, var(--accent)); }
+.permisos-marca.cuidado { background: var(--bad); color: #fff; }
+.permisos-modo { display: inline-flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--surface-2); font-size: 13px; font-weight: 700; }
+.permisos-modo button { min-height: 36px; padding: 0 12px; border: 0; border-radius: 999px; background: none; font: inherit; color: var(--text); cursor: pointer; }
+.permisos-modo button:disabled { cursor: not-allowed; opacity: .5; }
+.permisos-modo button.on { color: #fff; opacity: 1; }
+.permisos-modo button.on.modo-off { background: var(--muted); }
+.permisos-modo button.on.modo-ask { background: var(--anil, var(--accent)); }
+.permisos-modo button.on.modo-always { background: var(--ok); }
+.permisos-apps { min-width: 0; overflow-wrap: anywhere; }
+.permisos-escoger { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.permisos-escoger label { display: flex; gap: 6px; align-items: center; min-height: 32px; }
+.linkish { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
+.permisos-tarjetas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.permisos-tarjeta { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); }
+.permisos-tarjeta.modo-ask { border-color: var(--anil, var(--accent)); }
+.permisos-tarjeta.modo-always { border-color: var(--ok); }
+.permisos-dados { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.permisos-dados li { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 12px; background: var(--surface-2); }
+.pu-permiso.efecto { border-color: var(--bad); }
+.uso-linea { display: grid; grid-template-columns: minmax(120px, auto) minmax(0, 1fr); gap: 10px; padding: 4px 8px; border-left: 3px solid var(--anil, var(--accent)); border-radius: 4px; background: var(--surface-2); }
+.uso-linea.permiso_pedido, .uso-linea.permiso_dado { border-left-color: var(--warn); }
+.uso-linea.permiso_negado { border-left-color: var(--bad); }
+.uso-cuando { font-weight: 700; color: var(--muted); }
+.uso-que { overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .permisos-fila { grid-template-columns: minmax(0, 1fr); }
+  .permisos-fila.cabeza { display: none; }
+  .permisos-modo { display: flex; width: 100%; }
+  .permisos-modo button { flex: 1; }
+  .permisos-tarjetas { grid-template-columns: minmax(0, 1fr); }
+  .uso-linea { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+
+/* The drawings, the papel picado and the movement of the Permissions section (permisos-dibujos.tsx). */
+.permisos-picado { position: absolute; top: 0; left: 0; right: 0; height: 30px; display: flex; justify-content: space-around; pointer-events: none; }
+.permisos-picado::before { content: ""; position: absolute; left: 0; right: 0; top: 2px; height: 2px; background: currentColor; opacity: .25; }
+.permisos-picado i { width: 30px; height: 26px; margin-top: 3px; clip-path: polygon(0 0,100% 0,100% 78%,75% 100%,50% 78%,25% 100%,0 78%); transform-origin: top; animation: calle-mece 3.5s ease-in-out infinite; animation-delay: var(--d); opacity: .9; }
+.permisos-picado .pp-grana { background: var(--grana); } .permisos-picado .pp-cempasuchil { background: var(--cempasuchil); }
+.permisos-picado .pp-rosa { background: var(--rosa); } .permisos-picado .pp-anil { background: var(--anil); } .permisos-picado .pp-nopal { background: var(--nopal); }
+.dibujo-agente, .dibujo-permiso { flex: none; width: 22px; height: 22px; }
+.permisos-sujeto { display: inline-flex; align-items: center; gap: 8px; transition: background .2s, color .2s, transform .2s; }
+.permisos-sujeto:hover:not(.on) { transform: translateY(-2px); }
+.permisos-sujeto.on .dibujo-agente { animation: logo-mece 2.6s ease-in-out infinite; transform-origin: 50% 80%; }
+.permisos-titulo { display: inline-flex; align-items: center; gap: 8px; }
+.permisos-titulo .dibujo-permiso { width: 26px; height: 26px; padding: 4px; border-radius: 10px; background: var(--surface-2); color: var(--accent); }
+.permisos-fila.efecto .permisos-titulo .dibujo-permiso { color: var(--bad); }
+.permisos-fila { transition: outline-color .3s, box-shadow .3s; }
+.permisos-fila.cambiada { animation: permiso-cambia .6s ease-out; }
+@keyframes permiso-cambia { from { box-shadow: 0 0 0 6px color-mix(in srgb, var(--anil) 25%, transparent); } to { box-shadow: 0 0 0 0 transparent; } }
+.permisos-modo button { transition: background .2s, color .2s; }
+.permisos-modo button.on { animation: modo-pone .25s ease-out; }
+@keyframes modo-pone { from { box-shadow: 0 0 0 5px color-mix(in srgb, currentColor 30%, transparent); } to { box-shadow: 0 0 0 0 transparent; } }
+.pu-signo-dibujo .dibujo-agente, .pu-signo-dibujo .dibujo-permiso { width: 26px; height: 26px; color: #fff; }
+.pu-permiso .pu-signo-dibujo { animation: pide-llama 2.4s ease-in-out infinite; }
+@keyframes pide-llama { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tono) 0%, transparent); } 50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--tono) 22%, transparent); } }
+.uso-linea { animation: vista-entra .35s ease both; }
+@media (prefers-reduced-motion: reduce) { .permisos-picado i, .permisos-sujeto.on .dibujo-agente, .permisos-fila.cambiada, .permisos-modo button.on, .pu-permiso .pu-signo-dibujo, .uso-linea { animation: none; } .permisos-sujeto:hover:not(.on) { transform: none; } }
+@media (max-width: 760px) { .permisos-picado i:nth-child(n+8) { display: none; } }

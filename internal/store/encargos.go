@@ -85,6 +85,9 @@ type EncargoLog struct {
 	Who  string    `json:"who"`
 	What string    `json:"what"`
 	Note string    `json:"note,omitempty"`
+	// Permiso is the permission a use, request, grant or no was about
+	// (Ruta 184; kept in the log's cause).
+	Permiso string `json:"permiso,omitempty"`
 }
 
 const encargoCols = `e.id, e.title, e.body, e.app, e.run_id, e.status, e.created_by, e.by_agent, e.key_id, COALESCE(k.name, ''),
@@ -153,13 +156,13 @@ func (s *Store) Encargo(ctx context.Context, id int64) (Encargo, error) {
 	if err != nil {
 		return e, err
 	}
-	rows, err := s.pool.Query(ctx, `SELECT at, who, what, note FROM encargo_log WHERE encargo_id = $1 ORDER BY at, id`, id)
+	rows, err := s.pool.Query(ctx, `SELECT at, who, what, note, CASE WHEN what LIKE 'permiso_%' THEN COALESCE(cause, '') ELSE '' END FROM encargo_log WHERE encargo_id = $1 ORDER BY at, id`, id)
 	if err != nil {
 		return e, err
 	}
 	e.Log, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (EncargoLog, error) {
 		var l EncargoLog
-		err := r.Scan(&l.At, &l.Who, &l.What, &l.Note)
+		err := r.Scan(&l.At, &l.Who, &l.What, &l.Note, &l.Permiso)
 		return l, err
 	})
 	return e, err

@@ -113,6 +113,9 @@ type Coder struct {
 	// RetryRun runs again what failed in a run the cluster failed (nil: an
 	// empty commit runs it again).
 	RetryRun func(ctx context.Context, id int64) (*store.Run, error)
+	// Infra is what infra_read, copies and the effects tools use (nil:
+	// they are not offered); each needs its permission (permisos.go).
+	Infra CoderInfra
 
 	// wrap makes Repos try a call once more when the forja's failure passes.
 	wrap      sync.Once
@@ -377,6 +380,8 @@ type job struct {
 	resumed *store.EncargoPregunta
 	start   time.Time
 	waited  time.Duration
+	// modos are the permissions' modes this turn (read once a turn).
+	modos map[string]string
 }
 
 // Do does one encargo: takes it in a cargo, works on its branch, and
@@ -521,6 +526,7 @@ func (j *job) work(ctx context.Context) error {
 			j.giveBack(context.WithoutCancel(ctx), why)
 			return nil
 		}
+		j.modos = nil // permissions are read again each turn
 		j.doing(ctx, "think", "")
 		res, err := j.complete(ctx, ia.ToolRequest{System: j.system(), Tools: j.tools(), Turns: turns,
 			Model: WorkModel, MaxTokens: 16000})
@@ -641,7 +647,7 @@ func (j *job) fixList() string {
 // tools are the agent's tools: run_fix only when the app declares fixes,
 // with them in its description.
 func (j *job) tools() []ia.Tool {
-	tools := append(j.withTerminal(coderTools), j.moreTools()...)
+	tools := j.gateTools(append(j.withTerminal(coderTools), j.moreTools()...))
 	if len(j.fixes) == 0 {
 		return tools
 	}
@@ -694,7 +700,7 @@ How to work:
 - Never write secrets (passwords, tokens, keys) into files. Never touch any branch but yours.
 - When the run passed, call deliver with a short summary for the person, in %s: what you changed and why, how it was tested, and what they should look at. If you cannot finish (the encargo is unclear, needs a decision, or keeps failing), call give_up with the reason and what is left, in %s.
 - Work efficiently: this encargo was estimated at about %s, and you stop at %s, before a turn that would pass it, even in the middle of a change (what you have is then committed untested). Commit and test as soon as a change is whole; prefer search and reading parts of files over reading everything.`,
-		lang, lang, ia.Dollars(j.budget/2), ia.Dollars(j.budget)) + j.fixRule() + j.terminalRule() + j.seeRule()
+		lang, lang, ia.Dollars(j.budget/2), ia.Dollars(j.budget)) + j.fixRule() + j.terminalRule() + j.seeRule() + j.permRule()
 }
 
 // fixRule tells the model of run_fix, when the app declares fixes.
@@ -740,8 +746,25 @@ func schema(props map[string]any, required ...string) map[string]any {
 func str(d string) map[string]any { return map[string]any{"type": "string", "description": d} }
 func num(d string) map[string]any { return map[string]any{"type": "integer", "description": d} }
 
-// tool runs one tool call: its answer, and whether it is an error.
+// tool runs one tool call, if its permission lets it (gate): its answer,
+// and whether it is an error. A use of a permission is kept (noteUse).
 func (j *job) tool(ctx context.Context, call ia.ToolCall) (string, bool) {
+	perm, gated := toolPerm[call.Name]
+	if !gated {
+		return j.runTool(ctx, call)
+	}
+	if msg, isErr, ok := j.gate(ctx, call, perm); !ok {
+		return msg, isErr
+	}
+	out, isErr := j.runTool(ctx, call)
+	if out != "no such tool: "+call.Name {
+		j.noteUse(ctx, call, perm, isErr)
+	}
+	return out, isErr
+}
+
+// runTool runs one tool call: its answer, and whether it is an error.
+func (j *job) runTool(ctx context.Context, call ia.ToolCall) (string, bool) {
 	var in struct {
 		Folder, Glob, Path, Pattern, Content, Message, Summary, Reason, Ref, Name string
 		OldText                                                                   string `json:"old_text"`

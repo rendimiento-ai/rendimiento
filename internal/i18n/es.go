@@ -982,4 +982,18 @@ var catalog = map[string]string{
 	"only rendimiento on a computer can sleep: a cluster stays awake": "solo rendimiento en una computadora puede dormir: un clúster se queda despierto",
 	"the hour to wake at must be HH:MM, such as 08:00":                "la hora de despertar debe ser HH:MM, como 08:00",
 	"rendimiento slept; it runs again on waking":                      "rendimiento se durmió; se repite al despertar",
+	// Agents' permissions (platform/agentes_infra.go, api/permisos.go).
+	"%s has no service %s": "%s no tiene el servicio %s",
+	"not the default branch %s: it deploys, and a person runs it": "no la rama principal %s: despliega, y eso lo hace una persona",
+	"no such agent": "no existe ese agente",
+	"that mode is not allowed for that permission: reading the code is always on, and actions with effect are never always": "ese modo no se permite para ese permiso: leer el código siempre está encendido, y las acciones con efecto nunca van en «Siempre»",
+	"too many apps": "demasiadas apps",
+	"bad grant id": "número de permiso no válido",
+	"no such grant": "no existe ese permiso",
+	"bad permission request id": "número de pedido no válido",
+	"no such permission request": "no existe ese pedido de permiso",
+	"only administrators give agents permissions": "solo las personas administradoras dan permisos a los agentes",
+	"this request was answered already": "alguien ya respondió este pedido",
+	"that answer is not possible for this request: an action with effect is allowed only once": "esa respuesta no se puede dar a este pedido: una acción con efecto se permite solo una vez",
+	"the diagnostician may not read runs and their logs (AI page, Permissions)": "el agente diagnosticador no tiene permiso de leer las ejecuciones ni sus registros (página de IA, Permisos)",
 }

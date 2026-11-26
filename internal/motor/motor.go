@@ -315,10 +315,11 @@ type Info struct {
 	Estado    string // "running", "exited", ...
 	// Codigo is the exit code of its last run, Reinicios how many times
 	// its restart policy started it again, Error what the engine said when
-	// it could not start it.
+	// it could not start it, and Desde when it started last.
 	Codigo    int
 	Reinicios int
 	Error     string
+	Desde     string
 }
 
 // Inspeccionar reads a container's state and labels.
@@ -329,13 +330,14 @@ func (m *Motor) Inspeccionar(ctx context.Context, nombre string) (Info, error) {
 	}
 	var raw struct {
 		State struct {
-			Running  bool   `json:"Running"`
-			Status   string `json:"Status"`
-			ExitCode int    `json:"ExitCode"`
-			Error    string `json:"Error"`
+			Running   bool   `json:"Running"`
+			Status    string `json:"Status"`
+			ExitCode  int    `json:"ExitCode"`
+			Error     string `json:"Error"`
+			StartedAt string `json:"StartedAt"`
 		} `json:"State"`
 		RestartCount int `json:"RestartCount"`
-		Config struct {
+		Config       struct {
 			Image  string            `json:"Image"`
 			Labels map[string]string `json:"Labels"`
 		} `json:"Config"`
@@ -348,7 +350,7 @@ func (m *Motor) Inspeccionar(ctx context.Context, nombre string) (Info, error) {
 		return Info{}, fmt.Errorf("%s inspect %s: %v", m.Bin, nombre, err)
 	}
 	return Info{Nombre: nombre, Corriendo: raw.State.Running, Imagen: raw.Config.Image, Etiquetas: raw.Config.Labels, Estado: raw.State.Status,
-		Codigo: raw.State.ExitCode, Reinicios: raw.RestartCount, Error: raw.State.Error}, nil
+		Codigo: raw.State.ExitCode, Reinicios: raw.RestartCount, Error: raw.State.Error, Desde: raw.State.StartedAt}, nil
 }
 
 // Registros is the last lines a container wrote ("" when it cannot be read).
@@ -358,6 +360,20 @@ func (m *Motor) Registros(ctx context.Context, nombre string, lineas int) string
 		return ""
 	}
 	return strings.TrimSpace(out.String())
+}
+
+// RegistrosDesde is the last lines a container wrote within a window of
+// time back from now (0: any time), stdout and stderr together.
+func (m *Motor) RegistrosDesde(ctx context.Context, nombre string, lineas int, desde time.Duration) (string, error) {
+	var out bytes.Buffer
+	args := []string{"logs", "--tail", strconv.Itoa(lineas)}
+	if desde > 0 {
+		args = append(args, "--since", desde.String())
+	}
+	if err := m.run(ctx, append(args, nombre), &out); err != nil {
+		return "", fmt.Errorf("%s logs %s: %v", m.Bin, nombre, err)
+	}
+	return out.String(), nil
 }
 
 // Reiniciar restarts a container.

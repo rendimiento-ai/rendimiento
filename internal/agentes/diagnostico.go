@@ -135,6 +135,11 @@ func (d *Diagnostician) Diagnose(ctx context.Context, runID int64) error {
 		out.Status, out.Note = store.DiagnosisFailed, i18n.M("the run did not fail")
 		return d.Store.SaveDiagnosis(ctx, out)
 	}
+	// It reads the run's steps and logs: its platform_read (Ruta 184).
+	if !Permite(ctx, d.Store, app.OrgID, store.SujetoDiagnostico, store.PermPlatformRead, app.Name, "") {
+		out.Status, out.Note = store.DiagnosisFailed, i18n.M("the diagnostician may not read runs and their logs (AI page, Permissions)")
+		return d.Store.SaveDiagnosis(ctx, out)
+	}
 	text, signature, clues := d.context(ctx, app, run)
 	out.Signature = signature
 	known := d.known(ctx, app, run, clues)

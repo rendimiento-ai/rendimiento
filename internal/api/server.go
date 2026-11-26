@@ -433,6 +433,12 @@ func (s *Server) Handler() http.Handler {
 	// What the coding agent asks: a person answers, or passes it to their agent (preguntas.go).
 	auth(store.MemberCollaborator, "POST /api/encargos/{id}/answer", s.answerEncargo)
 	auth(store.MemberCollaborator, "POST /api/encargos/{id}/pass", s.passEncargo)
+	// What each agent may do (permisos.go): seen by members, changed by
+	// administrators; an agent's request answered (a no by a collaborator).
+	auth(store.MemberGuest, "GET /api/permisos", s.permisosView)
+	auth(store.MemberAdmin, "PUT /api/permisos/{sujeto}", s.putPermisos)
+	auth(store.MemberAdmin, "DELETE /api/permisos/dados/{id}", s.deletePermisoDado)
+	auth(store.MemberCollaborator, "POST /api/permisos/pedidos/{id}", s.answerPermiso)
 	// What people say about agents' work (a cargo, an encargo), and agents'
 	// answers, which reach the person who commented in the bell.
 	auth(store.MemberGuest, "GET /api/comentarios", s.listComentarios)

@@ -555,6 +555,9 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	rutaSrv := &ruta.Server{Store: st, Log: log.With("component", "ruta"), Lang: env("NOTIFY_LANG", "en")}
 	// The platform's tools for agents: apps, runs, logs, kept requests, CI.
 	rutaSrv.Plataforma = plataformaMCP{Store: st, p: p, srv: srv}
+	// Each key's permissions (Ruta 184), and what infra_leer, copias_leer
+	// and the effects tools read and do (only the asked app's).
+	rutaSrv.Permisos, rutaSrv.Infra = st, platform.AgentInfra{P: p}
 	// Encargos: work asked of agents, taken, waited on and handed over.
 	rutaSrv.Encargos = st
 	rutaSrv.AlEntregar = p.PullsForDelivery // a delivered branch gets its pull request
@@ -786,6 +789,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 		// What its read-only tools see (its encargo's app only), and how it
 		// runs again a run the cluster failed.
 		coder.Plataforma, coder.PlatformApp, coder.RetryRun = st, os.Getenv("SELF_APP"), p.RetryRun
+		coder.Infra = platform.AgentInfra{P: p} // infra_read, copies, effects (each by its permission)
 		est := &agentes.Estimator{Store: st, Model: srv.IA, Lang: env("NOTIFY_LANG", "en"), Log: log.With("component", "agents")}
 		// Where comments are received (rendimiento.ai), the platform's AI
 		// sorts each one and drafts its answer, for a person to send.

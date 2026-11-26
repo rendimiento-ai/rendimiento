@@ -1244,9 +1244,18 @@ func TestFusionSinPruebas(t *testing.T) {
 		if r.CheckRun == nil {
 			t.Fatalf("run %d has no check", r.ID)
 		}
-		fake.mu.Lock()
-		defer fake.mu.Unlock()
-		return fake.checks[*r.CheckRun]
+		// The run is finished (FinishRun) a moment before its check is
+		// completed (finishCheck): wait for the check.
+		var c forja.Check
+		for deadline := time.Now().Add(15 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+			fake.mu.Lock()
+			c = fake.checks[*r.CheckRun]
+			fake.mu.Unlock()
+			if c.Status == "completed" {
+				break
+			}
+		}
+		return c
 	}
 	merged := func() []int {
 		fake.mu.Lock()
