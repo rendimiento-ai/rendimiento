@@ -3553,4 +3553,8 @@ export const es: Record<string, string> = {
   "Open an app's visits": "Abrir las visitas de una app",
   "Open an app's notebook": "Abrir la libreta de una app",
   "Open an app's settings": "Abrir la configuración de una app",
+  // Home with one search (pages/Dashboard.tsx, decision 195).
+  "Clear the search": "Quitar la búsqueda",
+  "{n} app matches «{q}»": "{n} app coincide con «{q}»",
+  "{n} apps match «{q}»": "{n} apps coinciden con «{q}»",
 };

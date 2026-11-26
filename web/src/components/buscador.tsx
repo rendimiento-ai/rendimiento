@@ -4,7 +4,7 @@
 // arrows move between them. On a phone it is a button that opens the box
 // over the top of the screen.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api, type App, type RunNow } from "../api";
 import { t } from "../i18n";
 import { statusText } from "./ui";
@@ -26,7 +26,11 @@ export function escribiendo(e: KeyboardEvent): boolean {
 export function Buscador({ paginas, telefono }: { paginas: PaginaBuscable[]; telefono?: boolean }) {
   const nav = useNavigate();
   const { pathname } = useLocation();
-  const [texto, setTexto] = useState("");
+  // On home this is also the mosaic's search (decision 195): what is written filters the apps there (?q=), so the
+  // list below the box shows only runs and pages.
+  const enInicio = pathname === "/";
+  const [params, setParams] = useSearchParams();
+  const [texto, setTexto] = useState(() => (enInicio ? params.get("q") ?? "" : ""));
   const [q, setQ] = useState("");
   const [abierto, setAbierto] = useState(false);
   const [activo, setActivo] = useState(0);
@@ -84,13 +88,19 @@ export function Buscador({ paginas, telefono }: { paginas: PaginaBuscable[]; tel
     document.addEventListener("mousedown", fuera);
     return () => document.removeEventListener("mousedown", fuera);
   }, [abierto]);
-  useEffect(() => { setAbierto(false); setTexto(""); }, [pathname]);
+  useEffect(() => { setAbierto(false); setTexto(enInicio ? params.get("q") ?? "" : ""); }, [pathname]);
+  // Home: the box writes the mosaic's filter as one types; when the page clears it («Clear the search»), the box empties.
+  useEffect(() => {
+    if (!enInicio || (params.get("q") ?? "") === texto.trim()) return;
+    setParams((p) => { if (texto.trim()) p.set("q", texto.trim()); else p.delete("q"); return p; }, { replace: true });
+  }, [texto, enInicio]);
+  useEffect(() => { if (enInicio && !params.get("q") && texto.trim()) setTexto(""); }, [params]);
 
   const resultados = useMemo<Resultado[]>(() => {
     const s = llano(q);
     if (!s) return [];
     const primero = (x: string) => (llano(x).startsWith(s) ? 0 : 1);
-    const deApps = (apps ?? []).filter((a) => llano(a.name).includes(s) || llano(a.repo).includes(s))
+    const deApps = enInicio ? [] : (apps ?? []).filter((a) => llano(a.name).includes(s) || llano(a.repo).includes(s))
       .sort((x, y) => primero(x.name) - primero(y.name) || x.name.localeCompare(y.name)).slice(0, 6)
       .map((a): Resultado => ({ id: `app-${a.id}`, grupo: "apps", a: `/apps/${a.name}`, titulo: a.name, detalle: a.repo }));
     const n = /^#?(\d+)$/.exec(s)?.[1];
@@ -103,7 +113,7 @@ export function Buscador({ paginas, telefono }: { paginas: PaginaBuscable[]; tel
       .sort((x, y) => primero(x.nombre) - primero(y.nombre)).slice(0, 5)
       .map((p): Resultado => ({ id: `pagina-${p.to}`, grupo: "paginas", a: p.to, titulo: p.nombre }));
     return [...deApps, ...deRuns, ...dePaginas];
-  }, [q, apps, runs, porNumero, paginas]);
+  }, [q, apps, runs, porNumero, paginas, enInicio]);
 
   const ir = (r: Resultado) => {
     setAbierto(false);
@@ -129,7 +139,8 @@ export function Buscador({ paginas, telefono }: { paginas: PaginaBuscable[]; tel
   const grupos: { id: Resultado["grupo"]; nombre: string }[] = [
     { id: "apps", nombre: t("Apps") }, { id: "runs", nombre: t("Runs") }, { id: "paginas", nombre: t("Pages") },
   ];
-  const lista = abierto && texto.trim() !== "";
+  // On home a search that matches only apps shows them in the mosaic, with no list over it.
+  const lista = abierto && texto.trim() !== "" && !(enInicio && q === texto.trim() && resultados.length === 0);
   const etiqueta = t("Search apps, runs or pages");
 
   if (telefono && !abierto) {
