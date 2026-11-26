@@ -22,6 +22,7 @@ import { Cargando } from "./components/cargando";
 import { perezosa } from "./components/perezosa";
 import { AvisoConexion } from "./components/conexion-aviso";
 import { AvisoSueno, BotonDormir } from "./components/dormir";
+import { Ayudante } from "./components/ayudante";
 import { olvidarGuardado, quienEs, registrarTrabajador } from "./trabajador/registro";
 import "./styles.css";
 
@@ -230,6 +231,7 @@ function Shell() {
         </Suspense>
         </FallaFrontera>
       </main>
+      <Ayudante />
       <Avisos />
       <Guardapolvo sistema={state.sistema} />
       {telefono && <div className="menu-hoja-espacio" />}

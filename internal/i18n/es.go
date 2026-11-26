@@ -5,6 +5,14 @@ package i18n
 // problems, statuses). Formal (usted); technical terms in Spanish.
 // Keys are the English formats; TestCatalog checks the two stay in step.
 var catalog = map[string]string{
+	// El ayudante (api/ayudante.go).
+	"write a question":                                                     "escriba una pregunta",
+	"a question is at most 2,000 characters":                               "una pregunta tiene a lo más 2,000 caracteres",
+	"the page is an address of rendimiento, such as /apps/web":             "la página es una dirección de rendimiento, como /apps/web",
+	"no AI is set up: the helper needs the local model or a key (page AI)": "no hay ninguna IA configurada: el ayudante necesita el modelo local o una llave (página IA)",
+	"that AI cannot answer now":                                            "esa IA no puede contestar ahora",
+	"the AI could not answer: %s":                                          "la IA no pudo contestar: %s",
+
 	"%d daemons ready in the pool; each image builds on its own daemon": "%d demonios listos en el grupo; cada imagen se construye en su propio demonio",
 	"%d h %d min":                          "%d h %d min",
 	"%d min":                               "%d min",
