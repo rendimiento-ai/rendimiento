@@ -11,7 +11,7 @@ test("the libreta: noting a request writes it in the Ruta, about the app", async
   const titulo = `Que el arreglo se dispare desde el botón (${info.project.name})`;
 
   await page.goto(`/apps/${app}`);
-  await page.locator("nav.app-tabs a", { hasText: es ? "Libreta" : "Notebook" }).click();
+  await page.locator("nav.app-pestanas a", { hasText: es ? "Libreta" : "Notebook" }).click();
   await expect(page).toHaveURL(new RegExp(`/apps/${app}/libreta$`));
   await expect(page.locator(".libreta-manda")).toContainText(es ? "La Ruta manda" : "La Ruta is in charge");
 

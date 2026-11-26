@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, dollars, duration, session, subscribe, timeAgo, type App, type Diagnosis, type FixOffer, type FixRun, type ReleaseTask, type Run, type Step } from "../api";
 import { RunBadge } from "../components/ui";
 import { Falla, NoExiste } from "../components/falla";
@@ -18,6 +18,9 @@ import { SoloAbrir } from "../components/solo-abrir";
 export function RunPage() {
   const { name = "", id = "" } = useParams();
   const runId = Number(id);
+  // Back to the list it was opened from, with its filter (the list puts itself back where it was), else the app's runs.
+  const desde = (useLocation().state as { desde?: string } | null)?.desde;
+  const volverA = desde && desde.startsWith(`/apps/${name}/`) ? desde : `/apps/${name}/runs`;
   const [run, setRun] = useState<Run>();
   const [error, setError] = useState<unknown>();
   const [vuelta, setVuelta] = useState(0); // bumped to load the run again after rendimiento did not answer
@@ -107,7 +110,7 @@ export function RunPage() {
 
   return (
     <>
-      <p className="small"><Link to={`/apps/${name}/runs`}>{t("← {name} runs", { name })}</Link></p>
+      <p className="small"><Link to={volverA}>{t("← {name} runs", { name })}</Link></p>
       <div className="row between">
         <div className="row">
           <h1 data-listo="">{t("Run #{n}", { n: run.id })}</h1>
