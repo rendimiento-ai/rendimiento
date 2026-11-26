@@ -22,9 +22,10 @@ test("home: the top bar's search filters the apps, and each tile has its shortcu
   const caja = page.locator("header.topbar .buscador input");
   await caja.fill(app);
   await expect(page).toHaveURL(new RegExp(`[?&]q=${app}`));
-  await expect(page.locator("main .mosaico .teja", { hasText: app })).toHaveCount(1);
-  expect(await page.locator("main .mosaico .teja").count()).toBeLessThan(5);
+  // The line that says how many match comes once the mosaic is filtered; then only a few tiles are left.
   await expect(page.locator("main .mosaico-coinciden")).toContainText(app);
+  await expect(page.locator("main .mosaico .teja", { hasText: app })).toHaveCount(1);
+  await expect.poll(() => page.locator("main .mosaico .teja").count()).toBeLessThan(5);
   await expect(page.locator("#buscador-lista [role=option]", { hasText: app }).filter({ hasNotText: "#" })).toHaveCount(0);
 
   const teja = page.locator("main .mosaico .teja", { hasText: app });
