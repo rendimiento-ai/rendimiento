@@ -3569,3 +3569,81 @@ a.et-insignia:hover { text-decoration: none; filter: brightness(.97); }
 .uso-linea { animation: vista-entra .35s ease both; }
 @media (prefers-reduced-motion: reduce) { .permisos-picado i, .permisos-sujeto.on .dibujo-agente, .permisos-fila.cambiada, .permisos-modo button.on, .pu-permiso .pu-signo-dibujo, .uso-linea { animation: none; } .permisos-sujeto:hover:not(.on) { transform: none; } }
 @media (max-width: 760px) { .permisos-picado i:nth-child(n+8) { display: none; } }
+
+/* El ayudante, Tsïntsuni the hummingbird (components/ayudante.tsx, decision 188): a round button on every
+   page, and a panel beside the page (a sheet from below on a phone), in the town's colors. */
+.ayudante-boton { position: fixed; right: max(18px, env(safe-area-inset-right, 0px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 7;
+  width: 60px; height: 60px; padding: 0; border: 0; border-radius: 99px; display: grid; place-items: center; cursor: pointer;
+  background: radial-gradient(circle at 30% 30%, #2E4FA8, var(--anil)); box-shadow: 0 8px 22px -6px rgba(35,64,142,.7);
+  animation: ay-llama 2.8s ease-in-out infinite; transition: transform .2s; }
+.ayudante-boton:hover { transform: translateY(-3px) rotate(-4deg); background: radial-gradient(circle at 30% 30%, #2E4FA8, var(--anil)); }
+@keyframes ay-llama { 0%, 100% { box-shadow: 0 8px 22px -6px rgba(35,64,142,.7), 0 0 0 0 rgba(232,137,12,0); } 50% { box-shadow: 0 8px 22px -6px rgba(35,64,142,.7), 0 0 0 9px rgba(232,137,12,.22); } }
+.colibri { animation: ay-zumba .9s ease-in-out infinite; overflow: visible; }
+.colibri-ala { transform-origin: 21px 17px; animation: ay-aletea .22s ease-in-out infinite; }
+.colibri-ojo { transform-origin: 28px 18px; animation: ay-parpadea 4s infinite; }
+@keyframes ay-zumba { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(1px, -2px); } 75% { transform: translate(-1px, 1px); } }
+@keyframes ay-aletea { 0%, 100% { transform: rotate(-18deg); } 50% { transform: rotate(22deg); } }
+@keyframes ay-parpadea { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+
+.ayudante { position: fixed; z-index: 8; top: 0; right: 0; bottom: 0; width: min(420px, 100vw); display: flex; flex-direction: column;
+  background: var(--surface); border-left: 1px solid var(--border); box-shadow: -18px 0 40px -24px rgba(0,0,0,.5); animation: ay-entra .3s ease-out; }
+@keyframes ay-entra { from { transform: translateX(30px); opacity: 0; } }
+.ay-cabeza { position: relative; display: flex; align-items: center; gap: 12px; padding: 38px 14px 14px;
+  padding-top: calc(38px + env(safe-area-inset-top, 0px)); color: #fff; background: linear-gradient(135deg, var(--grana) 0%, var(--rosa) 50%, var(--cempasuchil) 100%); }
+.ay-picado { position: absolute; top: env(safe-area-inset-top, 0px); left: 0; right: 0; height: 28px; display: flex; justify-content: space-around; pointer-events: none; }
+.ay-picado i { width: 26px; height: 24px; clip-path: polygon(0 0,100% 0,100% 78%,75% 100%,50% 78%,25% 100%,0 78%); transform-origin: top; animation: calle-mece 3s ease-in-out infinite; }
+.ay-picado i:nth-child(6n+1) { background: #F2C14E; } .ay-picado i:nth-child(6n+2) { background: #5BC0BE; } .ay-picado i:nth-child(6n+3) { background: #FFFDF8; }
+.ay-picado i:nth-child(6n+4) { background: #7FD16B; } .ay-picado i:nth-child(6n+5) { background: #F2C14E; } .ay-picado i:nth-child(6n+6) { background: #5BC0BE; }
+.ay-ave { flex: none; width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center; background: var(--anil); box-shadow: 0 6px 16px rgba(0,0,0,.25); animation: ay-flota 3s ease-in-out infinite; }
+@keyframes ay-flota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+.ay-titulos { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.ay-titulos h2 { margin: 0; font-family: var(--display); font-size: 21px; color: #fff; text-shadow: 0 1px 0 rgba(0,0,0,.2); }
+.ay-titulos span { font-size: 12.5px; overflow-wrap: anywhere; opacity: .95; }
+.ay-cerrar { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 99px; border: 2px solid rgba(255,255,255,.6); background: rgba(255,255,255,.14); color: #fff; font-size: 22px; font-weight: 900; line-height: 1; }
+.ay-cerrar:hover { background: rgba(255,255,255,.28); }
+.ay-lista { flex: 1; min-height: 0; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px;
+  background: radial-gradient(circle at 92% 8%, color-mix(in srgb, var(--cempasuchil) 18%, transparent) 0, transparent 38%), radial-gradient(circle at 4% 72%, color-mix(in srgb, var(--rosa) 12%, transparent) 0, transparent 34%), var(--bg); }
+.ay-hola { margin: 0; padding: 12px 14px; border-radius: 18px; background: var(--surface); border: 2px dashed var(--cempasuchil); line-height: 1.5; }
+.ay-msg { max-width: 92%; padding: 10px 14px; line-height: 1.5; overflow-wrap: anywhere; animation: ay-rebota .35s ease-out both; }
+@keyframes ay-rebota { 0% { transform: translateY(10px); opacity: 0; } 60% { transform: translateY(-2px); opacity: 1; } 100% { transform: translateY(0); } }
+.ay-msg.persona { align-self: flex-end; border-radius: 20px 20px 4px 20px; color: #fff; background: linear-gradient(135deg, var(--grana), #B4234A); box-shadow: 0 4px 12px -4px rgba(142,27,44,.5); }
+.ay-msg.respuesta { align-self: flex-start; display: flex; flex-direction: column; gap: 9px; border-radius: 20px 20px 20px 4px; background: var(--surface); border: 2px solid #F2C14E; box-shadow: 0 4px 14px -8px rgba(0,0,0,.3); }
+.ay-enlaces { display: flex; flex-direction: column; gap: 7px; }
+.ay-enlace { min-height: 46px; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 14px; border: 2px solid; font-weight: 800; text-decoration: none; animation: ay-rebota .35s ease-out both; transition: transform .15s; }
+.ay-enlace:hover { transform: translateX(3px); text-decoration: none; }
+.ay-enlace.tono-0 { color: var(--text); border-color: var(--anil); background: color-mix(in srgb, var(--anil) 10%, var(--surface)); }
+.ay-enlace.tono-1 { color: var(--text); border-color: var(--cempasuchil); background: color-mix(in srgb, var(--cempasuchil) 14%, var(--surface)); }
+.ay-enlace.tono-2 { color: var(--text); border-color: var(--nopal); background: color-mix(in srgb, var(--nopal) 12%, var(--surface)); }
+.ay-enlace.tono-3 { color: var(--text); border-color: var(--rosa); background: color-mix(in srgb, var(--rosa) 10%, var(--surface)); }
+.ay-enlace-que { padding: 2px 7px; border-radius: 99px; font-size: 11.5px; color: #fff; background: var(--nopal); }
+.ay-flecha { margin-left: auto; }
+.ay-leido { font-size: 12px; color: var(--muted); }
+.ay-pensando { flex-direction: row; gap: 6px; align-items: center; }
+.ay-flor { animation: ay-petalo 1.2s infinite; }
+@keyframes ay-petalo { 0%, 80%, 100% { transform: scale(.6) rotate(0); opacity: .35; } 40% { transform: scale(1) rotate(45deg); opacity: 1; } }
+.ay-ofrece { align-self: flex-start; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 16px; border: 2px dashed #6A2479; background: color-mix(in srgb, #6A2479 10%, var(--surface)); font-size: 13.5px; animation: ay-rebota .35s ease-out both; }
+.ay-ofrece button { align-self: flex-start; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 0; background: #6A2479; color: #fff; font-weight: 800; }
+.ay-rapidas { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 14px; background: var(--bg); }
+.ay-rapidas button { min-height: 40px; padding: 0 12px; border-radius: 999px; border: 0; font-size: 13.5px; font-weight: 800; }
+.ay-rapidas .tono-0 { background: color-mix(in srgb, var(--cempasuchil) 22%, var(--surface)); color: var(--text); }
+.ay-rapidas .tono-1 { background: color-mix(in srgb, #5BC0BE 26%, var(--surface)); color: var(--text); }
+.ay-rapidas .tono-2 { background: color-mix(in srgb, var(--rosa) 18%, var(--surface)); color: var(--text); }
+.ay-escribir { display: flex; gap: 8px; align-items: center; padding: 10px 12px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 3px solid transparent; border-image: linear-gradient(90deg, var(--grana), var(--cempasuchil), var(--rosa), var(--anil), var(--nopal)) 1; background: var(--surface); }
+.ay-escribir input { flex: 1; min-width: 0; height: 50px; border-radius: 999px; border: 2px solid #F2C14E; background: var(--bg); padding: 0 18px; font: inherit; color: var(--text); }
+.ay-enviar { flex: none; width: 50px; height: 50px; padding: 0; border-radius: 99px; border: 0; color: #fff; font-size: 20px; font-weight: 900;
+  background: linear-gradient(135deg, var(--cempasuchil), var(--rosa)); animation: ay-late 2.4s ease-in-out infinite; }
+.ay-enviar:disabled { opacity: .5; animation: none; }
+@keyframes ay-late { 0%, 100% { box-shadow: 0 0 0 0 rgba(232,137,12,0); } 50% { box-shadow: 0 0 0 8px rgba(232,137,12,.25); } }
+@media (max-width: 760px) {
+  .ayudante-boton { bottom: calc(118px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; }
+  /* Above a page's own bar at the bottom (the Ruta's places), never over it. */
+  body:has(.ruta-lugares) .ayudante-boton { bottom: calc(182px + env(safe-area-inset-bottom, 0px)); }
+  .ayudante { top: auto; left: 0; width: 100%; height: 88vh; border-left: 0; border-radius: 24px 24px 0 0; box-shadow: 0 -18px 40px -20px rgba(0,0,0,.55); animation-name: ay-sube; }
+  .ay-cabeza { border-radius: 24px 24px 0 0; padding-top: 38px; }
+  .ay-picado { top: 0; }
+}
+@keyframes ay-sube { from { transform: translateY(40px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .ayudante-boton, .colibri, .colibri-ala, .colibri-ojo, .ayudante, .ay-picado i, .ay-ave, .ay-msg, .ay-enlace, .ay-flor, .ay-ofrece, .ay-enviar { animation: none; }
+}

@@ -1,6 +1,26 @@
 // Spanish for every phrase in the UI, keyed by its English text (see ../i18n.ts).
 // Usted, and technical terms in Spanish (despliegue, construcción, versión, complemento…).
 export const es: Record<string, string> = {
+  // El ayudante, Tsïntsuni the hummingbird (components/ayudante.tsx).
+  "Ask the hummingbird": "Pregúntele al colibrí",
+  "Tsïntsuni, the hummingbird": "Tsïntsuni, el colibrí",
+  "on {page}": "en {page}",
+  "Close the helper": "Cerrar el ayudante",
+  "Ask me anything about rendimiento: where a setting is, what a page does, why a run failed. I answer with where to go.": "Pregúnteme lo que sea de rendimiento: dónde está un ajuste, qué hace una página, por qué falló una ejecución. Le contesto con a dónde ir.",
+  "The platform's AI · {cost}": "La IA de la plataforma · {cost}",
+  "The hummingbird is thinking": "El colibrí está pensando",
+  "Not convinced? I can ask the platform's AI (about {cost}).": "¿No le convence? Lo puedo preguntar a la IA de la plataforma (cerca de {cost}).",
+  "Not convinced? I can ask the platform's AI.": "¿No le convence? Lo puedo preguntar a la IA de la plataforma.",
+  "Ask the platform's AI": "Preguntarle a la IA de la plataforma",
+  "Your question": "Su pregunta",
+  "Ask the hummingbird…": "Pregúntele al colibrí…",
+  "The book": "El libro",
+  "this page": "esta página",
+  "Your local model · free": "Su modelo local · gratis",
+  "The platform's AI": "La IA de la plataforma",
+  "Where are the keys?": "¿Dónde están las llaves?",
+  "What does this page do?": "¿Qué hace esta página?",
+  "How do I add an app?": "¿Cómo agrego una app?",
   // Dormir and Despertar, on a computer (components/dormir.tsx).
   "Put rendimiento to sleep": "Dormir rendimiento",
   "Sleep": "Dormir",

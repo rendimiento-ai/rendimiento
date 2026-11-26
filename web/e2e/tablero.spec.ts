@@ -64,6 +64,11 @@ test("the search finds an app, a page and a run; / opens it", async ({ page, pro
   const apps = (await (await page.request.get("/api/apps")).json()) as { name: string }[];
   expect(apps.length, "apps made by nueva-app.spec.ts").toBeGreaterThan(0);
   const app = apps[0].name;
+  // The runs the search lists are read each time it opens: the page's own, set before it ever opens
+  // (set later, an open that read the real ones first could keep them).
+  await page.route("**/api/corriendo", (r) => r.fulfill({ json: { ahora: [], recientes: [
+    { id: 880001, appId: 1, app, sha: "0123456789abcdef", branch: "rama-buscada", event: "push", deploy: false, status: "failed", message: "", createdAt: new Date().toISOString() },
+  ] } }));
   await page.goto("/ruta");
   await expect(page.locator("main h1").first()).toBeVisible();
   const caja = page.locator("header.topbar .buscador input");
@@ -92,10 +97,7 @@ test("the search finds an app, a page and a run; / opens it", async ({ page, pro
   await caja.press("Enter");
   await expect(page).toHaveURL(/\/bitacora$/);
 
-  // A run by its number, among the last ones (the test server runs nothing: they are the page's own).
-  await page.route("**/api/corriendo", (r) => r.fulfill({ json: { ahora: [], recientes: [
-    { id: 880001, appId: 1, app, sha: "0123456789abcdef", branch: "rama-buscada", event: "push", deploy: false, status: "failed", message: "", createdAt: new Date().toISOString() },
-  ] } }));
+  // A run by its number, among the last ones (the test server runs nothing: they are the page's own, above).
   await page.keyboard.press("Escape");
   await page.locator("main h1").first().click();
   await page.keyboard.press("/");

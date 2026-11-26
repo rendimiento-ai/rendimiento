@@ -336,6 +336,7 @@ func (s *Server) Handler() http.Handler {
 	plat(store.MemberAdmin, "PUT /api/ia/cap", s.putIACap)
 	// Platicar una entrada: a conversation about a Ruta entry (platica.go).
 	s.platicaRoutes(auth)
+	s.ayudanteRoutes(auth)
 	auth(store.MemberAdmin, "PUT /api/members/{login}", s.putMember)
 	auth(store.MemberAdmin, "DELETE /api/members/{login}", s.deleteMember)
 	auth(store.MemberAdmin, "GET /api/demo-links", s.listDemoLinks)

@@ -1,0 +1,2 @@
+- **Helper:** a hummingbird button on every page opens Tsïntsuni, rendimiento's helper: ask it where a setting is, what a page does or why a run failed, and it answers with links to the pages and the book (only ones that exist). It answers with the local model (free) and offers the platform's AI; it only reads, and each person's conversation is theirs alone, kept 7 days.
+- **Database:** migration `0070_ayudante.sql` adds the table `ayudante_mensajes` (only adds).

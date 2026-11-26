@@ -422,6 +422,38 @@ export interface RutaInput {
   discarded?: string;
 }
 
+
+// ---- el ayudante: a person's conversation with rendimiento's helper (api.AyudanteView) ----
+
+/** A link the helper gave: a page of rendimiento ("/apps/x/runs/1") or of the book ("libro:guide/ai/"). */
+export interface AyudanteEnlace {
+  texto: string;
+  href: string;
+  tipo: "pagina" | "libro";
+}
+
+/** One message of a person's conversation with the helper. */
+export interface AyudanteMensaje {
+  id: number;
+  kind: "persona" | "ayudante";
+  body: string;
+  pagina?: string;
+  enlaces: AyudanteEnlace[];
+  leido: string[];
+  provider?: AIProvider;
+  model?: string;
+  costMicros: number;
+  createdAt: string;
+}
+
+/** A person's conversation with the helper (the last 7 days), the AIs it may answer with, and the book's address. */
+export interface AyudanteView {
+  mensajes: AyudanteMensaje[];
+  ias: PlaticaIA[];
+  ia: AIProvider | "";
+  libro: string;
+}
+
 // ---- platicar una entrada: a conversation about a Ruta entry (api.PlaticaView) ----
 
 /** Who answers a conversation: one of the AI page's providers, or the person's own agent over MCP. */
@@ -1839,6 +1871,9 @@ export const api = {
   addRuta: (e: RutaInput) => request<RutaEntry>("POST", "/api/ruta", e),
   updateRuta: (id: number, e: RutaInput) => request<RutaEntry>("PUT", `/api/ruta/${id}`, e),
   archiveRuta: (id: number) => request<void>("POST", `/api/ruta/${id}/archive`),
+  ayudante: () => request<AyudanteView>("GET", "/api/ayudante"),
+  preguntarAyudante: (texto: string, pagina: string, ia?: AIProvider) =>
+    request<{ pregunta: AyudanteMensaje; respuesta: AyudanteMensaje }>("POST", "/api/ayudante", { texto, pagina, ia }),
   platica: (id: number) => request<PlaticaView>("GET", `/api/ruta/${id}/platica`),
   platicar: (id: number, texto: string, continuar = false) => request<PlaticaView>("POST", `/api/ruta/${id}/platica`, { texto, continuar }),
   platicaIA: (id: number, ia: PlaticaIAId) => request<PlaticaView>("PUT", `/api/ruta/${id}/platica/ia`, { ia }),

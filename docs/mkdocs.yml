@@ -106,6 +106,7 @@ plugins:
             Languages (English, Spanish): Idiomas (inglés y español)
             Without a connection (and installing it on a phone): Sin conexión (y cómo instalarla en el teléfono)
             Sleeping and shutting down (on a computer): Dormir y apagar (en una computadora)
+            "The helper (Tsïntsuni, the hummingbird)": "El ayudante (Tsïntsuni, el colibrí)"
             "Señales de vida (anonymous counts, and turning them off)": "Señales de vida (conteos anónimos, y cómo apagarlos)"
             "Use of the interface (totals, and turning it off)": "Uso de la interfaz (totales, y cómo apagarlo)"
             Comments (writing to the team): Comentarios (escribirle al equipo)
@@ -213,6 +214,7 @@ nav:
       - Languages (English, Spanish): guide/languages.md
       - Without a connection (and installing it on a phone): guide/sin-conexion.md
       - Sleeping and shutting down (on a computer): guide/dormir.md
+      - "The helper (Tsïntsuni, the hummingbird)": guide/ayudante.md
       - "Señales de vida (anonymous counts, and turning them off)": guide/senales.md
       - "Use of the interface (totals, and turning it off)": guide/uso.md
       - Comments (writing to the team): guide/comentarios.md
