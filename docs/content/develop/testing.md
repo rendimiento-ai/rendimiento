@@ -55,6 +55,8 @@ make itest                                       # real builds on the BuildKit p
 
 `-p 1` runs packages one after another: the store, platform and API tests share one database. On every push they do not: `CI_PARTE` splits the script into three steps, each with its own database (below).
 
+`internal/controller`'s envtest runs last, alone: after the other packages and before `escritorio/`. Beside the store's tests and their Postgres, another envtest or a compile, its etcd sometimes took more than its 15 seconds to apply a write (`etcdserver: request timed out`), and one such write while the CRDs were installed failed every test of the package; a retry then passed. Alone, it has the step's cores to itself.
+
 The store, platform and API tests each migrate a database once per package (`<db>_plantilla`, twice, since migrating must be idempotent) and give each test a copy of it (`CREATE DATABASE … TEMPLATE`), dropped when the test ends: `pgprueba.Base` in `internal/pgprueba`. A new migration costs one more statement, not one more per test, and a test starts with an empty, migrated database whatever earlier tests wrote. `hack/ci-test.sh` connects with `synchronous_commit=off`, since a throwaway database need not wait for its disk at each commit. Dropping the schema and migrating again for every test had made the store's tests six to eight minutes long on a busy node, and the API's four.
 
 ## On every push {#on-every-push}

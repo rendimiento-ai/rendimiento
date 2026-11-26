@@ -87,19 +87,26 @@ KUBEBUILDER_ASSETS=$(setup-envtest use "$ENVTEST_K8S" -p path --bin-dir "$(dirna
 export KUBEBUILDER_ASSETS
 # --8<-- [start:pruebas]
 # store, platform and api share one test database, so in one step they run
-# one at a time; the rest (internal/controller's envtest among them) run
-# beside them, two packages at a time (with the memory the test step has).
-# Split into steps, api and platform have a database each, on another node.
+# one at a time; the rest run beside them, two packages at a time (with the
+# memory the test step has). Split into steps, api and platform have a
+# database each, on another node.
 case "$parte" in
   api) shared='/internal/api$' rest='^$' ;;
   plataforma) shared='/internal/platform$' rest='^$' ;;
   resto) shared='/internal/store$' rest='/internal/(api|platform|store)$' ;;
   *) shared='/internal/(api|platform|store)$' rest='/internal/(api|platform|store)$' ;;
 esac
+# internal/controller's envtest (a test API server and its etcd) runs after
+# them, alone, with the step's cores to itself. Beside the store's tests and
+# their Postgres, another envtest or a compile, its etcd now and then took
+# longer than its 15 seconds to apply a write ("etcdserver: request timed
+# out": runs 1073, 1190, 1209 and 1896), even without fsync; at its start,
+# one such write failed every test of the package, and a retry passed.
+alone='/internal/controller$'
 out=$(mktemp -d)
 go test -v -p 1 $(go list ./... | grep -E "$shared") >"$out/shared.log" 2>&1 &
 a=$!
-others=$(go list ./... | grep -vE "$rest" | grep -vE "$shared" || true)
+others=$(go list ./... | grep -vE "$rest" | grep -vE "$shared" | grep -vE "$alone" || true)
 if [ -n "$parte" ] && [ "$parte" != resto ]; then others=""; fi
 if [ -n "$others" ]; then
   go test -v -p 2 $others >"$out/rest.log" 2>&1 &
@@ -111,17 +118,23 @@ fi
 # --8<-- [end:pruebas]
 # Each package as it finishes, so a long run shows where it is (tail ends
 # with this script, and the rest of the pipe with it).
-tail -n +1 -F --pid=$$ "$out/shared.log" "$out/rest.log" 2>/dev/null | grep --line-buffered -E '^(ok|FAIL)[[:space:]]' | sed -u 's/^/   finished: /' &
+: >"$out/envtest.log"
+tail -n +1 -F --pid=$$ "$out/shared.log" "$out/rest.log" "$out/envtest.log" 2>/dev/null | grep --line-buffered -E '^(ok|FAIL)[[:space:]]' | sed -u 's/^/   finished: /' &
 failed=()
 wait $a || failed+=("$out/shared.log")
 [ -z "$b" ] || wait $b || failed+=("$out/rest.log")
+envtest=$(go list ./... | grep -E "$alone" || true)
+if { [ -z "$parte" ] || [ "$parte" = resto ]; } && [ -n "$envtest" ]; then
+  section 'envtest (internal/controller, alone)'
+  go test -v $envtest >"$out/envtest.log" 2>&1 || failed+=("$out/envtest.log")
+fi
 sleep 2 # the last packages' lines, before the summary
 
 # rendimiento for Windows (escritorio/) is a module of its own, so the
-# ./... above never see it. It goes after the tests, not beside them: the
-# two envtest API servers need both cores, and a compile next to them makes
-# etcd time out. Its log joins the tests', so the summary lists its
-# packages and, when it fails, ends with the step that stopped it.
+# ./... above never see it. It goes after the tests, not beside them: a
+# compile next to the envtest makes its etcd time out. Its log joins the
+# tests', so the summary lists its packages and, when it fails, ends with
+# the step that stopped it.
 if [ -z "$parte" ] || [ "$parte" = resto ]; then
   section 'escritorio (the Windows app: on Linux, then for windows/amd64)'
   (
