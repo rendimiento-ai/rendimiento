@@ -6,7 +6,7 @@ import { outsideWhy } from "../components/barda";
 import { lang, locale, t, tn } from "../i18n";
 import { useConexion } from "../conexion";
 import { apagado } from "../components/conexion-aviso";
-import { BotonActualizar, PlatformVersion, Publicada, useActualizar } from "./Version";
+import { AvisoDeploy, BotonActualizar, Publicada, useActualizar } from "./Version";
 import { EsqCosa, Esqueleto, Hueso } from "../components/esqueleto";
 import { Forjas } from "../components/forjas";
 
@@ -118,7 +118,6 @@ function Entorno() {
   const caidos = malos.filter((c) => c.status === "error" || (c.status === "missing" && c.required)).length + r.nodes.filter((n) => !n.ready).length;
   const avisos = malos.length - malos.filter((c) => c.status === "error" || (c.status === "missing" && c.required)).length + problems.length;
   const vst = version.data?.status;
-  const novedad = !!vst?.available || !!vst?.manifests?.changed?.length;
 
   return (
     <div className="entorno">
@@ -144,8 +143,12 @@ function Entorno() {
           pie={apps ? `${tn(apps.length, "{n} app", "{n} apps")} · ${tn((r.cluster.certificates ?? 0) - (r.cluster.certificatesBad ?? 0), "{n} valid certificate", "{n} valid certificates")}` : ""} />
         <Cifra color="var(--anil)" titulo={t("Platform")}
           valor={vst?.current ? t("release #{n}", { n: vst.current.release }) : vst?.running ? vst.running.slice(0, 12) : "rendimiento"}
-          pie={vst ? (vst.available ? t("A newer one is ready") : t("Up to date")) : ""} />
+          pie={vst ? <>{vst.available ? t("A newer one is ready") : t("Up to date")} · <Link to={`/apps/${vst.app}/releases`}>{t("Releases")}</Link></> : ""} />
       </section>
+
+      {/* The version shows once, in the header's button and the Platform figure; below it only what Update cannot do. */}
+      <AvisoDeploy />
+      <Publicada />
 
       <Necesita checks={malos} problems={problems} onAbrir={setAbierto} />
 
@@ -160,11 +163,6 @@ function Entorno() {
 
       <Conexiones r={r} abierto={abierto} onAbrir={setAbierto} onSynced={refresh} />
 
-      <details className="entorno-plegable" open={novedad || undefined}>
-        <summary>{t("The platform's version")}</summary>
-        <PlatformVersion />
-        <Publicada />
-      </details>
       <details className="entorno-plegable">
         <summary>{t("Capacity")}</summary>
         <Capacidad nodes={r.nodes} />
@@ -220,7 +218,7 @@ function ComoVa({ overall, caidos, avisos, summary }: { overall: EnvStatus; caid
 }
 
 /** One number of the summary, with a colored top. */
-function Cifra({ color, titulo, valor, pie }: { color: string; titulo: string; valor: string; pie: string }) {
+function Cifra({ color, titulo, valor, pie }: { color: string; titulo: string; valor: string; pie: ReactNode }) {
   return (
     <div className="cifra" style={{ ["--c" as string]: color }}>
       <span className="cifra-titulo">{titulo}</span>
