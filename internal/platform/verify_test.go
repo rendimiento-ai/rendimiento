@@ -70,6 +70,22 @@ func TestJudge(t *testing.T) {
 	if !ok || len(warnings) != 1 || !strings.Contains(warnings[0], "slower: p95 2.5 s, was 120 ms") {
 		t.Errorf("slower release: ok=%v warnings=%v (slower is reported, never rolled back)", ok, warnings)
 	}
+
+	// Release 335 of rendimiento-ai: 1 slow check of 16 (p95 2.7 s, was
+	// 818 ms) is a blip, not a slower release; two are reported.
+	public := map[[2]string]store.CheckStats{web: {Total: 180, OK: 180, P95MS: 818}}
+	blip := &windowStats{}
+	for i := 0; i < 15; i++ {
+		blip.add(store.Probe{OK: true, LatencyMS: 600})
+	}
+	blip.add(store.Probe{OK: true, LatencyMS: 2700})
+	if ok, _, warnings := judge(public, map[[2]string]*windowStats{web: blip}); !ok || len(warnings) != 0 {
+		t.Errorf("one slow check: ok=%v warnings=%v, want no warning", ok, warnings)
+	}
+	blip.add(store.Probe{OK: true, LatencyMS: 2600})
+	if ok, _, warnings := judge(public, map[[2]string]*windowStats{web: blip}); !ok || len(warnings) != 1 {
+		t.Errorf("two slow checks: ok=%v warnings=%v, want one warning", ok, warnings)
+	}
 }
 
 // A release that breaks its service is rolled back to the last good one;

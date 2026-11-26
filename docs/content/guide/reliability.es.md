@@ -73,7 +73,7 @@ flowchart LR
 2. **La ventana:** durante 5 minutos, cada comprobación de la versión (dentro del clúster y pública) se ejecuta cada 20 segundos.
 3. **El veredicto.** Una comprobación hace fallar la versión cuando **al menos 3 de sus intentos, y al menos una quinta parte, fallaron**, y estaba sana (90% o más de disponibilidad) en la hora previa a la versión, o es nueva. Dos excepciones:
    - Una comprobación que **ya fallaba antes** se reporta, pero no se le achaca a la versión.
-   - Una versión **mucho más lenta** (p95 tres veces mayor, y un segundo más) se reporta pero no se revierte, porque las cachés frías hacen que eso sea ruidoso.
+   - Una versión **mucho más lenta** (p95 tres veces mayor, y un segundo más, en al menos dos comprobaciones) se reporta pero no se revierte, porque las cachés frías hacen que eso sea ruidoso; en una ventana de 5 minutos el p95 es la comprobación más lenta, así que una sola respuesta lenta es un tropiezo.
 4. **La reversión:** una versión fallida se revierte a la **versión anterior más reciente que no falló la verificación**, como una versión nueva (`reversión a la n.º 7`). Las reversiones, manuales o automáticas, no se vuelven a verificar, así que no hay ciclos de reversión.
 
 El resultado aparece en cada versión de la pestaña **Versiones**, con el motivo:

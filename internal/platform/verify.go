@@ -410,7 +410,19 @@ func (w *windowStats) add(r store.Probe) {
 	}
 }
 
-// p95 is the time 95% of answers took at most, in milliseconds.
+// slowerThan counts the answers that took more than ms milliseconds.
+func (w *windowStats) slowerThan(ms int) int {
+	n := 0
+	for _, l := range w.latency {
+		if l > ms {
+			n++
+		}
+	}
+	return n
+}
+
+// p95 is the time 95% of answers took at most, in milliseconds (with
+// fewer than 20 answers, the slowest one).
 func (w *windowStats) p95() int {
 	if len(w.latency) == 0 {
 		return 0
@@ -424,7 +436,11 @@ func (w *windowStats) p95() int {
 // of its checks, and at least a fifth, failed, unless it was already
 // failing in the hour before the release (under 90% up), which is
 // reported but not blamed on the release. Being much slower (p95 three
-// times the baseline and a second more) is only reported.
+// times the baseline and a second more) is only reported, and only when at
+// least two checks were that slow: in a 5-minute window (16 rounds) the
+// p95 is the slowest check, so one slow answer (a TLS handshake through
+// Cloudflare, a busy node) would be reported alone, as one failed check
+// would not fail the release.
 func judge(baseline map[[2]string]store.CheckStats, got map[[2]string]*windowStats) (bool, string, []string) {
 	keys := make([][2]string, 0, len(got))
 	for k := range got {
@@ -449,7 +465,8 @@ func judge(baseline map[[2]string]store.CheckStats, got map[[2]string]*windowSta
 			failures = append(failures, M("%s: %d of %d checks failed (%s); %s", name, fails, w.total, w.lastError, before))
 			continue
 		}
-		if p95 := w.p95(); had && b.P95MS > 0 && p95 > 3*b.P95MS && p95-b.P95MS > 1000 {
+		if p95 := w.p95(); had && b.P95MS > 0 && p95 > 3*b.P95MS && p95-b.P95MS > 1000 &&
+			w.slowerThan(max(3*b.P95MS, b.P95MS+1000)) >= 2 {
 			warnings = append(warnings, M("%s is slower: p95 %s, was %s", name, fmtMS(p95), fmtMS(b.P95MS)))
 		}
 	}
