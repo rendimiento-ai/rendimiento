@@ -1,0 +1,1 @@
+- **Home:** one search. The top bar's box also filters the apps on home as you type (the mosaic's own box is gone), with how many match and **Clear the search**; each app tile has its shortcuts: its last run and its runs.

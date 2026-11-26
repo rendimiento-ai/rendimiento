@@ -127,11 +127,13 @@ export function Dashboard() {
               </button>
             ))}
           </div>
-          <label className="mosaico-buscar">
-            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5 21 21" /></svg>
-            <input type="search" value={q} onChange={(e) => poner("q", e.target.value)} onKeyDown={(e) => { if (e.key === "Escape") poner("q", ""); }}
-              placeholder={t("Search by name, repository or address")} aria-label={t("Search apps")} />
-          </label>
+          {/* One search: the top bar's. Here it filters the mosaic as one types (?q=), and says how many match. */}
+          {q && shown.length > 0 && (
+            <p className="mosaico-coinciden" role="status">
+              {tn(shown.length, "{n} app matches «{q}»", "{n} apps match «{q}»", { q })}
+              <button type="button" className="link" onClick={() => poner("q", "")}>{t("Clear the search")}</button>
+            </p>
+          )}
           {shown.length === 0 && (
             <div className="card empty">
               <p>{q ? t("No app matches “{q}”.", { q }) : t("No app here.")}</p>
@@ -163,12 +165,16 @@ export function Dashboard() {
                 </div>
                 <div className={`teja-estado ${caida ? "mal" : "bien"}`} title={t("Share of successful uptime checks in the last 24 hours")}>{estado}</div>
                 {url && <a className="teja-url small" href={url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{resaltar(url.replace(/^https?:\/\//, ""), q)}</a>}
-                {a.lastRun && (
-                  <div className="row small muted" title={`${a.lastRun.branch} · ${a.lastRun.sha.slice(0, 7)}`}>
-                    <RunBadge status={a.lastRun.status} />
-                    <span>{timeAgo(a.lastRun.createdAt)}</span>
-                  </div>
-                )}
+                {/* Its shortcuts: from home people go to an app or straight to a run (decision 195). */}
+                <div className="teja-atajos" onClick={(e) => e.stopPropagation()}>
+                  {a.lastRun && (
+                    <Link className={`teja-atajo corrida ${a.lastRun.status}`} to={`/apps/${a.name}/runs/${a.lastRun.id}`}
+                      title={`${a.lastRun.branch} · ${a.lastRun.sha.slice(0, 7)}`}>
+                      <RunBadge status={a.lastRun.status} /><span>#{a.lastRun.id} · {timeAgo(a.lastRun.createdAt)}</span>
+                    </Link>
+                  )}
+                  <Link className="teja-atajo" to={`/apps/${a.name}/runs`}>{t("Runs")}</Link>
+                </div>
                 {a.status.phase !== "Healthy" && !caida && !lib && <PhaseBadge status={a.status} />}
               </div>
             </article>
