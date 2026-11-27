@@ -1087,9 +1087,16 @@ func sortedEnv(m map[string]string) []corev1.EnvVar {
 	return env
 }
 
+// cacheGrace is how long a kubelet may keep saying it could not sync its
+// cache of the pod's secrets before the step fails: it retries by itself, and
+// the error passes once its watch on the API server is back (seen on main's
+// run 1953, twice, with every node fine minutes later).
+var cacheGrace = 2 * time.Minute
+
 // waitStarted blocks until the container is running or has terminated,
 // failing fast on image pull errors.
 func (k *KubeExecutor) waitStarted(ctx context.Context, pod, container string) error {
+	var cacheSince time.Time
 	for {
 		p, err := k.Client.CoreV1().Pods(k.Namespace).Get(ctx, pod, metav1.GetOptions{})
 		if err != nil {
@@ -1103,7 +1110,16 @@ func (k *KubeExecutor) waitStarted(ctx context.Context, pod, container string) e
 			if cs.State.Running != nil || cs.State.Terminated != nil {
 				return nil
 			}
-			if w := cs.State.Waiting; w != nil && (w.Reason == "ErrImagePull" || w.Reason == "ImagePullBackOff" || w.Reason == "InvalidImageName" || w.Reason == "CreateContainerConfigError") {
+			w := cs.State.Waiting
+			if w != nil && w.Reason == "CreateContainerConfigError" && strings.Contains(w.Message, "failed to sync") {
+				if cacheSince.IsZero() {
+					cacheSince = time.Now()
+				}
+				if time.Since(cacheSince) < cacheGrace {
+					continue
+				}
+			}
+			if w != nil && (w.Reason == "ErrImagePull" || w.Reason == "ImagePullBackOff" || w.Reason == "InvalidImageName" || w.Reason == "CreateContainerConfigError") {
 				return fmt.Errorf("%s: %s", w.Reason, w.Message)
 			}
 		}
