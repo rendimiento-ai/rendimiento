@@ -71,6 +71,16 @@ export function Ayudante() {
     document.addEventListener("keydown", tecla);
     return () => document.removeEventListener("keydown", tecla);
   }, [abierto]);
+  // On a phone the sheet starts below the page's top bar, however tall it is (it wraps to two rows on a phone, 131 px):
+  // its bottom edge, measured when the sheet opens and when the screen changes.
+  const [arriba, setArriba] = useState(0);
+  useEffect(() => {
+    if (!abierto) return;
+    const medir = () => setArriba(Math.ceil(document.querySelector(".topbar")?.getBoundingClientRect().bottom ?? 0));
+    medir();
+    window.addEventListener("resize", medir);
+    return () => window.removeEventListener("resize", medir);
+  }, [abierto]);
   useEffect(() => { lista.current?.scrollTo({ top: lista.current.scrollHeight, behavior: "smooth" }); }, [view?.mensajes.length, pensando]);
 
   const plataforma = view?.ias.find((x) => x.id === "platform");
@@ -101,7 +111,7 @@ export function Ayudante() {
         </button>
       )}
       {abierto && (
-        <section className="ayudante" role="dialog" aria-labelledby="ayudante-titulo">
+        <section className="ayudante" role="dialog" aria-labelledby="ayudante-titulo" style={arriba > 0 ? { ["--ay-arriba" as string]: `${arriba}px` } : undefined}>
           <header className="ay-cabeza">
             <div className="ay-picado" aria-hidden="true">{["a", "b", "c", "d", "e", "f"].map((k, i) => <i key={k} style={{ animationDelay: `${i * -0.5}s` }} />)}</div>
             <span className="ay-ave"><Colibri /></span>
