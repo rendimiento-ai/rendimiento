@@ -249,6 +249,8 @@ export interface Step {
   finishedAt?: string;
   /** How often it ran: more than 1 when it failed and was retried. */
   tries?: number;
+  /** Where it ran: its pod's node, or each half of an image with the node of the daemon that built it. */
+  lugares?: { nodo: string; arch?: string }[];
 }
 
 /** A branch's pull request that "Just open the pull request" opened, or found open already. */

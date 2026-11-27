@@ -42,6 +42,15 @@ func TestStepEventCarriesTheStoredTimes(t *testing.T) {
 		t.Fatalf("a running step has no finishedAt: %v", running)
 	}
 
+	// Where a step ran reaches the page with it.
+	lugar := decode(stepEvent("web:test", pipeline.StepResult{Status: pipeline.StatusSucceeded, Lugares: []pipeline.Lugar{{Nodo: "node-a", Arch: "arm64"}}}, &start, &end))
+	if l, ok := lugar["lugares"].([]any); !ok || len(l) != 1 || l[0].(map[string]any)["nodo"] != "node-a" {
+		t.Fatalf("lugares = %v", lugar["lugares"])
+	}
+	if _, ok := running["lugares"]; ok {
+		t.Fatalf("a step not placed yet says no place: %v", running)
+	}
+
 	skipped := decode(stepEvent("deploy", pipeline.StepResult{Status: pipeline.StatusSkipped}, nil, nil))
 	if _, ok := skipped["startedAt"]; ok {
 		t.Fatalf("unknown times are left out: %v", skipped)

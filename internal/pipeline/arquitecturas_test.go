@@ -175,3 +175,15 @@ func TestSeApago(t *testing.T) {
 		t.Fatalf("the second try: %+v", e)
 	}
 }
+
+// A build's place is the node of the daemon at its BuildKit address.
+func TestNodoDe(t *testing.T) {
+	cs := fake.NewSimpleClientset(&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "buildkitd-2", Namespace: "devops-tools"}, Spec: corev1.PodSpec{NodeName: "node-b"}})
+	k := &KubeExecutor{Client: cs}
+	if n := k.nodoDe(context.Background(), "tcp://buildkitd-2.buildkitd-pool.devops-tools.svc.cluster.local:1234"); n != "node-b" {
+		t.Fatalf("node = %q", n)
+	}
+	if n := k.nodoDe(context.Background(), "tcp://buildkitd.example.lan:1234"); n != "" {
+		t.Fatalf("an address outside the pool has a node: %q", n)
+	}
+}

@@ -1586,6 +1586,7 @@ export const es: Record<string, string> = {
   "{n}rd": "{n}.º",
   "{n}th": "{n}.º",
   "after {steps}": "después de {steps}",
+  "Ran on {where}": "Corrió en {where}",
   "Step log": "Registro del paso",
   "Explain again": "Explicar de nuevo",
   "Explain": "Explicar",

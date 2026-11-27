@@ -171,6 +171,11 @@ function Carrera({ run, antes, selected, onSelect }: Vista) {
                 <span className="carrera-nombre">
                   <strong>{s.id}</strong>{" "}
                   <span className="small muted">{t(s.kind)}{s.dependsOn.length > 0 ? ` · ${t("after {steps}", { steps: s.dependsOn.join(", ") })}` : ""}</span>
+                  {s.lugares && s.lugares.length > 0 && (
+                    <span className="carrera-lugar small" title={t("Ran on {where}", { where: dondeCorrio(s) })}>
+                      {s.lugares.map((l, j) => <span key={j} className={`carrera-nodo${l.arch && l.arch !== s.lugares![0].arch ? " otra" : ""}`}>{l.nodo}{l.arch && <em>{l.arch}</em>}</span>)}
+                    </span>
+                  )}
                 </span>
                 <span className="carrera-llegada small muted" aria-hidden="true">
                   {puesto >= 0 && <><b>{lugar(puesto + 1)}</b> · </>}
@@ -270,4 +275,9 @@ function Hilos({ run, antes, selected, onSelect }: Vista) {
       </svg>
     </div>
   );
+}
+
+/** Where a step ran, in words: "worker2 (arm64) + p0dxd (amd64)". */
+function dondeCorrio(s: Step): string {
+  return (s.lugares ?? []).map((l) => (l.arch ? `${l.nodo} (${l.arch})` : l.nodo)).join(" + ");
 }
