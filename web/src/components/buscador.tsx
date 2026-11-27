@@ -1,18 +1,21 @@
 // The search in the top bar: apps by their name, runs by their number or
-// branch, and the pages by their name, as you type. "/" opens it from any
+// branch, the pages by their name, and every place and setting of
+// rendimiento and section of the book (GET /api/buscar: «keys» finds
+// Environment → Keys, with its book page beside it), as you type. "/" opens it from any
 // page (not while writing in a box); Enter opens the first result, the
 // arrows move between them. On a phone it is a button that opens the box
 // over the top of the screen.
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { api, type App, type RunNow } from "../api";
+import { api, type App, type IndiceBuscable, type RunNow } from "../api";
 import { t } from "../i18n";
 import { statusText } from "./ui";
 
 /** A page the search can open: its address and its name, in the reader's language. */
 export interface PaginaBuscable { to: string; nombre: string }
 
-interface Resultado { id: string; grupo: "apps" | "runs" | "paginas"; a: string; titulo: ReactNode; detalle?: string }
+interface Resultado { id: string; grupo: "lugares" | "apps" | "runs" | "paginas" | "libro"; a: string; titulo: ReactNode; detalle?: string;
+  /** The book's page about it, beside it (a place). */ libro?: string; /** Opens outside rendimiento, in another tab (the book). */ fuera?: boolean }
 
 /** Lowercase and without accents: "bitacora" finds Bitácora. */
 const llano = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
@@ -37,6 +40,7 @@ export function Buscador({ paginas, telefono }: { paginas: PaginaBuscable[]; tel
   const [apps, setApps] = useState<App[]>();
   const [runs, setRuns] = useState<RunNow[]>([]);
   const [porNumero, setPorNumero] = useState<RunNow>();
+  const [indice, setIndice] = useState<IndiceBuscable>();
   const caja = useRef<HTMLDivElement>(null);
   const entrada = useRef<HTMLInputElement>(null);
 
@@ -52,6 +56,7 @@ export function Buscador({ paginas, telefono }: { paginas: PaginaBuscable[]; tel
     if (!abierto) return;
     api.apps().then(setApps, () => {});
     api.corriendo().then((c) => setRuns([...c.ahora, ...c.recientes]), () => {});
+    if (!indice) api.buscar().then(setIndice, () => {});
   }, [abierto]);
 
   // A run's number that is not among the last ones: asked for, once the typing stops.
@@ -109,17 +114,35 @@ export function Buscador({ paginas, telefono }: { paginas: PaginaBuscable[]; tel
       .sort((x, y) => (n ? Number(String(y.id) === n) - Number(String(x.id) === n) : 0) || y.id - x.id).slice(0, 5)
       .map((r): Resultado => ({ id: `run-${r.id}`, grupo: "runs", a: `/apps/${r.app}/runs/${r.id}`,
         titulo: t("Run {n} · {app}", { n: r.id, app: r.app }), detalle: `${r.branch} · ${statusText(r.status)}` }));
-    const dePaginas = paginas.filter((p) => llano(p.nombre).includes(s))
+    // Places and settings: every word typed in its name, what is there or the words it is found by; its name first.
+    const palabras = s.split(/\s+/);
+    const todas_ = (x: string) => palabras.every((w) => x.includes(w));
+    const libroDe = (ruta: string) => (indice ? indice.libro + ruta : "");
+    const deLugares = (indice?.lugares ?? [])
+      .map((l) => ({ l, nombre: llano(l.nombre), resto: llano(`${l.nombre} ${l.claves ?? ""} ${l.que}`) }))
+      .filter((x) => todas_(x.resto))
+      .sort((x, y) => (todas_(y.nombre) ? 1 : 0) - (todas_(x.nombre) ? 1 : 0) || primero(x.nombre) - primero(y.nombre)).slice(0, 5)
+      .map(({ l }): Resultado => ({ id: `lugar-${l.ruta}-${l.nombre}`, grupo: "lugares", a: l.ruta, titulo: l.nombre, detalle: l.que,
+        libro: l.libro ? libroDe(l.libro) : undefined }));
+    const enLugares = new Set(deLugares.map((r) => r.a));
+    const dePaginas = paginas.filter((p) => llano(p.nombre).includes(s) && !enLugares.has(p.to))
       .sort((x, y) => primero(x.nombre) - primero(y.nombre)).slice(0, 5)
       .map((p): Resultado => ({ id: `pagina-${p.to}`, grupo: "paginas", a: p.to, titulo: p.nombre }));
-    return [...deApps, ...deRuns, ...dePaginas];
-  }, [q, apps, runs, porNumero, paginas, enInicio]);
+    // The book: its sections by their heading (or their page's title), the headings first.
+    const deLibro = (indice?.secciones ?? [])
+      .filter((x) => todas_(llano(`${x.titulo} ${x.pagina}`)))
+      .sort((x, y) => (todas_(llano(y.titulo)) ? 1 : 0) - (todas_(llano(x.titulo)) ? 1 : 0)).slice(0, 5)
+      .map((x): Resultado => ({ id: `libro-${x.ruta}`, grupo: "libro", a: libroDe(x.ruta), titulo: x.titulo,
+        detalle: x.pagina !== x.titulo ? x.pagina : undefined, fuera: true }));
+    return [...deLugares, ...deApps, ...deRuns, ...dePaginas, ...deLibro];
+  }, [q, apps, runs, porNumero, paginas, enInicio, indice]);
 
   const ir = (r: Resultado) => {
     setAbierto(false);
     setTexto("");
     entrada.current?.blur();
-    nav(r.a);
+    if (r.fuera) window.open(r.a, "_blank", "noopener");
+    else nav(r.a);
   };
   const tecla = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -137,11 +160,12 @@ export function Buscador({ paginas, telefono }: { paginas: PaginaBuscable[]; tel
   };
 
   const grupos: { id: Resultado["grupo"]; nombre: string }[] = [
-    { id: "apps", nombre: t("Apps") }, { id: "runs", nombre: t("Runs") }, { id: "paginas", nombre: t("Pages") },
+    { id: "lugares", nombre: t("Settings and places") }, { id: "apps", nombre: t("Apps") }, { id: "runs", nombre: t("Runs") },
+    { id: "paginas", nombre: t("Pages") }, { id: "libro", nombre: t("In the book") },
   ];
   // On home a search that matches only apps shows them in the mosaic, with no list over it.
   const lista = abierto && texto.trim() !== "" && !(enInicio && q === texto.trim() && resultados.length === 0);
-  const etiqueta = t("Search apps, runs or pages");
+  const etiqueta = t("Search apps, runs, settings or the book");
 
   if (telefono && !abierto) {
     return (
@@ -176,8 +200,12 @@ export function Buscador({ paginas, telefono }: { paginas: PaginaBuscable[]; tel
                         return (
                           <li key={r.id} id={`buscador-${r.id}`} role="option" aria-selected={i === activo} className="buscador-opcion"
                             onMouseDown={(e) => e.preventDefault()} onMouseEnter={() => setActivo(i)} onClick={() => ir(r)}>
-                            <span>{r.titulo}</span>
+                            <span className="buscador-titulo">{r.titulo}{r.fuera && <span aria-hidden="true"> ↗</span>}</span>
                             {r.detalle && <small>{r.detalle}</small>}
+                            {r.libro && (
+                              <a className="buscador-libro" href={r.libro} target="_blank" rel="noopener" onClick={(e) => e.stopPropagation()}
+                                aria-label={t("In the book: {page}", { page: String(r.titulo) })}>{t("Book")} ↗</a>
+                            )}
                           </li>
                         );
                       })}

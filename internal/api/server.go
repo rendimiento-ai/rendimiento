@@ -340,6 +340,7 @@ func (s *Server) Handler() http.Handler {
 	// Platicar una entrada: a conversation about a Ruta entry (platica.go).
 	s.platicaRoutes(auth)
 	s.ayudanteRoutes(auth)
+	s.buscarRoutes(auth)
 	auth(store.MemberAdmin, "PUT /api/members/{login}", s.putMember)
 	auth(store.MemberAdmin, "DELETE /api/members/{login}", s.deleteMember)
 	auth(store.MemberAdmin, "GET /api/demo-links", s.listDemoLinks)

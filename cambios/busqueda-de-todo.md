@@ -1,0 +1,1 @@
+- **Search:** the top bar's search also finds every setting and place by any word for it, in English or Spanish (*keys*, *llaves*, *Cloudflare* → Environment → Keys), each with a link to its page of the book, and the book's sections by their heading (`GET /api/buscar`).

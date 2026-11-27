@@ -39,3 +39,33 @@ test("home: the top bar's search filters the apps, and each tile has its shortcu
   await expect(page).not.toHaveURL(/[?&]q=/);
   expect(problemas).toEqual([]);
 });
+
+// The search finds every place and setting, not only pages by their name: «keys» (in either language) finds the Keys,
+// with its book page beside it; Enter opens it. The book's sections come too, each opening the book in another tab.
+test("the search finds settings by any word for them, with their book page, and the book's sections", async ({ page, problemas }, info) => {
+  const es = info.project.name === "es";
+  await page.goto("/ruta");
+  await expect(page.locator("main h1").first()).toBeVisible();
+  const caja = page.locator("header.topbar .buscador input");
+  for (const palabra of ["keys", "llaves", "cloudflare"]) {
+    await caja.fill(palabra);
+    const llaves = page.locator("#buscador-lista [role=group]").first().locator("[role=option]", { hasText: es ? "Llaves" : "Keys" }).first();
+    await expect(llaves, palabra).toBeVisible();
+    await expect(llaves.locator("a.buscador-libro")).toHaveAttribute("href", new RegExp(`^https://(learn|aprende)\\.rendimiento\\.ai/environment/deploy/#keys-and-settings$`));
+    await expect(llaves.locator("a.buscador-libro")).toHaveAttribute("target", "_blank");
+  }
+  // The book's sections: «capacidad» in Spanish, «capacity» in English, by their heading.
+  await caja.fill(es ? "capacidad" : "capacity");
+  const libro = page.locator("#buscador-lista [role=group]", { has: page.locator("[role=option]") }).last();
+  await expect(page.locator("#buscador-lista .buscador-opcion", { hasText: es ? "Capacidad" : "Capacity" }).first()).toBeVisible();
+  await expect(libro.locator("[role=option]").first()).toContainText(/↗/);
+
+  // Enter on the keys opens them here.
+  await caja.fill(es ? "llaves" : "keys");
+  // The list follows the box a moment after the last key: wait until it is the keys' before Enter.
+  await expect(page.locator("#buscador-lista [role=option]").first()).toContainText(es ? "Llaves" : "Keys");
+  await expect(page.locator("#buscador-lista [role=option]").first()).toHaveAttribute("aria-selected", "true");
+  await caja.press("Enter");
+  await expect(page).toHaveURL(/\/environment\/llaves$/);
+  expect(problemas).toEqual([]);
+});
