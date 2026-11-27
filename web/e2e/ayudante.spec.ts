@@ -1,4 +1,29 @@
 import { test, expect } from "./vigia";
+import type { Locator, Page } from "@playwright/test";
+
+// On a phone the sheet keeps its icons in place (seen on p0dxD's phone: the ×
+// off to the left of its circle, the send button cut at the right edge, the
+// sheet over the page's top bar): the × and the arrow centered in their
+// circles, the arrow inside the screen, the sheet starting below the top bar.
+async function enSuLugar(page: Page, hoja: Locator, ancho: number) {
+  const centro = async (boton: Locator) => boton.evaluate((b) => {
+    const caja = b.getBoundingClientRect();
+    const r = document.createRange();
+    r.selectNodeContents(b);
+    const g = r.getBoundingClientRect();
+    return { dx: Math.abs((g.left + g.right) / 2 - (caja.left + caja.right) / 2), right: caja.right };
+  });
+  const cerrar = await centro(hoja.locator(".ay-cerrar"));
+  expect(cerrar.dx).toBeLessThanOrEqual(2);
+  await hoja.locator("#ayudante-pregunta").fill("?");
+  const enviar = await centro(hoja.locator(".ay-enviar"));
+  expect(enviar.dx).toBeLessThanOrEqual(2);
+  expect(enviar.right).toBeLessThanOrEqual(ancho);
+  await hoja.locator("#ayudante-pregunta").fill("");
+  const barra = await page.locator(".topbar").boundingBox();
+  const arriba = await hoja.boundingBox();
+  expect(arriba!.y).toBeGreaterThanOrEqual(barra!.y + barra!.height - 1);
+}
 
 // El ayudante on a phone: the hummingbird's button opens a sheet; a quick
 // question is asked with the page it was asked from, and the answer brings
@@ -35,6 +60,7 @@ test("the hummingbird: asked from a page, it answers with where to go", async ({
   const hoja = page.getByRole("dialog", { name: es ? "Tsïntsuni, el colibrí" : "Tsïntsuni, the hummingbird" });
   await expect(hoja).toBeVisible();
   await expect(hoja.locator(".ay-hola")).toBeVisible();
+  await enSuLugar(page, hoja, 390);
 
   await hoja.getByRole("button", { name: es ? "¿Dónde están las llaves?" : "Where are the keys?" }).click();
   await expect(hoja.locator(".ay-msg.respuesta")).toContainText(es ? "Las llaves están en Entorno." : "The keys are in the Environment.");
@@ -57,5 +83,11 @@ test("the hummingbird: asked from a page, it answers with where to go", async ({
   await expect(hoja).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(hoja).toHaveCount(0);
+
+  // A narrow phone too.
+  await page.setViewportSize({ width: 320, height: 640 });
+  await boton.click();
+  await expect(hoja).toBeVisible();
+  await enSuLugar(page, hoja, 320);
   expect(problemas).toEqual([]);
 });
