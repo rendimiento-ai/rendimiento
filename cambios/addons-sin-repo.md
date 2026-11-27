@@ -1,0 +1,1 @@
+- **Add-ons:** `ADDONS_REPO` has no default now (it was one installation's repository). **Before updating, set it** in your ConfigMap (`ADDONS_REPO: owner/gitops`) and run `make deploy`, or add-ons stop syncing from git. Without it nothing is removed: the Addon objects stay, the sync says it is not set, and installing from the catalog asks for it.

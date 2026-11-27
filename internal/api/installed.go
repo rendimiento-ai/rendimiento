@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"sort"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/rendimiento-ai/rendimiento/internal/addon"
 	"github.com/rendimiento-ai/rendimiento/internal/controller"
 	gh "github.com/rendimiento-ai/rendimiento/internal/github"
+	"github.com/rendimiento-ai/rendimiento/internal/i18n"
 )
 
 // installedView summarizes an installed add-on.
@@ -201,6 +203,9 @@ func (s *Server) commitDefinition(r *http.Request, name, content, message string
 // gitopsClient is a GitHub client for the gitops repository and its default
 // branch.
 func (s *Server) gitopsClient(r *http.Request) (*gh.Client, string, error) {
+	if s.Addons == nil || s.Addons.Repo == "" {
+		return nil, "", errors.New(i18n.M("Add-ons have no git repository: set ADDONS_REPO (owner/name) in the platform's settings."))
+	}
 	c, _, err := s.GitHub.ForOwner(r.Context(), owner(s.Addons.Repo))
 	if err != nil {
 		return nil, "", err

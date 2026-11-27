@@ -201,7 +201,7 @@ Los días y las horas se cuentan en `PUBLIC_STATS_TZ`.
 
 | Variable | Predeterminado | Significado |
 |---|---|---|
-| `ADDONS_REPO` | `p0dxD/gitops` | el repositorio de git donde se declaran los complementos (`addons/*.yaml`) |
+| `ADDONS_REPO` | — | el repositorio de git donde se declaran los complementos (`addons/*.yaml`), como `dueño/nombre`; vacío: los complementos no se sincronizan desde git y el catálogo no puede instalar |
 | `ADDONS_IDENTITY` | `system:serviceaccount:<NAMESPACE>:rendimiento-addons` | la identidad con la que se aplican los objetos de los complementos (suplantación) |
 
 ## Los secretos que lee la plataforma {#secrets-the-platform-reads}

@@ -201,7 +201,7 @@ Days and hours are counted in `PUBLIC_STATS_TZ`.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `ADDONS_REPO` | `p0dxD/gitops` | the git repository add-ons are declared in (`addons/*.yaml`) |
+| `ADDONS_REPO` | — | the git repository add-ons are declared in (`addons/*.yaml`), as `owner/name`; empty: add-ons are not synced from git, and the catalog cannot install |
 | `ADDONS_IDENTITY` | `system:serviceaccount:<NAMESPACE>:rendimiento-addons` | the identity add-on objects are applied as (impersonation) |
 
 ## Secrets the platform reads
