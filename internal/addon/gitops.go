@@ -172,7 +172,7 @@ func (f GitHubFetcher) Fetch(ctx context.Context, repo, dir, ref string) (fs.FS,
 type Syncer struct {
 	Kube   client.Client
 	GitHub *gh.Holder
-	Repo   string // owner/name, e.g. p0dxD/gitops
+	Repo   string // owner/name, e.g. example/gitops; empty: add-ons are not synced from git
 	Log    *slog.Logger
 	// Remote, in a process that does not sync (ROLE=api), sends Trigger
 	// and Last to the control service, which does (see Serve).
@@ -254,11 +254,16 @@ func (s *Syncer) Last() SyncResult {
 // Loop syncs every few minutes and whenever triggered, until ctx ends.
 func (s *Syncer) Loop(ctx context.Context) {
 	s.init()
+	if s.Repo == "" {
+		s.Log.Info("addons: ADDONS_REPO is not set; add-ons are not synced from git")
+	}
 	t := time.NewTicker(3 * time.Minute)
 	defer t.Stop()
 	for {
 		res := s.Sync(ctx)
-		if res.Error != "" {
+		if s.Repo == "" {
+			// said once, above
+		} else if res.Error != "" {
 			s.Log.Warn("addons: sync failed", "repo", s.Repo, "err", res.Error)
 		} else if len(res.Applied)+len(res.Removed)+len(res.Invalid) > 0 {
 			s.Log.Info("addons: synced from git", "commit", res.Commit, "applied", res.Applied, "removed", res.Removed, "invalid", res.Invalid)
@@ -284,6 +289,12 @@ func (s *Syncer) Sync(ctx context.Context) SyncResult {
 		s.last = res
 		s.mu.Unlock()
 	}()
+	// Without a repository there is nothing to sync, and nothing is removed:
+	// the Addon objects already in the cluster stay as they are.
+	if s.Repo == "" {
+		res.Error = "ADDONS_REPO is not set: add-ons are not synced from a git repository"
+		return res
+	}
 	defs, sha, invalid, err := s.read(ctx)
 	res.Commit, res.Invalid = sha, invalid
 	if err != nil {

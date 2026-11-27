@@ -397,7 +397,7 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 			disco.Invalidate()
 		}
 	}()
-	addonSyncer := &addon.Syncer{Kube: kube, GitHub: holder, Repo: env("ADDONS_REPO", "p0dxD/gitops"), Log: log}
+	addonSyncer := &addon.Syncer{Kube: kube, GitHub: holder, Repo: env("ADDONS_REPO", ""), Log: log}
 	if runs("control") {
 		if err := (&controller.AddonReconciler{
 			Client: mgr.GetClient(), Target: addonTarget,

@@ -5,6 +5,7 @@ package i18n
 // problems, statuses). Formal (usted); technical terms in Spanish.
 // Keys are the English formats; TestCatalog checks the two stay in step.
 var catalog = map[string]string{
+	"Add-ons have no git repository: set ADDONS_REPO (owner/name) in the platform's settings.": "Los complementos no tienen repositorio de git: ponga ADDONS_REPO (dueño/nombre) en los ajustes de la plataforma.",
 	// Poner al día (api/al_dia.go, agentes/al_dia.go).
 	"bad report number":           "número de informe no válido",
 	"this app has no such report": "esta aplicación no tiene ese informe",
