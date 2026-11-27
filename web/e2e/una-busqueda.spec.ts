@@ -62,6 +62,8 @@ test("the search finds settings by any word for them, with their book page, and 
 
   // Enter on the keys opens them here.
   await caja.fill(es ? "llaves" : "keys");
+  // The list follows the box a moment after the last key: wait until it is the keys' before Enter.
+  await expect(page.locator("#buscador-lista [role=option]").first()).toContainText(es ? "Llaves" : "Keys");
   await expect(page.locator("#buscador-lista [role=option]").first()).toHaveAttribute("aria-selected", "true");
   await caja.press("Enter");
   await expect(page).toHaveURL(/\/environment\/llaves$/);

@@ -90,7 +90,8 @@ test("the search finds an app, a page and a run; / opens it", async ({ page, pro
 
   // A page by its name in the reader's language, without its accent; the arrows move.
   await caja.fill("bitacora");
-  const pagina = page.locator("#buscador-lista [role=option]", { hasText: "Bitácora" });
+  // The place first; the book's section about it comes too, further down.
+  const pagina = page.locator("#buscador-lista [role=option]", { hasText: "Bitácora" }).first();
   await expect(pagina).toBeVisible();
   await caja.press("ArrowDown");
   await caja.press("ArrowUp");
