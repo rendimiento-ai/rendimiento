@@ -1187,12 +1187,24 @@ func (k *KubeExecutor) seguirLog(ctx context.Context, pod, container string, c *
 	}
 	tick := time.NewTicker(streamPoll)
 	defer tick.Stop()
-	// fin fills in what a stream that ended early did not bring.
+	// A stream that ended while the container still runs was closed under
+	// it (seen on a GPU node, run 1961: every UI-test log ended after its
+	// first quiet minutes, with the tests going on): it is opened again from
+	// where it was, after a poll so a stream that keeps ending does not spin.
 	fin := func(err error) (bool, error) {
-		if err == nil && k.containerEnded(ctx, pod, container) {
-			k.completarLog(ctx, pod, container, c)
+		if err != nil {
+			return false, err
 		}
-		return false, err
+		if !k.containerEnded(ctx, pod, container) {
+			select {
+			case <-ctx.Done():
+				return false, ctx.Err()
+			case <-time.After(streamPoll):
+			}
+			return true, nil
+		}
+		k.completarLog(ctx, pod, container, c)
+		return false, nil
 	}
 	for {
 		select {
@@ -1312,6 +1324,9 @@ func (k *KubeExecutor) containerEnded(ctx context.Context, pod, container string
 	p, err := k.Client.CoreV1().Pods(k.Namespace).Get(ctx, pod, metav1.GetOptions{})
 	if err != nil {
 		return apierrors.IsNotFound(err)
+	}
+	if p.Status.Phase == corev1.PodSucceeded || p.Status.Phase == corev1.PodFailed {
+		return true
 	}
 	for _, cs := range append(append([]corev1.ContainerStatus{}, p.Status.InitContainerStatuses...), p.Status.ContainerStatuses...) {
 		if cs.Name == container {

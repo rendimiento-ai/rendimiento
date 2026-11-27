@@ -1,0 +1,1 @@
+- **Logs:** a step's log stream that a node closes while the step still runs is opened again from where it was, so the UI-test steps keep their whole log instead of their first lines. A pod that already finished counts as its containers ended.
