@@ -1,0 +1,1 @@
+- **Steps:** a step whose node could not sync its cache of the step's secrets yet («failed to sync secret cache») waits up to two minutes for the kubelet's own retry instead of failing at once. A missing secret still fails at once.
