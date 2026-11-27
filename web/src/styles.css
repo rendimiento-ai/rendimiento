@@ -2706,6 +2706,31 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .uso-valor { white-space: nowrap; }
 .uso-columnas { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .uso-columnas ul { margin: 6px 0 0; padding-left: 18px; }
+/* The interface's use by stages (components/uso-etapas.tsx, decision 197): the days' views as bars in the color of
+   their stage, a papel-picado flag at each stage that sways (press it to compare), and the four figures before → after,
+   green when a way or a wait got shorter. Bars come up one after another; nothing grows; still with less movement. */
+.uso-etapas { margin-top: 16px; }
+.etapas-grafica { position: relative; height: 230px; padding-top: 58px; border-bottom: 2px solid var(--border); overflow: hidden; }
+.etapas-grafica svg { width: 100%; height: 100%; display: block; }
+.etapas-barra { animation: etapa-sube .5s ease-out both; }
+@keyframes etapa-sube { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.etapa-linea { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed var(--c); pointer-events: none; }
+.etapa-bandera { position: absolute; display: block; padding: 0; border: 0; background: none; cursor: pointer; min-width: 44px; min-height: 26px; text-align: left; font: inherit; }
+.etapa-bandera span { display: inline-block; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 14px 4px 8px; color: #fff; background: var(--c);
+  font-size: 12px; font-weight: 800; clip-path: polygon(0 0, 100% 0, 90% 50%, 100% 100%, 0 100%); transform-origin: top left; animation: etapa-mece 3.4s ease-in-out infinite; animation-delay: var(--d); }
+.etapa-bandera.derecha { text-align: right; }
+.etapa-bandera.derecha span { padding: 4px 8px 4px 14px; clip-path: polygon(10% 50%, 0 0, 100% 0, 100% 100%, 0 100%); transform-origin: top right; }
+.etapa-bandera.on span { box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 30%, transparent); }
+@keyframes etapa-mece { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+.etapa-cifras { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.etapa-cifra { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 14px; background: var(--surface-2); min-width: 0; }
+.etapa-cifra-que { font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.etapa-cifra strong { font-family: var(--display); font-size: 20px; overflow-wrap: anywhere; }
+.etapa-cambio.mejor { color: var(--ok); font-weight: 800; }
+.etapa-cambio.peor { color: var(--bad); font-weight: 800; }
+.etapa-pocos { color: var(--warn); }
+@media (max-width: 760px) { .etapa-cifras { grid-template-columns: repeat(2, minmax(0, 1fr)); } .etapa-bandera span { max-width: 120px; } }
+@media (prefers-reduced-motion: reduce) { .etapas-barra, .etapa-bandera span { animation: none; } }
 .uso-camino { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .uso-camino b { display: inline-block; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--viz-series-1) 14%, transparent); font-weight: 600; font-size: 13px; }
 .uso-camino em { font-style: normal; color: var(--muted); margin-right: 6px; }

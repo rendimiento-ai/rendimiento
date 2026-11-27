@@ -35,3 +35,14 @@ Elija los últimos 7, 14 o 30 días.
 - **El camino común más largo:** una estimación. Desde la primera página más común sigue, en cada página, la siguiente más común, mientras ese paso siga siendo común. No necesariamente lo recorrieron completo las mismas personas; muestra cuántos clics cuesta una tarea frecuente.
 
 Los números empiezan a aparecer conforme la gente usa la interfaz.
+
+## Etapas {#stages}
+
+Cada versión de rendimiento mismo (la aplicación que nombra `SELF_APP`) cuyos cambios tocaron la interfaz (`web/`) es una **etapa**: su número, su día, su rama y el renglón de su archivo de cambios (`cambios/<rama>.md`), que se lee una vez del repositorio y se guarda. En la página de Uso las vistas de cada día se dibujan como barras, cada día del color de la última etapa antes de él, con una banderita en el día de cada etapa; toque una banderita (o escójala en **Antes y después**) para comparar los mismos días antes y después de ella, a lo más siete, sin contar su propio día, que tiene de los dos:
+
+- **Vistas por día.**
+- **Páginas por cada ejecución abierta**: todas las vistas entre las vistas de la página de una ejecución. Menos es un camino más corto hacia las ejecuciones, y sale en verde.
+- **Tiempo hasta ver datos**, en las páginas que se miden. Más corto sale en verde.
+- **Sección más abierta** de la página de una app, con su parte de las secciones abiertas.
+
+Mientras hayan pasado menos de tres días desde una etapa, lo dice: muy pocos para concluir algo. Una instalación que no se construye a sí misma (sin `SELF_APP`) no tiene etapas, y dice eso. `GET /api/uso/etapas?dias=30` (7, 14, 30 o 90; operadores) contesta lo mismo.

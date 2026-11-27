@@ -35,3 +35,14 @@ Choose the last 7, 14 or 30 days.
 - **The longest common path:** an estimate. From the most common first page it follows, at each page, the most common next one, while that move is still common. The same people need not have walked all of it; it shows how many clicks a frequent task costs.
 
 The numbers start appearing as people use the interface.
+
+## Stages {#stages}
+
+Each release of rendimiento itself (the app named by `SELF_APP`) whose changes touched the interface (`web/`) is a **stage**: its number, its day, its branch and the line of its change file (`cambios/<branch>.md`), read once from the repository and kept. On the Use page the days' views are drawn as bars, each day in the color of the last stage before it, with a flag on each stage's day; press a flag (or choose it under **Before and after**) to compare the same days before and after it, at most seven, leaving its own day out since it holds both:
+
+- **Views a day.**
+- **Pages for each run opened**: all the views over the views of a run's page. Fewer means a shorter way to the runs, and shows green.
+- **Time to data**, on the pages that are measured. Shorter shows green.
+- **Section opened most** of an app's page, with its share of the sections opened.
+
+While fewer than three days have passed since a stage, it says so: too few to conclude anything. An installation that does not build itself (no `SELF_APP`) has no stages, and says that instead. `GET /api/uso/etapas?dias=30` (7, 14, 30 or 90; operators) answers the same.

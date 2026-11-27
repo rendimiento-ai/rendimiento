@@ -5,6 +5,7 @@ import { lang, t, tn } from "../i18n";
 import { ErrorBox, Switch, usePoll } from "../components/ui";
 import { Esqueleto, Hueso } from "../components/esqueleto";
 import { DESCONOCIDA, type Accion } from "../uso";
+import { EtapasUso } from "../components/uso-etapas";
 
 /** The book's page on the use, in the reader's language. */
 const LIBRO = lang === "es" ? "https://aprende.rendimiento.ai/guide/uso/" : "https://learn.rendimiento.ai/guide/uso/";
@@ -157,6 +158,8 @@ export function UsoPage() {
           <button key={d} aria-pressed={dias === d} onClick={() => setDias(d)}>{tn(d, "Last {n} days", "Last {n} days")}</button>
         ))}
       </div>
+      {/* The stages: what each release that changed the interface did to the clicks (decision 197). */}
+      <EtapasUso dias={dias} />
       {!data && !error && (
         <Esqueleto className="stack">
           <Hueso h={104} r={14} />
