@@ -187,3 +187,29 @@ func TestNodoDe(t *testing.T) {
 		t.Fatalf("an address outside the pool has a node: %q", n)
 	}
 }
+
+// An image's architecture is its config's: a main half built by a daemon of
+// the other architecture is told apart (run 1975's docs: amd64 under arm64's
+// name), and an index says nothing.
+func TestArchDeImagen(t *testing.T) {
+	otra := archOtra(archPrincipal)
+	f := &registroFalso{manifests: map[string]struct{ mt, body string }{
+		"sha256:m":  {mtDockerManif, `{"schemaVersion":2,"config":{"digest":"sha256:c"}}`},
+		"sha256:c":  {"application/json", `{"architecture":"` + otra + `","os":"linux"}`},
+		"sha256:ix": {mtOCIIndex, `{"schemaVersion":2,"manifests":[]}`},
+	}}
+	srv := httptest.NewTLSServer(f)
+	defer srv.Close()
+	host := strings.TrimPrefix(srv.URL, "https://")
+	k := &KubeExecutor{InsecureRegistry: true, httpRegistro: srv.Client()}
+	ctx := context.Background()
+	if a := k.archDeImagen(ctx, host+"/app-web", "sha256:m"); a != otra {
+		t.Fatalf("the image's architecture: %q", a)
+	}
+	if a := k.archDeImagen(ctx, host+"/app-web", "sha256:ix"); a != "" {
+		t.Fatalf("an index has one: %q", a)
+	}
+	if a := k.archDeImagen(ctx, host+"/app-web", "sha256:nada"); a != "" {
+		t.Fatalf("a missing manifest has one: %q", a)
+	}
+}

@@ -187,6 +187,43 @@ func (k *KubeExecutor) descriptorDe(ctx context.Context, host, repo, digest, arc
 	}
 }
 
+// archDeImagen is the architecture an image manifest was built for (its
+// config's), "" when it cannot tell or the digest is an index.
+func (k *KubeExecutor) archDeImagen(ctx context.Context, image, digest string) string {
+	host, repo, _, ok := partirImagen(image)
+	if !ok {
+		return ""
+	}
+	mt, body, err := k.manifiesto(ctx, host, repo, digest)
+	if err != nil || mt == mtOCIIndex || mt == mtDockerList {
+		return ""
+	}
+	var m struct {
+		Config struct {
+			Digest string `json:"digest"`
+		} `json:"config"`
+	}
+	if json.Unmarshal(body, &m) != nil || m.Config.Digest == "" {
+		return ""
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://%s/v2/%s/blobs/%s", host, repo, m.Config.Digest), nil)
+	if err != nil {
+		return ""
+	}
+	res, err := k.registroHTTP().Do(req)
+	if err != nil {
+		return ""
+	}
+	defer res.Body.Close()
+	var c struct {
+		Architecture string `json:"architecture"`
+	}
+	if res.StatusCode != http.StatusOK || json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&c) != nil {
+		return ""
+	}
+	return c.Architecture
+}
+
 // unirArquitecturas writes, at image:tag, one OCI index of the two halves a
 // build pushed (by their digests), and returns its digest.
 func (k *KubeExecutor) unirArquitecturas(ctx context.Context, image, tag string, mitades map[string]string) (string, error) {

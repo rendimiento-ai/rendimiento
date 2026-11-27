@@ -254,6 +254,8 @@ func (k *KubeExecutor) ejecutar(ctx context.Context, runID string, src Source, s
 		buildkit, daemon = k.buildkitFor(ctx, step.Target)
 		if daemon != "" {
 			fmt.Fprintf(w, "rendimiento: building on %s\n", daemon)
+		} else if k.BuildkitPool != "" {
+			fmt.Fprintf(w, "rendimiento: no %s daemon of the BuildKit pool is ready; building on %s\n", archPrincipal, buildkit)
 		}
 		// A node «a ratos» that is on builds the other architecture's half.
 		if addr, otro := k.buildkitOtro(ctx, step.Target); addr != "" {
@@ -405,9 +407,20 @@ func (k *KubeExecutor) ejecutar(ctx context.Context, runID string, src Source, s
 		if !strings.HasPrefix(res.Digest, "sha256:") {
 			return fail("build finished but reported no image digest")
 		}
+		// An image of another architecture under this one's name would not
+		// start on the cluster's nodes: the step fails instead.
+		if a := k.archDeImagen(ctx, step.Target, res.Digest); a != "" && a != archPrincipal {
+			return fail("the image was built for %s, not %s: its daemon was of the other architecture", a, archPrincipal)
+		}
 		// Its other architecture's half, built on a node «a ratos»: both become
 		// one image. If the index cannot be written, the image keeps one.
 		if arch, d, ok := strings.Cut(half, "="); ok && strings.HasPrefix(d, "sha256:") {
+			// Both halves the same image: one daemon built both for its own
+			// architecture (run 1975's docs, all amd64 under arm64's name).
+			// Neither can be trusted for the other.
+			if d == res.Digest {
+				return fail("both halves of the image are the same (%s): the %s half was not built for %s", d, archPrincipal, archPrincipal)
+			}
 			if ix, err := k.unirArquitecturas(ctx, step.Target, imageTag(src), map[string]string{archPrincipal: res.Digest, arch: d}); err != nil {
 				fmt.Fprintf(w, "rendimiento: the %s half could not join the image (%v): it is for %s only\n", arch, err, archPrincipal)
 			} else {
@@ -495,7 +508,10 @@ if [ -n "${OTHER_ADDR:-}" ]; then
       --metadata-file /tmp/metadata-other.json >/tmp/other.log 2>&1; echo $? >/tmp/other.rc ) &
   other=$!
 fi
-buildctl --addr "$BUILDKIT_ADDR" build "$@" \
+# The main half names its architecture: a daemon of another one (the only one
+# left when the pool's own are down) builds it for this one or fails, never
+# an image of its own architecture under this one's name.
+buildctl --addr "$BUILDKIT_ADDR" build "$@" --opt platform="linux/$MAIN_ARCH" \
   --output "type=image,name=$IMAGE:$TAG,push=true$INSECURE" \
   --import-cache "type=registry,ref=$IMAGE:buildcache$INSECURE" \
   --export-cache "type=registry,ref=$IMAGE:buildcache,mode=max$INSECURE" \
@@ -733,6 +749,7 @@ func (k *KubeExecutor) pod(name string, labels map[string]string, src Source, st
 				{Name: "INSECURE", Value: insecure},
 				{Name: "OTHER_ADDR", Value: step.otroBuildkit},
 				{Name: "OTHER_ARCH", Value: archOtra(archPrincipal)},
+				{Name: "MAIN_ARCH", Value: archPrincipal},
 			},
 		}
 	case KindTask:
