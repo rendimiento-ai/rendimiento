@@ -27,11 +27,11 @@ flowchart TB
 
 **Levers, cheapest first:**
 
-1. Add replicas to the `buildkit` add-on (in `p0dxD/gitops`). The pool finds new daemons through DNS SRV records, and only about 1/N of the images move to a different daemon.
+1. Add replicas to the `buildkit` add-on (in `example/gitops`). The pool finds new daemons through DNS SRV records, and only about 1/N of the images move to a different daemon.
 2. Raise `MAX_PARALLEL_STEPS` once the daemons can take more work.
 3. Give daemons more memory, and set `max-parallelism` in buildkitd's config.
 4. Make the cap *per daemon* rather than global: the runner would track steps per daemon.
-5. Add an amd64 or cloud builder for heavy stacks (Java, Rust), chosen by a `build.platform` field or by the size of the stack.
+5. An amd64 builder already joins when there is one: a [node «a ratos»](../environment/deploy.md#nodes-a-ratos) of the other architecture builds each image's other half natively ([Architectures](../architecture/builds.md#architectures)). Still to come: a cloud builder for heavy stacks (Java, Rust), chosen by a `build.platform` field or by the size of the stack.
 
 ## Queue and workers
 

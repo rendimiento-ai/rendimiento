@@ -69,7 +69,7 @@ erDiagram
 :   The status rendimiento reports on each commit and pull request in GitHub (the ✓ or ✗ next to a commit).
 
 **Add-on**
-:   Software rendimiento installs and keeps in sync for the cluster. **Installed add-ons** are Helm charts or folders of manifests (Longhorn, umami, the BuildKit pool…), each defined by a file in `p0dxD/gitops/addons/` and represented in Kubernetes by an `Addon` object (`kubectl get radd`). **Built-in add-ons** are features of the platform itself; today that is Renovate. [Add-ons](../guide/addons.md).
+:   Software rendimiento installs and keeps in sync for the cluster. **Installed add-ons** are Helm charts or folders of manifests (Longhorn, umami, the BuildKit pool…), each defined by a file in `example/gitops/addons/` and represented in Kubernetes by an `Addon` object (`kubectl get radd`). **Built-in add-ons** are features of the platform itself; today that is Renovate. [Add-ons](../guide/addons.md).
 
 **Preview**
 :   Before an add-on changes anything, every object is dry-run against the cluster and diffed: what would be created, updated or deleted.

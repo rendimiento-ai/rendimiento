@@ -57,7 +57,7 @@ Runs are rows. Workers claim one with `SELECT … FOR UPDATE SKIP LOCKED`:
 
 ### GitOps for configuration, database for releases
 
-The *configuration* of an app lives in its repo (`rendimiento.yaml`), add-ons in `p0dxD/gitops`. The *release pointer* (which image digest runs) lives in the `App` object and the `releases` table.
+The *configuration* of an app lives in its repo (`rendimiento.yaml`), add-ons in `example/gitops`. The *release pointer* (which image digest runs) lives in the `App` object and the `releases` table.
 
 - **Why:** config gets code review and history; releases don't create `[skip ci]` commit noise, and rollback is instant (repoint to an older digest).
 

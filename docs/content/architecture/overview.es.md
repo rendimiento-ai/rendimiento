@@ -28,7 +28,7 @@ flowchart TB
     worker -- "buildctl (en pods)" --> bk[grupo de BuildKit]
     appc --> k8s
     addc -- suplantando a rendimiento-addons --> k8s
-    sync -- lee --> gitops[(p0dxD/gitops)]
+    sync -- lee --> gitops[(example/gitops)]
     ddns --> cf([Cloudflare])
     appc --> cf
 ```
@@ -39,7 +39,7 @@ flowchart TB
 | **Orquestación** | `internal/platform` | Convierte los avisos web en ejecuciones de integración continua, las ejecuciones en versiones y las versiones en objetos `App`. Aquí viven la incorporación, la reversión, la eliminación y la desconexión. |
 | **Integración continua** | `internal/pipeline` | Planea una ejecución como un grafo de pasos y ejecuta cada paso como un pod; las construcciones van al grupo de BuildKit. |
 | **Controlador de aplicaciones** | `internal/controller` | Concilia cada `App` en espacios de nombres, Deployments, Services, Ingresses, volúmenes, CronJobs, registros DNS y estado. |
-| **Controlador y sincronización de complementos** | `internal/controller`, `internal/addon` | Mantiene los objetos `Addon` al día con `p0dxD/gitops/addons/*.yaml` y concilia cada uno en los objetos que describen su paquete de Helm o sus manifiestos. |
+| **Controlador y sincronización de complementos** | `internal/controller`, `internal/addon` | Mantiene los objetos `Addon` al día con `example/gitops/addons/*.yaml` y concilia cada uno en los objetos que describen su paquete de Helm o sus manifiestos. |
 | **Complementos integrados** | `internal/renovate` | Renovate se ejecuta según una programación. |
 | **Vistas** | `internal/catalog`, `internal/environment` | La página Servicios y la página Entorno. |
 
@@ -125,7 +125,7 @@ Todo lo que está bajo `internal/` es privado de este módulo (una regla de Go):
 |---|---|---|
 | Lo que debe ejecutarse por aplicación (servicios, tareas programadas, imágenes publicadas) | Objetos `App` en Kubernetes | Los controladores los vigilan; `kubectl` puede verlos y corregirlos; el clúster funciona sin la base de datos. |
 | La configuración de cada aplicación | `rendimiento.yaml` en cada repositorio | GitOps: revisada, versionada, y los cambios se despliegan al integrarlos. |
-| Las definiciones de los complementos | `p0dxD/gitops/addons/*.yaml` → objetos `Addon` | Las mismas razones, para los programas del clúster. |
+| Las definiciones de los complementos | `example/gitops/addons/*.yaml` → objetos `Addon` | Las mismas razones, para los programas del clúster. |
 | Ejecuciones, pasos, registros, versiones, sesiones, ajustes y ejecuciones de complementos | Postgres | Historial relacional, una cola de trabajo, texto grande (los registros). |
 | Secretos | Secrets de Kubernetes (secretos sellados en git para las aplicaciones que los usan) | Nunca en git en texto plano, nunca en Postgres. |
 

@@ -57,7 +57,7 @@ Las ejecuciones son filas. Los trabajadores apartan una con `SELECT … FOR UPDA
 
 ### GitOps para la configuración, base de datos para las versiones {#gitops-for-configuration-database-for-releases}
 
-La *configuración* de una aplicación vive en su repositorio (`rendimiento.yaml`), y la de los complementos en `p0dxD/gitops`. El *apuntador de la versión* (qué huella de imagen corre) vive en el objeto `App` y en la tabla `releases`.
+La *configuración* de una aplicación vive en su repositorio (`rendimiento.yaml`), y la de los complementos en `example/gitops`. El *apuntador de la versión* (qué huella de imagen corre) vive en el objeto `App` y en la tabla `releases`.
 
 - **Por qué:** la configuración recibe revisión de código e historial; las versiones no crean el ruido de confirmaciones `[skip ci]`, y la reversión es instantánea (apuntar a una huella anterior).
 

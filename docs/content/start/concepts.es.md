@@ -69,7 +69,7 @@ erDiagram
 :   El estado que rendimiento reporta en cada confirmación y solicitud de incorporación en GitHub (la ✓ o la ✗ junto a una confirmación).
 
 **Complemento**
-:   Programas que rendimiento instala y mantiene sincronizados para el clúster. Los **complementos instalados** son paquetes de Helm o carpetas de manifiestos (Longhorn, umami, el grupo de BuildKit…), cada uno definido por un archivo en `p0dxD/gitops/addons/` y representado en Kubernetes por un objeto `Addon` (`kubectl get radd`). Los **complementos integrados** son funciones de la propia plataforma; hoy es Renovate. [Complementos](../guide/addons.md).
+:   Programas que rendimiento instala y mantiene sincronizados para el clúster. Los **complementos instalados** son paquetes de Helm o carpetas de manifiestos (Longhorn, umami, el grupo de BuildKit…), cada uno definido por un archivo en `example/gitops/addons/` y representado en Kubernetes por un objeto `Addon` (`kubectl get radd`). Los **complementos integrados** son funciones de la propia plataforma; hoy es Renovate. [Complementos](../guide/addons.md).
 
 **Vista previa**
 :   Antes de que un complemento cambie algo, cada objeto se prueba en seco contra el clúster y se compara: qué se crearía, qué se actualizaría y qué se eliminaría.

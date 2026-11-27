@@ -28,7 +28,7 @@ flowchart TB
     worker -- "buildctl (in pods)" --> bk[BuildKit pool]
     appc --> k8s
     addc -- impersonating rendimiento-addons --> k8s
-    sync -- reads --> gitops[(p0dxD/gitops)]
+    sync -- reads --> gitops[(example/gitops)]
     ddns --> cf([Cloudflare])
     appc --> cf
 ```
@@ -39,7 +39,7 @@ flowchart TB
 | **Orchestration** | `internal/platform` | Turns webhooks into CI runs, runs into releases, releases into `App` objects. Onboarding, rollback, delete and disconnect live here. |
 | **CI** | `internal/pipeline` | Plans a run as a graph of steps and runs each step as a pod; builds go to the BuildKit pool. |
 | **App controller** | `internal/controller` | Reconciles each `App` into namespaces, Deployments, Services, Ingresses, volumes, CronJobs, DNS records and status. |
-| **Add-on controller and sync** | `internal/controller`, `internal/addon` | Keeps `Addon` objects in line with `p0dxD/gitops/addons/*.yaml` and reconciles each into the objects its Helm chart or manifests describe. |
+| **Add-on controller and sync** | `internal/controller`, `internal/addon` | Keeps `Addon` objects in line with `example/gitops/addons/*.yaml` and reconciles each into the objects its Helm chart or manifests describe. |
 | **Built-in add-ons** | `internal/renovate` | Renovate runs on a schedule. |
 | **Views** | `internal/catalog`, `internal/environment` | The Services page and the Environment page. |
 
@@ -125,7 +125,7 @@ Everything under `internal/` is private to this module (a Go rule): other projec
 |---|---|---|
 | What should run for each app (services, jobs, released images) | `App` objects in Kubernetes | Controllers watch them; `kubectl` can see and fix them; the cluster works without the database. |
 | App configuration | `rendimiento.yaml` in each repo | GitOps: reviewed, versioned, and changes deploy on merge. |
-| Add-on definitions | `p0dxD/gitops/addons/*.yaml` → `Addon` objects | Same reasons, for cluster software. |
+| Add-on definitions | `example/gitops/addons/*.yaml` → `Addon` objects | Same reasons, for cluster software. |
 | CI runs, steps, logs, releases, sessions, add-on settings and runs | Postgres | Relational history, a work queue, large text (logs). |
 | Secrets | Kubernetes Secrets (sealed secrets in git for apps that use them) | Never in git in plain text, never in Postgres. |
 

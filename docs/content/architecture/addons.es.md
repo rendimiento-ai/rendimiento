@@ -8,7 +8,7 @@ Código: `api/v1alpha1/addon_types.go` (el recurso), `internal/addon` (generaci�
 
 ```mermaid
 flowchart LR
-    subgraph git[p0dxD/gitops]
+    subgraph git[example/gitops]
         defs[addons/*.yaml<br/>definiciones]
         folders[umami/ buildkit/ …<br/>manifiestos]
     end
@@ -24,7 +24,7 @@ flowchart LR
 
 ## Git es la fuente de verdad {#git-is-the-source-of-truth}
 
-Cada complemento es un archivo en `p0dxD/gitops/addons/`:
+Cada complemento es un archivo en `example/gitops/addons/`:
 
 ```yaml
 # addons/longhorn.yaml

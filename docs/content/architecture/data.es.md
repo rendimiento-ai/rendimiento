@@ -6,7 +6,7 @@ rendimiento guarda el estado en tres lugares, a propósito. Saber cuál es cuál
 flowchart LR
     subgraph git[Git: lo que usted quiere]
         spec[rendimiento.yaml<br/>en el repositorio de cada aplicación]
-        defs[addons/*.yaml<br/>en p0dxD/gitops]
+        defs[addons/*.yaml<br/>en example/gitops]
     end
     subgraph k8s[Kubernetes: lo que debe ejecutarse ahora]
         app[objetos App<br/>especificación + imágenes publicadas]

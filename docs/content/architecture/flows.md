@@ -95,7 +95,7 @@ A release pins every service to an image **digest**, so what runs is exactly wha
 ```mermaid
 sequenceDiagram
     participant You
-    participant G as p0dxD/gitops
+    participant G as example/gitops
     participant API as api.Server
     participant S as addon.Syncer
     participant K as Kubernetes

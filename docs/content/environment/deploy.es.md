@@ -423,7 +423,7 @@ La base de datos, la llave de los secretos, el modo y el papel se cambian solo c
 
 | Qué | De dónde viene |
 |---|---|
-| Demonios de BuildKit | el complemento `buildkit` (`p0dxD/gitops/buildkit/`): un StatefulSet con un demonio por nodo trabajador, y uno en un [nodo «a ratos»](#nodes-a-ratos) |
+| Demonios de BuildKit | el complemento `buildkit` (`example/gitops/buildkit/`): un StatefulSet con un demonio por nodo trabajador, y uno en un [nodo «a ratos»](#nodes-a-ratos) |
 | Imagen de la herramienta de Railpack | `make railpack-image` desde `deploy/railpack/Dockerfile`, fijada por suma de verificación |
 | Interfaz de entrada de Railpack | BuildKit la descarga de `ghcr.io/railwayapp/railpack-frontend` en la versión fijada |
 | Imágenes de clonado y del cliente de construcción | `alpine/git`, `moby/buildkit` (el cliente debe coincidir con la versión del demonio) |

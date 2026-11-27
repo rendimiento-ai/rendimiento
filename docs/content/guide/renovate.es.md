@@ -7,7 +7,7 @@
 - Según una **programación** (cron, en UTC; de forma predeterminada `0 5 * * *`) o con **Ejecutar ahora**.
 - Cada ejecución es un pod en el espacio de nombres aislado de construcción, con un **token nuevo de la aplicación de GitHub** válido por una hora. No hay ningún token personal que pueda vencer o filtrarse.
 - Las confirmaciones y las solicitudes vienen del bot de la aplicación (`<nombre-de-la-aplicación>[bot]`) y se firman a través de la API de GitHub (confirmaciones verificadas).
-- Cubre cada aplicación que tiene encendido su interruptor de **Actualizaciones de dependencias** (en la página de la aplicación o en la de Complementos), más los **otros repositorios** que aparecen en la configuración (por ejemplo `p0dxD/main_configs`).
+- Cubre cada aplicación que tiene encendido su interruptor de **Actualizaciones de dependencias** (en la página de la aplicación o en la de Complementos), más los **otros repositorios** que aparecen en la configuración (por ejemplo `example/infra`).
 - Su **configuración** (`config.js`) se edita en la página Complementos; rendimiento pone por su cuenta el token, los repositorios y la identidad.
 - Cada ejecución registra, por repositorio, el resultado, las solicitudes abiertas, las integradas y los errores, más un registro legible. El nivel de registro se puede poner en *debug* para ver por qué pasó algo.
 

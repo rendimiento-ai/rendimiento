@@ -27,11 +27,11 @@ flowchart TB
 
 **Palancas, de la más barata a la más cara:**
 
-1. Agregar réplicas al complemento `buildkit` (en `p0dxD/gitops`). El grupo encuentra los demonios nuevos por los registros DNS SRV, y solo cerca de 1/N de las imágenes se cambia de demonio.
+1. Agregar réplicas al complemento `buildkit` (en `example/gitops`). El grupo encuentra los demonios nuevos por los registros DNS SRV, y solo cerca de 1/N de las imágenes se cambia de demonio.
 2. Subir `MAX_PARALLEL_STEPS` cuando los demonios aguanten más trabajo.
 3. Darles más memoria a los demonios y definir `max-parallelism` en la configuración de buildkitd.
 4. Hacer que el límite sea *por demonio* y no global: el corredor llevaría la cuenta de los pasos de cada demonio.
-5. Agregar un constructor amd64 o en la nube para las tecnologías pesadas (Java, Rust), elegido con un campo `build.platform` o según el tamaño de la tecnología.
+5. Un constructor amd64 ya se une cuando lo hay: un [nodo «a ratos»](../environment/deploy.md#nodes-a-ratos) de la otra arquitectura construye de forma nativa la otra mitad de cada imagen ([Arquitecturas](../architecture/builds.md#architectures)). Falta todavía: un constructor en la nube para las tecnologías pesadas (Java, Rust), elegido con un campo `build.platform` o según el tamaño de la tecnología.
 
 ## Cola y trabajadores {#queue-and-workers}
 

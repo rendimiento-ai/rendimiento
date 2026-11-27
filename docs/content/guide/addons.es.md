@@ -7,10 +7,10 @@ Los complementos son los programas que su clúster necesita y que no son una de 
 | Complemento | Origen | Modo |
 |---|---|---|
 | `longhorn` | paquete de Helm `longhorn` v1.10.2 | sincronización manual, sin eliminación |
-| `longhorn-backups` | `p0dxD/gitops/longhorn-backups` | automático |
-| `umami` | `p0dxD/gitops/umami` | automático |
+| `longhorn-backups` | `example/gitops/longhorn-backups` | automático |
+| `umami` | `example/gitops/umami` | automático |
 | `hajimari` | paquete de Helm `hajimari` 2.0.2 | automático |
-| `buildkit` | `p0dxD/gitops/buildkit` (el grupo de BuildKit) | automático |
+| `buildkit` | `example/gitops/buildkit` (el grupo de BuildKit) | automático |
 
 `kubectl get radd` los muestra con su fase.
 
@@ -18,7 +18,7 @@ Un complemento cuyos servicios tienen una dirección de MetalLB la muestra en su
 
 ## Instalar uno desde el catálogo {#install-one-from-the-catalog}
 
-**Complementos → Agregar desde el catálogo → Instalar**, llene el nombre, el espacio de nombres, la versión y los pocos ajustes que se muestran, pegue si quiere valores del paquete en YAML (se combinan sobre los ajustes), elija las opciones y presione **Instalar**. Eso confirma `addons/<nombre>.yaml` en `p0dxD/gitops`; en segundos el complemento aparece en *Instalados*, se muestra su vista previa y se aplica.
+**Complementos → Agregar desde el catálogo → Instalar**, llene el nombre, el espacio de nombres, la versión y los pocos ajustes que se muestran, pegue si quiere valores del paquete en YAML (se combinan sobre los ajustes), elija las opciones y presione **Instalar**. Eso confirma `addons/<nombre>.yaml` en `example/gitops`; en segundos el complemento aparece en *Instalados*, se muestra su vista previa y se aplica.
 
 Las opciones:
 
@@ -30,7 +30,7 @@ Las opciones:
 
 ## Escribir uno a mano {#write-one-by-hand}
 
-Confirme un archivo en `p0dxD/gitops/addons/`:
+Confirme un archivo en `example/gitops/addons/`:
 
 ```yaml
 name: uptime-kuma
