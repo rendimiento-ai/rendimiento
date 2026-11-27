@@ -28,8 +28,8 @@ func TestBuildkitPorArquitectura(t *testing.T) {
 		return &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{"kubernetes.io/arch": arch}}}
 	}
 	otra := archOtra(archPrincipal)
-	cs := fake.NewSimpleClientset(daemon("buildkitd-0", "worker1"), daemon("buildkitd-1", "worker2"), daemon("buildkitd-amd64-0", "p0dxd"),
-		nodo("worker1", archPrincipal), nodo("worker2", archPrincipal), nodo("p0dxd", otra))
+	cs := fake.NewSimpleClientset(daemon("buildkitd-0", "worker1"), daemon("buildkitd-1", "worker2"), daemon("buildkitd-amd64-0", "desktop-node"),
+		nodo("worker1", archPrincipal), nodo("worker2", archPrincipal), nodo("desktop-node", otra))
 	k := &KubeExecutor{Client: cs, BuildkitPool: "buildkitd-pool.devops-tools.svc.cluster.local",
 		Resolver: fakeSRV{targets: []string{"buildkitd-0", "buildkitd-1", "buildkitd-amd64-0"}}}
 	ctx := context.Background()
@@ -155,23 +155,23 @@ func TestARatos(t *testing.T) {
 // A pod ended by its node's shutdown is told apart, and its second try is
 // kept off that node, whatever affinity it had.
 func TestSeApago(t *testing.T) {
-	p := &corev1.Pod{Spec: corev1.PodSpec{NodeName: "p0dxd"}, Status: corev1.PodStatus{Reason: "Terminated", Message: "Pod was terminated in response to imminent node shutdown."}}
+	p := &corev1.Pod{Spec: corev1.PodSpec{NodeName: "desktop-node"}, Status: corev1.PodStatus{Reason: "Terminated", Message: "Pod was terminated in response to imminent node shutdown."}}
 	if !seApagoBajo(p) {
 		t.Fatal("a node shutdown was not seen")
 	}
 	if seApagoBajo(&corev1.Pod{Spec: corev1.PodSpec{NodeName: "worker1"}, Status: corev1.PodStatus{Reason: "Evicted"}}) {
 		t.Fatal("an eviction was taken for a shutdown")
 	}
-	cs := fake.NewSimpleClientset(&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "p0dxd", Labels: map[string]string{TaintARatos: "true"}}},
+	cs := fake.NewSimpleClientset(&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "desktop-node", Labels: map[string]string{TaintARatos: "true"}}},
 		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker1"}})
 	k := &KubeExecutor{Client: cs}
-	if !k.esARatos(context.Background(), "p0dxd") || k.esARatos(context.Background(), "worker1") {
+	if !k.esARatos(context.Background(), "desktop-node") || k.esARatos(context.Background(), "worker1") {
 		t.Fatal("which nodes are «a ratos»")
 	}
 	pod := &corev1.Pod{}
-	evitarNodos(pod, []string{"p0dxd"})
+	evitarNodos(pod, []string{"desktop-node"})
 	e := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[0]
-	if e.Operator != corev1.NodeSelectorOpNotIn || e.Values[0] != "p0dxd" {
+	if e.Operator != corev1.NodeSelectorOpNotIn || e.Values[0] != "desktop-node" {
 		t.Fatalf("the second try: %+v", e)
 	}
 }
@@ -194,5 +194,17 @@ func TestNodoSinCI(t *testing.T) {
 		if _, d := k.buildkitFor(context.Background(), key); d != "buildkitd-0" {
 			t.Fatalf("%s builds on %q, a node kept out of CI", key, d)
 		}
+	}
+}
+
+// A build's place is the node of the daemon at its BuildKit address.
+func TestNodoDe(t *testing.T) {
+	cs := fake.NewSimpleClientset(&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "buildkitd-2", Namespace: "devops-tools"}, Spec: corev1.PodSpec{NodeName: "node-b"}})
+	k := &KubeExecutor{Client: cs}
+	if n := k.nodoDe(context.Background(), "tcp://buildkitd-2.buildkitd-pool.devops-tools.svc.cluster.local:1234"); n != "node-b" {
+		t.Fatalf("node = %q", n)
+	}
+	if n := k.nodoDe(context.Background(), "tcp://buildkitd.example.lan:1234"); n != "" {
+		t.Fatalf("an address outside the pool has a node: %q", n)
 	}
 }

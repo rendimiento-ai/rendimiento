@@ -87,15 +87,20 @@ func (h *CapacityHolder) Limits() ([]string, int64) {
 	return append([]string{}, c.NodesOff...), c.StepCPUMillis
 }
 
-// NodeLoad is how full a node is: its CPU reserved by its pods' requests,
-// and in use (-1 when the metrics server does not say), in percent.
+// NodeLoad is how full a node is, in percent: its CPU and its memory, each
+// reserved by its pods' requests and in use (-1 when the metrics server does
+// not say). Memory counts as much as CPU: a node with idle cores but its
+// memory taken (the Jetson, with the language model loaded) makes a step
+// crawl as surely as one with every core busy.
 type NodeLoad struct {
-	Name     string
-	Reserved int
-	Used     int
+	Name        string
+	Reserved    int
+	Used        int
+	MemReserved int
+	MemUsed     int
 }
 
-// BusyNodes are the loads at pct or more, reserved or used. When every
+// BusyNodes are the loads at pct or more, CPU or memory, reserved or used. When every
 // node is that full, the least full one is left out, so steps still go
 // somewhere.
 func BusyNodes(loads []NodeLoad, pct int) []string {
@@ -106,7 +111,7 @@ func BusyNodes(loads []NodeLoad, pct int) []string {
 	if pct >= 100 || len(loads) == 0 {
 		return busy
 	}
-	full := func(l NodeLoad) int { return max(l.Reserved, l.Used) }
+	full := func(l NodeLoad) int { return max(l.Reserved, l.Used, l.MemReserved, l.MemUsed) }
 	for _, l := range loads {
 		if full(l) >= pct {
 			busy = append(busy, l.Name)
@@ -135,13 +140,14 @@ func (h *CapacityHolder) measure(ctx context.Context) {
 	if err != nil {
 		return
 	}
-	reserved := map[string]int64{}
+	reserved, memReserved := map[string]int64{}, map[string]int64{}
 	for _, p := range pods.Items {
 		for _, ct := range p.Spec.Containers {
 			reserved[p.Spec.NodeName] += ct.Resources.Requests.Cpu().MilliValue()
+			memReserved[p.Spec.NodeName] += ct.Resources.Requests.Memory().Value()
 		}
 	}
-	used := h.nodeUse(ctx)
+	used, memUsed := h.nodeUse(ctx)
 	var loads []NodeLoad
 	for _, n := range nodes.Items {
 		if n.Spec.Unschedulable || slices.Contains(c.NodesOff, n.Name) || slices.Contains(h.Exclude, n.Name) || n.Labels[pipeline.LabelConstruye] == pipeline.SinCI ||
@@ -152,9 +158,15 @@ func (h *CapacityHolder) measure(ctx context.Context) {
 		if alloc <= 0 {
 			continue
 		}
-		l := NodeLoad{Name: n.Name, Reserved: int(reserved[n.Name] * 100 / alloc), Used: -1}
+		l := NodeLoad{Name: n.Name, Reserved: int(reserved[n.Name] * 100 / alloc), Used: -1, MemUsed: -1}
 		if u, ok := used[n.Name]; ok {
 			l.Used = int(u * 100 / alloc)
+		}
+		if mem := n.Status.Allocatable.Memory().Value(); mem > 0 {
+			l.MemReserved = int(memReserved[n.Name] * 100 / mem)
+			if u, ok := memUsed[n.Name]; ok {
+				l.MemUsed = int(u * 100 / mem)
+			}
 		}
 		loads = append(loads, l)
 	}
@@ -162,13 +174,13 @@ func (h *CapacityHolder) measure(ctx context.Context) {
 	h.busy.Store(&busy)
 }
 
-// nodeUse is each node's CPU in use (thousandths of a core), from the
-// metrics server; empty without it.
-func (h *CapacityHolder) nodeUse(ctx context.Context) map[string]int64 {
-	out := map[string]int64{}
+// nodeUse is each node's CPU in use (thousandths of a core) and memory in
+// use (bytes), from the metrics server; empty without it.
+func (h *CapacityHolder) nodeUse(ctx context.Context) (map[string]int64, map[string]int64) {
+	out, mem := map[string]int64{}, map[string]int64{}
 	raw, err := h.Kube.CoreV1().RESTClient().Get().AbsPath("/apis/metrics.k8s.io/v1beta1/nodes").DoRaw(ctx)
 	if err != nil {
-		return out
+		return out, mem
 	}
 	var list struct {
 		Items []struct {
@@ -176,17 +188,21 @@ func (h *CapacityHolder) nodeUse(ctx context.Context) map[string]int64 {
 				Name string `json:"name"`
 			} `json:"metadata"`
 			Usage struct {
-				CPU string `json:"cpu"`
+				CPU    string `json:"cpu"`
+				Memory string `json:"memory"`
 			} `json:"usage"`
 		} `json:"items"`
 	}
 	if json.Unmarshal(raw, &list) != nil {
-		return out
+		return out, mem
 	}
 	for _, it := range list.Items {
 		if q, err := resource.ParseQuantity(it.Usage.CPU); err == nil {
 			out[it.Metadata.Name] = q.MilliValue()
 		}
+		if q, err := resource.ParseQuantity(it.Usage.Memory); err == nil {
+			mem[it.Metadata.Name] = q.Value()
+		}
 	}
-	return out
+	return out, mem
 }

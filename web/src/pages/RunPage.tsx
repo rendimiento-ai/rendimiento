@@ -186,7 +186,7 @@ function primero(r: Run): string | undefined {
 }
 
 /** A step's live event: its status, and its times when the server says them (an older server does not). */
-type PasoEnVivo = Pick<Step, "id" | "status"> & Partial<Pick<Step, "digest" | "message" | "startedAt" | "finishedAt">>;
+type PasoEnVivo = Pick<Step, "id" | "status"> & Partial<Pick<Step, "digest" | "message" | "startedAt" | "finishedAt" | "lugares">>;
 
 /**
  * A step after its live event. The times the server stored win; without them, a step that starts starts now and one

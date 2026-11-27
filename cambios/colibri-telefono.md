@@ -1,0 +1,1 @@
+- **The hummingbird on a phone:** the × and the send arrow are centered in their circles, the send button stays inside the screen, and the sheet starts below the page's top bar.

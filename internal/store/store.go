@@ -322,6 +322,9 @@ type Step struct {
 	// Tries is how often the step ran: more than 1 when it failed and was
 	// retried.
 	Tries int `json:"tries,omitempty"`
+	// Lugares is where it ran: a node and its architecture, one per half of
+	// an image built for two.
+	Lugares []pipeline.Lugar `json:"lugares,omitempty"`
 }
 
 const (
@@ -547,7 +550,7 @@ func (s *Store) GetRun(ctx context.Context, id int64) (*Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.pool.Query(ctx, `SELECT step_id, service, kind, depends_on, status, digest, message, started_at, finished_at, tries
+	rows, err := s.pool.Query(ctx, `SELECT step_id, service, kind, depends_on, status, digest, message, started_at, finished_at, tries, lugares
 		FROM steps WHERE run_id = $1 ORDER BY step_id`, id)
 	if err != nil {
 		return nil, err
@@ -555,9 +558,11 @@ func (s *Store) GetRun(ctx context.Context, id int64) (*Run, error) {
 	defer rows.Close()
 	for rows.Next() {
 		var st Step
-		if err := rows.Scan(&st.ID, &st.Service, &st.Kind, &st.DependsOn, &st.Status, &st.Digest, &st.Message, &st.StartedAt, &st.FinishedAt, &st.Tries); err != nil {
+		var lugares []byte
+		if err := rows.Scan(&st.ID, &st.Service, &st.Kind, &st.DependsOn, &st.Status, &st.Digest, &st.Message, &st.StartedAt, &st.FinishedAt, &st.Tries, &lugares); err != nil {
 			return nil, err
 		}
+		_ = json.Unmarshal(lugares, &st.Lugares)
 		r.Steps = append(r.Steps, st)
 	}
 	if err := rows.Err(); err != nil {
@@ -610,14 +615,19 @@ func (s *Store) UpdateStep(ctx context.Context, runID int64, stepID string, r pi
 // finished as stored (a step keeps the start of its first update), so the
 // live event says the same as a reload.
 func (s *Store) UpdateStepTimes(ctx context.Context, runID int64, stepID string, r pipeline.StepResult) (started, finished *time.Time, err error) {
+	var lugares []byte
+	if len(r.Lugares) > 0 {
+		lugares, _ = json.Marshal(r.Lugares)
+	}
 	err = s.pool.QueryRow(ctx, `UPDATE steps SET status = $3,
 			digest = CASE WHEN $4 = '' THEN digest ELSE $4 END,
 			message = $5,
 			started_at = COALESCE(started_at, $6),
-			finished_at = $7
+			finished_at = $7,
+			lugares = COALESCE($8::jsonb, lugares)
 		WHERE run_id = $1 AND step_id = $2
 		RETURNING started_at, finished_at`,
-		runID, stepID, string(r.Status), r.Digest, r.Message, nullTime(r.Started), nullTime(r.Finished)).Scan(&started, &finished)
+		runID, stepID, string(r.Status), r.Digest, r.Message, nullTime(r.Started), nullTime(r.Finished), lugares).Scan(&started, &finished)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil, nil // no such step: nothing to update, as before
 	}

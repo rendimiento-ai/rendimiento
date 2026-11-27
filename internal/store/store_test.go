@@ -90,7 +90,8 @@ func TestAppsRunsReleases(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The finished update says the times as stored: the start of the first update is kept.
-	started, finished, err := s.UpdateStepTimes(ctx, run.ID, "web:build", pipeline.StepResult{Status: pipeline.StatusSucceeded, Digest: "sha256:1", Started: now.Add(time.Second), Finished: now.Add(2 * time.Second)})
+	started, finished, err := s.UpdateStepTimes(ctx, run.ID, "web:build", pipeline.StepResult{Status: pipeline.StatusSucceeded, Digest: "sha256:1", Started: now.Add(time.Second), Finished: now.Add(2 * time.Second),
+		Lugares: []pipeline.Lugar{{Nodo: "node-a", Arch: "arm64"}, {Nodo: "node-b", Arch: "amd64"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,6 +116,10 @@ func TestAppsRunsReleases(t *testing.T) {
 	}
 	if build.Status != "succeeded" || build.Digest != "sha256:1" || build.StartedAt == nil || build.FinishedAt == nil || build.DependsOn[0] != "web:test" {
 		t.Fatalf("step = %+v", build)
+	}
+	// Where it ran: each half of the image with its node.
+	if len(build.Lugares) != 2 || build.Lugares[0] != (pipeline.Lugar{Nodo: "node-a", Arch: "arm64"}) || build.Lugares[1].Arch != "amd64" {
+		t.Fatalf("lugares = %+v", build.Lugares)
 	}
 	if log, _, _ := s.StepLog(ctx, run.ID, "web:build"); log != "line 1\nline 2\n" {
 		t.Fatalf("log = %q", log)

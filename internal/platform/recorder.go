@@ -34,6 +34,9 @@ func stepEvent(stepID string, r pipeline.StepResult, started, finished *time.Tim
 	if finished != nil {
 		e["finishedAt"] = finished.UTC()
 	}
+	if len(r.Lugares) > 0 {
+		e["lugares"] = r.Lugares
+	}
 	return e
 }
 

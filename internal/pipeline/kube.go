@@ -248,6 +248,7 @@ func (k *KubeExecutor) ejecutar(ctx context.Context, runID string, src Source, s
 		return fail("create clone secret: %v", err)
 	}
 	buildkit := k.BuildkitAddr
+	var otroAddr string
 	if step.Kind == KindBuild {
 		var daemon string
 		buildkit, daemon = k.buildkitFor(ctx, step.Target)
@@ -256,7 +257,7 @@ func (k *KubeExecutor) ejecutar(ctx context.Context, runID string, src Source, s
 		}
 		// A node «a ratos» that is on builds the other architecture's half.
 		if addr, otro := k.buildkitOtro(ctx, step.Target); addr != "" {
-			step.otroBuildkit = addr
+			step.otroBuildkit, otroAddr = addr, addr
 			fmt.Fprintf(w, "rendimiento: building the %s half on %s, a node «a ratos»\n", archOtra(archPrincipal), otro)
 		}
 	}
@@ -372,6 +373,13 @@ func (k *KubeExecutor) ejecutar(ctx context.Context, runID string, src Source, s
 		return fail("%v", err)
 	}
 	res.Finished = time.Now()
+	if step.Kind == KindBuild {
+		if n := k.nodoDe(ctx, buildkit); n != "" {
+			res.Lugares = append(res.Lugares, Lugar{Nodo: n, Arch: archPrincipal})
+		}
+	} else if n := final.Spec.NodeName; n != "" {
+		res.Lugares = append(res.Lugares, Lugar{Nodo: n, Arch: k.nodeArch(ctx, n)})
+	}
 	if final.Status.Phase != corev1.PodSucceeded {
 		if final.Status.Reason == "DeadlineExceeded" {
 			switch step.Kind {
@@ -405,6 +413,9 @@ func (k *KubeExecutor) ejecutar(ctx context.Context, runID string, src Source, s
 			} else {
 				fmt.Fprintf(w, "rendimiento: one image for %s and %s\n", archPrincipal, arch)
 				res.Digest = ix
+				if n := k.nodoDe(ctx, otroAddr); n != "" {
+					res.Lugares = append(res.Lugares, Lugar{Nodo: n, Arch: arch})
+				}
 			}
 		}
 		fmt.Fprintf(w, "rendimiento: pushed %s@%s\n", step.Target, res.Digest)
@@ -607,6 +618,16 @@ func (k *KubeExecutor) buildkitOtro(ctx context.Context, key string) (string, st
 	host := strings.TrimSuffix(best.Target, ".")
 	daemon, _, _ := strings.Cut(host, ".")
 	return fmt.Sprintf("tcp://%s:%d", host, best.Port), daemon
+}
+
+// nodoDe is the node of the pool daemon at a BuildKit address
+// (tcp://<pod>.<service>.<namespace>.svc…:<port>), "" when it cannot tell.
+func (k *KubeExecutor) nodoDe(ctx context.Context, addr string) string {
+	host := strings.TrimPrefix(addr, "tcp://")
+	if i := strings.LastIndex(host, ":"); i > 0 {
+		host = host[:i]
+	}
+	return k.daemonNode(ctx, host)
 }
 
 // daemonNode is the node a pool daemon's pod runs on ("" when it cannot

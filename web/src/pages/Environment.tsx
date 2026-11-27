@@ -703,7 +703,7 @@ function Capacidad({ nodes }: { nodes: EnvNode[] }) {
         <label className="field"><span>{t("A node is busy from (%)")}</span>
           <input type="number" min={50} max={100} step={5} disabled={!admin} value={c.busyPercent || ""} placeholder={String(v.defaultBusyPercent)}
             onChange={(e) => set({ busyPercent: Number(e.target.value) })} />
-          <span className="small muted">{t("CPU reserved or in use; a busy node takes nothing new until it eases. 100: never busy")}</span>
+          <span className="small muted">{t("CPU or memory, reserved or in use; a busy node takes nothing new until it eases. 100: never busy")}</span>
         </label>
         <label className="field"><span>{t("Most CPU a step reserves (cores)")}</span>
           <input type="number" min={0} step={0.25} disabled={!admin} value={c.stepCpuMillis ? c.stepCpuMillis / 1000 : ""} placeholder={t("what each app asks")}

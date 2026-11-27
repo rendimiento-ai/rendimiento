@@ -1,0 +1,1 @@
+- **Capacity:** a node counts as busy by its memory too, reserved or in use, not only by its CPU: new steps go to other nodes when one has its memory taken (like the GPU node with the language model loaded).
