@@ -1747,6 +1747,11 @@ body { background-image: var(--bg-image); background-attachment: fixed; min-heig
 .carrera-carril svg{display:block}
 .carrera-nombre{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .carrera-llegada{white-space:nowrap;text-align:right}
+/* Where a step ran (pendiente 199): its node, with its architecture; the other architecture's half in the color of the nodes «a ratos». */
+.carrera-lugar{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px;white-space:normal}
+.carrera-nodo{display:inline-flex;align-items:baseline;gap:4px;padding:1px 8px;border-radius:999px;background:color-mix(in srgb,var(--nopal) 14%,var(--surface));color:var(--text);font-weight:700}
+.carrera-nodo em{font-style:normal;font-weight:600;color:var(--muted)}
+.carrera-nodo.otra{background:color-mix(in srgb,var(--anil) 18%,var(--surface))}
 .carrera-llegada b{color:var(--text)}
 .carrera-pista{grid-column:2/-1;position:relative;display:block;height:10px;margin-right:8px;border-radius:5px;background:color-mix(in srgb,var(--border) 70%,transparent)}
 .carrera-espera{position:absolute;left:0;top:4px;height:0;border-top:2px dotted var(--muted);opacity:.7}

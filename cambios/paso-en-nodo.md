@@ -1,0 +1,1 @@
+- **Runs:** each step says where it ran: its node and architecture in the race, and for an image built for two architectures, the node that built each half. Kept in a new column `steps.lugares` (migration 0072, only added).

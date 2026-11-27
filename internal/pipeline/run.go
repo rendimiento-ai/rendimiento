@@ -15,10 +15,20 @@ type StepResult struct {
 	Message  string
 	Started  time.Time
 	Finished time.Time
+	// Lugares is where the step ran: the node of its pod (a test, a task),
+	// or of the BuildKit daemons that built each architecture's half.
+	Lugares []Lugar
 
 	// seApago is the node «a ratos» that shut down under the step (the
 	// executor runs it again elsewhere, once).
 	seApago string
+}
+
+// Lugar is a node a step (or one half of an image) ran on, with its
+// architecture.
+type Lugar struct {
+	Nodo string `json:"nodo"`
+	Arch string `json:"arch,omitempty"`
 }
 
 // Executor runs a single step to completion, writing its logs to w.

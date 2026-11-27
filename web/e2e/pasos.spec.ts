@@ -16,7 +16,7 @@ const ejecucion = {
   createdAt: hace(400), startedAt: hace(400),
   steps: [
     paso("api:test", "test", [], "succeeded", 400, 300),
-    paso("api:build", "build", [], "succeeded", 400, 200),
+    { ...paso("api:build", "build", [], "succeeded", 400, 200), lugares: [{ nodo: "node-a", arch: "arm64" }, { nodo: "node-b", arch: "amd64" }] },
     paso("web:build", "build", [], "succeeded", 400, 340),
     paso("deploy", "task", ["api:test", "api:build", "web:build"], "succeeded", 200, 60),
     paso("verify", "task", ["deploy"], "running", 60),
@@ -40,6 +40,10 @@ test("a run's steps: the race, then the threads, and a step's log", async ({ pag
   await expect(pasos.locator(".carrera-carril")).toHaveCount(6);
   await expect(pasos.locator('.carrera-carril[aria-label^="web:build,"]')).toContainText(es ? "1.º" : "1st");
   await expect(pasos.locator(".carrera-carril.vivo")).toHaveCount(1);
+  // Where a step ran: each half of the image with its node.
+  const lugar = pasos.locator('.carrera-carril[aria-label^="api:build,"] .carrera-lugar');
+  await expect(lugar.locator(".carrera-nodo")).toHaveText(["node-aarm64", "node-bamd64"]);
+  await expect(lugar).toHaveAttribute("title", es ? "Corrió en node-a (arm64) + node-b (amd64)" : "Ran on node-a (arm64) + node-b (amd64)");
 
   // The threads: three leave from the change, and three steps start at a knot.
   await pasos.getByRole("button", { name: es ? "Los hilos" : "The threads" }).click();
