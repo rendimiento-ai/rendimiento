@@ -83,6 +83,8 @@ type KubeExecutor struct {
 	// architectures it asks before a test goes to a node «a ratos»
 	// (arquitecturas.go). Empty: every image is taken to have both.
 	Registry string
+	// logFuente, in tests, stands for the kubelet's log endpoint.
+	logFuente func(ctx context.Context, pod, container string, follow bool) (io.ReadCloser, error)
 
 	archMu       sync.Mutex
 	archDe       map[string]string // node → its architecture
@@ -1138,51 +1140,170 @@ func (k *KubeExecutor) waitStarted(ctx context.Context, pod, container string) e
 }
 
 // streamLogs copies a container's log to w as it is written, until the
-// container ends. Some nodes' kubelets keep the stream open after the
-// container ended (seen on colorpi, for minutes): once the container is
-// done, the stream gets streamGrace to finish, and then it is closed.
+// container ends. Two kubelet habits are handled:
+//   - Some keep the stream open after the container ended (seen on colorpi,
+//     for minutes): once the container is done, the stream gets streamGrace to
+//     finish, and then it is closed.
+//   - Some let a stream go mute after a long silence of the step (seen on
+//     a GPU node, run 1955: 29 minutes compiling, and the log stopped at line 12
+//     while the step went on). After streamStall without a byte, the whole log
+//     is read once: if it grew, what was missed is written and the stream is
+//     opened again from there. When the container ends, the same read fills
+//     in whatever the stream did not bring.
 func (k *KubeExecutor) streamLogs(ctx context.Context, pod, container string, w io.Writer) error {
+	c := &contado{w: w, ultimo: time.Now()}
+	for {
+		reabrir, err := k.seguirLog(ctx, pod, container, c)
+		if !reabrir {
+			return err
+		}
+	}
+}
+
+// seguirLog follows one stream of the log from c's offset. It says whether
+// the stream went mute while the log grew, so it must be opened again.
+func (k *KubeExecutor) seguirLog(ctx context.Context, pod, container string, c *contado) (bool, error) {
 	sctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	rc, err := k.Client.CoreV1().Pods(k.Namespace).GetLogs(pod, &corev1.PodLogOptions{Container: container, Follow: true}).Stream(sctx)
+	rc, err := k.leerLog(sctx, pod, container, true)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer rc.Close()
+	saltar := c.n()
 	done := make(chan error, 1)
 	go func() {
-		_, err := io.Copy(w, rc)
+		if _, err := io.CopyN(io.Discard, rc, saltar); err != nil {
+			done <- err
+			return
+		}
+		_, err := io.Copy(c, rc)
 		done <- err
 	}()
+	cerrar := func() {
+		cancel()
+		_ = rc.Close()
+		<-done
+	}
 	tick := time.NewTicker(streamPoll)
 	defer tick.Stop()
+	// fin fills in what a stream that ended early did not bring.
+	fin := func(err error) (bool, error) {
+		if err == nil && k.containerEnded(ctx, pod, container) {
+			k.completarLog(ctx, pod, container, c)
+		}
+		return false, err
+	}
 	for {
 		select {
 		case err := <-done:
-			return err
+			return fin(err)
 		case <-tick.C:
-			if !k.containerEnded(ctx, pod, container) {
+			if k.containerEnded(ctx, pod, container) {
+				select {
+				case err := <-done:
+					return fin(err)
+				case <-time.After(streamGrace):
+					cerrar()
+					if !k.completarLog(ctx, pod, container, c) {
+						fmt.Fprintf(c, "rendimiento: the log stream stayed open after the container ended; went on\n")
+					}
+					return false, nil
+				}
+			}
+			if c.callado() < streamStall {
 				continue
 			}
-			select {
-			case err := <-done:
-				return err
-			case <-time.After(streamGrace):
-				cancel()
-				_ = rc.Close()
-				<-done
-				fmt.Fprintf(w, "rendimiento: the log stream stayed open after the container ended; went on\n")
-				return nil
+			c.toque()
+			if creció, err := k.creceLog(ctx, pod, container, c); err == nil && creció {
+				cerrar()
+				k.completarLog(ctx, pod, container, c)
+				return true, nil
 			}
 		}
 	}
 }
 
-// How often a log stream checks that its container still runs, and how
-// long it waits for the rest of the log once it ended.
+// creceLog says whether the container's whole log is longer than what came.
+func (k *KubeExecutor) creceLog(ctx context.Context, pod, container string, c *contado) (bool, error) {
+	rc, err := k.leerLog(ctx, pod, container, false)
+	if err != nil {
+		return false, err
+	}
+	defer rc.Close()
+	n, err := io.Copy(io.Discard, rc)
+	return n > c.n(), err
+}
+
+// completarLog reads the whole log once and writes what c has not got yet. It
+// says whether it could.
+func (k *KubeExecutor) completarLog(ctx context.Context, pod, container string, c *contado) bool {
+	rc, err := k.leerLog(ctx, pod, container, false)
+	if err != nil {
+		return false
+	}
+	defer rc.Close()
+	if _, err := io.CopyN(io.Discard, rc, c.n()); err != nil {
+		return err == io.EOF
+	}
+	_, err = io.Copy(c, rc)
+	return err == nil
+}
+
+// leerLog opens a container's log, following it or whole as it is now.
+func (k *KubeExecutor) leerLog(ctx context.Context, pod, container string, follow bool) (io.ReadCloser, error) {
+	if k.logFuente != nil {
+		return k.logFuente(ctx, pod, container, follow)
+	}
+	return k.Client.CoreV1().Pods(k.Namespace).GetLogs(pod, &corev1.PodLogOptions{Container: container, Follow: follow}).Stream(ctx)
+}
+
+// contado counts what was written to w, and when the last byte came.
+type contado struct {
+	mu      sync.Mutex
+	w       io.Writer
+	escrito int64
+	ultimo  time.Time
+}
+
+func (c *contado) Write(p []byte) (int, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	n, err := c.w.Write(p)
+	c.escrito += int64(n)
+	if n > 0 {
+		c.ultimo = time.Now()
+	}
+	return n, err
+}
+
+func (c *contado) n() int64 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.escrito
+}
+
+func (c *contado) callado() time.Duration {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return time.Since(c.ultimo)
+}
+
+// toque restarts the silence, so a quiet step's whole log is read once every
+// streamStall, not on every poll.
+func (c *contado) toque() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.ultimo = time.Now()
+}
+
+// How often a log stream checks that its container still runs, how long it
+// waits for the rest of the log once it ended, and how long a silent stream
+// goes before the whole log is read to see whether it went mute.
 var (
 	streamPoll  = 5 * time.Second
 	streamGrace = 10 * time.Second
+	streamStall = 2 * time.Minute
 )
 
 // containerEnded says whether a pod's container (or init container) has
