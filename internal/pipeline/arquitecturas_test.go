@@ -175,3 +175,24 @@ func TestSeApago(t *testing.T) {
 		t.Fatalf("the second try: %+v", e)
 	}
 }
+
+// A node labelled rendimiento.ai/construye=no takes no CI: its BuildKit
+// daemon is left out of the pool, whatever its architecture.
+func TestNodoSinCI(t *testing.T) {
+	daemon := func(name, node string) *corev1.Pod {
+		return &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "devops-tools"}, Spec: corev1.PodSpec{NodeName: node}}
+	}
+	nodo := func(name string, labels map[string]string) *corev1.Node {
+		labels["kubernetes.io/arch"] = archPrincipal
+		return &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: labels}}
+	}
+	cs := fake.NewSimpleClientset(daemon("buildkitd-0", "node-a"), daemon("buildkitd-1", "gpu-node"),
+		nodo("node-a", map[string]string{}), nodo("gpu-node", map[string]string{LabelConstruye: SinCI}))
+	k := &KubeExecutor{Client: cs, BuildkitPool: "buildkitd-pool.devops-tools.svc.cluster.local",
+		Resolver: fakeSRV{targets: []string{"buildkitd-0", "buildkitd-1"}}}
+	for _, key := range []string{"reg/a", "reg/b", "reg/c", "reg/d", "reg/e", "reg/f"} {
+		if _, d := k.buildkitFor(context.Background(), key); d != "buildkitd-0" {
+			t.Fatalf("%s builds on %q, a node kept out of CI", key, d)
+		}
+	}
+}

@@ -367,6 +367,8 @@ Administrators of the platform change, without a redeploy (every process follows
 - **A node is busy from (%)**: every 15 seconds the platform measures each node's CPU, reserved and in use; one at this percent or more (85 by default) shows *busy*, and new steps go to the other nodes when one has room for them. It is a preference, not a rule: a step made while most nodes are busy still goes to a busy one once it fits there, instead of waiting for the only node left, which may never have room. BuildKit daemons on busy nodes are left out while another is ready. 100 turns it off.
 - **Most CPU a step reserves**: lowers what any step's pod asks for, so steps fit on busy nodes; with no CPU limit they still use the free cores they find. Empty: what each app's `resources` asks.
 
+A node kept for other work, such as one that serves a language model and needs its memory, can stay out of CI for good, by a label rather than by its name, so the rule follows the machine: `kubectl label node <node> rendimiento.ai/construye=no` (or the `node-label` of its k3s agent). No step of any run goes there, its BuildKit daemon builds nothing, and it is left out of the busy count. Your apps still run there as before. `rendimiento.ai/construye=si` is the other way: a node that prefers CI, like a node «a ratos».
+
 ### The Environment page {#the-environment-page}
 
 On a cluster, the Environment page says first how things go, then what needs you:

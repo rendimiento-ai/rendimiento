@@ -1,0 +1,1 @@
+- **Nodes:** a node labelled `rendimiento.ai/construye=no` takes no CI: no step goes there, its BuildKit daemon builds nothing, and it is left out of the busy count. For a machine kept for other work (one that serves a language model); your apps still run there.

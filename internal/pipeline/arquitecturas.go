@@ -31,39 +31,54 @@ import (
 // everything is as before: one architecture, nothing waits for it.
 
 // TaintARatos is the taint (and label) of a node that is on only sometimes,
-// and LabelConstruye the label of the ones that take CI.
+// and LabelConstruye the label of the ones that take CI: "si" prefers a node
+// for it, SinCI keeps it out (its pods and its BuildKit daemons).
 const (
 	TaintARatos    = "rendimiento.ai/a-ratos"
 	LabelConstruye = "rendimiento.ai/construye"
+	SinCI          = "no"
 )
 
 // archPrincipal is the cluster's architecture: the platform's own.
 var archPrincipal = runtime.GOARCH
 
-// nodeArch is a node's architecture (its kubernetes.io/arch label), kept a
-// while; "" when it cannot tell.
-func (k *KubeExecutor) nodeArch(ctx context.Context, node string) string {
+// nodeLabels are a node's labels, kept a while; nil when it cannot tell.
+func (k *KubeExecutor) nodeLabels(ctx context.Context, node string) map[string]string {
 	if node == "" || k.Client == nil {
-		return ""
+		return nil
 	}
 	k.archMu.Lock()
-	if a, ok := k.archDe[node]; ok {
+	if l, ok := k.archDe[node]; ok {
 		k.archMu.Unlock()
-		return a
+		return l
 	}
 	k.archMu.Unlock()
 	n, err := k.Client.CoreV1().Nodes().Get(ctx, node, metav1.GetOptions{})
 	if err != nil {
-		return ""
+		return nil
 	}
-	a := n.Labels["kubernetes.io/arch"]
+	l := n.Labels
+	if l == nil {
+		l = map[string]string{}
+	}
 	k.archMu.Lock()
 	if k.archDe == nil {
-		k.archDe = map[string]string{}
+		k.archDe = map[string]map[string]string{}
 	}
-	k.archDe[node] = a
+	k.archDe[node] = l
 	k.archMu.Unlock()
-	return a
+	return l
+}
+
+// nodeArch is a node's architecture (its kubernetes.io/arch label); "" when
+// it cannot tell.
+func (k *KubeExecutor) nodeArch(ctx context.Context, node string) string {
+	return k.nodeLabels(ctx, node)["kubernetes.io/arch"]
+}
+
+// sinCI says whether a pool daemon runs on a node kept out of CI.
+func (k *KubeExecutor) sinCI(ctx context.Context, target string) bool {
+	return k.nodeLabels(ctx, k.daemonNode(ctx, target))[LabelConstruye] == SinCI
 }
 
 // deArch says whether a pool daemon runs on a node of arch: a daemon whose
