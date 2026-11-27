@@ -14,7 +14,7 @@ func TestNodoARatosApagado(t *testing.T) {
 		nodes: []Node{
 			{Name: "worker1", Ready: true, Arch: "arm64"},
 			{Name: "worker2", Ready: true, Arch: "arm64"},
-			{Name: "p0dxd", Ready: false, Arch: "amd64", ARatos: true},
+			{Name: "desktop-node", Ready: false, Arch: "amd64", ARatos: true},
 		},
 	}
 	ch := checkNodes(s)
@@ -29,8 +29,8 @@ func TestNodoARatosApagado(t *testing.T) {
 }
 
 func TestSinDormidos(t *testing.T) {
-	pods := []corev1.Pod{{Spec: corev1.PodSpec{NodeName: "p0dxd"}}, {Spec: corev1.PodSpec{NodeName: "worker1"}}}
-	nodes := []Node{{Name: "p0dxd", ARatos: true}, {Name: "worker1", Ready: true}}
+	pods := []corev1.Pod{{Spec: corev1.PodSpec{NodeName: "desktop-node"}}, {Spec: corev1.PodSpec{NodeName: "worker1"}}}
+	nodes := []Node{{Name: "desktop-node", ARatos: true}, {Name: "worker1", Ready: true}}
 	if got := sinDormidos(pods, nodes); len(got) != 1 || got[0].Spec.NodeName != "worker1" {
 		t.Fatalf("%+v", got)
 	}
