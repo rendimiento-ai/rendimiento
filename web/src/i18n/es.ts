@@ -456,7 +456,7 @@ export const es: Record<string, string> = {
   "Too full now: new steps and builds go to other nodes until it eases.": "Muy lleno ahora: los pasos y las construcciones nuevas van a otros nodos hasta que se desahogue.",
   "busy": "ocupado",
   "A node is busy from (%)": "Un nodo está ocupado desde (%)",
-  "CPU reserved or in use; a busy node takes nothing new until it eases. 100: never busy": "CPU reservada o en uso; un nodo ocupado no recibe nada nuevo hasta que se desahogue. 100: nunca ocupado",
+  "CPU or memory, reserved or in use; a busy node takes nothing new until it eases. 100: never busy": "CPU o memoria, reservadas o en uso; un nodo ocupado no recibe nada nuevo hasta que se desahogue. 100: nunca ocupado",
   "Notices in the square": "Avisos en la plaza",
   "What the town needs": "Lo que el pueblo necesita",
   "{name}: processor {cpu}, memory {mem}": "{name}: procesador {cpu}, memoria {mem}",
