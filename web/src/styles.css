@@ -2893,6 +2893,11 @@ button.copiado { color: var(--ok); border-color: var(--ok); }
 .buscador-opcion > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .buscador-opcion small { color: var(--muted); font-size: 12px; }
 .buscador-opcion[aria-selected="true"] { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--accent); }
+/* A place's book page, at the right of its name (components/buscador.tsx): a link of its own, with room to tap. */
+.buscador-opcion:has(.buscador-libro) { position: relative; padding-right: 76px; }
+.buscador-libro { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); min-height: 32px; display: inline-flex; align-items: center;
+  padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); text-decoration: none; }
+.buscador-libro:hover { text-decoration: none; background: color-mix(in srgb, var(--accent) 18%, var(--surface)); }
 .buscador-nada { margin: 8px 10px; color: var(--muted); font-size: 14px; }
 .buscador.flotante { position: fixed; top: 0; left: 0; right: 0; z-index: 70; max-width: none; min-width: 0; display: flex; align-items: center; gap: 8px;
   padding: 8px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }

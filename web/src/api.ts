@@ -456,6 +456,14 @@ export interface AyudanteView {
   libro: string;
 }
 
+// ---- the top bar's search: places, settings and the book's sections (api.IndiceBuscable) ----
+
+/** A place or setting of rendimiento the search opens, in the reader's language, and its book page (under the book's address). */
+export interface LugarBuscable { ruta: string; nombre: string; que: string; claves?: string; libro?: string }
+/** A section of the book: its heading, its page and its address under the book's (with its anchor). */
+export interface SeccionLibro { titulo: string; pagina: string; ruta: string }
+export interface IndiceBuscable { lugares: LugarBuscable[]; secciones: SeccionLibro[]; libro: string }
+
 // ---- platicar una entrada: a conversation about a Ruta entry (api.PlaticaView) ----
 
 /** Who answers a conversation: one of the AI page's providers, or the person's own agent over MCP. */
@@ -1892,6 +1900,7 @@ export const api = {
   updateRuta: (id: number, e: RutaInput) => request<RutaEntry>("PUT", `/api/ruta/${id}`, e),
   archiveRuta: (id: number) => request<void>("POST", `/api/ruta/${id}/archive`),
   ayudante: () => request<AyudanteView>("GET", "/api/ayudante"),
+  buscar: () => request<IndiceBuscable>("GET", "/api/buscar"),
   preguntarAyudante: (texto: string, pagina: string, ia?: AIProvider) =>
     request<{ pregunta: AyudanteMensaje; respuesta: AyudanteMensaje }>("POST", "/api/ayudante", { texto, pagina, ia }),
   platica: (id: number) => request<PlaticaView>("GET", `/api/ruta/${id}/platica`),
