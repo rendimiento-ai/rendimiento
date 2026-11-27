@@ -100,9 +100,17 @@ func TestEnSeco(t *testing.T) {
 		if r.CheckRun == nil {
 			t.Fatalf("run %d has no check", r.ID)
 		}
-		fake.mu.Lock()
-		defer fake.mu.Unlock()
-		return fake.checks[*r.CheckRun]
+		// The check is closed a moment after the run ends: under load, more
+		// than the push takes to return. Wait for it, a while.
+		var c forja.Check
+		for deadline := time.Now().Add(testWait); ; time.Sleep(50 * time.Millisecond) {
+			fake.mu.Lock()
+			c = fake.checks[*r.CheckRun]
+			fake.mu.Unlock()
+			if c.Status == "completed" || time.Now().After(deadline) {
+				return c
+			}
+		}
 	}
 	waitMerged := func(r *store.Run) *store.Run {
 		t.Helper()
