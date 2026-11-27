@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -149,7 +150,7 @@ func (h *CapacityHolder) measure(ctx context.Context) {
 	used, memUsed := h.nodeUse(ctx)
 	var loads []NodeLoad
 	for _, n := range nodes.Items {
-		if n.Spec.Unschedulable || slices.Contains(c.NodesOff, n.Name) || slices.Contains(h.Exclude, n.Name) ||
+		if n.Spec.Unschedulable || slices.Contains(c.NodesOff, n.Name) || slices.Contains(h.Exclude, n.Name) || n.Labels[pipeline.LabelConstruye] == pipeline.SinCI ||
 			slices.ContainsFunc(n.Spec.Taints, func(t corev1.Taint) bool { return t.Effect == corev1.TaintEffectNoSchedule }) {
 			continue
 		}

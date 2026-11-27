@@ -87,7 +87,7 @@ type KubeExecutor struct {
 	logFuente func(ctx context.Context, pod, container string, follow bool) (io.ReadCloser, error)
 
 	archMu       sync.Mutex
-	archDe       map[string]string // node → its architecture
+	archDe       map[string]map[string]string // node → its labels
 	archs        archsCache
 	httpRegistro *http.Client // tests set it
 }
@@ -564,7 +564,7 @@ func (k *KubeExecutor) buildkitFor(ctx context.Context, key string) (string, str
 	// only an image's other half (buildkitOtro).
 	var propios []*net.SRV
 	for _, s := range srvs {
-		if k.deArch(ctx, s.Target, archPrincipal) {
+		if k.deArch(ctx, s.Target, archPrincipal) && !k.sinCI(ctx, s.Target) {
 			propios = append(propios, s)
 		}
 	}
@@ -619,7 +619,7 @@ func (k *KubeExecutor) buildkitOtro(ctx context.Context, key string) (string, st
 	var best *net.SRV
 	var bestScore uint64
 	for _, s := range srvs {
-		if !k.deArch(ctx, s.Target, archOtra(archPrincipal)) {
+		if !k.deArch(ctx, s.Target, archOtra(archPrincipal)) || k.sinCI(ctx, s.Target) {
 			continue
 		}
 		h := fnv.New64a()
@@ -1463,17 +1463,16 @@ func (k *KubeExecutor) affinity() *corev1.Affinity {
 			}
 		}
 	}
-	if len(off) == 0 && len(busy) == 0 {
-		return nil
-	}
-	na := &corev1.NodeAffinity{}
+	// A node labelled rendimiento.ai/construye=no takes no CI: a machine kept
+	// for other work (one that serves a language model, say). Without the
+	// label a node takes CI as before.
+	req := []corev1.NodeSelectorRequirement{{Key: LabelConstruye, Operator: corev1.NodeSelectorOpNotIn, Values: []string{SinCI}}}
 	if len(off) > 0 {
-		na.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{NodeSelectorTerms: []corev1.NodeSelectorTerm{{
-			MatchExpressions: []corev1.NodeSelectorRequirement{{
-				Key: "kubernetes.io/hostname", Operator: corev1.NodeSelectorOpNotIn, Values: off,
-			}},
-		}}}
+		req = append(req, corev1.NodeSelectorRequirement{Key: "kubernetes.io/hostname", Operator: corev1.NodeSelectorOpNotIn, Values: off})
 	}
+	na := &corev1.NodeAffinity{RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+		NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: req}},
+	}}
 	if len(busy) > 0 {
 		na.PreferredDuringSchedulingIgnoredDuringExecution = []corev1.PreferredSchedulingTerm{{
 			Weight: 100,

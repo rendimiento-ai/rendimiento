@@ -117,16 +117,20 @@ func TestBuildPodsAvoidExcludedNodes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[0]
+	req := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[1]
 	if req.Key != "kubernetes.io/hostname" || req.Operator != "NotIn" || req.Values[0] != "gpu-node" {
 		t.Fatalf("affinity = %+v", req)
 	}
 	if pod.Spec.AutomountServiceAccountToken == nil || *pod.Spec.AutomountServiceAccountToken {
 		t.Fatal("build pods must not get API credentials")
 	}
+	// With no node excluded by name, only the label rule is left: a node
+	// labelled rendimiento.ai/construye=no takes no CI.
 	k.ExcludeNodes = nil
-	if pod, _ := k.pod("x", nil, Source{}, Step{Kind: KindTest, Path: ".", Image: "i", Command: "c"}, ""); pod.Spec.Affinity != nil {
-		t.Fatal("no exclusion configured → no affinity")
+	pod, _ = k.pod("x", nil, Source{}, Step{Kind: KindTest, Path: ".", Image: "i", Command: "c"}, "")
+	if e := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions; len(e) != 1 ||
+		e[0].Key != LabelConstruye || e[0].Operator != corev1.NodeSelectorOpNotIn || e[0].Values[0] != SinCI {
+		t.Fatalf("no exclusion by name → only the label rule: %+v", e)
 	}
 }
 

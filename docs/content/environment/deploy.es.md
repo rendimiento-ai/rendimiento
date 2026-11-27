@@ -367,6 +367,8 @@ Los administradores de la plataforma cambian, sin redesplegar (cada proceso lo s
 - **Un nodo está ocupado desde (%)**: cada 15 segundos la plataforma mide la CPU y la memoria de cada nodo, reservadas y en uso; uno en ese porcentaje o más (85 si no se cambia) dice *ocupado*, y los pasos nuevos van a los otros nodos cuando alguno tiene lugar para ellos. Es una preferencia, no una regla: un paso creado cuando casi todos los nodos están ocupados sí va a uno ocupado en cuanto cabe ahí, en vez de esperar al único nodo que quedó, donde quizá nunca quepa. Los demonios de BuildKit en nodos ocupados se dejan de lado mientras haya otro listo. Con 100 se apaga.
 - **CPU máxima que reserva un paso**: baja lo que pide el pod de cualquier paso, para que quepa en nodos ocupados; sin límite de CPU, aun así usa los núcleos libres que encuentre. Vacío: lo que pida `resources` de cada aplicación.
 
+Un nodo reservado para otro trabajo, como uno que sirve un modelo de lenguaje y necesita su memoria, puede quedarse fuera de la CI para siempre, con una etiqueta y no con su nombre, para que la regla siga a la máquina: `kubectl label node <nodo> rendimiento.ai/construye=no` (o el `node-label` de su agente de k3s). Ningún paso de ninguna ejecución va ahí, su demonio de BuildKit no construye nada y no cuenta para lo ocupado. Sus aplicaciones siguen corriendo ahí como antes. `rendimiento.ai/construye=si` es lo contrario: un nodo que prefiere la CI, como un nodo «a ratos».
+
 ### La página Entorno {#the-environment-page}
 
 En un clúster, la página Entorno dice primero cómo va todo y luego qué necesita de usted:
