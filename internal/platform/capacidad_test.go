@@ -44,6 +44,12 @@ func TestBusyNodes(t *testing.T) {
 	if got := BusyNodes(all, 85); len(got) != 2 || got[0] != "a" || got[1] != "b" {
 		t.Fatalf("all busy: %v, want c left free", got)
 	}
+	// Memory counts as much as CPU: idle cores with the memory taken (a node
+	// with a language model loaded) is busy too, reserved or in use.
+	mem := []NodeLoad{{Name: "gpu", Reserved: 30, Used: 5, MemReserved: 97, MemUsed: 80}, {Name: "pi", Reserved: 40, Used: 20, MemReserved: 50, MemUsed: 88}, {Name: "libre", Reserved: 40, Used: 20, MemReserved: 50, MemUsed: -1}}
+	if got := BusyNodes(mem, 85); len(got) != 2 || got[0] != "gpu" || got[1] != "pi" {
+		t.Fatalf("busy by memory: %v", got)
+	}
 	h := &CapacityHolder{}
 	h.Set(store.Capacity{NodesOff: []string{"colorpi"}})
 	busy := []string{"colorpi", "worker1"}
