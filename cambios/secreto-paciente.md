@@ -1,1 +1,2 @@
 - **Steps:** a step whose node could not sync its cache of the step's secrets yet («failed to sync secret cache») waits up to two minutes for the kubelet's own retry instead of failing at once. A missing secret still fails at once.
+- **Logs:** a step's live log no longer stops for good when its node's log stream goes mute after a long silence. After two minutes without a line, the whole log is read once; if it grew, the missing part is written and the stream is followed again from there. When the container ends, whatever the stream did not bring is filled in.
