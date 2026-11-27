@@ -423,7 +423,7 @@ The database, the secrets key, the mode and the role change only with Helm: with
 
 | What | Where it comes from |
 |---|---|
-| BuildKit daemons | the `buildkit` add-on (`p0dxD/gitops/buildkit/`): a StatefulSet with one daemon per worker node, and one on a [node «a ratos»](#nodes-a-ratos) |
+| BuildKit daemons | the `buildkit` add-on (`example/gitops/buildkit/`): a StatefulSet with one daemon per worker node, and one on a [node «a ratos»](#nodes-a-ratos) |
 | Railpack CLI image | `make railpack-image` from `deploy/railpack/Dockerfile`, checksum-pinned |
 | Railpack frontend | pulled by BuildKit from `ghcr.io/railwayapp/railpack-frontend` at the pinned version |
 | Clone and build client images | `alpine/git`, `moby/buildkit` (the client must match the daemon's version) |

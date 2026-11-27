@@ -7,10 +7,10 @@ Add-ons are the software your cluster needs that is not one of your apps: storag
 | Add-on | Source | Mode |
 |---|---|---|
 | `longhorn` | Helm chart `longhorn` v1.10.2 | manual sync, no pruning |
-| `longhorn-backups` | `p0dxD/gitops/longhorn-backups` | automatic |
-| `umami` | `p0dxD/gitops/umami` | automatic |
+| `longhorn-backups` | `example/gitops/longhorn-backups` | automatic |
+| `umami` | `example/gitops/umami` | automatic |
 | `hajimari` | Helm chart `hajimari` 2.0.2 | automatic |
-| `buildkit` | `p0dxD/gitops/buildkit` (the BuildKit pool) | automatic |
+| `buildkit` | `example/gitops/buildkit` (the BuildKit pool) | automatic |
 
 `kubectl get radd` shows them with their phase.
 
@@ -18,7 +18,7 @@ An add-on whose services have a MetalLB address shows it on its card and its pag
 
 ## Install one from the catalog
 
-**Add-ons → Add from the catalog → Install**, fill in the name, namespace, version and the few settings shown, optionally paste chart values in YAML (merged over the settings), choose the options, and **Install**. That commits `addons/<name>.yaml` to `p0dxD/gitops`; within seconds the add-on appears under *Installed*, is previewed, and is applied.
+**Add-ons → Add from the catalog → Install**, fill in the name, namespace, version and the few settings shown, optionally paste chart values in YAML (merged over the settings), choose the options, and **Install**. That commits `addons/<name>.yaml` to `example/gitops`; within seconds the add-on appears under *Installed*, is previewed, and is applied.
 
 The options:
 
@@ -30,7 +30,7 @@ The options:
 
 ## Write one by hand
 
-Commit a file to `p0dxD/gitops/addons/`:
+Commit a file to `example/gitops/addons/`:
 
 ```yaml
 name: uptime-kuma

@@ -1,0 +1,1 @@
+- **Book:** Architectures (Building images) tells how images are built for two architectures with a node «a ratos», and its guards; Scaling says the amd64 builder exists. Examples use `example/gitops` and `example/infra` instead of a real repository, and a person's example name instead of a real one.

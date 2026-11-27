@@ -7,7 +7,7 @@
 - On a **schedule** (cron, in UTC; default `0 5 * * *`) or with **Run now**.
 - Each run is a pod in the isolated build namespace, with a **fresh GitHub App token** valid for an hour. There is no personal token to expire or leak.
 - Commits and PRs come from the App's bot (`<app-name>[bot]`) and are signed through GitHub's API (verified commits).
-- It covers every app whose **Dependency updates** switch is on (on the app's page or the Add-ons page), plus **other repositories** listed in the settings (e.g. `p0dxD/main_configs`).
+- It covers every app whose **Dependency updates** switch is on (on the app's page or the Add-ons page), plus **other repositories** listed in the settings (e.g. `example/infra`).
 - Its **config** (`config.js`) is edited on the Add-ons page; rendimiento sets the token, repositories and identity itself.
 - Each run records, per repository, the result, PRs opened, PRs merged and errors, plus a readable log. The log level can be set to *debug* to see why something happened.
 

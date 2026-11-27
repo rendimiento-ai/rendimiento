@@ -96,12 +96,12 @@ buildctl --addr tcp://buildkitd-2.buildkitd-pool.devops-tools.svc.cluster.local:
 1. **La caché local de cada demonio**, en un volumen local del nodo (`local-path`, hasta unos 15 GB, con recolección de basura). La más rápida, pero solo en ese nodo.
 
     !!! warning "Cuide las unidades en `buildkitd.toml`"
-        Desde BuildKit 0.17, un número sin unidad en los ajustes de recolección son **bytes**. El grupo primero tenía `gckeepstorage = 15000`, pensado como 15 GB, que BuildKit leyó como 15 kB. Cada demonio tiraba su caché después de cada construcción, y cada construcción volvía a descargar sus imágenes base y sus capas: una aplicación chiquita de Go pasó de 85 s a más de 7 minutos. La configuración en `p0dxD/gitops/buildkit/config.yaml` ahora usa unidades explícitas: `reservedSpace = "5GB"`, `maxUsedSpace = "15GB"`, `minFreeSpace = "15%"`. Para revisar lo que un demonio aplica de verdad: `kubectl -n devops-tools exec buildkitd-0 -- buildctl --addr unix:///run/buildkit/buildkitd.sock debug workers --verbose`.
+        Desde BuildKit 0.17, un número sin unidad en los ajustes de recolección son **bytes**. El grupo primero tenía `gckeepstorage = 15000`, pensado como 15 GB, que BuildKit leyó como 15 kB. Cada demonio tiraba su caché después de cada construcción, y cada construcción volvía a descargar sus imágenes base y sus capas: una aplicación chiquita de Go pasó de 85 s a más de 7 minutos. La configuración en `example/gitops/buildkit/config.yaml` ahora usa unidades explícitas: `reservedSpace = "5GB"`, `maxUsedSpace = "15GB"`, `minFreeSpace = "15%"`. Para revisar lo que un demonio aplica de verdad: `kubectl -n devops-tools exec buildkitd-0 -- buildctl --addr unix:///run/buildkit/buildkitd.sock debug workers --verbose`.
 2. **Una caché en el registro por imagen**: `--export-cache …:buildcache,mode=max` guarda *cada* capa intermedia (modo `max`, no solo las finales) bajo la etiqueta `buildcache` de la imagen; `--import-cache` la lee. Cualquier demonio la puede usar, así que un servicio que se mueve a otro demonio sigue razonablemente caliente.
 
 ## El grupo de BuildKit {#the-buildkit-pool}
 
-Un demonio no puede usar los procesadores de más de un nodo. El grupo corre **un demonio por nodo trabajador** (no en el plano de control, ni en los nodos excluidos de las construcciones, como un nodo con GPU) como un StatefulSet con antiafinidad de pods. Es un [complemento](addons.md) definido en `p0dxD/gitops/buildkit/`.
+Un demonio no puede usar los procesadores de más de un nodo. El grupo corre **un demonio por nodo trabajador** (no en el plano de control, ni en los nodos excluidos de las construcciones, como un nodo con GPU) como un StatefulSet con antiafinidad de pods. Es un [complemento](addons.md) definido en `example/gitops/buildkit/`.
 
 La plataforma encuentra los demonios por un **Service sin IP propia** (*headless*, `buildkitd-pool`): sus registros DNS SRV enumeran solo los demonios que están *listos*. Para cada construcción, `KubeExecutor.buildkitFor` elige uno con **hash de encuentro** (*rendezvous hashing*) sobre el nombre de la imagen:
 
@@ -161,9 +161,12 @@ Use Railpack para empezar rápido; agregue un Dockerfile cuando importen el tama
 
 ## Arquitecturas {#architectures}
 
-Aquí cada nodo es **arm64**, así que cada imagen de aplicación se construye para `linux/arm64` (la imagen pública de rendimiento se construye para las dos con GitHub Actions; vea [la imagen pública](../environment/deploy.md#the-public-image)). Un destino en la nube con x86 (`linux/amd64`) necesitaría una de dos:
+Los nodos del clúster comparten una arquitectura (tarjetas arm64, por ejemplo), y cada imagen se construye para ella en los demonios del grupo de esa arquitectura. Cuando un [nodo «a ratos»](../environment/deploy.md#nodes-a-ratos) de la otra arquitectura está prendido (una computadora de escritorio amd64 junto a ellos), su propio demonio construye al mismo tiempo la otra mitad de cada imagen, de forma nativa, sin emulación:
 
-- **construcciones multiplataforma**: `--opt platform=linux/amd64,linux/arm64` produce un índice de imágenes con las dos; un demonio arm64 construye la mitad amd64 bajo emulación con QEMU, que es lenta; o
-- **constructores nativos** para cada arquitectura: un demonio amd64 en el grupo, y el ejecutor elige por plataforma (la llave de encuentro podría incluirla).
+1. el pod de construcción corre dos `buildctl`: el principal en un demonio de la arquitectura del clúster con `--opt platform=linux/<arq>`, y el otro en el nodo «a ratos» con la otra plataforma, su propia etiqueta (`<etiqueta>-<arq>`) y su propia caché (`buildcache-<arq>`), para que las dos cachés nunca se mezclen;
+2. cuando terminan las dos, la plataforma escribe en la etiqueta de la imagen un índice OCI con los dos manifiestos, y cada nodo descarga el suyo;
+3. con el nodo «a ratos» apagado, o si su mitad falla, la imagen es solo de la arquitectura del clúster, y nada la espera.
 
-Vea [Escalar](../future/scaling.md#builds) y [código abierto](../future/open-source.md#releases-and-multi-arch-images).
+Unos candados impiden que una imagen tenga la arquitectura equivocada bajo su nombre: la mitad principal siempre nombra su plataforma (un demonio de otra arquitectura la construye para la del clúster, o falla); una construcción cuya imagen publicada es de otra arquitectura falla en vez de liberarla; dos mitades idénticas nunca se juntan; y una construcción sin un demonio listo de la arquitectura del clúster lo dice en su registro. Un nodo con la etiqueta `rendimiento.ai/construye=no` no recibe CI, así que su demonio no construye nada ([Capacidad](../environment/deploy.md#capacity)).
+
+La imagen pública de rendimiento se construye para las dos con GitHub Actions; vea [la imagen pública](../environment/deploy.md#the-public-image), [Escalar](../future/scaling.md#builds) y [código abierto](../future/open-source.md#releases-and-multi-arch-images).

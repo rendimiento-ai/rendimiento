@@ -95,7 +95,7 @@ Una versión fija cada servicio a la **huella** de una imagen, así lo que se ej
 ```mermaid
 sequenceDiagram
     participant You as Usted
-    participant G as p0dxD/gitops
+    participant G as example/gitops
     participant API as api.Server
     participant S as addon.Syncer
     participant K as Kubernetes

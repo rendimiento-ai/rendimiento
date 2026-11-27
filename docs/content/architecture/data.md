@@ -6,7 +6,7 @@ rendimiento keeps state in three places on purpose. Knowing which is which answe
 flowchart LR
     subgraph git[Git: what you want]
         spec[rendimiento.yaml<br/>in each app repo]
-        defs[addons/*.yaml<br/>in p0dxD/gitops]
+        defs[addons/*.yaml<br/>in example/gitops]
     end
     subgraph k8s[Kubernetes: what should run now]
         app[App objects<br/>spec + released images]

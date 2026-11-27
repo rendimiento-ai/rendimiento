@@ -96,12 +96,12 @@ buildctl --addr tcp://buildkitd-2.buildkitd-pool.devops-tools.svc.cluster.local:
 1. **Each daemon's local cache**, on a node-local volume (`local-path`, up to about 15 GB, garbage-collected). Fastest, but only on that node.
 
     !!! warning "Mind the units in `buildkitd.toml`"
-        Since BuildKit 0.17, a bare number in the GC settings is **bytes**. The pool first had `gckeepstorage = 15000`, meant as 15 GB, which BuildKit read as 15 kB. Every daemon threw its cache away after each build, and every build re-downloaded its base images and cached layers: a tiny Go app went from 85 s to over 7 minutes. The config in `p0dxD/gitops/buildkit/config.yaml` now uses explicit units: `reservedSpace = "5GB"`, `maxUsedSpace = "15GB"`, `minFreeSpace = "15%"`. To check what a daemon really applies: `kubectl -n devops-tools exec buildkitd-0 -- buildctl --addr unix:///run/buildkit/buildkitd.sock debug workers --verbose`.
+        Since BuildKit 0.17, a bare number in the GC settings is **bytes**. The pool first had `gckeepstorage = 15000`, meant as 15 GB, which BuildKit read as 15 kB. Every daemon threw its cache away after each build, and every build re-downloaded its base images and cached layers: a tiny Go app went from 85 s to over 7 minutes. The config in `example/gitops/buildkit/config.yaml` now uses explicit units: `reservedSpace = "5GB"`, `maxUsedSpace = "15GB"`, `minFreeSpace = "15%"`. To check what a daemon really applies: `kubectl -n devops-tools exec buildkitd-0 -- buildctl --addr unix:///run/buildkit/buildkitd.sock debug workers --verbose`.
 2. **A registry cache per image**: `--export-cache …:buildcache,mode=max` stores *every* intermediate layer (mode `max`, not just the final ones) under the image's `buildcache` tag; `--import-cache` reads it. Any daemon can use it, so a service moved to another daemon is still reasonably warm.
 
 ## The BuildKit pool
 
-One daemon cannot use more than one node's CPUs. The pool runs **one daemon per worker node** (not on the control plane, nor on nodes excluded from builds such as a GPU node) as a StatefulSet with pod anti-affinity. It is an [add-on](addons.md) defined in `p0dxD/gitops/buildkit/`.
+One daemon cannot use more than one node's CPUs. The pool runs **one daemon per worker node** (not on the control plane, nor on nodes excluded from builds such as a GPU node) as a StatefulSet with pod anti-affinity. It is an [add-on](addons.md) defined in `example/gitops/buildkit/`.
 
 The platform finds the daemons through a **headless Service** (`buildkitd-pool`): its DNS SRV records list only daemons that are *ready*. For each build, `KubeExecutor.buildkitFor` chooses one by **rendezvous hashing** on the image name:
 
@@ -159,11 +159,14 @@ Use Railpack to get started quickly; add a Dockerfile when size, hardening or sy
 
 `make image` port-forwards to the `buildkitd` Service and runs the `buildctl` client in a throwaway container with the repository mounted read-only. The work happens on a pool daemon, not on `main`.
 
-## Architectures
+## Architectures {#architectures}
 
-Every node here is **arm64**, so every app image is built for `linux/arm64` (rendimiento's own public image is built for both by GitHub Actions; see [the public image](../environment/deploy.md#the-public-image)). A cloud target on x86 (`linux/amd64`) would need either:
+The cluster's nodes share one architecture (arm64 boards, say), and every image is built for it by the pool's daemons of that architecture. When a [node «a ratos»](../environment/deploy.md#nodes-a-ratos) of the other architecture is on (an amd64 desktop beside them), its own daemon builds each image's other half at the same time, natively, with no emulation:
 
-- **multi-platform builds**: `--opt platform=linux/amd64,linux/arm64` produces one image index containing both; an arm64 daemon builds the amd64 half under QEMU emulation, which is slow; or
-- **native builders** for each architecture: an amd64 daemon in the pool, with the executor choosing by platform (the rendezvous key could include it).
+1. the build pod runs two `buildctl`: the main one on a daemon of the cluster's architecture with `--opt platform=linux/<arch>`, the other on the node «a ratos» with the other platform, its own tag (`<tag>-<arch>`) and its own cache (`buildcache-<arch>`), so the two caches never mix;
+2. when both finish, the platform writes one OCI index at the image's tag listing both manifests, and every node pulls its own;
+3. with the node «a ratos» off, or if its half fails, the image is the cluster's architecture's alone, and nothing waits for it.
 
-See [Scaling](../future/scaling.md#builds) and [open source](../future/open-source.md#releases-and-multi-arch-images).
+Guards keep an image from ever being of the wrong architecture under its name: the main half always names its platform (a daemon of another architecture builds it for the cluster's, or fails); a build whose pushed image is of another architecture fails instead of releasing it; two identical halves are never joined; and a build with no daemon of the cluster's architecture ready says so in its log. A node labelled `rendimiento.ai/construye=no` takes no CI, so its daemon builds nothing ([Capacity](../environment/deploy.md#capacity)).
+
+rendimiento's own public image is built for both by GitHub Actions; see [the public image](../environment/deploy.md#the-public-image), [Scaling](../future/scaling.md#builds) and [open source](../future/open-source.md#releases-and-multi-arch-images).
