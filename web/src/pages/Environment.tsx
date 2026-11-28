@@ -924,11 +924,14 @@ function CajonARatos({ n }: { n: EnvNode }) {
   const { data: v, setData } = usePoll(envApi.capacity, [], 60000);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>();
+  // What was just pressed shows at once, while it is saved; an error puts back what is saved.
+  const [pend, setPend] = useState<ARatosNodo>();
   const admin = session.operator;
-  const a: ARatosNodo = v?.saved.aRatos?.[n.name] ?? {};
+  const a: ARatosNodo = pend ?? v?.saved.aRatos?.[n.name] ?? {};
   const set = (patch: Partial<ARatosNodo>) => {
-    setBusy(true); setErr(undefined);
-    envApi.saveARatos(n.name, { ...a, ...patch }).then((nv) => { setBusy(false); setData(nv); }, (e) => { setBusy(false); setErr(e); });
+    const next = { ...a, ...patch };
+    setPend(next); setBusy(true); setErr(undefined);
+    envApi.saveARatos(n.name, next).then((nv) => { setData(nv); setPend(undefined); setBusy(false); }, (e) => { setPend(undefined); setBusy(false); setErr(e); });
   };
   const hora = (iso: string) => new Date(iso).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
   const horas = (h: number) => h.toLocaleString(locale, { maximumFractionDigits: h < 10 ? 1 : 0 });
