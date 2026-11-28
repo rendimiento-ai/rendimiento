@@ -121,7 +121,7 @@ func TestFullyInstalledCluster(t *testing.T) {
 	yes := true
 	objs := []client.Object{
 		node("main", true, map[string]string{"node-role.kubernetes.io/control-plane": "true"}),
-		node("worker1", true, nil),
+		node("nodo-b", true, nil),
 		&networkingv1.IngressClass{ObjectMeta: metav1.ObjectMeta{Name: "nginx"}, Spec: networkingv1.IngressClassSpec{Controller: "k8s.io/ingress-nginx"}},
 		deploy("ingress-nginx", "ingress-nginx-controller", "registry.k8s.io/ingress-nginx/controller:v1.15.1@sha256:abc", 1),
 		&corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: "ingress-nginx", Name: "ingress-nginx-controller"},
@@ -140,7 +140,7 @@ func TestFullyInstalledCluster(t *testing.T) {
 			Status: corev1.PodStatus{Phase: corev1.PodFailed, ContainerStatuses: []corev1.ContainerStatus{{Name: "renovate",
 				State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 1}}}}}},
 		&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "shop", Name: "web-1", CreationTimestamp: metav1.NewTime(time.Now())},
-			Spec: corev1.PodSpec{NodeName: "worker1"},
+			Spec: corev1.PodSpec{NodeName: "nodo-b"},
 			Status: corev1.PodStatus{Phase: corev1.PodRunning, ContainerStatuses: []corev1.ContainerStatus{{Name: "web",
 				State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"}}}}}},
 	}

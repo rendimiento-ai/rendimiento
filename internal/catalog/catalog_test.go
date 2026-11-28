@@ -142,7 +142,7 @@ func TestCategorize(t *testing.T) {
 		e    Entry
 		want string
 	}{
-		{Entry{Name: "blog-postgres", Namespace: "podoi", Protocol: "postgres"}, "database"},
+		{Entry{Name: "blog-postgres", Namespace: "blog", Protocol: "postgres"}, "database"},
 		{Entry{Name: "rendimiento-db", Namespace: "rendimiento-system", Protocol: "postgres"}, "database"},
 		{Entry{Name: "argocd-redis", Namespace: "argocd", Protocol: "redis"}, "messaging"},
 		{Entry{Name: "ollama-internal", Namespace: "jobsentry", Protocol: "http", Origin: img("dustynv/ollama:r36.4.0")}, "ai"},

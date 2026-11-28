@@ -1,0 +1,1 @@
+- **Repository:** tests and comments use example node and app names (nodo-a…, desktop-node, blog) instead of one installation's machines.

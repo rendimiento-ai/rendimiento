@@ -31,7 +31,7 @@ func TestWaitCacheFree(t *testing.T) {
 	ctx := context.Background()
 	step := Step{ID: "platform:test", App: "ai"}
 	other := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "otra", Namespace: "b"},
-		Spec: corev1.PodSpec{NodeName: "worker1", Volumes: []corev1.Volume{{Name: "cache", VolumeSource: corev1.VolumeSource{
+		Spec: corev1.PodSpec{NodeName: "nodo-b", Volumes: []corev1.Volume{{Name: "cache", VolumeSource: corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: cacheName(step)}}}}},
 		Status: corev1.PodStatus{Phase: corev1.PodRunning}}
 	cs := fake.NewSimpleClientset(other)

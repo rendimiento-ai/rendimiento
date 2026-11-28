@@ -1179,7 +1179,7 @@ func (k *KubeExecutor) waitStarted(ctx context.Context, pod, container string) e
 
 // streamLogs copies a container's log to w as it is written, until the
 // container ends. Two kubelet habits are handled:
-//   - Some keep the stream open after the container ended (seen on colorpi,
+//   - Some keep the stream open after the container ended (seen on some nodes,
 //     for minutes): once the container is done, the stream gets streamGrace to
 //     finish, and then it is closed.
 //   - Some let a stream go mute after a long silence of the step (seen on

@@ -163,7 +163,7 @@ export function NewApp() {
   };
 
   // Re-check for an existing deployment whenever the app name changes, so a
-  // repo can be migrated from a namespace with a different name (personal → podoi).
+  // repo can be migrated from a namespace with a different name (personal → blog).
   useEffect(() => {
     if (!session.cluster || session.appPrefix || step !== 2 || !proposal || adopt || !/^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$/.test(name)) return;
     const timer = setTimeout(() => {

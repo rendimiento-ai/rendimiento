@@ -486,7 +486,7 @@ func TestCapacity(t *testing.T) {
 	if c, err := s.GetCapacity(ctx); err != nil || c.ParallelRuns != 0 || c.NodesOff == nil {
 		t.Fatalf("unset: %+v (%v)", c, err)
 	}
-	if err := s.SaveCapacity(ctx, Capacity{ParallelRuns: 4, RunsPerApp: 1, StepCPUMillis: 1500, NodesOff: []string{"colorpi"}}, "p0dxD"); err != nil {
+	if err := s.SaveCapacity(ctx, Capacity{ParallelRuns: 4, RunsPerApp: 1, StepCPUMillis: 1500, NodesOff: []string{"nodo-a"}}, "p0dxD"); err != nil {
 		t.Fatal(err)
 	}
 	c, err := s.GetCapacity(ctx)

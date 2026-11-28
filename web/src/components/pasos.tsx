@@ -277,7 +277,7 @@ function Hilos({ run, antes, selected, onSelect }: Vista) {
   );
 }
 
-/** Where a step ran, in words: "worker2 (arm64) + p0dxd (amd64)". */
+/** Where a step ran, in words: "nodo-c (arm64) + desktop-node (amd64)". */
 function dondeCorrio(s: Step): string {
   return (s.lugares ?? []).map((l) => (l.arch ? `${l.nodo} (${l.arch})` : l.nodo)).join(" + ");
 }

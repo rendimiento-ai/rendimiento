@@ -30,11 +30,11 @@ func TestLimitsFollowTheEnvironmentPage(t *testing.T) {
 // A node reserved or used at the limit or more is busy; when every node is,
 // the least full one still takes work; at 100 nothing is ever busy.
 func TestBusyNodes(t *testing.T) {
-	loads := []NodeLoad{{Name: "colorpi", Reserved: 96, Used: 60}, {Name: "worker1", Reserved: 50, Used: 90}, {Name: "worker2", Reserved: 48, Used: 15}, {Name: "worker3", Reserved: 50, Used: -1}}
-	if got := BusyNodes(loads, 0); len(got) != 2 || got[0] != "colorpi" || got[1] != "worker1" {
+	loads := []NodeLoad{{Name: "nodo-a", Reserved: 96, Used: 60}, {Name: "nodo-b", Reserved: 50, Used: 90}, {Name: "nodo-c", Reserved: 48, Used: 15}, {Name: "nodo-d", Reserved: 50, Used: -1}}
+	if got := BusyNodes(loads, 0); len(got) != 2 || got[0] != "nodo-a" || got[1] != "nodo-b" {
 		t.Fatalf("busy at 85: %v", got)
 	}
-	if got := BusyNodes(loads, 95); len(got) != 1 || got[0] != "colorpi" {
+	if got := BusyNodes(loads, 95); len(got) != 1 || got[0] != "nodo-a" {
 		t.Fatalf("busy at 95: %v", got)
 	}
 	if got := BusyNodes(loads, 100); len(got) != 0 {
@@ -51,10 +51,10 @@ func TestBusyNodes(t *testing.T) {
 		t.Fatalf("busy by memory: %v", got)
 	}
 	h := &CapacityHolder{}
-	h.Set(store.Capacity{NodesOff: []string{"colorpi"}})
-	busy := []string{"colorpi", "worker1"}
+	h.Set(store.Capacity{NodesOff: []string{"nodo-a"}})
+	busy := []string{"nodo-a", "nodo-b"}
 	h.busy.Store(&busy)
-	if off, _ := h.Limits(); len(off) != 1 || off[0] != "colorpi" {
+	if off, _ := h.Limits(); len(off) != 1 || off[0] != "nodo-a" {
 		t.Fatalf("limits %v: only the node turned off, the busy ones are only avoided", off)
 	}
 	if b := h.Busy(); len(b) != 2 {

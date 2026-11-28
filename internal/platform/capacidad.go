@@ -90,7 +90,7 @@ func (h *CapacityHolder) Limits() ([]string, int64) {
 // NodeLoad is how full a node is, in percent: its CPU and its memory, each
 // reserved by its pods' requests and in use (-1 when the metrics server does
 // not say). Memory counts as much as CPU: a node with idle cores but its
-// memory taken (the Jetson, with the language model loaded) makes a step
+// memory taken (a node serving a language model) makes a step
 // crawl as surely as one with every core busy.
 type NodeLoad struct {
 	Name        string

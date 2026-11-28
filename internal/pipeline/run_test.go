@@ -414,7 +414,7 @@ func TestCacheLetGoWhenItsNodeIsFull(t *testing.T) {
 			{Type: corev1.PodScheduled, Status: corev1.ConditionFalse, Reason: corev1.PodReasonUnschedulable, Message: why}}}}
 	}
 	full := "0/6 nodes are available: 1 Insufficient cpu, 3 node(s) didn't match PersistentVolume's node affinity."
-	placed := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "placed", Namespace: "b"}, Spec: corev1.PodSpec{NodeName: "worker3"}}
+	placed := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "placed", Namespace: "b"}, Spec: corev1.PodSpec{NodeName: "nodo-d"}}
 	cs := fake.NewSimpleClientset(waiting("stuck", full), waiting("busy", "0/6 nodes are available: 6 Insufficient cpu."), placed)
 	k := &KubeExecutor{Client: cs, Namespace: "b"}
 	k.defaults()
@@ -463,13 +463,13 @@ func TestCacheInUseByAnotherRun(t *testing.T) {
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: cacheName(step)}}}}},
 			Status: corev1.PodStatus{Phase: phase}}
 	}
-	cs := fake.NewSimpleClientset(withCache("waiting", "", corev1.PodPending), withCache("done", "colorpi", corev1.PodSucceeded))
+	cs := fake.NewSimpleClientset(withCache("waiting", "", corev1.PodPending), withCache("done", "nodo-a", corev1.PodSucceeded))
 	k := &KubeExecutor{Client: cs, Namespace: "b"}
 	k.defaults()
 	if k.cacheInUse(ctx, "waiting", step) {
 		t.Fatal("in use by itself, or by a finished pod")
 	}
-	_, _ = cs.CoreV1().Pods("b").Create(ctx, withCache("other-run", "colorpi", corev1.PodRunning), metav1.CreateOptions{})
+	_, _ = cs.CoreV1().Pods("b").Create(ctx, withCache("other-run", "nodo-a", corev1.PodRunning), metav1.CreateOptions{})
 	if !k.cacheInUse(ctx, "waiting", step) {
 		t.Fatal("another run's running test has the cache")
 	}

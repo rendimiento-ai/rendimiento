@@ -108,12 +108,12 @@ func TestRenderAdoptedSelectorAndExistingClaim(t *testing.T) {
 func TestRenderPodoi(t *testing.T) {
 	s, err := spec.Parse([]byte(`
 services:
-  - name: podoi-website
+  - name: blog-website
     port: 3000
     replicas: 2
     domain: example.com
     aliases: [www.example.com]
-    tlsSecret: podoi-website-tls
+    tlsSecret: blog-website-tls
   - name: blog-postgres
     image: postgres:15-alpine
     port: 5432
@@ -124,7 +124,7 @@ services:
 	if err != nil {
 		t.Fatal(err)
 	}
-	objs, err := Render(Input{App: "podoi", Spec: *s, Images: map[string]string{"podoi-website": "img@sha256:1"}}, DefaultOptions())
+	objs, err := Render(Input{App: "blog", Spec: *s, Images: map[string]string{"blog-website": "img@sha256:1"}}, DefaultOptions())
 	if err != nil {
 		t.Fatal(err)
 	}

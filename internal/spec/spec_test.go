@@ -103,16 +103,16 @@ func TestExistingClaim(t *testing.T) {
 	}
 }
 
-// podoi as it runs today: a built website on two hosts, and Postgres from a
+// A blog as many run today: a built website on two hosts, and Postgres from a
 // ready-made image on its existing volume.
-func TestPodoiShape(t *testing.T) {
+func TestBlogShape(t *testing.T) {
 	s, err := Parse([]byte(`
 services:
-  - name: podoi-website
+  - name: blog-website
     port: 3000
     domain: example.com
     aliases: [www.example.com]
-    tlsSecret: podoi-website-tls
+    tlsSecret: blog-website-tls
   - name: blog-postgres
     image: postgres:15-alpine
     port: 5432

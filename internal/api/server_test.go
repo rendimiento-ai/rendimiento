@@ -469,17 +469,17 @@ func TestMigrationCheckByName(t *testing.T) {
 	e := newEnv(t, true)
 	ctx := context.Background()
 	me := e.session(t, "p0dxD")
-	if r, _ := e.do(t, "GET", "/api/namespaces/podoi/migration", "", nil, nil); r.StatusCode != 401 {
+	if r, _ := e.do(t, "GET", "/api/namespaces/blog/migration", "", nil, nil); r.StatusCode != 401 {
 		t.Fatalf("unauthenticated: %d", r.StatusCode)
 	}
 	if r, _ := e.do(t, "GET", "/api/namespaces/Not_Valid/migration", "", me, nil); r.StatusCode != 400 {
 		t.Fatalf("invalid name: %d", r.StatusCode)
 	}
-	if r, body := e.do(t, "GET", "/api/namespaces/podoi/migration", "", me, nil); r.StatusCode != 200 || !strings.Contains(body, `"migration":null`) {
+	if r, body := e.do(t, "GET", "/api/namespaces/blog/migration", "", me, nil); r.StatusCode != 200 || !strings.Contains(body, `"migration":null`) {
 		t.Fatalf("absent namespace: %d %s", r.StatusCode, body)
 	}
-	_ = e.kube.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "podoi"}})
-	if r, body := e.do(t, "GET", "/api/namespaces/podoi/migration", "", me, nil); r.StatusCode != 200 || !strings.Contains(body, `"namespace":"podoi"`) {
+	_ = e.kube.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "blog"}})
+	if r, body := e.do(t, "GET", "/api/namespaces/blog/migration", "", me, nil); r.StatusCode != 200 || !strings.Contains(body, `"namespace":"blog"`) {
 		t.Fatalf("existing namespace: %d %s", r.StatusCode, body)
 	}
 }

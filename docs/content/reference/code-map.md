@@ -2456,7 +2456,7 @@ Package spec defines rendimiento.yaml, the only file an app repo needs.
 | `TestValidateErrors` | func |  |
 | `TestSecplusShape` | func | secplus as it runs today: env from one key, the whole secret as files, streaming. |
 | `TestExistingClaim` | func |  |
-| `TestPodoiShape` | func | podoi as it runs today: a built website on two hosts, and Postgres from a ready-made image on its existing volume. |
+| `TestBlogShape` | func | A blog as many run today: a built website on two hosts, and Postgres from a ready-made image on its existing volume. |
 | `TestJobs` | func |  |
 | `TestStockpulseShape` | func | stockpulse as it runs today. |
 | `TestTouches` | func |  |

@@ -28,8 +28,8 @@ func TestBuildkitPorArquitectura(t *testing.T) {
 		return &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{"kubernetes.io/arch": arch}}}
 	}
 	otra := archOtra(archPrincipal)
-	cs := fake.NewSimpleClientset(daemon("buildkitd-0", "worker1"), daemon("buildkitd-1", "worker2"), daemon("buildkitd-amd64-0", "desktop-node"),
-		nodo("worker1", archPrincipal), nodo("worker2", archPrincipal), nodo("desktop-node", otra))
+	cs := fake.NewSimpleClientset(daemon("buildkitd-0", "nodo-b"), daemon("buildkitd-1", "nodo-c"), daemon("buildkitd-amd64-0", "desktop-node"),
+		nodo("nodo-b", archPrincipal), nodo("nodo-c", archPrincipal), nodo("desktop-node", otra))
 	k := &KubeExecutor{Client: cs, BuildkitPool: "buildkitd-pool.devops-tools.svc.cluster.local",
 		Resolver: fakeSRV{targets: []string{"buildkitd-0", "buildkitd-1", "buildkitd-amd64-0"}}}
 	ctx := context.Background()
@@ -50,9 +50,9 @@ func TestBuildkitPorArquitectura(t *testing.T) {
 
 func TestPartirImagen(t *testing.T) {
 	for in, want := range map[string][3]string{
-		"registry.cube.local:5000/app-web:0123456789ab": {"registry.cube.local:5000", "app-web", "0123456789ab"},
-		"registry.cube.local:5000/app-web@sha256:abc":   {"registry.cube.local:5000", "app-web", "sha256:abc"},
-		"registry.example.lan/a/b":                      {"registry.example.lan", "a/b", "latest"},
+		"registry.example.lan:5000/app-web:0123456789ab": {"registry.example.lan:5000", "app-web", "0123456789ab"},
+		"registry.example.lan:5000/app-web@sha256:abc":   {"registry.example.lan:5000", "app-web", "sha256:abc"},
+		"registry.example.lan/a/b":                       {"registry.example.lan", "a/b", "latest"},
 	} {
 		h, r, ref, ok := partirImagen(in)
 		if !ok || [3]string{h, r, ref} != want {
@@ -159,13 +159,13 @@ func TestSeApago(t *testing.T) {
 	if !seApagoBajo(p) {
 		t.Fatal("a node shutdown was not seen")
 	}
-	if seApagoBajo(&corev1.Pod{Spec: corev1.PodSpec{NodeName: "worker1"}, Status: corev1.PodStatus{Reason: "Evicted"}}) {
+	if seApagoBajo(&corev1.Pod{Spec: corev1.PodSpec{NodeName: "nodo-b"}, Status: corev1.PodStatus{Reason: "Evicted"}}) {
 		t.Fatal("an eviction was taken for a shutdown")
 	}
 	cs := fake.NewSimpleClientset(&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "desktop-node", Labels: map[string]string{TaintARatos: "true"}}},
-		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker1"}})
+		&corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "nodo-b"}})
 	k := &KubeExecutor{Client: cs}
-	if !k.esARatos(context.Background(), "desktop-node") || k.esARatos(context.Background(), "worker1") {
+	if !k.esARatos(context.Background(), "desktop-node") || k.esARatos(context.Background(), "nodo-b") {
 		t.Fatal("which nodes are «a ratos»")
 	}
 	pod := &corev1.Pod{}
