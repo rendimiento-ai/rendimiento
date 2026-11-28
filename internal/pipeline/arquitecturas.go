@@ -345,6 +345,22 @@ func (k *KubeExecutor) aRatos(ctx context.Context, pod *corev1.Pod) bool {
 			return false
 		}
 	}
+	// The nodes «a ratos» whose drawer turned tests off stay out of it.
+	var sin []string
+	todos := true
+	if k.ARatos != nil {
+		for _, n := range k.nodosARatos(ctx) {
+			if k.ajustesDe(n.Name).SinPruebas {
+				sin = append(sin, n.Name)
+			} else {
+				todos = false
+			}
+		}
+	}
+	if len(sin) > 0 && todos {
+		return false
+	}
+	evitarNodos(pod, sin)
 	pod.Spec.Tolerations = append(pod.Spec.Tolerations, corev1.Toleration{Key: TaintARatos, Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule})
 	if pod.Spec.Affinity == nil {
 		pod.Spec.Affinity = &corev1.Affinity{}
@@ -360,6 +376,74 @@ func (k *KubeExecutor) aRatos(ctx context.Context, pod *corev1.Pod) bool {
 		}}},
 	})
 	return true
+}
+
+// AjustesARatos is what a node «a ratos» does while it is on (Ruta
+// pendiente 199). The zero value does everything and waits for nothing.
+type AjustesARatos struct {
+	SinOtraMitad bool // builds no half of images
+	SinPruebas   bool // takes no test steps
+	SinReintento bool // a step it shut down under fails, not run again
+	Esperar      bool // while off, a build waits for it (EsperaARatos)
+}
+
+// EsperaARatos is the longest a build waits for an off node «a ratos»
+// whose drawer says to, and esperaPaso how often it looks again.
+var (
+	EsperaARatos = 30 * time.Minute
+	esperaPaso   = 20 * time.Second
+)
+
+func (k *KubeExecutor) ajustesDe(node string) AjustesARatos {
+	if k.ARatos == nil || node == "" {
+		return AjustesARatos{}
+	}
+	return k.ARatos(node)
+}
+
+// nodosARatos are the cluster's nodes «a ratos» (their label), on or off.
+func (k *KubeExecutor) nodosARatos(ctx context.Context) []corev1.Node {
+	if k.Client == nil {
+		return nil
+	}
+	l, err := k.Client.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: TaintARatos + "=true"})
+	if err != nil {
+		return nil
+	}
+	return l.Items
+}
+
+// esperarOtro is the daemon that builds an image's other half: one on a
+// node «a ratos» that is on and builds halves. With none, when a node «a
+// ratos» of the other architecture is off and its drawer says to wait, the
+// build waits for it up to EsperaARatos, and then goes on with one.
+func (k *KubeExecutor) esperarOtro(ctx context.Context, w io.Writer, key string) (string, string) {
+	if addr, d := k.buildkitOtro(ctx, key); addr != "" || k.ARatos == nil {
+		return addr, d
+	}
+	var espera []string
+	for _, n := range k.nodosARatos(ctx) {
+		if aj := k.ajustesDe(n.Name); aj.Esperar && !aj.SinOtraMitad && n.Labels["kubernetes.io/arch"] == archOtra(archPrincipal) && n.Labels[LabelConstruye] != SinCI {
+			espera = append(espera, n.Name)
+		}
+	}
+	if len(espera) == 0 {
+		return "", ""
+	}
+	fmt.Fprintf(w, "rendimiento: waiting up to %s for %s to come on, for the %s half\n", EsperaARatos, strings.Join(espera, ", "), archOtra(archPrincipal))
+	hasta := time.Now().Add(EsperaARatos)
+	for time.Now().Before(hasta) {
+		select {
+		case <-ctx.Done():
+			return "", ""
+		case <-time.After(esperaPaso):
+		}
+		if addr, d := k.buildkitOtro(ctx, key); addr != "" {
+			return addr, d
+		}
+	}
+	fmt.Fprintf(w, "rendimiento: %s did not come on; this image has the %s half only\n", strings.Join(espera, ", "), archPrincipal)
+	return "", ""
 }
 
 // ---- a node «a ratos» turned off under a step ----

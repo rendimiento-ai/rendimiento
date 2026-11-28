@@ -3146,6 +3146,17 @@ button.link:hover { background: none; text-decoration: underline; }
 @keyframes luna-flota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @media (prefers-reduced-motion: reduce) { .casita .luna { animation: none; } }
 .a-ratos-nota { padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, #23408E 12%, var(--surface)); }
+/* The drawer of a node «a ratos»: its figures as pills, then its switches (Ruta pendiente 199). */
+.cajon-cifras { display: flex; flex-wrap: wrap; gap: 8px; }
+.cajon-cifra { border-radius: 999px; padding: 5px 12px; font-size: 13px; background: color-mix(in srgb, var(--cempasuchil) 14%, var(--surface)); }
+.cajon-cifra.prendida { font-weight: 800; color: var(--anil); background: color-mix(in srgb, var(--anil) 14%, var(--surface)); }
+.cajon-grupo { margin: 0; padding: 8px 14px 10px; border: 2px solid var(--border); border-radius: 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cajon-grupo legend { font-weight: 800; padding: 0 6px; }
+.cajon-grupo:disabled { opacity: .6; }
+.cajon-interruptor { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 48px; }
+.cajon-interruptor input, .cajon-opcion input { flex: none; width: 22px; height: 22px; accent-color: var(--anil); }
+.cajon-opcion { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.cajon-nunca { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--cempasuchil) 10%, var(--surface)); }
 .casita.on { outline: 3px solid var(--accent); outline-offset: 1px; }
 .casita svg { display: block; overflow: visible; }
 .casita .suelo { fill: var(--surface-2); }

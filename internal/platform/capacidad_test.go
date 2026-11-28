@@ -1,8 +1,15 @@
 package platform
 
 import (
+	"context"
+	"fmt"
+	"strings"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/rendimiento-ai/rendimiento/internal/pipeline"
 	"github.com/rendimiento-ai/rendimiento/internal/store"
 )
 
@@ -59,5 +66,39 @@ func TestBusyNodes(t *testing.T) {
 	}
 	if b := h.Busy(); len(b) != 2 {
 		t.Fatalf("busy %v", b)
+	}
+}
+
+type marcas struct{ vistas []string }
+
+func (m *marcas) MarcarEncendido(_ context.Context, nodo string, on bool) error {
+	m.vistas = append(m.vistas, fmt.Sprintf("%s=%v", nodo, on))
+	return nil
+}
+
+// A node «a ratos» is written when it comes on and goes off, not at every
+// measure; the drawer's switches come out by its name.
+func TestEncendidosARatos(t *testing.T) {
+	nodo := func(ready bool) corev1.Node {
+		st := corev1.ConditionFalse
+		if ready {
+			st = corev1.ConditionTrue
+		}
+		return corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "desktop-node", Labels: map[string]string{pipeline.TaintARatos: "true"}},
+			Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: st}}}}
+	}
+	otro := corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "nodo-b"}}
+	m := &marcas{}
+	h := &CapacityHolder{Encendidos: m}
+	ctx := context.Background()
+	for _, ready := range []bool{true, true, false, false, true} {
+		h.marcar(ctx, []corev1.Node{otro, nodo(ready)})
+	}
+	if got := strings.Join(m.vistas, " "); got != "desktop-node=true desktop-node=false desktop-node=true" {
+		t.Fatalf("written: %s", got)
+	}
+	h.Set(store.Capacity{ARatos: map[string]store.ARatosNodo{"desktop-node": {SinPruebas: true, Esperar: true}}})
+	if a := h.ARatos("desktop-node"); !a.SinPruebas || !a.Esperar || a.SinOtraMitad || h.ARatos("nodo-b") != (pipeline.AjustesARatos{}) {
+		t.Fatalf("switches: %+v", a)
 	}
 }

@@ -74,6 +74,12 @@ func (s *Server) putCapacity(w http.ResponseWriter, r *http.Request, login strin
 		}
 	}
 	in.NodesOff = nodes
+	// The nodes «a ratos» are set from their drawers: kept as they are.
+	if in.ARatos == nil {
+		if saved, err := s.Store.GetCapacity(r.Context()); err == nil {
+			in.ARatos = saved.ARatos
+		}
+	}
 	if err := s.Store.SaveCapacity(r.Context(), in, login); err != nil {
 		httpError(w, http.StatusInternalServerError, err.Error())
 		return

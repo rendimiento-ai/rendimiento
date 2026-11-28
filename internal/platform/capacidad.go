@@ -28,8 +28,14 @@ type CapacityHolder struct {
 	Kube kubernetes.Interface
 	// Exclude are the nodes BUILD_EXCLUDE_NODES keeps off, never candidates.
 	Exclude []string
-	v       atomic.Pointer[store.Capacity]
-	busy    atomic.Pointer[[]string]
+	// Encendidos, when set, keeps when each node «a ratos» was on, for its
+	// drawer's hours (only the stretches that change are written).
+	Encendidos interface {
+		MarcarEncendido(ctx context.Context, nodo string, on bool) error
+	}
+	v     atomic.Pointer[store.Capacity]
+	busy  atomic.Pointer[[]string]
+	visto map[string]bool // nodes «a ratos»: on at the last measure
 }
 
 // DefaultBusyPercent is how full a node may be before it takes nothing new.
@@ -79,6 +85,13 @@ func (h *CapacityHolder) Runs() (workers, perApp int) {
 // Caches is how many caches each test keeps (zero: the default).
 func (h *CapacityHolder) Caches() int { return h.Get().TestCaches }
 
+// ARatos is what a node «a ratos» does while it is on, as its drawer sets
+// it.
+func (h *CapacityHolder) ARatos(node string) pipeline.AjustesARatos {
+	a := h.Get().ARatos[node]
+	return pipeline.AjustesARatos{SinOtraMitad: a.SinOtraMitad, SinPruebas: a.SinPruebas, SinReintento: a.SinReintento, Esperar: a.Esperar}
+}
+
 // Limits are the nodes turned off on the Environment page, which take
 // nothing, and the most CPU a step asks for. The busy ones (Busy) are only
 // avoided.
@@ -90,7 +103,7 @@ func (h *CapacityHolder) Limits() ([]string, int64) {
 // NodeLoad is how full a node is, in percent: its CPU and its memory, each
 // reserved by its pods' requests and in use (-1 when the metrics server does
 // not say). Memory counts as much as CPU: a node with idle cores but its
-// memory taken (the Jetson, with the language model loaded) makes a step
+// memory taken (a node serving a language model) makes a step
 // crawl as surely as one with every core busy.
 type NodeLoad struct {
 	Name        string
@@ -147,6 +160,7 @@ func (h *CapacityHolder) measure(ctx context.Context) {
 			memReserved[p.Spec.NodeName] += ct.Resources.Requests.Memory().Value()
 		}
 	}
+	h.marcar(ctx, nodes.Items)
 	used, memUsed := h.nodeUse(ctx)
 	var loads []NodeLoad
 	for _, n := range nodes.Items {
@@ -172,6 +186,30 @@ func (h *CapacityHolder) measure(ctx context.Context) {
 	}
 	busy := BusyNodes(loads, c.BusyPercent)
 	h.busy.Store(&busy)
+}
+
+// marcar writes when a node «a ratos» comes on or goes off.
+func (h *CapacityHolder) marcar(ctx context.Context, nodes []corev1.Node) {
+	if h.Encendidos == nil {
+		return
+	}
+	if h.visto == nil {
+		h.visto = map[string]bool{}
+	}
+	for _, n := range nodes {
+		if n.Labels[pipeline.TaintARatos] != "true" {
+			continue
+		}
+		on := slices.ContainsFunc(n.Status.Conditions, func(c corev1.NodeCondition) bool {
+			return c.Type == corev1.NodeReady && c.Status == corev1.ConditionTrue
+		})
+		if antes, ok := h.visto[n.Name]; ok && antes == on {
+			continue
+		}
+		if h.Encendidos.MarcarEncendido(ctx, n.Name, on) == nil {
+			h.visto[n.Name] = on
+		}
+	}
 }
 
 // nodeUse is each node's CPU in use (thousandths of a core) and memory in

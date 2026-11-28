@@ -357,6 +357,9 @@ func (s *Server) Handler() http.Handler {
 	plat(store.MemberGuest, "GET /api/environment", s.environment)
 	plat(store.MemberGuest, "GET /api/environment/capacity", s.getCapacity)
 	plat(store.MemberAdmin, "PUT /api/environment/capacity", s.putCapacity)
+	// A node's drawer: what it did, and what a node «a ratos» does (nodos.go).
+	plat(store.MemberGuest, "GET /api/environment/nodes/{node}/cifras", s.cifrasNodo)
+	plat(store.MemberAdmin, "PUT /api/environment/a-ratos/{node}", s.putARatos)
 	// The platform's live settings show how the cluster is laid out: its
 	// administrators only, to read them too.
 	plat(store.MemberAdmin, "GET /api/environment/settings", s.getSettings)

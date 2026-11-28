@@ -468,9 +468,10 @@ func run(log *slog.Logger, problemLog *problems.Recorder, central *registrocentr
 	// The capacity set on the Environment page overrides PARALLEL_RUNS,
 	// RUNS_PER_APP and BUILD_EXCLUDE_NODES, read again every 15 seconds; and
 	// nodes too full then take no new steps or builds.
-	capacity := &platform.CapacityHolder{Store: st, Kube: clientset, Exclude: executor.ExcludeNodes}
+	capacity := &platform.CapacityHolder{Store: st, Kube: clientset, Exclude: executor.ExcludeNodes, Encendidos: st}
 	go capacity.Run(ctx)
 	executor.Limits, executor.Busy, p.Capacity = capacity.Limits, capacity.Busy, capacity.Runs
+	executor.ARatos = capacity.ARatos
 	executor.Caches = capacity.Caches
 	p.Runner = pipeline.NewRunner(executor, p, parallel)
 	// The apps' declared fixes run in the build namespace too, each in a pod

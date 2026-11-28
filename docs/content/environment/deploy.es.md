@@ -440,4 +440,6 @@ Mientras está prendido:
 
 Mientras está apagado, nada lo espera: las imágenes se construyen para una sola arquitectura (que falle la otra mitad es solo una nota), la página de Entorno dibuja su casita dormida bajo una luna, y ni la revisión de nodos ni Problemas lo cuentan como caído, ni a él ni a sus pods.
 
+**Su cajón.** Al presionar su casita en la página de Entorno se abre: desde cuándo está prendido, sus pasos e imágenes de hoy, y sus horas prendido en los últimos 7 días (la plataforma anota cada vez que se prende y se apaga). Abajo, un administrador apaga cualquiera de las tres cosas que hace mientras está prendido (construir la otra mitad, correr pruebas, volver a correr un paso si se apagó a media ejecución), y escoge qué hacen las imágenes mientras está apagado: una sola arquitectura sin esperar (lo de siempre), o **esperar a que se prenda, hasta 30 minutos**, para que la imagen tenga sus dos mitades. Cada interruptor se guarda al presionarlo, para ese nodo por su nombre, y todos los procesos lo siguen en menos de 15 segundos.
+
 Para unir uno: un playbook de Ansible en su capa privada instala el agente de k3s con la marca, las etiquetas, la dirección del registro y un apagado ordenado (un archivo en `kubelet.conf.d` con `shutdownGracePeriod`). La plataforma lee `REGISTRY` para preguntarle al registro qué arquitecturas tiene una imagen.

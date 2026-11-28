@@ -60,6 +60,9 @@ type KubeExecutor struct {
 	// fixed when it is made, and a node busy then is often free a minute
 	// later.
 	Busy func() []string
+	// ARatos is what a node «a ratos» does while it is on, as its drawer on
+	// the Environment page sets it (nil: everything, without waiting).
+	ARatos func(node string) AjustesARatos
 	// RailpackImage has the railpack CLI; it writes the build plan for
 	// services without a Dockerfile. Empty disables Railpack builds.
 	RailpackImage string
@@ -182,7 +185,7 @@ func (k *KubeExecutor) Execute(ctx context.Context, runID string, src Source, st
 	res := k.ejecutar(ctx, runID, src, step, w)
 	// A node «a ratos» turned off under a test ends it in its grace period:
 	// it is run again once, elsewhere (decision 196).
-	if res.Status == StatusFailed && res.seApago != "" && ctx.Err() == nil {
+	if res.Status == StatusFailed && res.seApago != "" && ctx.Err() == nil && !k.ajustesDe(res.seApago).SinReintento {
 		fmt.Fprintf(w, "rendimiento: moved: %s shut down; running this step again on another node\n", res.seApago)
 		step.evitar = append(step.evitar, res.seApago)
 		otra := k.ejecutar(ctx, runID, src, step, w)
@@ -258,7 +261,7 @@ func (k *KubeExecutor) ejecutar(ctx context.Context, runID string, src Source, s
 			fmt.Fprintf(w, "rendimiento: no %s daemon of the BuildKit pool is ready; building on %s\n", archPrincipal, buildkit)
 		}
 		// A node «a ratos» that is on builds the other architecture's half.
-		if addr, otro := k.buildkitOtro(ctx, step.Target); addr != "" {
+		if addr, otro := k.esperarOtro(ctx, w, step.Target); addr != "" {
 			step.otroBuildkit, otroAddr = addr, addr
 			fmt.Fprintf(w, "rendimiento: building the %s half on %s, a node «a ratos»\n", archOtra(archPrincipal), otro)
 		}
@@ -619,7 +622,7 @@ func (k *KubeExecutor) buildkitOtro(ctx context.Context, key string) (string, st
 	var best *net.SRV
 	var bestScore uint64
 	for _, s := range srvs {
-		if !k.deArch(ctx, s.Target, archOtra(archPrincipal)) || k.sinCI(ctx, s.Target) {
+		if !k.deArch(ctx, s.Target, archOtra(archPrincipal)) || k.sinCI(ctx, s.Target) || k.ajustesDe(k.daemonNode(ctx, s.Target)).SinOtraMitad {
 			continue
 		}
 		h := fnv.New64a()

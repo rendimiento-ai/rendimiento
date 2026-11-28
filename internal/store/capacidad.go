@@ -26,9 +26,12 @@ type Capacity struct {
 	TestCaches int `json:"testCaches"`
 	// BusyPercent: a node whose CPU is reserved or in use at this percent
 	// or more takes no new steps or builds until it eases (0: 85; 100: never).
-	BusyPercent int       `json:"busyPercent"`
-	UpdatedBy   string    `json:"updatedBy,omitempty"`
-	UpdatedAt   time.Time `json:"updatedAt,omitzero"`
+	BusyPercent int `json:"busyPercent"`
+	// ARatos is what each node «a ratos» does while it is on, by name (its
+	// drawer on the Environment page); a node not here does everything.
+	ARatos    map[string]ARatosNodo `json:"aRatos,omitempty"`
+	UpdatedBy string                `json:"updatedBy,omitempty"`
+	UpdatedAt time.Time             `json:"updatedAt,omitzero"`
 }
 
 // GetCapacity is the capacity set on the Environment page (zero values
@@ -55,7 +58,7 @@ func (s *Store) SaveCapacity(ctx context.Context, c Capacity, by string) error {
 	if c.NodesOff == nil {
 		c.NodesOff = []string{}
 	}
-	raw, err := json.Marshal(Capacity{ParallelRuns: c.ParallelRuns, RunsPerApp: c.RunsPerApp, StepCPUMillis: c.StepCPUMillis, NodesOff: c.NodesOff, BusyPercent: c.BusyPercent, TestCaches: c.TestCaches})
+	raw, err := json.Marshal(Capacity{ParallelRuns: c.ParallelRuns, RunsPerApp: c.RunsPerApp, StepCPUMillis: c.StepCPUMillis, NodesOff: c.NodesOff, BusyPercent: c.BusyPercent, TestCaches: c.TestCaches, ARatos: c.ARatos})
 	if err != nil {
 		return err
 	}

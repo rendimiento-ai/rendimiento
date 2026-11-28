@@ -6,11 +6,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -233,4 +235,105 @@ func TestArchDeImagen(t *testing.T) {
 	if a := k.archDeImagen(ctx, host+"/app-web", "sha256:nada"); a != "" {
 		t.Fatalf("a missing manifest has one: %q", a)
 	}
+}
+
+// A node «a ratos» does what its drawer says: no halves, no tests, and a
+// build that waits for it while it is off.
+func TestAjustesARatos(t *testing.T) {
+	daemon := func(name, node string) *corev1.Pod {
+		return &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "devops-tools"}, Spec: corev1.PodSpec{NodeName: node}}
+	}
+	otra := archOtra(archPrincipal)
+	nodo := func(name, arch string, ratos bool) *corev1.Node {
+		l := map[string]string{"kubernetes.io/arch": arch}
+		if ratos {
+			l[TaintARatos] = "true"
+		}
+		return &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: l}}
+	}
+	cs := fake.NewSimpleClientset(daemon("buildkitd-0", "nodo-b"), daemon("buildkitd-amd64-0", "desktop-node"),
+		nodo("nodo-b", archPrincipal, false), nodo("desktop-node", otra, true), nodo("laptop-node", otra, true))
+	ajustes := map[string]AjustesARatos{}
+	k := &KubeExecutor{Client: cs, BuildkitPool: "buildkitd-pool.devops-tools.svc.cluster.local",
+		Resolver: fakeSRV{targets: []string{"buildkitd-0", "buildkitd-amd64-0"}},
+		ARatos:   func(n string) AjustesARatos { return ajustes[n] }}
+	ctx := context.Background()
+	if _, d := k.buildkitOtro(ctx, "reg/a"); d != "buildkitd-amd64-0" {
+		t.Fatalf("by default it builds the other half: %q", d)
+	}
+	ajustes["desktop-node"] = AjustesARatos{SinOtraMitad: true}
+	if addr, _ := k.buildkitOtro(ctx, "reg/a"); addr != "" {
+		t.Fatal("a node whose drawer said no halves built one")
+	}
+
+	// Tests: one node off for them is avoided; both off, no toleration.
+	pod := func() *corev1.Pod {
+		return &corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{{Image: "node:22"}}}}
+	}
+	ajustes["desktop-node"] = AjustesARatos{SinPruebas: true}
+	p := pod()
+	if !k.aRatos(ctx, p) {
+		t.Fatal("the other node «a ratos» still takes tests")
+	}
+	if e := p.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[0]; e.Values[0] != "desktop-node" || len(e.Values) != 1 {
+		t.Fatalf("the node without tests: %+v", e)
+	}
+	ajustes["laptop-node"] = AjustesARatos{SinPruebas: true}
+	if p := pod(); k.aRatos(ctx, p) || len(p.Spec.Tolerations) != 0 {
+		t.Fatal("a test went «a ratos» with every drawer saying no")
+	}
+
+	// Waiting: off now, on a moment later.
+	defer func(e, p time.Duration) { EsperaARatos, esperaPaso = e, p }(EsperaARatos, esperaPaso)
+	EsperaARatos, esperaPaso = time.Second, 10*time.Millisecond
+	ajustes = map[string]AjustesARatos{"desktop-node": {Esperar: true}}
+	var mu sync.Mutex
+	srv := &cambiante{targets: []string{"buildkitd-0"}, mu: &mu}
+	k.Resolver = srv
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		mu.Lock()
+		srv.targets = []string{"buildkitd-0", "buildkitd-amd64-0"}
+		mu.Unlock()
+	}()
+	var log strings.Builder
+	if _, d := k.esperarOtro(ctx, &syncWriter{w: &log, mu: &mu}, "reg/a"); d != "buildkitd-amd64-0" {
+		t.Fatalf("it did not wait for the node: %q\n%s", d, log.String())
+	}
+	// Not coming on: it gives up, with one architecture.
+	k.Resolver = fakeSRV{targets: []string{"buildkitd-0"}}
+	log.Reset()
+	if addr, _ := k.esperarOtro(ctx, &log, "reg/a"); addr != "" || !strings.Contains(log.String(), "did not come on") {
+		t.Fatalf("giving up: %q\n%s", addr, log.String())
+	}
+	// Nobody waits without the drawer saying so.
+	ajustes = map[string]AjustesARatos{}
+	log.Reset()
+	if _, _ = k.esperarOtro(ctx, &log, "reg/a"); log.Len() != 0 {
+		t.Fatalf("it waited unasked: %s", log.String())
+	}
+}
+
+// cambiante is an SRV resolver whose daemons change while a build waits.
+type cambiante struct {
+	targets []string
+	mu      *sync.Mutex
+}
+
+func (c *cambiante) LookupSRV(ctx context.Context, service, proto, name string) (string, []*net.SRV, error) {
+	c.mu.Lock()
+	t := append([]string{}, c.targets...)
+	c.mu.Unlock()
+	return fakeSRV{targets: t}.LookupSRV(ctx, service, proto, name)
+}
+
+type syncWriter struct {
+	w  io.Writer
+	mu *sync.Mutex
+}
+
+func (s *syncWriter) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.w.Write(p)
 }

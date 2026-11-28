@@ -440,4 +440,6 @@ While it is on:
 
 While it is off, nothing waits for it: images are built for one architecture (the other half's failure is only a note), the Environment page draws its house asleep under a moon, and neither the nodes check nor Problems counts it, or its pods, as down.
 
+**Its drawer.** Pressing its house on the Environment page opens it: since when it is on, its steps and images today, and its hours on in the last 7 days (the platform notes each time it comes on and goes off). Below, an administrator turns off any of the three things it does while on (build the other half, run tests, run again a step it shut down under), and picks what images do while it is off: one architecture without waiting (the default), or **wait for it to come on, up to 30 minutes**, so an image has both halves. Each switch is saved as it is pressed, for that node by its name, and every process follows it within 15 seconds.
+
 Joining one: an Ansible playbook in your private overlay installs the k3s agent with the taint, the labels, the registry's address and a graceful shutdown (a `kubelet.conf.d` drop-in with `shutdownGracePeriod`). The platform reads `REGISTRY` to ask the registry which architectures an image has.

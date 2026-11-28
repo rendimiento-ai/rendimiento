@@ -2110,8 +2110,29 @@ export interface Capacity {
   /** How many caches each test keeps (0: the default). */
   testCaches: number;
   busyPercent: number;
+  /** What each node «a ratos» does while it is on, by name: set from its drawer, kept when the capacity is saved. */
+  aRatos?: Record<string, ARatosNodo>;
   updatedBy?: string;
   updatedAt?: string;
+}
+/** What a node «a ratos» does while it is on. Nothing set: everything, and builds do not wait for it. */
+export interface ARatosNodo {
+  sinOtraMitad?: boolean;
+  sinPruebas?: boolean;
+  sinReintento?: boolean;
+  esperar?: boolean;
+}
+/** What ran on a node: today, the last 7 days by app, and a node «a ratos»'s time on. */
+export interface CifrasNodo {
+  nodo: string;
+  prendidaDesde?: string;
+  horasSemana: number;
+  pasosHoy: number;
+  imagenesHoy: number;
+  pasosSemana: number;
+  fallasSemana: number;
+  minutosSemana: number;
+  apps: { app: string; pasos: number; fallas: number; minutos: number }[];
 }
 export interface CapacityView {
   saved: Capacity;
@@ -2318,7 +2339,10 @@ export const envApi = {
   published: (refresh = false) => request<Published>("GET", `/api/platform/published${refresh ? "?refresh=1" : ""}`),
   update: (release: number) => request<PlatformRelease>("POST", "/api/platform/update", { release }),
   capacity: () => request<CapacityView>("GET", "/api/environment/capacity"),
-  saveCapacity: (c: Capacity) => request<CapacityView>("PUT", "/api/environment/capacity", c),
+  // The nodes «a ratos» are left out: their drawers set them.
+  saveCapacity: (c: Capacity) => request<CapacityView>("PUT", "/api/environment/capacity", { ...c, aRatos: undefined }),
+  cifrasNodo: (node: string) => request<CifrasNodo>("GET", `/api/environment/nodes/${encodeURIComponent(node)}/cifras`),
+  saveARatos: (node: string, a: ARatosNodo) => request<CapacityView>("PUT", `/api/environment/a-ratos/${encodeURIComponent(node)}`, a),
   settings: () => request<SettingsView>("GET", "/api/environment/settings"),
   saveSetting: (key: string, value: string) => request<SettingsView>("PUT", `/api/environment/settings/${key}`, { value }),
   forgetSetting: (key: string) => request<SettingsView>("DELETE", `/api/environment/settings/${key}`),

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { api, envApi, session, timeAgo, type BoundaryCheck, type Capacity, type EnvCheck, type EnvNode, type EnvProblem, type EnvProvider, type EnvReport, type EnvStatus, type LiveSetting, type SettingsView } from "../api";
+import { api, envApi, session, timeAgo, type BoundaryCheck, type ARatosNodo, type Capacity, type EnvCheck, type EnvNode, type EnvProblem, type EnvProvider, type EnvReport, type EnvStatus, type LiveSetting, type SettingsView } from "../api";
 import { Link } from "react-router-dom";
 import { ErrorBox, usePoll } from "../components/ui";
 import { outsideWhy } from "../components/barda";
@@ -906,10 +906,64 @@ function NodeCard({ n }: { n: EnvNode }) {
             : t("On only sometimes, and off now: that is not a problem. Everything goes on in the other nodes, images for one architecture.")}
         </div>
       )}
+      {n.aRatos && <CajonARatos n={n} />}
       {n.pressure?.map((p) => <div key={p} className="small" style={{ color: "var(--bad)" }}>{p}</div>)}
       {n.unschedulable && <div className="small" style={{ color: "var(--warn)" }}>{t("cordoned (no new pods)")}</div>}
       <Meter label={t("CPU")} used={n.cpuUsed} total={n.cpuCores} fmt={cores} />
       <Meter label={t("Memory")} used={n.memUsed} total={n.memBytes} fmt={gib} />
+    </div>
+  );
+}
+
+/**
+ * The drawer of a node «a ratos» (Ruta pendiente 199): since when it is on, what it did today and its hours this week,
+ * and what it does while it is on. Administrators change it; each switch is saved as it is pressed.
+ */
+function CajonARatos({ n }: { n: EnvNode }) {
+  const { data: c } = usePoll(() => envApi.cifrasNodo(n.name), [n.name], 60000);
+  const { data: v, setData } = usePoll(envApi.capacity, [], 60000);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>();
+  const admin = session.operator;
+  const a: ARatosNodo = v?.saved.aRatos?.[n.name] ?? {};
+  const set = (patch: Partial<ARatosNodo>) => {
+    setBusy(true); setErr(undefined);
+    envApi.saveARatos(n.name, { ...a, ...patch }).then((nv) => { setBusy(false); setData(nv); }, (e) => { setBusy(false); setErr(e); });
+  };
+  const hora = (iso: string) => new Date(iso).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  const horas = (h: number) => h.toLocaleString(locale, { maximumFractionDigits: h < 10 ? 1 : 0 });
+  const otra = n.arch;
+  const off = !admin || busy || !v;
+  const interruptor = (titulo: string, nota: string, on: boolean, cambia: (on: boolean) => void) => (
+    <label className="cajon-interruptor">
+      <span><strong>{titulo}</strong><br /><span className="small muted">{nota}</span></span>
+      <input type="checkbox" checked={on} disabled={off} onChange={(e) => cambia(e.target.checked)} />
+    </label>
+  );
+  return (
+    <div className="cajon-a-ratos stack-sm">
+      <div className="cajon-cifras">
+        {n.ready && c?.prendidaDesde && <span className="cajon-cifra prendida">{t("on since {time}", { time: hora(c.prendidaDesde) })}</span>}
+        {c && <span className="cajon-cifra">{t("today: {steps} · {images}", { steps: tn(c.pasosHoy, "{n} step", "{n} steps"), images: tn(c.imagenesHoy, "{n} image", "{n} images") })}</span>}
+        {c && <span className="cajon-cifra">{t("this week: {hours} h on", { hours: horas(c.horasSemana) })}</span>}
+      </div>
+      <fieldset className="cajon-grupo">
+        <legend>{t("What it does while it is on")}</legend>
+        {interruptor(t("Build the {arch} half", { arch: otra }), t("Images come out for both architectures."), !a.sinOtraMitad, (on) => set({ sinOtraMitad: !on }))}
+        {interruptor(t("Run test steps"), t("It prefers them here; when it is full, they go to the other nodes."), !a.sinPruebas, (on) => set({ sinPruebas: !on }))}
+        {interruptor(t("If it shuts down in the middle of a run"), t("Run the step again on another node, once."), !a.sinReintento, (on) => set({ sinReintento: !on }))}
+      </fieldset>
+      <fieldset className="cajon-grupo" disabled={!!a.sinOtraMitad}>
+        <legend>{t("Images, while it is off")}</legend>
+        <label className="cajon-opcion"><input type="radio" name={`espera-${n.name}`} checked={!a.esperar} disabled={off} onChange={() => set({ esperar: false })} /> {t("One architecture only, without waiting (recommended)")}</label>
+        <label className="cajon-opcion"><input type="radio" name={`espera-${n.name}`} checked={!!a.esperar} disabled={off} onChange={() => set({ esperar: true })} /> {t("Wait for it to come on, up to 30 min")}</label>
+      </fieldset>
+      <div className="cajon-nunca small">
+        <strong>{t("What never runs here")}</strong>
+        <span>{t("Your apps, the database, the platform and Longhorn's volumes. The taint {taint} keeps them off.", { taint: "rendimiento.ai/a-ratos" })}</span>
+      </div>
+      {!admin && <p className="small muted" style={{ margin: 0 }}>{t("Only administrators change this.")}</p>}
+      {!!err && <ErrorBox error={err} />}
     </div>
   );
 }

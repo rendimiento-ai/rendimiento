@@ -1,0 +1,1 @@
+- **Nodes «a ratos»:** pressing one's house on the Environment page opens its drawer: since when it is on, its steps and images today, its hours on this week, and switches for what it does (build the other half, run tests, run a step again, or make builds wait up to 30 minutes for it while it is off).
